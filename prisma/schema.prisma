@@ -1,0 +1,30 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  content     String
+  imageUrls   String   @default("[]")
+  scheduledAt DateTime
+  status      String   @default("PENDING")
+  threadsId   String?
+  createdAt   DateTime @default(now())
+  errorLog    String?
+}
+
+model Settings {
+  id           String   @id @default("default")
+  accessToken  String
+  userId       String
+  tokenExpiry  DateTime
+  updatedAt    DateTime @updatedAt
+}
