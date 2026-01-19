@@ -2,10 +2,10 @@ name: Scheduled Post Publisher
 
 on:
   schedule:
-    # 9:59 KST (0:59 UTC), 12:59 KST (3:59 UTC), 15:59 KST (6:59 UTC), 18:59 KST (9:59 UTC), 21:59 KST (12:59 UTC)
-    - cron: '59 0,3,6,9,12 * * *'
-    # 11:29 KST (2:29 UTC), 14:29 KST (5:29 UTC), 17:29 KST (8:29 UTC), 20:29 KST (11:29 UTC), 23:29 KST (14:29 UTC)
-    - cron: '29 2,5,8,11,14 * * *'
+    # Calgary Time (MST, UTC-7): 9:59, 12:59, 15:59, 18:59, 21:59
+    - cron: '59 16,19,22,1,4 * * *'
+    # Calgary Time (MST, UTC-7): 11:29, 14:29, 17:29, 20:29, 23:29
+    - cron: '29 18,21,0,3,6 * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
