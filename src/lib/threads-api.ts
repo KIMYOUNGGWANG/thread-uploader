@@ -225,12 +225,18 @@ export async function refreshAccessToken(): Promise<{
 export async function createTextContainer(text: string): Promise<string> {
     const accessToken = await getAccessToken();
     const userId = await getUserId();
+    const topicTag = process.env.THREADS_DEFAULT_TOPIC;
 
     const params = new URLSearchParams({
         media_type: "TEXT",
         text,
         access_token: accessToken,
     });
+
+    // Add topic tag if configured
+    if (topicTag) {
+        params.append("topic_tag", topicTag);
+    }
 
     const response = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, {
         method: "POST",
@@ -252,6 +258,7 @@ export async function createTextContainer(text: string): Promise<string> {
 export async function createImageContainer(text: string, imageUrl: string): Promise<string> {
     const accessToken = await getAccessToken();
     const userId = await getUserId();
+    const topicTag = process.env.THREADS_DEFAULT_TOPIC;
 
     const params = new URLSearchParams({
         media_type: "IMAGE",
@@ -259,6 +266,11 @@ export async function createImageContainer(text: string, imageUrl: string): Prom
         text,
         access_token: accessToken,
     });
+
+    // Add topic tag if configured
+    if (topicTag) {
+        params.append("topic_tag", topicTag);
+    }
 
     const response = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, {
         method: "POST",
@@ -320,6 +332,7 @@ export async function createCarouselContainer(
 
     const accessToken = await getAccessToken();
     const userId = await getUserId();
+    const topicTag = process.env.THREADS_DEFAULT_TOPIC;
 
     const params = new URLSearchParams({
         media_type: "CAROUSEL",
@@ -327,6 +340,11 @@ export async function createCarouselContainer(
         text,
         access_token: accessToken,
     });
+
+    // Add topic tag if configured
+    if (topicTag) {
+        params.append("topic_tag", topicTag);
+    }
 
     const response = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, {
         method: "POST",
