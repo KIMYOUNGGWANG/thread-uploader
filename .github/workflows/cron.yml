@@ -2,10 +2,14 @@ name: Scheduled Post Publisher
 
 on:
   schedule:
-    # Calgary Time (MST, UTC-7): 10:00, 13:00, 16:00, 19:00, 22:00
-    - cron: '0 17,20,23,2,5 * * *'
-    # Calgary Time (MST, UTC-7): 11:30, 14:30, 17:30, 20:30, 23:30
-    - cron: '30 18,21,0,3,6 * * *'
+    # KST Optimized Schedule (Calgary Time MST)
+    # Group 1: KST Morning/Lunch (MST 15:00, 16:30, 19:30, 21:00, 23:00)
+    - cron: '0 15,21,23 * * *'
+    - cron: '30 16,19 * * *'
+    
+    # Group 2: KST Evening/Night (MST 02:00, 03:30, 05:00, 06:30, 08:00)
+    - cron: '0 2,5,8 * * *'
+    - cron: '30 3,6 * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
