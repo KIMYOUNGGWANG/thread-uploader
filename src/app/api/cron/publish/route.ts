@@ -22,11 +22,15 @@ export async function GET(request: NextRequest) {
     try {
         // Find all pending posts that are due
         const now = new Date();
+        // Add 1 minute buffer to handle slight clock skews or early cron execution
+        // This ensures posts scheduled for 20:30:00 are picked up even if cron runs at 20:29:59
+        const checkTime = new Date(now.getTime() + 60000);
+
         const pendingPosts = await prisma.post.findMany({
             where: {
                 status: "PENDING",
                 scheduledAt: {
-                    lte: now,
+                    lte: checkTime,
                 },
             },
             orderBy: { scheduledAt: "asc" },
