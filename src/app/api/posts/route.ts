@@ -39,14 +39,16 @@ export async function POST(request: NextRequest) {
         }
 
         // Create all posts in the database
+        const now = Date.now();
         const createdPosts = await Promise.all(
-            posts.map((post) =>
+            posts.map((post, index) =>
                 prisma.post.create({
                     data: {
                         content: post.content,
                         imageUrls: JSON.stringify(post.images),
-                        scheduledAt: post.scheduledAt || new Date(),
-                        status: post.scheduledAt ? "PENDING" : "PENDING", // Will be picked up by cron
+                        // If no scheduled time, add 1 minute increment per post to preserve order
+                        scheduledAt: post.scheduledAt || new Date(now + index * 60000),
+                        status: "PENDING",
                     },
                 })
             )

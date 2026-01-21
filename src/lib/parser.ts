@@ -63,8 +63,16 @@ export function parseMarkdownFile(content: string): ParsedPost[] {
     let match;
 
     while ((match = headerPostRegex.exec(content)) !== null) {
-        const frontmatterStr = match[1].trim();
-        const postContent = match[2].trim();
+        let frontmatterStr = match[1].trim();
+        let postContent = match[2].trim();
+
+        // Fallback: If postContent is empty but frontmatterStr exists and doesn't look like frontmatter
+        // (i.e. doesn't contain "scheduledAt:" or "images:"), treat it as content.
+        // This handles format: ### Header \n --- \n Content \n ---
+        if (!postContent && frontmatterStr && !frontmatterStr.includes('scheduledAt:') && !frontmatterStr.includes('images:')) {
+            postContent = frontmatterStr;
+            frontmatterStr = "";
+        }
 
         if (!postContent) continue;
 
