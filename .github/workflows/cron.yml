@@ -23,7 +23,7 @@ jobs:
       - name: Trigger Publish Cron
         run: |
           echo "Calling cron/publish endpoint..."
-          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "${{ secrets.VERCEL_URL }}/api/cron/publish?secret=${{ secrets.CRON_SECRET }}")
+          RESPONSE=$(curl -sL -w "\nHTTP_STATUS:%{http_code}" "${{ secrets.VERCEL_URL }}/api/cron/publish?secret=${{ secrets.CRON_SECRET }}")
           HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
           BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
           echo "Response: $BODY"
