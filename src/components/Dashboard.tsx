@@ -117,18 +117,20 @@ export function Dashboard() {
         if (!confirm("모든 PENDING 포스트를 삭제하시겠습니까?")) return;
 
         try {
-            // Delete all pending posts
-            const pendingPosts = posts.filter(p => p.status === "PENDING");
-            for (const post of pendingPosts) {
-                await fetch(`/api/posts/${post.id}`, { method: "DELETE" });
+            const response = await fetch("/api/posts/reset", { method: "DELETE" });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Reset failed");
             }
+
             await fetchPosts();
-            toast.info("대기 중인 포스트 삭제됨");
+            toast.info(`${data.count}개 대기 중인 포스트 삭제됨`);
         } catch (error) {
             console.error("Reset error:", error);
             toast.error("초기화 실패");
         }
-    }, [posts]);
+    }, []);
 
     const pendingCount = posts.filter((p) => p.status === "PENDING").length;
     const publishedCount = posts.filter((p) => p.status === "PUBLISHED").length;
