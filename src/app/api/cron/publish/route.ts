@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
                 },
             },
             orderBy: { scheduledAt: "asc" },
-            orderBy: { scheduledAt: "asc" },
+
             // Process only 1 post per run. 
             // This prevents "bulk uploading" if the cron job is delayed or paused.
             // If backlog exists, it will catch up one by one in subsequent runs.
