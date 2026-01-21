@@ -20,21 +20,15 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // Find all pending posts that are due
-        const now = new Date();
-        // Add 1 minute buffer to handle slight clock skews or early cron execution
-        // This ensures posts scheduled for 20:30:00 are picked up even if cron runs at 20:29:59
-        const checkTime = new Date(now.getTime() + 60000);
+        // Simple approach: Just get the oldest PENDING post by creation order
+        // GitHub Actions schedule controls the timing (10 times per day)
+        // No need for scheduledAt time validation - just process in FIFO order
 
         const pendingPosts = await prisma.post.findMany({
             where: {
                 status: "PENDING",
-                scheduledAt: {
-                    lte: checkTime,
-                },
             },
-            orderBy: { scheduledAt: "asc" },
-
+            orderBy: { createdAt: "asc" },  // First in, first out
             // Process only 1 post per run. 
             // This prevents "bulk uploading" if the cron job is delayed or paused.
             // If backlog exists, it will catch up one by one in subsequent runs.

@@ -240,10 +240,7 @@ export function validatePost(post: ParsedPost): { valid: boolean; errors: string
         }
     }
 
-    // Validate scheduled date is in the future
-    if (post.scheduledAt && post.scheduledAt < new Date()) {
-        errors.push("Scheduled time must be in the future");
-    }
+    // Note: scheduledAt validation removed - we use FIFO order, not time-based scheduling
 
     return {
         valid: errors.length === 0,
