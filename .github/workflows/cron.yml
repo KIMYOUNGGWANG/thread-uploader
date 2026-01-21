@@ -2,14 +2,11 @@ name: Scheduled Post Publisher
 
 on:
   schedule:
-    # KST Optimized Schedule (Calgary Time MST)
-    # Group 1: KST Morning/Lunch (MST 15:00, 16:30, 19:30, 21:00, 23:00)
-    - cron: '0 15,21,23 * * *'
-    - cron: '30 16,19 * * *'
-    
-    # Group 2: KST Evening/Night (MST 02:00, 03:30, 05:00, 06:30, 08:00)
-    - cron: '0 2,5,8 * * *'
-    - cron: '30 3,6 * * *'
+    # Run every 15 minutes to check for due posts
+    # Strategy: "Active Polling"
+    # Even if one run is delayed/missed by GitHub, the next run (15 mins later) will pick up the post.
+    # Combined with "take: 1" in the API, this ensures missed posts are uploaded sequentially, not all at once.
+    - cron: '*/15 * * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
