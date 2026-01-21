@@ -57,74 +57,82 @@ export function parseExcelFile(buffer: ArrayBuffer): ParsedPost[] {
 export function parseMarkdownFile(content: string): ParsedPost[] {
     const posts: ParsedPost[] = [];
 
-    // Try Format 1: Posts separated by ### headers with frontmatter
-    // Pattern: ### ... followed by --- frontmatter --- content
-    const headerPostRegex = /###[^\n]*\n---\n([\s\S]*?)\n---\n([\s\S]*?)(?=\n###|\n---\n(?=##)|$)/g;
-    let match;
+    // Normalize newlines
+    const normalized = content.replace(/\r\n/g, '\n');
 
-    while ((match = headerPostRegex.exec(content)) !== null) {
-        let frontmatterStr = match[1].trim();
-        let postContent = match[2].trim();
+    // Split by "### " headers to separate posts
+    // We ignore the first chunk if it's before the first header (usually file title)
+    const chunks = normalized.split(/\n### |^### /);
 
-        // Fallback: If postContent is empty but frontmatterStr exists and doesn't look like frontmatter
-        // (i.e. doesn't contain "scheduledAt:" or "images:"), treat it as content.
-        // This handles format: ### Header \n --- \n Content \n ---
-        if (!postContent && frontmatterStr && !frontmatterStr.includes('scheduledAt:') && !frontmatterStr.includes('images:')) {
-            postContent = frontmatterStr;
-            frontmatterStr = "";
-        }
+    for (const chunk of chunks) {
+        if (!chunk.trim()) continue;
 
-        if (!postContent) continue;
+        // Skip if it looks like the title block (e.g. "# Title")
+        if (chunk.trim().startsWith('# ')) continue;
 
-        const parsed = parseFrontmatter(frontmatterStr, postContent);
-        if (parsed) {
-            posts.push(parsed);
-        }
-    }
+        // Try to identify frontmatter and content
+        // Pattern 1: Header line \n --- \n Frontmatter \n --- \n Content
+        // Pattern 2: Header line \n --- \n Content \n --- (My simplify format)
+        // Pattern 3: Header line \n Content
 
-    // If Format 1 didn't work, try Format 2: Standard frontmatter separated by ---
-    if (posts.length === 0) {
-        const postRegex = /---\n([\s\S]*?)\n---\n([\s\S]*?)(?=\n---\n(?=scheduledAt)|$)/g;
+        const firstLineEnd = chunk.indexOf('\n');
+        if (firstLineEnd === -1) continue;
 
-        while ((match = postRegex.exec(content)) !== null) {
-            const frontmatterStr = match[1].trim();
-            const postContent = match[2].trim();
+        const _header = chunk.substring(0, firstLineEnd).trim();
+        const body = chunk.substring(firstLineEnd).trim();
 
-            if (!postContent) continue;
+        if (!body) continue;
 
-            const parsed = parseFrontmatter(frontmatterStr, postContent);
-            if (parsed) {
-                posts.push(parsed);
+        // Check for --- separators
+        const matches = body.match(/^---\n([\s\S]*?)\n---/);
+
+        if (matches) {
+            const part1 = matches[1].trim(); // Content inside --- ... ---
+            const rest = body.replace(matches[0], '').trim(); // Content after second ---
+
+            // Logic:
+            // If 'part1' has metadata keys (scheduledAt/images), treat it as frontmatter.
+            // If 'part1' DOES NOT have keys, treat it as CONTENT (our case).
+
+            if (part1.includes('scheduledAt:') || part1.includes('images:')) {
+                // Standard: part1 is frontmatter, rest is content
+                const parsed = parseFrontmatter(part1, rest || " "); // Pass empty string if no content
+                if (parsed) posts.push(parsed);
+            } else {
+                // Simplified: part1 is CONTENT (enveloped in negatives)
+                // In this case, 'rest' should be empty or ignored
+                posts.push({
+                    content: part1,
+                    images: [],
+                    scheduledAt: null
+                });
+            }
+        } else {
+            // No separators found, treat entire body as content
+            // Remove any trailing --- if present
+            const cleanContent = body.replace(/---$/, '').trim();
+            if (cleanContent) {
+                posts.push({
+                    content: cleanContent,
+                    images: [],
+                    scheduledAt: null
+                });
             }
         }
     }
 
-    // If still no posts, try single post format
+    // If absolutely no posts found yet, try legacy single-post matter parsing
     if (posts.length === 0) {
         try {
             const parsed = matter(content);
-            const data = parsed.data as {
-                scheduledAt?: string;
-                images?: string[];
-            };
-
             if (parsed.content.trim()) {
                 posts.push({
                     content: parsed.content.trim(),
-                    images: data.images || [],
-                    scheduledAt: data.scheduledAt ? parseScheduleDate(data.scheduledAt) : null,
+                    images: (parsed.data as any).images || [],
+                    scheduledAt: (parsed.data as any).scheduledAt ? parseScheduleDate((parsed.data as any).scheduledAt) : null,
                 });
             }
-        } catch {
-            // If all fails, treat entire content as single post
-            if (content.trim()) {
-                posts.push({
-                    content: content.trim(),
-                    images: [],
-                    scheduledAt: null,
-                });
-            }
-        }
+        } catch { }
     }
 
     return posts;
