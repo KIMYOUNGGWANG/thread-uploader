@@ -196,20 +196,10 @@ export function PostCard({
 
                         {/* Metadata */}
                         <div className="mt-4 flex flex-wrap gap-3">
-                            {/* Schedule */}
-                            {post.scheduledAt ? (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-xs font-medium">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    {format(post.scheduledAt, "MMM d, yyyy")}
-                                    <Clock className="w-3.5 h-3.5 ml-1" />
-                                    {format(post.scheduledAt, "HH:mm")}
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-xs font-medium">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    Immediate
-                                </div>
-                            )}
+                            {/* Order indicator - no time display, just status */}
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-xs font-medium">
+                                #{index + 1} 대기중
+                            </div>
 
                             {/* Images */}
                             {post.images.length > 0 && (
