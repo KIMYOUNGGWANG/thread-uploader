@@ -2,11 +2,18 @@ name: Scheduled Post Publisher
 
 on:
   schedule:
-    # Run every 15 minutes to check for due posts
-    # Strategy: "Active Polling"
-    # Even if one run is delayed/missed by GitHub, the next run (15 mins later) will pick up the post.
-    # Combined with "take: 1" in the API, this ensures missed posts are uploaded sequentially, not all at once.
-    - cron: '*/15 * * * *'
+    # 10 posts per day, 90 minutes apart (KST optimal hours)
+    # KST = UTC + 9
+    - cron: '0 22 * * *'   # 07:00 KST - Morning commute
+    - cron: '30 23 * * *'  # 08:30 KST - After arriving
+    - cron: '0 1 * * *'    # 10:00 KST - Morning break
+    - cron: '30 2 * * *'   # 11:30 KST - Before lunch
+    - cron: '0 4 * * *'    # 13:00 KST - After lunch
+    - cron: '30 5 * * *'   # 14:30 KST - Afternoon
+    - cron: '0 7 * * *'    # 16:00 KST - Afternoon break
+    - cron: '30 8 * * *'   # 17:30 KST - Before leaving work
+    - cron: '0 10 * * *'   # 19:00 KST - Evening
+    - cron: '30 11 * * *'  # 20:30 KST - Golden hour
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -26,10 +33,7 @@ jobs:
             exit 1
           fi
 
-      - name: Trigger Token Refresh (daily at midnight only)
-        if: github.event.schedule == '0 0,3,6,9,12,15,18,21 * * *'
+      - name: Trigger Token Refresh (daily at midnight KST)
+        if: github.event.schedule == '0 15 * * *'
         run: |
-          HOUR=$(date -u +%H)
-          if [ "$HOUR" = "00" ]; then
-            curl -X GET "${{ secrets.VERCEL_URL }}/api/cron/refresh-token?secret=${{ secrets.CRON_SECRET }}"
-          fi
+          curl -X GET "${{ secrets.VERCEL_URL }}/api/cron/refresh-token?secret=${{ secrets.CRON_SECRET }}"
