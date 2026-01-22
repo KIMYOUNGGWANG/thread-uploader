@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
             where: {
                 status: "PENDING",
             },
-            orderBy: { createdAt: "asc" },  // First in, first out
+            orderBy: { scheduledAt: "asc" },  // Use scheduledAt for guaranteed FIFO order
             // Process only 1 post per run. 
             // This prevents "bulk uploading" if the cron job is delayed or paused.
             // If backlog exists, it will catch up one by one in subsequent runs.

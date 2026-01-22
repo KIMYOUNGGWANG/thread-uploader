@@ -38,16 +38,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Simple approach: Just store posts with current time as scheduledAt
-        // The actual publishing order is determined by createdAt (FIFO)
-        // GitHub Actions schedule controls the timing (10 times per day at KST optimal hours)
+        // FIXED: Use explicit timestamps with 1-second increments to guarantee order
+        // This ensures FIFO even with parallel database writes
+        const baseTime = Date.now();
         const createdPosts = await Promise.all(
-            posts.map((post) =>
+            posts.map((post, index) =>
                 prisma.post.create({
                     data: {
                         content: post.content,
                         imageUrls: JSON.stringify(post.images),
-                        scheduledAt: post.scheduledAt || new Date(),
+                        // Add index * 1000ms to ensure guaranteed ordering
+                        scheduledAt: post.scheduledAt || new Date(baseTime + index * 1000),
                         status: "PENDING",
                     },
                 })
