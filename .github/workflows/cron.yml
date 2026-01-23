@@ -2,8 +2,8 @@ name: Scheduled Post Publisher
 
 on:
   schedule:
-    # Every hour, on the hour = 24 posts per day
-    - cron: '0 * * * *'
+    # Run at minute 45 to avoid "top of the hour" congestion on GitHub Actions
+    - cron: '45 * * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
