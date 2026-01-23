@@ -2,18 +2,8 @@ name: Scheduled Post Publisher
 
 on:
   schedule:
-    # 10 posts per day, 90 minutes apart (KST optimal hours)
-    # KST = UTC + 9
-    - cron: '0 22 * * *'   # 07:00 KST - Morning commute
-    - cron: '30 23 * * *'  # 08:30 KST - After arriving
-    - cron: '0 1 * * *'    # 10:00 KST - Morning break
-    - cron: '30 2 * * *'   # 11:30 KST - Before lunch
-    - cron: '0 4 * * *'    # 13:00 KST - After lunch
-    - cron: '30 5 * * *'   # 14:30 KST - Afternoon
-    - cron: '0 7 * * *'    # 16:00 KST - Afternoon break
-    - cron: '30 8 * * *'   # 17:30 KST - Before leaving work
-    - cron: '0 10 * * *'   # 19:00 KST - Evening
-    - cron: '30 11 * * *'  # 20:30 KST - Golden hour
+    # Every hour, on the hour = 24 posts per day
+    - cron: '0 * * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -33,7 +23,7 @@ jobs:
             exit 1
           fi
 
-      - name: Trigger Token Refresh (daily at midnight KST)
-        if: github.event.schedule == '0 15 * * *'
+      - name: Trigger Token Refresh (daily at midnight UTC)
+        if: github.event.schedule == '0 0 * * *'
         run: |
           curl -X GET "${{ secrets.VERCEL_URL }}/api/cron/refresh-token?secret=${{ secrets.CRON_SECRET }}"
