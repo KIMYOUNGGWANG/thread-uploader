@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
@@ -23,6 +23,7 @@ export function Dashboard() {
     const [posts, setPosts] = useState<DBPost[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isFetching, setIsFetching] = useState(true);
+    const [showPublished, setShowPublished] = useState(false);
 
     // Fetch posts from DB on mount
     useEffect(() => {
@@ -44,6 +45,34 @@ export function Dashboard() {
             setIsFetching(false);
         }
     };
+
+    const handleCreatePost = useCallback(async () => {
+        try {
+            const newPost = {
+                content: "",
+                images: [],
+                scheduledAt: null
+            };
+
+            const response = await fetch("/api/posts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ posts: [newPost] }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to create post");
+            }
+
+            toast.success("새 글 작성 칸이 생성되었습니다");
+            await fetchPosts();
+        } catch (error) {
+            console.error("Create post error:", error);
+            toast.error("글 작성 생성 실패");
+        }
+    }, []);
 
     const handleFileSelect = useCallback(async (file: File) => {
         setIsLoading(true);
@@ -212,21 +241,46 @@ export function Dashboard() {
                 ) : (
                     <div className="space-y-6">
                         {/* Summary Bar */}
-                        <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                             <div className="flex items-center gap-4">
                                 <div className="text-sm">
                                     <span className="font-semibold text-slate-700 dark:text-slate-200">
-                                        {posts.length}
+                                        {posts.filter(p => showPublished ? true : p.status !== "PUBLISHED").length}
                                     </span>
-                                    <span className="text-slate-500 dark:text-slate-400">개 포스트</span>
+                                    <span className="text-slate-500 dark:text-slate-400">
+                                        개 포스트
+                                        {!showPublished && publishedCount > 0 && ` (+완료 ${publishedCount}개 숨김)`}
+                                    </span>
+                                </div>
+                                <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+                                <div className="flex items-center gap-2">
+                                    <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={showPublished}
+                                            onChange={(e) => setShowPublished(e.target.checked)}
+                                            className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                                        />
+                                        완료된 글 보기
+                                    </label>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={handleCreatePost}
+                                    className="bg-violet-600 hover:bg-violet-700 text-white flex-1 sm:flex-none"
+                                >
+                                    <Pencil className="w-4 h-4 mr-1.5" />
+                                    글 작성
+                                </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()}
+                                    className="flex-1 sm:flex-none"
                                 >
                                     <Upload className="w-4 h-4 mr-1.5" />
                                     파일 추가
@@ -246,21 +300,23 @@ export function Dashboard() {
 
                         {/* Posts Grid */}
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {posts.map((dbPost, index) => (
-                                <PostCard
-                                    key={dbPost.id}
-                                    post={convertToCardPost(dbPost)}
-                                    index={index}
-                                    isPosted={dbPost.status === "PUBLISHED"}
-                                    dbPostId={dbPost.id}
-                                    status={dbPost.status}
-                                    threadsId={dbPost.threadsId}
-                                    errorLog={dbPost.errorLog}
-                                    onUpdate={() => { }}
-                                    onDelete={() => handleDeletePost(dbPost.id)}
-                                    onRefresh={fetchPosts}
-                                />
-                            ))}
+                            {posts
+                                .filter(p => showPublished ? true : p.status !== "PUBLISHED")
+                                .map((dbPost, index) => (
+                                    <PostCard
+                                        key={dbPost.id}
+                                        post={convertToCardPost(dbPost)}
+                                        index={index}
+                                        isPosted={dbPost.status === "PUBLISHED"}
+                                        dbPostId={dbPost.id}
+                                        status={dbPost.status}
+                                        threadsId={dbPost.threadsId}
+                                        errorLog={dbPost.errorLog}
+                                        onUpdate={() => { }}
+                                        onDelete={() => handleDeletePost(dbPost.id)}
+                                        onRefresh={fetchPosts}
+                                    />
+                                ))}
                         </div>
                     </div>
                 )}
