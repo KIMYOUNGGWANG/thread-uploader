@@ -29,10 +29,9 @@ export async function GET(request: NextRequest) {
                 status: "PENDING",
             },
             orderBy: { scheduledAt: "asc" },  // Use scheduledAt for guaranteed FIFO order
-            // Process only 1 post per run. 
-            // This prevents "bulk uploading" if the cron job is delayed or paused.
-            // If backlog exists, it will catch up one by one in subsequent runs.
-            take: 1,
+            // Process up to 3 posts per run to handle backlog.
+            // Adjust this number based on your needs and rate limits.
+            take: 3,
         });
 
         if (pendingPosts.length === 0) {
