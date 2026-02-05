@@ -62,7 +62,7 @@ async function main() {
     const pendingPosts = await prisma.post.findMany({
         where: { status: "PENDING" },
         orderBy: { scheduledAt: "asc" },
-        take: 3
+        take: 1
     });
 
     if (pendingPosts.length === 0) {
