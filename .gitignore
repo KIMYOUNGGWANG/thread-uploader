@@ -40,10 +40,27 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# database
+*.db
+*.db-journal
+
+# scripts & temporary helpers
+add_ctas.py
+fix_ctas.py
+check_*.js
+migrate_*.js
+
+# bulk data & logs
+/split-posts/
+/review/
+*-posts.md
+!README.md
+
+# agent internal data
+.agent/
+brain/
+implementation_plan.md
+walkthrough.md
+task.md
+
 /src/generated/prisma
-
-/review
-
-.agent
-
-
