@@ -1,0 +1,30 @@
+name: Scheduled Post Publisher
+
+on:
+  schedule:
+    # 매 시간 정각에 실행
+    - cron: '0 * * * *'
+  workflow_dispatch: # 수동 실행 버튼 활성화
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Publish Cron
+        run: |
+          echo "Vercel API를 호출합니다..."
+          # -v (verbose) 옵션을 추가하여 연결 문제를 더 잘 파악하게 합니다.
+          RESPONSE=$(curl -v -sL -w "\nHTTP_STATUS:%{http_code}" "${{ secrets.VERCEL_URL }}/api/cron/publish?secret=${{ secrets.CRON_SECRET }}")
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
+          echo "응답 결과: $BODY"
+          echo "HTTP 상태 코드: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "에러: API가 200 응답을 주지 않았습니다. Secrets 설정을 확인해주세요."
+            exit 1
+          fi
+
+      - name: Trigger Token Refresh (매일 UTC 00:00)
+        if: github.event.schedule == '0 0 * * *'
+        run: |
+          curl -s "${{ secrets.VERCEL_URL }}/api/cron/refresh-token?secret=${{ secrets.CRON_SECRET }}"
