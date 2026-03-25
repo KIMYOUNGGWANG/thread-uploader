@@ -4,12 +4,13 @@ import { ParsedPost, validatePost } from "@/lib/parser";
 
 interface CreatePostsRequest {
     posts: ParsedPost[];
+    insertAtFront?: boolean;
 }
 
 export async function POST(request: NextRequest) {
     try {
         const body = (await request.json()) as CreatePostsRequest;
-        const { posts } = body;
+        const { posts, insertAtFront } = body;
 
         if (!posts || !Array.isArray(posts) || posts.length === 0) {
             return NextResponse.json(
@@ -38,9 +39,31 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // FIXED: Use explicit timestamps with 1-second increments to guarantee order
-        // This ensures FIFO even with parallel database writes
-        const baseTime = Date.now();
+        let baseTime = Date.now();
+        if (insertAtFront) {
+            // Find the earliest PENDING post to insert BEFORE it
+            const earliestPost = await prisma.post.findFirst({
+                where: { status: "PENDING" },
+                orderBy: { scheduledAt: "asc" }
+            });
+
+            if (earliestPost) {
+                // Set baseTime so that the LAST new post is exactly 1 second before the current earliest post
+                baseTime = earliestPost.scheduledAt.getTime() - (posts.length * 1000);
+            }
+        } else {
+            // Find the latest PENDING post to insert AFTER it
+            const latestPost = await prisma.post.findFirst({
+                where: { status: "PENDING" },
+                orderBy: { scheduledAt: "desc" }
+            });
+
+            if (latestPost && latestPost.scheduledAt.getTime() > Date.now()) {
+                // Place it right after the latest post
+                baseTime = latestPost.scheduledAt.getTime() + 1000;
+            }
+        }
+
         const createdPosts = await Promise.all(
             posts.map((post, index) =>
                 prisma.post.create({

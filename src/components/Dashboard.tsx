@@ -24,6 +24,7 @@ export function Dashboard() {
     const [isLoading, setIsLoading] = useState(false);
     const [isFetching, setIsFetching] = useState(true);
     const [showPublished, setShowPublished] = useState(false);
+    const [insertAtFront, setInsertAtFront] = useState(false);
 
     // Fetch posts from DB on mount
     useEffect(() => {
@@ -103,7 +104,7 @@ export function Dashboard() {
             const response = await fetch("/api/posts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ posts: validPosts }),
+                body: JSON.stringify({ posts: validPosts, insertAtFront }),
             });
 
             const data = await response.json();
@@ -122,7 +123,7 @@ export function Dashboard() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [insertAtFront]);
 
     const handleDeletePost = useCallback(async (postId: string) => {
         try {
@@ -266,25 +267,39 @@ export function Dashboard() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={handleCreatePost}
-                                    className="bg-violet-600 hover:bg-violet-700 text-white flex-1 sm:flex-none"
-                                >
-                                    <Pencil className="w-4 h-4 mr-1.5" />
-                                    글 작성
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()}
-                                    className="flex-1 sm:flex-none"
-                                >
-                                    <Upload className="w-4 h-4 mr-1.5" />
-                                    파일 추가
-                                </Button>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
+                                <label className="flex items-center justify-between sm:justify-start gap-2 px-3 py-2 sm:p-0 bg-slate-50 dark:bg-slate-900 sm:bg-transparent rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                                    <span>맨 앞으로 추가</span>
+                                    <div className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={insertAtFront}
+                                            onChange={(e) => setInsertAtFront(e.target.checked)}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-violet-600"></div>
+                                    </div>
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={handleCreatePost}
+                                        className="bg-violet-600 hover:bg-violet-700 text-white flex-1 sm:flex-none"
+                                    >
+                                        <Pencil className="w-4 h-4 mr-1.5" />
+                                        글 작성
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()}
+                                        className="flex-1 sm:flex-none"
+                                    >
+                                        <Upload className="w-4 h-4 mr-1.5" />
+                                        파일 추가
+                                    </Button>
+                                </div>
                             </div>
                             <input
                                 type="file"
