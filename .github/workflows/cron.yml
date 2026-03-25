@@ -2,12 +2,14 @@ name: Scheduled Post Publisher
 
 on:
   schedule:
-    # 하루 5회 발행 - 조회수 최적화 골든 타임 (KST 기준, UTC-9)
+    # 하루 7회 발행 - 조회수 최적화 골든 타임 (KST 기준, UTC-9)
+    - cron: '0 22 * * *'  # KST 07:00 기상 직후
     - cron: '0 0 * * *'   # KST 09:00 출근길
     - cron: '0 3 * * *'   # KST 12:00 점심시간
+    - cron: '0 5 * * *'   # KST 14:00 오후 피크
     - cron: '0 9 * * *'   # KST 18:00 퇴근길
-    - cron: '0 12 * * *'  # KST 21:00 저녁 메인 피크
-    - cron: '0 14 * * *'  # KST 23:00 취침 전 새벽 감성
+    - cron: '0 11 * * *'  # KST 20:00 저녁 메인 피크
+    - cron: '0 13 * * *'  # KST 22:00 취침 전 감성
   workflow_dispatch: # 수동 실행 버튼 활성화
 
 jobs:
@@ -28,6 +30,11 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
+
+      - name: Test Database Connection
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/test-connection.js
 
       - name: Run Standalone Publisher
         env:

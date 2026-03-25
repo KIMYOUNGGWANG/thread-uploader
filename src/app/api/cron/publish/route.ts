@@ -29,9 +29,8 @@ export async function GET(request: NextRequest) {
                 status: "PENDING",
             },
             orderBy: { scheduledAt: "asc" },  // Use scheduledAt for guaranteed FIFO order
-            // Process up to 3 posts per run to handle backlog.
-            // Adjust this number based on your needs and rate limits.
-            take: 3,
+            // Process 1 post per run (7 runs/day = 7 posts/day)
+            take: 1,
         });
 
         if (pendingPosts.length === 0) {
