@@ -1,0 +1,49 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🚀 Bridge to Codex",
+      "type": "shell",
+      "command": "./.agent/scripts/bridge.sh ${input:workflowName}",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "detail": "Generates optimized context for Codex using the selected workflow."
+    }
+  ],
+  "inputs": [
+    {
+      "id": "workflowName",
+      "type": "pickString",
+      "description": "Select Workflow:",
+      "options": [
+        "develop",
+        "plan",
+        "fix",
+        "uiux",
+        "ship",
+        "cycle",
+        "micro",
+        "mvp",
+        "stitch",
+        "review",
+        "test",
+        "qa",
+        "content",
+        "status",
+        "agent-builder",
+        "ddd"
+      ],
+      "default": "develop"
+    }
+  ]
+}
