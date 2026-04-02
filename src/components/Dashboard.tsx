@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
@@ -25,6 +25,8 @@ export function Dashboard() {
     const [isFetching, setIsFetching] = useState(true);
     const [showPublished, setShowPublished] = useState(false);
     const [insertAtFront, setInsertAtFront] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generateCount, setGenerateCount] = useState(30);
 
     // Fetch posts from DB on mount
     useEffect(() => {
@@ -46,6 +48,27 @@ export function Dashboard() {
             setIsFetching(false);
         }
     };
+
+    const handleGenerate = useCallback(async () => {
+        if (!confirm(`AI로 ${generateCount}개 포스트를 생성할까요? (약 1-2분 소요)`)) return;
+        setIsGenerating(true);
+        try {
+            const response = await fetch("/api/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ count: generateCount, insertAtFront }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "생성 실패");
+            toast.success(`${data.count}개 포스트 생성 완료! 🎉`);
+            await fetchPosts();
+        } catch (error) {
+            console.error("Generate error:", error);
+            toast.error(error instanceof Error ? error.message : "AI 생성 실패");
+        } finally {
+            setIsGenerating(false);
+        }
+    }, [generateCount, insertAtFront]);
 
     const handleCreatePost = useCallback(async () => {
         try {
@@ -238,7 +261,29 @@ export function Dashboard() {
                         <RefreshCw className="w-8 h-8 animate-spin text-violet-500" />
                     </div>
                 ) : posts.length === 0 ? (
-                    <FileDropzone onFileSelect={handleFileSelect} isLoading={isLoading} />
+                    <div className="space-y-4">
+                        <FileDropzone onFileSelect={handleFileSelect} isLoading={isLoading} />
+                        <div className="flex items-center gap-3 p-5 bg-white dark:bg-slate-800 rounded-xl border border-violet-200 dark:border-violet-800 shadow-sm">
+                            <Wand2 className="w-5 h-5 text-violet-500 shrink-0" />
+                            <span className="text-sm text-slate-600 dark:text-slate-300 flex-1">파일 없이 AI로 바로 생성</span>
+                            <input
+                                type="number"
+                                min={7} max={300} step={7}
+                                value={generateCount}
+                                onChange={(e) => setGenerateCount(Number(e.target.value))}
+                                className="w-20 px-2 py-1 text-sm border border-slate-200 dark:border-slate-600 rounded-lg text-center bg-transparent"
+                            />
+                            <span className="text-xs text-slate-400">개</span>
+                            <Button
+                                onClick={handleGenerate}
+                                disabled={isGenerating}
+                                className="bg-violet-600 hover:bg-violet-700 text-white"
+                            >
+                                {isGenerating ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1.5" />}
+                                {isGenerating ? "생성 중..." : "AI 생성"}
+                            </Button>
+                        </div>
+                    </div>
                 ) : (
                     <div className="space-y-6">
                         {/* Summary Bar */}
@@ -280,12 +325,21 @@ export function Dashboard() {
                                         <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-violet-600"></div>
                                     </div>
                                 </label>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Button
+                                        size="sm"
+                                        onClick={handleGenerate}
+                                        disabled={isGenerating}
+                                        className="bg-violet-600 hover:bg-violet-700 text-white flex-1 sm:flex-none"
+                                    >
+                                        {isGenerating ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1.5" />}
+                                        {isGenerating ? "생성 중..." : `AI ${generateCount}개 생성`}
+                                    </Button>
                                     <Button
                                         variant="default"
                                         size="sm"
                                         onClick={handleCreatePost}
-                                        className="bg-violet-600 hover:bg-violet-700 text-white flex-1 sm:flex-none"
+                                        className="bg-slate-600 hover:bg-slate-700 text-white flex-1 sm:flex-none"
                                     >
                                         <Pencil className="w-4 h-4 mr-1.5" />
                                         글 작성

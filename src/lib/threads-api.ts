@@ -413,3 +413,40 @@ export async function publishPost(
     const postId = await publishContainer(containerId);
     return postId;
 }
+
+/**
+ * Publish a reply to an existing thread
+ */
+export async function publishReply(
+    text: string,
+    replyToId: string
+): Promise<string> {
+    const accessToken = await getAccessToken();
+    const userId = await getUserId();
+
+    const params = new URLSearchParams({
+        media_type: "TEXT",
+        text,
+        reply_to_id: replyToId,
+        access_token: accessToken,
+    });
+
+    const response = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, {
+        method: "POST",
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        const errorData = data as ThreadsError;
+        throw new Error(`Threads API Error (reply): ${errorData.error?.message || "Unknown error"}`);
+    }
+
+    const containerId = (data as ThreadsContainerResponse).id;
+
+    // Wait a moment for container to be ready
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Publish the container
+    return await publishContainer(containerId);
+}

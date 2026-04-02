@@ -59,35 +59,21 @@ export function PostCard({
     const handleUpload = async () => {
         if (isUploading) return;
 
+        if (!dbPostId) {
+            toast.error("저장되지 않은 포스트입니다");
+            return;
+        }
+
         setIsUploading(true);
         try {
-            const response = await fetch("/api/posts/upload", {
+            const response = await fetch(`/api/posts/${dbPostId}/publish`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    content: post.content,
-                    imageUrls: post.images,
-                }),
             });
 
             const data = await response.json();
 
             if (!response.ok) {
                 throw new Error(data.error || "Upload failed");
-            }
-
-            // Update DB post status if dbPostId exists
-            if (dbPostId) {
-                await fetch(`/api/posts/${dbPostId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        status: "PUBLISHED",
-                        threadsId: data.threadsId,
-                    }),
-                });
             }
 
             toast.success("🎉 Threads에 업로드 완료!");
@@ -100,20 +86,12 @@ export function PostCard({
             }
         } catch (error) {
             console.error("Upload error:", error);
-
-            // Update DB post status to FAILED if dbPostId exists
-            if (dbPostId) {
-                await fetch(`/api/posts/${dbPostId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        status: "FAILED",
-                        errorLog: error instanceof Error ? error.message : "Unknown error",
-                    }),
-                });
-            }
-
             toast.error(error instanceof Error ? error.message : "업로드 실패");
+
+            // Refresh to show FAILED status
+            if (onRefresh) {
+                onRefresh();
+            }
         } finally {
             setIsUploading(false);
         }

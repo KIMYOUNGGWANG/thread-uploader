@@ -11,14 +11,15 @@ datasource db {
 }
 
 model Post {
-  id          String   @id @default(cuid())
-  content     String
-  imageUrls   String   @default("[]")
-  scheduledAt DateTime
-  status      String   @default("PENDING")
-  threadsId   String?
-  createdAt   DateTime @default(now())
-  errorLog    String?
+  id           String   @id @default(cuid())
+  content      String
+  imageUrls    String   @default("[]")
+  scheduledAt  DateTime
+  status       String   @default("PENDING")
+  threadsId    String?
+  createdAt    DateTime @default(now())
+  errorLog     String?
+  firstComment String?
 }
 
 model Settings {

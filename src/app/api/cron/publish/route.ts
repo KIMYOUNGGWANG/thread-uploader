@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { publishPost } from "@/lib/threads-api";
+import { publishPost, publishReply } from "@/lib/threads-api";
 
 /**
  * Cron endpoint for publishing scheduled posts
@@ -54,6 +54,16 @@ export async function GET(request: NextRequest) {
 
                 // Publish to Threads
                 const threadsId = await publishPost(post.content, imageUrls);
+
+                // 첫 댓글이 예약되어 있으면 쏜다
+                if (post.firstComment) {
+                    try {
+                        await new Promise(r => setTimeout(r, 4000));
+                        await publishReply(post.firstComment, threadsId);
+                    } catch (replyError) {
+                        console.error("Failed to post first comment:", replyError);
+                    }
+                }
 
                 // Update post status
                 await prisma.post.update({
