@@ -5,6 +5,7 @@ export interface ParsedPost {
     content: string;
     images: string[];
     scheduledAt: Date | null;
+    firstComment?: string;
 }
 
 /**
@@ -60,9 +61,9 @@ export function parseMarkdownFile(content: string): ParsedPost[] {
     // Normalize newlines
     const normalized = content.replace(/\r\n/g, '\n');
 
-    // Split by "### " headers to separate posts
+    // Split by "## " or "### " headers to separate posts
     // We ignore the first chunk if it's before the first header (usually file title)
-    const chunks = normalized.split(/\n### |^### /);
+    const chunks = normalized.split(/\n#{2,} |^#{2,} /);
 
     for (const chunk of chunks) {
         if (!chunk.trim()) continue;
@@ -110,12 +111,14 @@ export function parseMarkdownFile(content: string): ParsedPost[] {
         } else {
             // No separators found, treat entire body as content
             // Remove any trailing --- if present
-            const cleanContent = body.replace(/---$/, '').trim();
+            const rawContent = body.replace(/---$/, '').trim();
+            const { content: cleanContent, firstComment } = processPostContent(rawContent);
             if (cleanContent) {
                 posts.push({
                     content: cleanContent,
                     images: [],
-                    scheduledAt: null
+                    scheduledAt: null,
+                    firstComment: firstComment ?? undefined,
                 });
             }
         }
@@ -136,6 +139,44 @@ export function parseMarkdownFile(content: string): ParsedPost[] {
     }
 
     return posts;
+}
+
+/**
+ * Strip HTML comments and extract the first comment blockquote (💬 marker)
+ */
+function processPostContent(rawBody: string): { content: string; firstComment: string | null } {
+    // Strip HTML comments (formula/stunt metadata)
+    const body = rawBody.replace(/<!--[\s\S]*?-->\s*\n?/g, '').trim();
+
+    // Find the 💬 first comment blockquote
+    const commentStart = body.search(/\n>\s*\*\*💬/);
+    if (commentStart === -1) {
+        return { content: body, firstComment: null };
+    }
+
+    const mainContent = body.substring(0, commentStart).trim();
+    const commentSection = body.substring(commentStart);
+
+    // Extract text lines after the 💬 header line
+    const commentLines: string[] = [];
+    let pastHeader = false;
+    for (const line of commentSection.split('\n')) {
+        if (!pastHeader) {
+            if (/^>\s*\*\*💬/.test(line)) pastHeader = true;
+            continue;
+        }
+        if (line.startsWith('>')) {
+            const text = line.replace(/^>\s?/, '').trim();
+            if (text) commentLines.push(text);
+        } else {
+            break;
+        }
+    }
+
+    return {
+        content: mainContent,
+        firstComment: commentLines.join('\n') || null,
+    };
 }
 
 /**
@@ -175,18 +216,20 @@ function parseFrontmatter(frontmatterStr: string, postContent: string): ParsedPo
         }
 
         // Remove any trailing markdown artifacts from content
-        let cleanContent = postContent;
+        let rawContent = postContent;
         // Remove trailing "---" if it exists (artifact from splitting)
-        cleanContent = cleanContent.replace(/\n---\s*$/, '').trim();
+        rawContent = rawContent.replace(/\n---\s*$/, '').trim();
         // Remove header markers that might have leaked in
-        cleanContent = cleanContent.replace(/^###[^\n]*\n/, '').trim();
+        rawContent = rawContent.replace(/^###[^\n]*\n/, '').trim();
 
+        const { content: cleanContent, firstComment } = processPostContent(rawContent);
         if (!cleanContent) return null;
 
         return {
             content: cleanContent,
             images,
             scheduledAt: scheduledAt ? parseScheduleDate(scheduledAt) : null,
+            firstComment: firstComment ?? undefined,
         };
     } catch {
         return null;

@@ -18,6 +18,34 @@
         "isDefault": true
       },
       "detail": "Generates optimized context for Codex using the selected workflow."
+    },
+    {
+      "label": "🍃 Bridge to Codex (Lite)",
+      "type": "shell",
+      "command": "./.agent/scripts/bridge.sh ${input:workflowName} --lite",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [],
+      "detail": "Lightweight context (skips full skill content) for small tasks."
+    },
+    {
+      "label": "🩺 Orchestrator Doctor",
+      "type": "shell",
+      "command": "bash ./.agent/scripts/doctor.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [],
+      "detail": "Validates the current project against the baseline orchestrator contract."
     }
   ],
   "inputs": [
@@ -26,24 +54,27 @@
       "type": "pickString",
       "description": "Select Workflow:",
       "options": [
-        "develop",
+        "brainstorm",
+        "office-hours",
         "plan",
-        "fix",
-        "uiux",
-        "ship",
-        "cycle",
-        "micro",
-        "mvp",
-        "stitch",
-        "review",
-        "test",
+        "develop",
         "qa",
-        "content",
+        "review",
+        "ship",
+        "fix",
         "status",
-        "agent-builder",
-        "ddd"
+        "pm",
+        "uiux",
+        "test",
+        "qa-only",
+        "freeze",
+        "unfreeze",
+        "guard",
+        "plan-ceo-review",
+        "plan-eng-review",
+        "plan-design-review"
       ],
-      "default": "develop"
+      "default": "plan"
     }
   ]
 }

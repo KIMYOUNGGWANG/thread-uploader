@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
                         // Add index * 1000ms to ensure guaranteed ordering
                         scheduledAt: post.scheduledAt || new Date(baseTime + index * 1000),
                         status: "PENDING",
+                        firstComment: post.firstComment ?? null,
                     },
                 })
             )
