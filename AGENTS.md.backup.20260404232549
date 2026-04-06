@@ -1,0 +1,31 @@
+# AGENTS.md — Unified AI Agent Governance
+
+## Project Mission
+- Core: Orchestrator Hub - A reusable operations hub for AI-assisted software projects.
+- Target: Orchestrator 5.4 - Reliable project setup, planning, execution, and verification workflows.
+
+## Hub Stack
+- Runtime: Bash, Markdown, JSON, symlink-based project linking
+- Interface: IDE workflows, command prompts, project memory files
+- Validation: shell checks, smoke scripts, contract and audit utilities
+
+## Default App Stack (For Connected Client Projects)
+- Frontend: Next.js 16+ (App Router), TypeScript, Tailwind CSS
+- UI: Shadcn/UI, Premium Aesthetics
+- State: Zustand
+- Data: TanStack Query (React Query v5)
+- Backend: Supabase (Auth, DB, Storage)
+
+## Core Development Rules
+- Truthfulness first: docs, scripts, and workflows must describe commands that really exist.
+- Prefer recoverable automation: safe defaults, backups, and explicit diagnostics over magic.
+- Architecture: FSD Lite (Function-based grouping)
+- Naming: Descriptive, no abbreviations (e.g., `request` instead of `req`)
+- Clean Code: Small units (< 20 lines), single responsibility
+- Components: Server Components by default in connected app projects
+- Safety: Strict Type Safety (Zod), no `any`
+
+## Communication & Hand-off
+- Plan: Use Codex to clarify requirements and generate Blueprints.
+- Build: Use Claude Code for multi-file implementation.
+- Verify: Use Antigravity for parallel testing and UI/UX validation.
