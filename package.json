@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "recover:first-comments": "node scripts/retry-first-comments.js",
     "postinstall": "prisma generate && patch-package"
   },
   "dependencies": {

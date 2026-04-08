@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { Calendar, Clock, ImageIcon, AlertCircle, Check, Pencil, Trash2, Copy, CheckCircle2, Upload, Loader2 } from "lucide-react";
+import { Clock, ImageIcon, AlertCircle, Check, Pencil, Trash2, Copy, CheckCircle2, Upload, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +29,6 @@ export function PostCard({
     index,
     isPosted = false,
     dbPostId,
-    status,
-    threadsId,
     errorLog,
     onUpdate,
     onDelete,
@@ -39,6 +37,7 @@ export function PostCard({
 }: PostCardProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editedContent, setEditedContent] = useState(post.content);
+    const [editedComment, setEditedComment] = useState(post.firstComment || "");
     const [editedDate, setEditedDate] = useState(
         post.scheduledAt ? format(post.scheduledAt, "yyyy-MM-dd'T'HH:mm") : ""
     );
@@ -76,7 +75,11 @@ export function PostCard({
                 throw new Error(data.error || "Upload failed");
             }
 
-            toast.success("🎉 Threads에 업로드 완료!");
+            if (data.replyError) {
+                toast.warning(data.message || "본문은 업로드됐지만 첫 댓글은 실패했습니다.");
+            } else {
+                toast.success("🎉 Threads에 업로드 완료!");
+            }
 
             // Refresh the posts list
             if (onRefresh) {
@@ -105,6 +108,7 @@ export function PostCard({
         onUpdate(index, {
             ...post,
             content: editedContent,
+            firstComment: editedComment || undefined,
             scheduledAt: editedDate ? new Date(editedDate) : null,
         });
         setIsEditing(false);
@@ -112,6 +116,7 @@ export function PostCard({
 
     const handleCancel = () => {
         setEditedContent(post.content);
+        setEditedComment(post.firstComment || "");
         setEditedDate(post.scheduledAt ? format(post.scheduledAt, "yyyy-MM-dd'T'HH:mm") : "");
         setIsEditing(false);
     };
@@ -145,18 +150,35 @@ export function PostCard({
                 {/* Content */}
                 {isEditing ? (
                     <div className="space-y-4">
-                        <textarea
-                            value={editedContent}
-                            onChange={(e) => setEditedContent(e.target.value)}
-                            className="w-full h-32 p-3 text-sm border rounded-lg resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent dark:bg-slate-800 dark:border-slate-600"
-                            placeholder="Post content..."
-                        />
-                        <Input
-                            type="datetime-local"
-                            value={editedDate}
-                            onChange={(e) => setEditedDate(e.target.value)}
-                            className="w-full"
-                        />
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">본문 내용</label>
+                            <textarea
+                                value={editedContent}
+                                onChange={(e) => setEditedContent(e.target.value)}
+                                className="w-full h-32 p-3 text-sm border rounded-lg resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent dark:bg-slate-800 dark:border-slate-600"
+                                placeholder="본문 내용을 입력하세요..."
+                            />
+                        </div>
+                        
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">💬 첫 댓글 (댓글 게시용)</label>
+                            <textarea
+                                value={editedComment}
+                                onChange={(e) => setEditedComment(e.target.value)}
+                                className="w-full h-20 p-3 text-sm border rounded-lg resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent dark:bg-slate-800 dark:border-slate-600 border-dashed"
+                                placeholder="첫 번째 댓글 내용을 입력하세요..."
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">예약 일시</label>
+                            <Input
+                                type="datetime-local"
+                                value={editedDate}
+                                onChange={(e) => setEditedDate(e.target.value)}
+                                className="w-full"
+                            />
+                        </div>
                         <div className="flex gap-2 justify-end">
                             <Button variant="outline" size="sm" onClick={handleCancel}>
                                 Cancel
@@ -171,6 +193,19 @@ export function PostCard({
                         <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap line-clamp-6">
                             {post.content}
                         </p>
+
+                        {/* First Comment Preview */}
+                        {post.firstComment && (
+                            <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800 border-dashed">
+                                <div className="flex items-center gap-1.5 mb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    <Clock className="w-3 h-3" />
+                                    첫 댓글 예약됨
+                                </div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 italic line-clamp-2">
+                                    &quot;{post.firstComment}&quot;
+                                </p>
+                            </div>
+                        )}
 
                         {/* Metadata */}
                         <div className="mt-4 flex flex-wrap gap-3">
@@ -212,6 +247,15 @@ export function PostCard({
                                         {error}
                                     </div>
                                 ))}
+                            </div>
+                        )}
+
+                        {errorLog && (
+                            <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+                                <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                    {errorLog}
+                                </div>
                             </div>
                         )}
 
@@ -279,4 +323,3 @@ export function PostCard({
         </Card>
     );
 }
-

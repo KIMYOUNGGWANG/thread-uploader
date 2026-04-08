@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { publishPost } from "@/lib/threads-api";
-import { initializeTokensInDB } from "@/lib/threads-api";
+import { initializeTokensInDB, publishPost, publishReplyWithRetry } from "@/lib/threads-api";
 
 /**
  * POST /api/posts/upload
@@ -13,7 +12,7 @@ export async function POST(request: NextRequest) {
         await initializeTokensInDB();
 
         const body = await request.json();
-        const { content, imageUrls = [] } = body;
+        const { content, imageUrls = [], firstComment } = body;
 
         if (!content || typeof content !== "string") {
             return NextResponse.json(
@@ -29,13 +28,35 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Publish to Threads
+        // 1. Publish Main Post
         const threadsId = await publishPost(content, imageUrls);
+
+        // 2. Publish First Comment (Reply) if exists
+        let replyId = null;
+        let replyErrorMessage: string | null = null;
+        if (firstComment && typeof firstComment === "string") {
+            try {
+                replyId = await publishReplyWithRetry(firstComment, threadsId);
+            } catch (error) {
+                console.error("Failed to post first comment:", error);
+                replyErrorMessage =
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to publish first comment";
+                // We don't fail the whole request if the reply fails, but we log it
+            }
+        }
 
         return NextResponse.json({
             success: true,
             threadsId,
-            message: "Posted to Threads successfully!",
+            replyId,
+            replyError: replyErrorMessage,
+            message: replyErrorMessage
+                ? "본문은 업로드됐지만 첫 댓글은 실패했습니다."
+                : firstComment
+                    ? "Posted to Threads with reply!"
+                    : "Posted to Threads!",
         });
     } catch (error) {
         console.error("Upload error:", error);

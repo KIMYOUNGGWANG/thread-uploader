@@ -36,6 +36,10 @@ interface TokenRefreshResponse {
     expires_in: number;
 }
 
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Initialize tokens in DB from environment variables
  * Called on first run or when DB is empty
@@ -407,7 +411,7 @@ export async function publishPost(
     }
 
     // Wait a moment for media processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(2000);
 
     // Publish the container
     const postId = await publishContainer(containerId);
@@ -445,8 +449,39 @@ export async function publishReply(
     const containerId = (data as ThreadsContainerResponse).id;
 
     // Wait a moment for container to be ready
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(2000);
 
     // Publish the container
     return await publishContainer(containerId);
+}
+
+export async function publishReplyWithRetry(
+    text: string,
+    replyToId: string,
+    retries = 4,
+    initialDelayMs = 4000
+): Promise<string> {
+    let lastError: unknown;
+
+    await sleep(initialDelayMs);
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            return await publishReply(text, replyToId);
+        } catch (error) {
+            lastError = error;
+            if (attempt === retries) break;
+
+            const retryDelayMs = 3000 * attempt;
+            console.warn(
+                `Reply publish failed (attempt ${attempt}/${retries}). Retrying in ${retryDelayMs}ms...`,
+                error
+            );
+            await sleep(retryDelayMs);
+        }
+    }
+
+    throw lastError instanceof Error
+        ? lastError
+        : new Error("Failed to publish first comment");
 }

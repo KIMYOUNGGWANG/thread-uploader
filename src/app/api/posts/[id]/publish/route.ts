@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { publishPost, publishReply, initializeTokensInDB } from "@/lib/threads-api";
+import { publishPost, publishReplyWithRetry, initializeTokensInDB } from "@/lib/threads-api";
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -37,16 +37,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         // Publish to Threads
         const threadsId = await publishPost(post.content, imageUrls);
+        let replyErrorMessage: string | null = null;
 
         // 첫 댓글이 예약되어 있으면 쏜다
         if (post.firstComment) {
             try {
-                // API 속도/안정화 대기
-                await new Promise(r => setTimeout(r, 4000));
-                await publishReply(post.firstComment, threadsId);
+                await publishReplyWithRetry(post.firstComment, threadsId);
             } catch (replyError) {
                 console.error("Failed to post first comment:", replyError);
-                // 첫 댓글 실패해도 포스트 자체는 성공으로 가야 함
+                replyErrorMessage =
+                    replyError instanceof Error
+                        ? replyError.message
+                        : "Failed to publish first comment";
             }
         }
 
@@ -56,15 +58,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             data: {
                 status: "PUBLISHED",
                 threadsId,
-                errorLog: null,
+                errorLog: replyErrorMessage
+                    ? `First comment failed: ${replyErrorMessage}`
+                    : null,
             },
         });
 
         return NextResponse.json({
             success: true,
             threadsId,
+            replyError: replyErrorMessage,
             post: updatedPost,
-            message: "Posted to Threads successfully!",
+            message: replyErrorMessage
+                ? "본문은 업로드됐지만 첫 댓글은 실패했습니다."
+                : "Posted to Threads successfully!",
         });
     } catch (error) {
         console.error("Publish error:", error);

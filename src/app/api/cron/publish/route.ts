@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { publishPost, publishReply } from "@/lib/threads-api";
+import { publishPost, publishReplyWithRetry } from "@/lib/threads-api";
 
 /**
  * Cron endpoint for publishing scheduled posts
@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
 
         for (const post of pendingPosts) {
             try {
+                let replyErrorMessage: string | null = null;
+
                 // Parse image URLs
                 const imageUrls = JSON.parse(post.imageUrls) as string[];
 
@@ -58,10 +60,13 @@ export async function GET(request: NextRequest) {
                 // 첫 댓글이 예약되어 있으면 쏜다
                 if (post.firstComment) {
                     try {
-                        await new Promise(r => setTimeout(r, 4000));
-                        await publishReply(post.firstComment, threadsId);
+                        await publishReplyWithRetry(post.firstComment, threadsId);
                     } catch (replyError) {
                         console.error("Failed to post first comment:", replyError);
+                        replyErrorMessage =
+                            replyError instanceof Error
+                                ? replyError.message
+                                : "Failed to publish first comment";
                     }
                 }
 
@@ -71,6 +76,9 @@ export async function GET(request: NextRequest) {
                     data: {
                         status: "PUBLISHED",
                         threadsId,
+                        errorLog: replyErrorMessage
+                            ? `First comment failed: ${replyErrorMessage}`
+                            : null,
                     },
                 });
 

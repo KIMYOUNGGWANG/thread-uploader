@@ -17,6 +17,7 @@ interface DBPost {
     threadsId: string | null;
     createdAt: string;
     errorLog: string | null;
+    firstComment: string | null;
 }
 
 export function Dashboard() {
@@ -188,12 +189,16 @@ export function Dashboard() {
     const pendingCount = posts.filter((p) => p.status === "PENDING").length;
     const publishedCount = posts.filter((p) => p.status === "PUBLISHED").length;
     const failedCount = posts.filter((p) => p.status === "FAILED").length;
+    const visiblePosts = posts.filter(
+        (p) => showPublished || p.status !== "PUBLISHED" || Boolean(p.errorLog)
+    );
 
     // Convert DBPost to ParsedPost for PostCard
     const convertToCardPost = (dbPost: DBPost): ParsedPost => ({
         content: dbPost.content,
         images: dbPost.imageUrls,
         scheduledAt: new Date(dbPost.scheduledAt),
+        firstComment: dbPost.firstComment ?? undefined,
     });
 
     return (
@@ -291,7 +296,7 @@ export function Dashboard() {
                             <div className="flex items-center gap-4">
                                 <div className="text-sm">
                                     <span className="font-semibold text-slate-700 dark:text-slate-200">
-                                        {posts.filter(p => showPublished ? true : p.status !== "PUBLISHED").length}
+                                        {visiblePosts.length}
                                     </span>
                                     <span className="text-slate-500 dark:text-slate-400">
                                         개 포스트
@@ -369,9 +374,7 @@ export function Dashboard() {
 
                         {/* Posts Grid */}
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {posts
-                                .filter(p => showPublished ? true : p.status !== "PUBLISHED")
-                                .map((dbPost, index) => (
+                            {visiblePosts.map((dbPost, index) => (
                                     <PostCard
                                         key={dbPost.id}
                                         post={convertToCardPost(dbPost)}
@@ -393,4 +396,3 @@ export function Dashboard() {
         </div>
     );
 }
-
