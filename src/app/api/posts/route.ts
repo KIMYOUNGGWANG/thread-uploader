@@ -7,6 +7,16 @@ interface CreatePostsRequest {
     insertAtFront?: boolean;
 }
 
+const FIRST_COMMENT_FAILURE_PREFIX = "First comment failed:";
+
+function normalizeErrorLog(status: string, errorLog: string | null): string | null {
+    if (status !== "PUBLISHED" || !errorLog) {
+        return errorLog;
+    }
+
+    return errorLog.startsWith(FIRST_COMMENT_FAILURE_PREFIX) ? errorLog : null;
+}
+
 export async function POST(request: NextRequest) {
     try {
         const body = (await request.json()) as CreatePostsRequest;
@@ -107,6 +117,7 @@ export async function GET() {
             posts: posts.map((p) => ({
                 ...p,
                 imageUrls: JSON.parse(p.imageUrls),
+                errorLog: normalizeErrorLog(p.status, p.errorLog),
             })),
         });
     } catch (error) {

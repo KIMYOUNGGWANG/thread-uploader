@@ -37,6 +37,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         // Publish to Threads
         const threadsId = await publishPost(post.content, imageUrls);
+        
+        // threadsId 검증: ID가 없거나 에러 메시지가 반환된 경우 처리
+        if (!threadsId || typeof threadsId !== "string" || threadsId === "undefined" || threadsId.includes("failed")) {
+            throw new Error(`Invalid Threads ID received: ${threadsId}. 게시물이 실제로 생성되지 않았을 수 있습니다.`);
+        }
+
         let replyErrorMessage: string | null = null;
 
         // 첫 댓글이 예약되어 있으면 쏜다

@@ -22,6 +22,20 @@ export function FileDropzone({ onFileSelect, isLoading }: FileDropzoneProps) {
         }
     }, []);
 
+    const isValidFile = (file: File): boolean => {
+        const validTypes = [
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/markdown",
+            "text/plain",
+        ];
+        const validExtensions = [".xlsx", ".md"];
+
+        return (
+            validTypes.includes(file.type) ||
+            validExtensions.some((ext) => file.name.toLowerCase().endsWith(ext))
+        );
+    };
+
     const handleDrop = useCallback(
         (e: React.DragEvent) => {
             e.preventDefault();
@@ -49,20 +63,6 @@ export function FileDropzone({ onFileSelect, isLoading }: FileDropzoneProps) {
         },
         [onFileSelect]
     );
-
-    const isValidFile = (file: File): boolean => {
-        const validTypes = [
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "text/markdown",
-            "text/plain",
-        ];
-        const validExtensions = [".xlsx", ".md"];
-
-        return (
-            validTypes.includes(file.type) ||
-            validExtensions.some((ext) => file.name.toLowerCase().endsWith(ext))
-        );
-    };
 
     return (
         <div

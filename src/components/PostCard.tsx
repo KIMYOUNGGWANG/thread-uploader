@@ -210,8 +210,15 @@ export function PostCard({
                         {/* Metadata */}
                         <div className="mt-4 flex flex-wrap gap-3">
                             {/* Order indicator - no time display, just status */}
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-xs font-medium">
-                                #{index + 1} 대기중
+                            <div className={cn(
+                                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+                                isPosted 
+                                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                                    : status === "FAILED"
+                                        ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                        : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
+                            )}>
+                                #{index + 1} {isPosted ? "업로드 완료" : status === "FAILED" ? "업로드 실패" : "대기중"}
                             </div>
 
                             {/* Images */}

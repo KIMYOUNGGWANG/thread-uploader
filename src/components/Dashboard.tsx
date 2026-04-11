@@ -24,6 +24,7 @@ export function Dashboard() {
     const [posts, setPosts] = useState<DBPost[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isFetching, setIsFetching] = useState(true);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const [showPublished, setShowPublished] = useState(false);
     const [insertAtFront, setInsertAtFront] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -36,15 +37,26 @@ export function Dashboard() {
 
     const fetchPosts = async () => {
         setIsFetching(true);
+        setFetchError(null);
         try {
             const response = await fetch("/api/posts");
             const data = await response.json();
-            if (data.posts) {
-                setPosts(data.posts);
+
+            if (!response.ok) {
+                throw new Error(data.error || "포스트 불러오기 실패");
             }
+
+            if (!Array.isArray(data.posts)) {
+                throw new Error("포스트 응답 형식이 올바르지 않습니다");
+            }
+
+            setPosts(data.posts);
         } catch (error) {
             console.error("Error fetching posts:", error);
-            toast.error("포스트 불러오기 실패");
+            const message =
+                error instanceof Error ? error.message : "포스트 불러오기 실패";
+            setFetchError(message);
+            toast.error(message);
         } finally {
             setIsFetching(false);
         }
@@ -265,6 +277,33 @@ export function Dashboard() {
                     <div className="flex items-center justify-center py-20">
                         <RefreshCw className="w-8 h-8 animate-spin text-violet-500" />
                     </div>
+                ) : fetchError && posts.length === 0 ? (
+                    <div className="space-y-4">
+                        <div className="flex flex-col gap-4 p-6 bg-white dark:bg-slate-800 rounded-2xl border border-red-200 dark:border-red-900 shadow-sm">
+                            <div className="flex items-start gap-3">
+                                <div className="mt-0.5 shrink-0 rounded-full bg-red-100 dark:bg-red-950/50 p-2">
+                                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                                </div>
+                                <div className="space-y-1">
+                                    <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+                                        포스트를 불러오지 못했습니다
+                                    </h2>
+                                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                                        데이터가 바로 삭제된 게 아니라, 서버에서 목록 조회에 실패했을 가능성이 큽니다.
+                                    </p>
+                                    <p className="text-sm text-red-600 dark:text-red-400">
+                                        {fetchError}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex justify-end">
+                                <Button variant="outline" onClick={fetchPosts}>
+                                    <RefreshCw className="w-4 h-4 mr-1.5" />
+                                    다시 불러오기
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 ) : posts.length === 0 ? (
                     <div className="space-y-4">
                         <FileDropzone onFileSelect={handleFileSelect} isLoading={isLoading} />
@@ -291,6 +330,20 @@ export function Dashboard() {
                     </div>
                 ) : (
                     <div className="space-y-6">
+                        {fetchError && (
+                            <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-900">
+                                <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                                        최신 목록을 새로 불러오지 못했습니다
+                                    </p>
+                                    <p className="text-sm text-red-600 dark:text-red-400">
+                                        기존에 불러온 데이터는 유지하고 있습니다. {fetchError}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Summary Bar */}
                         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                             <div className="flex items-center gap-4">

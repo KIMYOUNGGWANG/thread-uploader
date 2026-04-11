@@ -250,7 +250,7 @@ export async function createTextContainer(text: string): Promise<string> {
 
     if (!response.ok) {
         const errorData = data as ThreadsError;
-        throw new Error(`Threads API Error: ${errorData.error?.message || "Unknown error"}`);
+        throw new Error(`[Container Creation Failed] ${errorData.error?.message || "Unknown error"}`);
     }
 
     return (data as ThreadsContainerResponse).id;

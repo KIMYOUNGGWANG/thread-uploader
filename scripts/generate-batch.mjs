@@ -20,6 +20,9 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
+const EXPERT_PANEL_REF = path.resolve(root, ".agent/skills/threads-engine/references/expert-panel.md");
+const expertPanelGuide = fs.readFileSync(EXPERT_PANEL_REF, "utf-8");
+
 // ── env 로드 ──────────────────────────────────────────────────────────────
 for (const envFile of [".env.local", ".env"]) {
   const envPath = path.join(root, envFile);
@@ -167,6 +170,8 @@ const FORMULAS = [
   },
 ];
 
+const TRENDING_HASHTAGS = ["연애고민", "진로고민", "사주", "운세", "타로", "심리", "동기부여", "라이프스타일", "인간관계", "자기계발"];
+
 // ── 시스템 프롬프트 ────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `너는 ${brandName} 브랜드의 Threads 계정 운영자야.
 
@@ -174,17 +179,19 @@ const SYSTEM_PROMPT = `너는 ${brandName} 브랜드의 Threads 계정 운영자
 ${brandVoice}
 ${stuntContext}
 
-핵심 규칙:
-1. 2인칭으로 직접 말걸기 ("너", "넌", "니")
-2. 해시태그 정확히 1개만
-3. 길이: 6-12줄
-4. 글 말미에 리포스트 유발용 강한 한 줄 요약 배치
-5. 브랜드 광고/홍보 느낌 금지 — 친구가 말해주는 톤
-6. 앱/서비스 이름이나 링크 포함 금지
+핵심 규칙 (Roy Lee 스타일):
+1. **훅(Hook)은 뺨을 때리듯 시작해**: "너 이거 몰랐지?" 수준이 아니라 "니가 믿는 건 틀렸어" 또는 "이거 안 하면 망해" 식의 극단적 훅. (예: "10만원 버리기 싫으면 이 글 읽지 마")
+2. 2인칭으로 직접 말걸기 ("너", "넌", "니")
+3. 해시태그 규칙: 아래 리스트에서 딱 1개 선택 (${TRENDING_HASHTAGS.map(t => `#${t}`).join(", ")})
+4. **50% 혐오 테스트**: 모두가 좋아하는 글은 아무도 공유 안 해. 반이 싫어하고 반이 미치도록 좋아하는 '각'을 세워.
+5. 길이: 6-12줄, 구어체 (친구와 술자리 대화 톤)
+6. 앱/서비스/링크 언급 절대 금지
+7. 말미에 강한 한 줄 요약 배치 (리포스트용)
 7. 출력 형식 엄수:
-   포스트 본문 작성
+   [포스트 본문]
+   (본문 마지막 줄에 반드시 선택한 해시태그 1개 포함)
    ${SEPARATOR}
-   게시 직후 달 첫 댓글 (2-3문장, 반말, 본문 보완)
+   [첫 댓글 내용]
    ${META_SEP}
    formula:{공식id} stunt:{스턴트명 또는 none}`;
 
@@ -208,6 +215,50 @@ function sleep(ms) {
 // ── API 호출 ──────────────────────────────────────────────────────────────
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+async function verifyOne(post, firstComment) {
+    const prompt = `
+너는 바이럴 콘텐츠 품질을 심사하는 'Expert Panel'이야.
+다음 Threads 포스트와 첫 댓글을 아래 기준에 따라 엄격하게 채점해줘.
+
+【심사 결과 요약 (맨 위에 작성)】
+평균 점수: [숫자]
+합격 여부: [PASS/FAIL]
+
+【심사 기준 가이드】
+${expertPanelGuide}
+
+【심사 대상】
+본문:
+${post}
+
+첫 댓글:
+${firstComment}
+
+【상세 심사 내용】
+Roy Lee: (점수)/100
+타깃 유저: (점수)/100
+편집장: (점수)/100
+비평: (어떤 점이 부족하고 어떻게 고쳐야 할지 1문장으로 요약)
+`;
+
+    const message = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }],
+    });
+
+    const response = message.content[0].text;
+    fs.appendFileSync("debug_audit.log", `\n\n--- AUDIT AT ${new Date().toISOString()} ---\n${response}\n`);
+    
+    // Robust regex to find any number after '평균'
+    const scoreMatch = response.match(/(?:평균\s*점수|Average\s*Score)[^0-9]*[:\s]*(\d+)/i);
+    const passMatch = response.match(/(?:합격\s*여부|Result|Pass\/Fail)[^A-Z]*[:\s]*(PASS|FAIL)/i);
+    const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
+    const passed = score >= 85; 
+    
+    return { score, passed, audit: response };
+}
+
 async function generateOne(formula) {
   for (let attempt = 1; attempt <= RETRIES; attempt++) {
     try {
@@ -230,7 +281,16 @@ async function generateOne(formula) {
       const firstComment = rest[0].trim();
       const meta = (rest[1] ?? "").trim();
 
-      return { post, firstComment, meta, formulaId: formula.id };
+      // Expert Panel Verification
+      process.stdout.write(` (검증 중…)`);
+      const verification = await verifyOne(post, firstComment);
+      
+      if (!verification.passed && attempt < RETRIES) {
+          console.log(` ❌ ${verification.score}점 (미달) → 다시 생성합니다.`);
+          continue;
+      }
+
+      return { post, firstComment, meta, formulaId: formula.id, score: verification.score, audit: verification.audit };
     } catch (error) {
       const status = error?.status;
       if (RETRYABLE.has(status) && attempt < RETRIES) {
@@ -281,8 +341,11 @@ async function main() {
     "",
   ];
 
-  results.forEach(({ post, firstComment, meta }, index) => {
+  results.forEach(({ post, firstComment, meta, score, audit }, index) => {
     lines.push(`---`, ``, `## 포스트 ${index + 1}`, ``);
+    lines.push(`> **📊 Expert Score: ${score}/100**`);
+    if (score >= 90) lines.push(`> ✅ **품질 게이트 통과 (Roy Lee 승인)**`);
+    lines.push(``);
     if (meta) lines.push(`<!-- ${meta} -->`, ``);
     lines.push(post, ``);
     if (firstComment) {
@@ -293,6 +356,7 @@ async function main() {
         ``
       );
     }
+    lines.push(`### [품질 리포트]`, `\`\`\``, audit, `\`\`\``, ``);
   });
 
   fs.writeFileSync(OUTPUT, lines.join("\n"), "utf-8");

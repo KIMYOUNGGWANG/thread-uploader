@@ -79,7 +79,6 @@ export function parseMarkdownFile(content: string): ParsedPost[] {
         const firstLineEnd = chunk.indexOf('\n');
         if (firstLineEnd === -1) continue;
 
-        const _header = chunk.substring(0, firstLineEnd).trim();
         const body = chunk.substring(firstLineEnd).trim();
 
         if (!body) continue;
@@ -128,11 +127,12 @@ export function parseMarkdownFile(content: string): ParsedPost[] {
     if (posts.length === 0) {
         try {
             const parsed = matter(content);
+            const data = parsed.data as { images?: string[]; scheduledAt?: string };
             if (parsed.content.trim()) {
                 posts.push({
                     content: parsed.content.trim(),
-                    images: (parsed.data as any).images || [],
-                    scheduledAt: (parsed.data as any).scheduledAt ? parseScheduleDate((parsed.data as any).scheduledAt) : null,
+                    images: data.images || [],
+                    scheduledAt: data.scheduledAt ? parseScheduleDate(data.scheduledAt) : null,
                 });
             }
         } catch { }
