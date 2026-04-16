@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
+import { checkQuality } from "@/lib/quality-gate";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -142,10 +143,25 @@ const SYSTEM_PROMPT = `너는 CosmicPath(AI 사주+점성술+타로 앱) Threads
    - 그 아래에 게시 직후 내가 달 첫 댓글 작성 (본문 보완 인사이트 또는 팔로워 참여 유도 질문, 2~3문장, 반말 유지)
    - 설명·제목·번호 절대 금지`;
 
-function buildFormulaPool() {
+const COSMICPATH_URL = "cosmicpath.app";
+
+async function loadFormulaWeights(): Promise<Record<string, number>> {
+  try {
+    const settings = await prisma.settings.findUnique({ where: { id: "default" } });
+    if (settings?.formulaWeights && settings.formulaWeights !== "{}") {
+      return JSON.parse(settings.formulaWeights) as Record<string, number>;
+    }
+  } catch {
+    // DB 조회 실패 시 기본값 사용
+  }
+  return {};
+}
+
+function buildFormulaPool(dbWeights: Record<string, number> = {}) {
   const pool: typeof FORMULAS = [];
   for (const f of FORMULAS) {
-    for (let i = 0; i < f.weight; i++) pool.push(f);
+    const weight = dbWeights[f.id] ?? f.weight;
+    for (let i = 0; i < weight; i++) pool.push(f);
   }
   return pool;
 }
@@ -211,6 +227,45 @@ async function generateOne(
   throw new Error("generateOne: exceeded max retries");
 }
 
+/**
+ * generateWithQuality: Quality Gate를 통과할 때까지 최대 maxRetries회 재생성
+ * 모두 실패하면 마지막 결과를 WARNING 로그와 함께 반환 (큐 블로킹 방지)
+ */
+async function generateWithQuality(
+  formula: (typeof FORMULAS)[0],
+  topic: string,
+  maxRetries = 2
+): Promise<{ post: string; firstComment: string; formulaId: string; qualityScore: number }> {
+  let lastResult = await generateOne(formula, topic);
+  let qualityResult = checkQuality(lastResult.post);
+
+  for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
+    console.warn(
+      `Quality FAIL (score ${qualityResult.score}/3, attempt ${attempt}/${maxRetries}):`,
+      qualityResult.reasons
+    );
+    lastResult = await generateOne(formula, topic);
+    qualityResult = checkQuality(lastResult.post);
+  }
+
+  if (!qualityResult.pass) {
+    console.warn(`Quality WARNING: 최대 재시도 초과. score=${qualityResult.score}/3. 그대로 저장.`);
+  }
+
+  // UTM 링크를 firstComment 끝에 추가
+  const utmLink = `${COSMICPATH_URL}?utm_source=threads&utm_medium=social&utm_campaign=${formula.id}`;
+  const firstCommentWithUtm = lastResult.firstComment
+    ? `${lastResult.firstComment}\n\n내 사주 더 자세히 → ${utmLink}`
+    : `내 사주 더 자세히 → ${utmLink}`;
+
+  return {
+    post: lastResult.post,
+    firstComment: firstCommentWithUtm,
+    formulaId: formula.id,
+    qualityScore: qualityResult.score,
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -221,18 +276,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "count는 1~300 사이여야 합니다" }, { status: 400 });
     }
 
-    const formulaPool = buildFormulaPool();
+    // DB에서 최신 공식 가중치 로드 (성과 기반 최적화 반영)
+    const dbWeights = await loadFormulaWeights();
+    const formulaPool = buildFormulaPool(dbWeights);
     const topics = shuffleTopics(count);
 
     const BATCH = 3;
     const BATCH_COOLDOWN = 500;
-    const results: { post: string; firstComment: string }[] = [];
+    const results: { post: string; firstComment: string; formulaId: string; qualityScore: number }[] = [];
 
     for (let i = 0; i < count; i += BATCH) {
       const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
         const formula = pickRandom(formulaPool);
         const topic = topics[i + j];
-        return generateOne(formula, topic);
+        return generateWithQuality(formula, topic);
       });
       const batchResults = await Promise.all(batch);
       results.push(...batchResults);
@@ -260,12 +317,13 @@ export async function POST(request: NextRequest) {
     }
 
     await prisma.post.createMany({
-      data: results.map(({ post, firstComment }, i) => ({
+      data: results.map(({ post, firstComment, formulaId }, i) => ({
         content: post,
         firstComment: firstComment || null,
         imageUrls: "[]",
         scheduledAt: new Date(baseTime + i * 1000),
         status: "PENDING",
+        formulaId,
       })),
     });
 

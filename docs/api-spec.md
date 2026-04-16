@@ -2,8 +2,8 @@
 
 ## Project Info
 - **Project**: Threads Auto Uploader
-- **Version**: v1.1
-- **Updated**: 2026-04-08
+- **Version**: v1.2
+- **Updated**: 2026-04-15
 - **Base URL**: `/api`
 
 ---
@@ -134,6 +134,51 @@ interface GenerateResponse {
 
 ---
 
+### Analytics & Optimization
+
+| Method | Path | Description | Access |
+|:-------|:-----|:------------|:-----|
+| `GET` | `/api/analytics` | 공식(formulaId)별 성과 요약 반환 | Public |
+| `POST` | `/api/generate/optimize` | 성과 데이터 기반 공식 가중치 자동 조정 | Public |
+
+#### Response Schemas
+
+```typescript
+// GET /api/analytics
+interface AnalyticsResponse {
+  total: number;
+  evaluated: number;
+  byFormula: FormulaStats[];
+  topFormula: FormulaStats | null;
+  bottomFormula: FormulaStats | null;
+  collectedAt: string;
+}
+
+interface FormulaStats {
+  formulaId: string;
+  count: number;
+  avgViews: number;
+  avgLikes: number;
+  avgReplies: number;
+  avgReposts: number;
+  totalViews: number;
+  engagementScore: number; // views*1 + likes*5 + replies*3 + reposts*4
+}
+
+// POST /api/generate/optimize
+interface OptimizeResponse {
+  success: true;
+  analysedPosts: number;
+  evaluatedFormulas: number;
+  ranking: { formulaId: string; count: number; avgScore: number }[];
+  changes: { boosted: string[]; reduced: string[] };
+  newWeights: Record<string, number>;
+  appliedAt: string;
+}
+```
+
+---
+
 ## Error Codes
 
 | Code | Meaning | When |
@@ -149,8 +194,8 @@ interface GenerateResponse {
 
 | Table | Structure | Note |
 |:------|:----------|:-----|
-| `Post` | `id`, `content`, `imageUrls`, `scheduledAt`, `status`, `threadsId`, `createdAt`, `errorLog`, `firstComment` | 발행 큐 + 발행 결과 |
-| `Settings` | `id`, `accessToken`, `userId`, `tokenExpiry`, `updatedAt` | Threads API 토큰 저장 |
+| `Post` | `id`, `content`, `imageUrls`, `scheduledAt`, `status`, `threadsId`, `createdAt`, `errorLog`, `firstComment`, `formulaId`, `views`, `likes`, `replies`, `reposts`, `metricsAt` | 발행 큐 + 발행 결과 + 성과 메트릭 |
+| `Settings` | `id`, `accessToken`, `userId`, `tokenExpiry`, `updatedAt`, `formulaWeights` | Threads API 토큰 + 공식 가중치 |
 
 ---
 

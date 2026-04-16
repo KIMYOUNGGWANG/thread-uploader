@@ -1,0 +1,31 @@
+name: Fetch Post Metrics
+
+on:
+  schedule:
+    # 매일 KST 21:00 (UTC 12:00) — 하루 게시가 마무리된 후 수집
+    - cron: '0 12 * * *'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  fetch-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Fetch Post Metrics
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/fetch-metrics-standalone.js
