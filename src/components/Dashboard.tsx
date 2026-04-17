@@ -1,12 +1,31 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2 } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
 import { parseExcelFile, parseMarkdownFile, ParsedPost, validatePost } from "@/lib/parser";
 import { Toaster, toast } from "sonner";
+
+interface FormulaStats {
+    formulaId: string;
+    count: number;
+    avgViews: number;
+    avgLikes: number;
+    avgReplies: number;
+    avgReposts: number;
+    engagementScore: number;
+}
+
+interface AnalyticsData {
+    total: number;
+    evaluated: number;
+    byFormula: FormulaStats[];
+    topFormula: FormulaStats | null;
+    bottomFormula: FormulaStats | null;
+    message?: string;
+}
 
 interface DBPost {
     id: string;
@@ -29,6 +48,10 @@ export function Dashboard() {
     const [insertAtFront, setInsertAtFront] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generateCount, setGenerateCount] = useState(30);
+    const [showAnalytics, setShowAnalytics] = useState(false);
+    const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+    const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+    const [isOptimizing, setIsOptimizing] = useState(false);
 
     // Fetch posts from DB on mount
     useEffect(() => {
@@ -179,6 +202,42 @@ export function Dashboard() {
         }
     }, []);
 
+    const handleToggleAnalytics = useCallback(async () => {
+        if (showAnalytics) {
+            setShowAnalytics(false);
+            return;
+        }
+        setShowAnalytics(true);
+        setIsLoadingAnalytics(true);
+        try {
+            const response = await fetch("/api/analytics");
+            const data = await response.json() as AnalyticsData;
+            setAnalytics(data);
+        } catch {
+            toast.error("성과 데이터 불러오기 실패");
+        } finally {
+            setIsLoadingAnalytics(false);
+        }
+    }, [showAnalytics]);
+
+    const handleOptimize = useCallback(async () => {
+        if (!confirm("성과 데이터를 분석해 콘텐츠 공식 가중치를 자동 조정할까요?")) return;
+        setIsOptimizing(true);
+        try {
+            const response = await fetch("/api/generate/optimize", { method: "POST" });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "최적화 실패");
+            toast.success(`최적화 완료! 상승: ${data.changes.boosted.join(", ")} / 하락: ${data.changes.reduced.join(", ")}`);
+            // 분석 데이터 새로고침
+            const analyticsResponse = await fetch("/api/analytics");
+            setAnalytics(await analyticsResponse.json() as AnalyticsData);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "최적화 실패");
+        } finally {
+            setIsOptimizing(false);
+        }
+    }, []);
+
     const handleReset = useCallback(async () => {
         if (!confirm("모든 PENDING 포스트를 삭제하시겠습니까?")) return;
 
@@ -195,6 +254,19 @@ export function Dashboard() {
         } catch (error) {
             console.error("Reset error:", error);
             toast.error("초기화 실패");
+        }
+    }, [fetchPosts]);
+
+    const handleLogout = useCallback(async () => {
+        try {
+            const response = await fetch("/api/auth/logout", { method: "POST" });
+            if (response.ok) {
+                window.location.href = "/login";
+            } else {
+                toast.error("로그아웃 실패");
+            }
+        } catch (error) {
+            toast.error("로그아웃 중 오류 발생");
         }
     }, []);
 
@@ -234,9 +306,8 @@ export function Dashboard() {
                         </div>
                     </div>
 
-                    {posts.length > 0 && (
-                        <div className="flex items-center gap-3">
-                            {/* Status badges */}
+                    <div className="flex items-center gap-3">
+                        {posts.length > 0 && (
                             <div className="flex items-center gap-2">
                                 {pendingCount > 0 && (
                                     <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium">
@@ -257,17 +328,27 @@ export function Dashboard() {
                                     </div>
                                 )}
                             </div>
+                        )}
 
-                            <Button variant="outline" size="sm" onClick={fetchPosts} disabled={isFetching}>
-                                <RefreshCw className={`w-4 h-4 mr-1.5 ${isFetching ? 'animate-spin' : ''}`} />
-                                새로고침
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={handleReset}>
-                                <RotateCcw className="w-4 h-4 mr-1.5" />
-                                초기화
+                        <div className="flex items-center gap-2">
+                            {posts.length > 0 && (
+                                <>
+                                    <Button variant="outline" size="sm" onClick={fetchPosts} disabled={isFetching}>
+                                        <RefreshCw className={`w-4 h-4 mr-1.5 ${isFetching ? 'animate-spin' : ''}`} />
+                                        새로고침
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={handleReset}>
+                                        <RotateCcw className="w-4 h-4 mr-1.5" />
+                                        초기화
+                                    </Button>
+                                </>
+                            )}
+                            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10">
+                                <LogOut className="w-4 h-4 mr-1.5" />
+                                로그아웃
                             </Button>
                         </div>
-                    )}
+                    </div>
                 </div>
             </header>
 
@@ -423,6 +504,84 @@ export function Dashboard() {
                                     }
                                 }}
                             />
+                        </div>
+
+                        {/* Analytics Panel */}
+                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                            <button
+                                onClick={handleToggleAnalytics}
+                                className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                            >
+                                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                                    <BarChart2 className="w-4 h-4 text-violet-500" />
+                                    공식별 성과 분석
+                                    {analytics && analytics.total > 0 && (
+                                        <span className="text-xs text-slate-400 font-normal">({analytics.total}개 게시물 기준)</span>
+                                    )}
+                                </div>
+                                {showAnalytics ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                            </button>
+
+                            {showAnalytics && (
+                                <div className="border-t border-slate-100 dark:border-slate-700 p-4">
+                                    {isLoadingAnalytics ? (
+                                        <div className="flex items-center justify-center py-6">
+                                            <RefreshCw className="w-5 h-5 animate-spin text-violet-500" />
+                                        </div>
+                                    ) : analytics?.message || !analytics?.byFormula.length ? (
+                                        <div className="text-center py-6 text-sm text-slate-400">
+                                            <BarChart2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                            아직 수집된 성과 데이터가 없어요.<br />
+                                            <span className="text-xs">게시 후 2일이 지나면 GitHub Actions가 자동으로 수집합니다.</span>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm">
+                                                    <thead>
+                                                        <tr className="text-xs text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                                                            <th className="text-left pb-2 font-medium">공식</th>
+                                                            <th className="text-right pb-2 font-medium">횟수</th>
+                                                            <th className="text-right pb-2 font-medium">평균 조회</th>
+                                                            <th className="text-right pb-2 font-medium">평균 좋아요</th>
+                                                            <th className="text-right pb-2 font-medium">종합점수</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                                                        {analytics.byFormula.map((f, i) => (
+                                                            <tr key={f.formulaId} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                                                <td className="py-2 font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                                                                    {i === 0 && <span className="text-xs">🥇</span>}
+                                                                    {i === analytics.byFormula.length - 1 && analytics.byFormula.length > 1 && <span className="text-xs">🔻</span>}
+                                                                    {i > 0 && i < analytics.byFormula.length - 1 && <span className="w-4" />}
+                                                                    {f.formulaId}
+                                                                </td>
+                                                                <td className="py-2 text-right text-slate-500">{f.count}</td>
+                                                                <td className="py-2 text-right text-slate-600 dark:text-slate-300">{f.avgViews.toLocaleString()}</td>
+                                                                <td className="py-2 text-right text-slate-600 dark:text-slate-300">{f.avgLikes.toLocaleString()}</td>
+                                                                <td className="py-2 text-right font-semibold text-violet-600 dark:text-violet-400">{f.engagementScore.toLocaleString()}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div className="flex justify-end pt-1">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={handleOptimize}
+                                                    disabled={isOptimizing}
+                                                    className="bg-violet-600 hover:bg-violet-700 text-white text-xs"
+                                                >
+                                                    {isOptimizing
+                                                        ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                                        : <Zap className="w-3.5 h-3.5 mr-1.5" />}
+                                                    {isOptimizing ? "최적화 중..." : "공식 가중치 최적화"}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Posts Grid */}
