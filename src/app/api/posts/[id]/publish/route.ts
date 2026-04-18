@@ -1,107 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { publishPost, publishReplyWithRetry, initializeTokensInDB } from "@/lib/threads-api";
+import { publishPostWithCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
 
 interface RouteParams {
-    params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>;
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
-    let postId: string | null = null;
-    try {
-        await initializeTokensInDB();
+  const { id } = await params;
+  const postId: string = id;
 
-        const { id } = await params;
-        postId = id;
-
-        const post = await prisma.post.findUnique({
-            where: { id },
-        });
-
-        if (!post) {
-            return NextResponse.json(
-                { error: "Post not found" },
-                { status: 404 }
-            );
-        }
-
-        if (post.status === "PUBLISHED" || post.threadsId) {
-            return NextResponse.json(
-                { error: "Post is already published" },
-                { status: 400 }
-            );
-        }
-
-        // DB imageUrls is stored as a JSON string
-        const imageUrls = JSON.parse(post.imageUrls || "[]");
-
-        // Publish to Threads
-        const threadsId = await publishPost(post.content, imageUrls);
-        
-        // threadsId 검증: ID가 없거나 에러 메시지가 반환된 경우 처리
-        if (!threadsId || typeof threadsId !== "string" || threadsId === "undefined" || threadsId.includes("failed")) {
-            throw new Error(`Invalid Threads ID received: ${threadsId}. 게시물이 실제로 생성되지 않았을 수 있습니다.`);
-        }
-
-        let replyErrorMessage: string | null = null;
-
-        // 첫 댓글이 예약되어 있으면 쏜다
-        if (post.firstComment) {
-            try {
-                await publishReplyWithRetry(post.firstComment, threadsId);
-            } catch (replyError) {
-                console.error("Failed to post first comment:", replyError);
-                replyErrorMessage =
-                    replyError instanceof Error
-                        ? replyError.message
-                        : "Failed to publish first comment";
-            }
-        }
-
-        // Update post status
-        const updatedPost = await prisma.post.update({
-            where: { id },
-            data: {
-                status: "PUBLISHED",
-                threadsId,
-                errorLog: replyErrorMessage
-                    ? `First comment failed: ${replyErrorMessage}`
-                    : null,
-            },
-        });
-
-        return NextResponse.json({
-            success: true,
-            threadsId,
-            replyError: replyErrorMessage,
-            post: updatedPost,
-            message: replyErrorMessage
-                ? "본문은 업로드됐지만 첫 댓글은 실패했습니다."
-                : "Posted to Threads successfully!",
-        });
-    } catch (error) {
-        console.error("Publish error:", error);
-
-        // Try to update post status to FAILED
-        if (postId) {
-            try {
-                await prisma.post.update({
-                    where: { id: postId },
-                    data: {
-                        status: "FAILED",
-                        errorLog: error instanceof Error ? error.message : "Failed to publish",
-                    },
-                });
-            } catch (dbError) {
-                console.error("Failed to update post status to FAILED:", dbError);
-            }
-        }
-
-        return NextResponse.json(
-            {
-                error: error instanceof Error ? error.message : "Failed to publish to Threads",
-            },
-            { status: 500 }
-        );
+  try {
+    const post = await prisma.post.findUnique({ where: { id } });
+    if (!post) {
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
+    if (post.status === "PUBLISHED" || post.threadsId) {
+      return NextResponse.json({ error: "Post is already published" }, { status: 400 });
+    }
+
+    const brand = await prisma.brand.findUnique({ where: { id: post.brandId } });
+    if (!brand) {
+      return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+    }
+
+    const credentials = { accessToken: brand.accessToken, userId: brand.threadsUserId };
+    const imageUrls = JSON.parse(post.imageUrls || "[]") as string[];
+
+    const threadsId = await publishPostWithCredentials(post.content, credentials, imageUrls);
+
+    if (!threadsId || threadsId === "undefined") {
+      throw new Error(`Invalid Threads ID received: ${threadsId}`);
+    }
+
+    let replyErrorMessage: string | null = null;
+    if (post.firstComment) {
+      try {
+        await publishReplyWithRetryForBrand(post.firstComment, threadsId, credentials);
+      } catch (replyError) {
+        replyErrorMessage = replyError instanceof Error ? replyError.message : "Failed to publish first comment";
+      }
+    }
+
+    const updatedPost = await prisma.post.update({
+      where: { id },
+      data: {
+        status: "PUBLISHED",
+        threadsId,
+        errorLog: replyErrorMessage ? `First comment failed: ${replyErrorMessage}` : null,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      threadsId,
+      replyError: replyErrorMessage,
+      post: updatedPost,
+      message: replyErrorMessage ? "본문 업로드 성공, 첫 댓글 실패" : "Posted to Threads successfully!",
+    });
+  } catch (error) {
+    console.error("Publish error:", error);
+    if (postId) {
+      await prisma.post.update({
+        where: { id: postId },
+        data: { status: "FAILED", errorLog: error instanceof Error ? error.message : "Failed to publish" },
+      }).catch(console.error);
+    }
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to publish to Threads" },
+      { status: 500 }
+    );
+  }
 }

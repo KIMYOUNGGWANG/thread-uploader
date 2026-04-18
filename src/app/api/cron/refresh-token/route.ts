@@ -4,6 +4,7 @@ import {
     shouldRefreshToken,
     refreshAccessToken,
     getTokenStatus,
+    refreshBrandAccessToken,
 } from "@/lib/threads-api";
 
 /**
@@ -26,54 +27,62 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // Initialize tokens in DB if not already done
+        const { prisma } = await import("@/lib/prisma");
+
+        // 1. Legacy Settings refresh (fallback)
         await initializeTokensInDB();
-
-        // Check current token status
         const status = await getTokenStatus();
+        let legacyRefreshResults = null;
 
-        if (!status.hasToken) {
-            return NextResponse.json({
-                success: false,
-                message: "No token found in database",
-            }, { status: 500 });
+        if (status.hasToken && await shouldRefreshToken()) {
+            legacyRefreshResults = await refreshAccessToken();
         }
 
-        // Check if token needs refresh
-        const needsRefresh = await shouldRefreshToken();
+        // 2. Multi-brand refresh
+        const brands = await prisma.brand.findMany();
+        const now = new Date();
+        const sevenDaysFromNow = new Date();
+        sevenDaysFromNow.setDate(now.getDate() + 7);
 
-        if (!needsRefresh) {
-            return NextResponse.json({
-                success: true,
-                message: "Token is still valid",
-                daysUntilExpiry: status.daysUntilExpiry,
-                expiresAt: status.expiresAt?.toISOString(),
-                refreshed: false,
-            });
+        const refreshResults = [];
+        for (const brand of brands) {
+            if (brand.tokenExpiry <= sevenDaysFromNow) {
+                try {
+                    const result = await refreshBrandAccessToken(brand.id);
+                    refreshResults.push({
+                        slug: brand.slug,
+                        success: true,
+                        newExpiry: new Date(Date.now() + result.expiresIn * 1000).toISOString(),
+                    });
+                } catch (err) {
+                    console.error(`Failed to refresh token for brand ${brand.slug}:`, err);
+                    refreshResults.push({
+                        slug: brand.slug,
+                        success: false,
+                        error: err instanceof Error ? err.message : "Unknown error",
+                    });
+                }
+            } else {
+                refreshResults.push({
+                    slug: brand.slug,
+                    success: true,
+                    message: "Still valid",
+                    daysLeft: Math.ceil((brand.tokenExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+                });
+            }
         }
-
-        // Refresh the token
-        const result = await refreshAccessToken();
-
-        // Get updated status
-        const newStatus = await getTokenStatus();
 
         return NextResponse.json({
             success: true,
-            message: "Token refreshed successfully",
-            refreshed: true,
-            daysUntilExpiry: newStatus.daysUntilExpiry,
-            expiresAt: newStatus.expiresAt?.toISOString(),
-            expiresIn: result.expiresIn,
+            legacyRefreshed: !!legacyRefreshResults,
+            brandsCount: brands.length,
+            refreshResults,
         });
     } catch (error) {
-        console.error("Token refresh error:", error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: error instanceof Error ? error.message : "Unknown error",
-            },
-            { status: 500 }
-        );
+        console.error("Token refresh cron error:", error);
+        return NextResponse.json({
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+        }, { status: 500 });
     }
 }

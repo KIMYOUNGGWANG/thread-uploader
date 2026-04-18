@@ -224,6 +224,57 @@ export async function refreshAccessToken(): Promise<{
 }
 
 /**
+ * Refresh the long-lived access token for a specific Brand
+ */
+export async function refreshBrandAccessToken(brandId: string): Promise<{
+    accessToken: string;
+    expiresIn: number;
+}> {
+    const { prisma } = await import("@/lib/prisma");
+
+    const brand = await prisma.brand.findUnique({
+        where: { id: brandId },
+    });
+
+    if (!brand) {
+        throw new Error(`Brand not found: ${brandId}`);
+    }
+
+    const response = await fetch(
+        `https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=${brand.accessToken}`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        const errorData = data as ThreadsError;
+        throw new Error(`[Brand ${brand.slug}] Token refresh failed: ${errorData.error?.message || "Unknown error"}`);
+    }
+
+    const tokenData = data as TokenRefreshResponse;
+
+    // Calculate new expiry date
+    const tokenExpiry = new Date();
+    tokenExpiry.setSeconds(tokenExpiry.getSeconds() + tokenData.expires_in);
+
+    // Update database
+    await prisma.brand.update({
+        where: { id: brandId },
+        data: {
+            accessToken: tokenData.access_token,
+            tokenExpiry,
+        },
+    });
+
+    console.log(`[Brand ${brand.slug}] Token refreshed successfully. New expiry: ${tokenExpiry.toISOString()}`);
+
+    return {
+        accessToken: tokenData.access_token,
+        expiresIn: tokenData.expires_in,
+    };
+}
+
+/**
  * Create a text-only thread container
  */
 export async function createTextContainer(text: string): Promise<string> {
@@ -388,6 +439,101 @@ export async function publishContainer(creationId: string): Promise<string> {
     }
 
     return (data as ThreadsPublishResponse).id;
+}
+
+export interface ThreadsCredentials {
+    accessToken: string;
+    userId: string;
+}
+
+/**
+ * Publish a post using explicit brand credentials
+ */
+export async function publishPostWithCredentials(
+    text: string,
+    credentials: ThreadsCredentials,
+    imageUrls: string[] = []
+): Promise<string> {
+    const { accessToken, userId } = credentials;
+    const topicTag = process.env.THREADS_DEFAULT_TOPIC;
+    let containerId: string;
+
+    if (imageUrls.length === 0) {
+        const params = new URLSearchParams({ media_type: "TEXT", text, access_token: accessToken });
+        if (topicTag) params.append("topic_tag", topicTag);
+        const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
+        const data = await res.json() as ThreadsContainerResponse | ThreadsError;
+        if (!res.ok) throw new Error(`[Container] ${ (data as ThreadsError).error?.message }`);
+        containerId = (data as ThreadsContainerResponse).id;
+    } else if (imageUrls.length === 1) {
+        const params = new URLSearchParams({ media_type: "IMAGE", image_url: imageUrls[0], text, access_token: accessToken });
+        if (topicTag) params.append("topic_tag", topicTag);
+        const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
+        const data = await res.json() as ThreadsContainerResponse | ThreadsError;
+        if (!res.ok) throw new Error(`[Container] ${ (data as ThreadsError).error?.message }`);
+        containerId = (data as ThreadsContainerResponse).id;
+    } else {
+        const itemIds: string[] = [];
+        for (const imageUrl of imageUrls) {
+            const params = new URLSearchParams({ media_type: "IMAGE", image_url: imageUrl, is_carousel_item: "true", access_token: accessToken });
+            const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
+            const data = await res.json() as ThreadsContainerResponse | ThreadsError;
+            if (!res.ok) throw new Error(`[CarouselItem] ${ (data as ThreadsError).error?.message }`);
+            itemIds.push((data as ThreadsContainerResponse).id);
+            await sleep(1000);
+        }
+        const params = new URLSearchParams({ media_type: "CAROUSEL", children: itemIds.join(","), text, access_token: accessToken });
+        if (topicTag) params.append("topic_tag", topicTag);
+        const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
+        const data = await res.json() as ThreadsContainerResponse | ThreadsError;
+        if (!res.ok) throw new Error(`[Carousel] ${ (data as ThreadsError).error?.message }`);
+        containerId = (data as ThreadsContainerResponse).id;
+    }
+
+    await sleep(2000);
+
+    const publishParams = new URLSearchParams({ creation_id: containerId, access_token: accessToken });
+    const publishRes = await fetch(`${THREADS_API_BASE}/${userId}/threads_publish?${publishParams}`, { method: "POST" });
+    const publishData = await publishRes.json() as ThreadsPublishResponse | ThreadsError;
+    if (!publishRes.ok) throw new Error(`[Publish] ${ (publishData as ThreadsError).error?.message }`);
+    return (publishData as ThreadsPublishResponse).id;
+}
+
+export async function publishReplyWithRetryForBrand(
+    text: string,
+    replyToId: string,
+    credentials: ThreadsCredentials,
+    retries = 4,
+    initialDelayMs = 4000
+): Promise<string> {
+    const { accessToken, userId } = credentials;
+    await sleep(initialDelayMs);
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const containerParams = new URLSearchParams({ media_type: "TEXT", text, reply_to_id: replyToId, access_token: accessToken });
+            const containerRes = await fetch(`${THREADS_API_BASE}/${userId}/threads?${containerParams}`, { method: "POST" });
+            const containerData = await containerRes.json() as ThreadsContainerResponse | ThreadsError;
+            if (!containerRes.ok) throw new Error(`[ReplyContainer] ${ (containerData as ThreadsError).error?.message }`);
+            const containerId = (containerData as ThreadsContainerResponse).id;
+
+            await sleep(2000);
+
+            const publishParams = new URLSearchParams({ creation_id: containerId, access_token: accessToken });
+            const publishRes = await fetch(`${THREADS_API_BASE}/${userId}/threads_publish?${publishParams}`, { method: "POST" });
+            const publishData = await publishRes.json() as ThreadsPublishResponse | ThreadsError;
+            if (!publishRes.ok) throw new Error(`[ReplyPublish] ${ (publishData as ThreadsError).error?.message }`);
+            return (publishData as ThreadsPublishResponse).id;
+        } catch (error) {
+            lastError = error;
+            if (attempt < retries) {
+                console.warn(`Reply attempt ${attempt}/${retries} failed. Retrying...`, error);
+                await sleep(3000 * attempt);
+            }
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error("Failed to publish reply");
 }
 
 /**

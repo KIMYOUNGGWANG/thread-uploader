@@ -1,36 +1,156 @@
-# 📜 API Spec (Threads Auto Uploader)
+# 📜 API Spec — Threads Auto Uploader
 
-## Project Info
-- **Project**: Threads Auto Uploader
-- **Version**: v1.2
-- **Updated**: 2026-04-15
+- **Version**: v2.0 (Multi-brand SaaS)
+- **Updated**: 2026-04-16
 - **Base URL**: `/api`
 
 ---
 
-## Authentication
-- **Method**: None
-- **Current scope**: Internal dashboard + cron usage
-- **Release risk**: All write endpoints are currently unauthenticated. Add API key or session auth before exposing beyond trusted use.
+## Primary Flow & Actors
+
+```
+[Brand Owner]
+  → 회원가입/로그인
+  → 브랜드 생성 (Threads token 연결)
+  → 콘텐츠 생성 (AI) or 수동 업로드
+  → PENDING 큐 확인
+  → [Cron] 각 브랜드 FIFO 자동 발행
+```
 
 ---
 
-## Endpoints
+## Authentication
 
-### Posts Queue
+- **Method**: email + password → httpOnly 쿠키 세션 (`auth_session` 쿠키에 userId 저장)
+- **bcrypt**: 비밀번호 해싱 (rounds=12)
+- **Cron 예외**: `Authorization: Bearer <CRON_SECRET>` 헤더 or `?secret=` 쿼리
 
-| Method | Path | Description | Access |
-|:-------|:-----|:------------|:-----|
-| `GET` | `/api/posts` | 전체 포스트 목록 조회 | Public |
-| `POST` | `/api/posts` | 포스트 배열 생성 및 큐 삽입 | Public |
-| `PATCH` | `/api/posts/:id` | 포스트 내용/상태/예약시간 수정 | Public |
-| `DELETE` | `/api/posts/:id` | 단일 포스트 삭제 | Public |
-| `DELETE` | `/api/posts/reset` | `PENDING` 포스트 전체 삭제 | Public |
-| `POST` | `/api/posts/:id/publish` | 단일 포스트 즉시 발행 | Public |
+### Auth Endpoints
 
-#### Request Schemas
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `POST` | `/api/auth/register` | 신규 유저 등록 |
+| `POST` | `/api/auth/login` | 로그인 → 쿠키 발급 |
+| `POST` | `/api/auth/logout` | 쿠키 삭제 |
+| `GET` | `/api/auth/me` | 현재 유저 정보 |
 
 ```typescript
+// POST /api/auth/register
+interface RegisterRequest {
+  email: string;
+  password: string; // min 8자
+  name?: string;
+}
+interface RegisterResponse {
+  success: true;
+  userId: string;
+}
+
+// POST /api/auth/login
+interface LoginRequest {
+  email: string;
+  password: string;
+}
+interface LoginResponse {
+  success: true;
+  user: { id: string; email: string; name: string | null };
+}
+
+// GET /api/auth/me
+interface MeResponse {
+  id: string;
+  email: string;
+  name: string | null;
+}
+```
+
+---
+
+## Brand API
+
+| Method | Path | Description | Auth |
+|:-------|:-----|:------------|:-----|
+| `GET` | `/api/brands` | 내 브랜드 목록 | Required |
+| `POST` | `/api/brands` | 브랜드 생성 | Required |
+| `GET` | `/api/brands/[id]` | 브랜드 상세 | Required + Owner |
+| `PATCH` | `/api/brands/[id]` | 브랜드 수정 | Required + Owner |
+| `DELETE` | `/api/brands/[id]` | 브랜드 삭제 | Required + Owner |
+
+```typescript
+interface BrandConfig {
+  systemPrompt: string;         // AI 생성 시스템 프롬프트
+  topics: string[];             // 콘텐츠 주제 목록
+  targets: string[];            // 타겟 독자 목록
+  situations: string[];         // 상황/맥락 목록
+  websiteUrl: string;           // UTM 링크 베이스 URL
+  formulas: Array<{             // 콘텐츠 공식
+    id: string;
+    name: string;
+    weight: number;
+    instruction: string;
+  }>;
+  qualityRules?: {              // 품질 게이트 설정 (선택)
+    minLength?: number;
+    requiredTerms?: string[];
+  };
+}
+
+interface BrandResponse {
+  id: string;
+  name: string;
+  slug: string;
+  threadsUserId: string;
+  tokenExpiry: string;
+  brandConfig: BrandConfig;
+  formulaWeights: Record<string, number>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// POST /api/brands
+interface CreateBrandRequest {
+  name: string;
+  slug: string;           // URL-safe, unique
+  accessToken: string;    // Threads API token
+  threadsUserId: string;  // Threads user ID
+  tokenExpiry: string;    // ISO datetime
+  brandConfig: BrandConfig;
+}
+
+// PATCH /api/brands/[id]
+interface UpdateBrandRequest {
+  name?: string;
+  accessToken?: string;
+  threadsUserId?: string;
+  tokenExpiry?: string;
+  brandConfig?: Partial<BrandConfig>;
+  formulaWeights?: Record<string, number>;
+}
+```
+
+---
+
+## Posts API (Per-brand)
+
+모든 포스트 엔드포인트는 `brandId` 쿼리 파라미터 또는 body 필드 필요.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/posts?brandId=xxx` | 브랜드 포스트 목록 |
+| `POST` | `/api/posts` | 포스트 배열 생성 |
+| `PATCH` | `/api/posts/[id]` | 포스트 수정 |
+| `DELETE` | `/api/posts/[id]` | 포스트 삭제 |
+| `DELETE` | `/api/posts/reset?brandId=xxx` | PENDING 전체 삭제 |
+| `POST` | `/api/posts/[id]/publish` | 즉시 발행 |
+
+```typescript
+// POST /api/posts
+interface CreatePostsRequest {
+  brandId: string;
+  posts: ParsedPost[];
+  insertAtFront?: boolean;
+}
+
 interface ParsedPost {
   content: string;
   images: string[];
@@ -38,81 +158,35 @@ interface ParsedPost {
   firstComment?: string;
 }
 
-// POST /api/posts
-interface CreatePostsRequest {
-  posts: ParsedPost[];
-  insertAtFront?: boolean;
-}
-
-// PATCH /api/posts/:id
-interface UpdatePostRequest {
-  content?: string;
-  imageUrls?: string; // DB raw value
-  scheduledAt?: string;
-  status?: "PENDING" | "PUBLISHED" | "FAILED";
-  threadsId?: string | null;
-  errorLog?: string | null;
-  firstComment?: string | null;
-}
-```
-
-#### Response Schemas
-
-```typescript
 interface PostResponse {
   id: string;
+  brandId: string;
   content: string;
-  imageUrls: string[]; // API response is parsed array
+  imageUrls: string[];
   scheduledAt: string;
   status: "PENDING" | "PUBLISHED" | "FAILED";
   threadsId: string | null;
   createdAt: string;
   errorLog: string | null;
   firstComment: string | null;
-}
-
-interface CreatePostsResponse {
-  success: true;
-  count: number;
-  posts: Array<{
-    id: string;
-    scheduledAt: string;
-    status: "PENDING";
-  }>;
+  formulaId: string | null;
 }
 ```
 
-### Immediate Upload
+---
 
-| Method | Path | Description | Access |
-|:-------|:-----|:------------|:-----|
-| `POST` | `/api/posts/upload` | DB 저장 없이 Threads에 즉시 발행 | Public |
+## AI Generate API (Per-brand)
 
-```typescript
-interface ImmediateUploadRequest {
-  content: string;
-  imageUrls?: string[];
-  firstComment?: string;
-}
-
-interface ImmediateUploadResponse {
-  success: true;
-  threadsId: string;
-  replyId: string | null;
-  replyError: string | null;
-  message: string;
-}
-```
-
-### AI Generation
-
-| Method | Path | Description | Access |
-|:-------|:-----|:------------|:-----|
-| `POST` | `/api/generate` | AI로 포스트와 첫댓글을 생성해 `PENDING` 큐에 저장 | Public |
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `POST` | `/api/generate` | AI 콘텐츠 생성 → PENDING 큐 저장 |
+| `POST` | `/api/generate/optimize` | 성과 기반 공식 가중치 최적화 |
 
 ```typescript
+// POST /api/generate
 interface GenerateRequest {
-  count?: number; // 1..300, default 30
+  brandId: string;
+  count?: number;         // 1..300, default 30
   insertAtFront?: boolean;
 }
 
@@ -120,52 +194,12 @@ interface GenerateResponse {
   success: true;
   count: number;
 }
-```
-
-### Automation & Cron
-
-| Method | Path | Description | Type |
-|:-------|:-----|:------------|:-----|
-| `GET` | `/api/cron/publish` | 가장 오래된 `PENDING` 포스트 1개를 FIFO 순서로 발행 | GitHub/Vercel Cron |
-| `GET` | `/api/cron/refresh-token` | Threads API 토큰 상태 확인 및 필요 시 갱신 | GitHub/Vercel Cron |
-
-#### Cron Security
-- `CRON_SECRET`가 설정된 경우 `Authorization: Bearer <secret>` 헤더 또는 `?secret=` 쿼리가 필요함
-
----
-
-### Analytics & Optimization
-
-| Method | Path | Description | Access |
-|:-------|:-----|:------------|:-----|
-| `GET` | `/api/analytics` | 공식(formulaId)별 성과 요약 반환 | Public |
-| `POST` | `/api/generate/optimize` | 성과 데이터 기반 공식 가중치 자동 조정 | Public |
-
-#### Response Schemas
-
-```typescript
-// GET /api/analytics
-interface AnalyticsResponse {
-  total: number;
-  evaluated: number;
-  byFormula: FormulaStats[];
-  topFormula: FormulaStats | null;
-  bottomFormula: FormulaStats | null;
-  collectedAt: string;
-}
-
-interface FormulaStats {
-  formulaId: string;
-  count: number;
-  avgViews: number;
-  avgLikes: number;
-  avgReplies: number;
-  avgReposts: number;
-  totalViews: number;
-  engagementScore: number; // views*1 + likes*5 + replies*3 + reposts*4
-}
 
 // POST /api/generate/optimize
+interface OptimizeRequest {
+  brandId: string;
+}
+
 interface OptimizeResponse {
   success: true;
   analysedPosts: number;
@@ -179,32 +213,132 @@ interface OptimizeResponse {
 
 ---
 
+## Cron API
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/cron/publish` | 모든 active 브랜드 순회 → 각 1개 FIFO 발행 |
+| `GET` | `/api/cron/refresh-token` | 모든 브랜드 토큰 상태 확인 및 갱신 |
+
+```typescript
+interface CronPublishResponse {
+  published: Array<{
+    brandId: string;
+    brandName: string;
+    postId: string;
+    threadsId: string;
+  }>;
+  skipped: Array<{
+    brandId: string;
+    brandName: string;
+    reason: "no_pending" | "publish_failed";
+  }>;
+}
+```
+
+---
+
+## Analytics API
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/analytics?brandId=xxx` | 브랜드별 공식 성과 요약 |
+
+```typescript
+interface AnalyticsResponse {
+  brandId: string;
+  total: number;
+  evaluated: number;
+  byFormula: FormulaStats[];
+  topFormula: FormulaStats | null;
+  bottomFormula: FormulaStats | null;
+  collectedAt: string;
+}
+```
+
+---
+
+## Database Schema (Prisma)
+
+```prisma
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // bcrypt hash
+  name      String?
+  createdAt DateTime @default(now())
+  brands    Brand[]
+}
+
+model Brand {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  accessToken    String
+  threadsUserId  String
+  tokenExpiry    DateTime
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  formulaWeights String   @default("{}")  // JSON
+  brandConfig    String   @default("{}")  // JSON: BrandConfig
+  ownerId        String
+  owner          User     @relation(fields: [ownerId], references: [id])
+  posts          Post[]
+}
+
+model Post {
+  id           String    @id @default(cuid())
+  brandId      String
+  brand        Brand     @relation(fields: [brandId], references: [id])
+  content      String
+  imageUrls    String    @default("[]")
+  scheduledAt  DateTime
+  status       String    @default("PENDING")
+  threadsId    String?
+  createdAt    DateTime  @default(now())
+  errorLog     String?
+  firstComment String?
+  formulaId    String?
+  views        Int?
+  likes        Int?
+  replies      Int?
+  reposts      Int?
+  metricsAt    DateTime?
+}
+
+// Settings 테이블은 Brand로 완전 대체 (마이그레이션 후 제거)
+```
+
+---
+
+## Migration Plan
+
+1. `User` 생성 → 환경변수 `ADMIN_EMAIL`, `ADMIN_PASSWORD`로 첫 유저 시드
+2. `Brand` 생성 → 현재 `Settings` 레코드를 "CosmicPath" 브랜드로 복사
+3. `Post.brandId` 추가 → 기존 모든 Post에 CosmicPath brandId 할당
+4. `Settings` 테이블 유지 (하위 호환) → 이후 사이클에서 제거
+
+---
+
 ## Error Codes
 
 | Code | Meaning | When |
 |:-----|:--------|:-----|
 | `400` | Bad Request | 입력값 검증 실패 |
-| `401` | Unauthorized | Cron secret 불일치 |
-| `404` | Not Found | 잘못된 포스트 ID |
-| `500` | Server Error | DB 오류 또는 Threads API 오류 |
+| `401` | Unauthorized | 미로그인 or Cron secret 불일치 |
+| `403` | Forbidden | 다른 유저의 브랜드 접근 |
+| `404` | Not Found | 잘못된 ID |
+| `409` | Conflict | slug 중복 |
+| `500` | Server Error | DB / Threads API 오류 |
 
 ---
 
-## Database Tables (Prisma)
+## Non-goals
 
-| Table | Structure | Note |
-|:------|:----------|:-----|
-| `Post` | `id`, `content`, `imageUrls`, `scheduledAt`, `status`, `threadsId`, `createdAt`, `errorLog`, `firstComment`, `formulaId`, `views`, `likes`, `replies`, `reposts`, `metricsAt` | 발행 큐 + 발행 결과 + 성과 메트릭 |
-| `Settings` | `id`, `accessToken`, `userId`, `tokenExpiry`, `updatedAt`, `formulaWeights` | Threads API 토큰 + 공식 가중치 |
-
----
-
-## Notes
-- DB의 `Post.imageUrls`는 문자열 컬럼이며 `JSON.stringify`된 배열을 저장함.
-- `GET /api/posts`에서는 `imageUrls`를 다시 배열로 파싱해서 반환함.
-- 첫댓글은 `Post.firstComment`에 저장되며, 즉시 발행/cron 발행 모두 본문 발행 뒤 재시도 로직을 거쳐 답글로 업로드됨.
-- `scheduledAt`은 절대 시간 스케줄러라기보다 FIFO 순서 보장을 위한 정렬 키로도 사용됨.
-- `/api/posts/upload`는 이름과 달리 “파일 업로드 파싱” 엔드포인트가 아니라 “즉시 Threads 발행” 엔드포인트임.
+- X, Instagram, TikTok 등 타 플랫폼 연동
+- 공개 API / 3rd party webhook
+- 브랜드 간 콘텐츠 공유
+- 실시간 알림
 
 > [!IMPORTANT]
 > 코드와 계약이 어긋나면 ship 게이트에서 먼저 문서를 갱신하거나 구현을 되돌려야 한다.

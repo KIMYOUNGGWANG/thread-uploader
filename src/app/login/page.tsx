@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { Lock, Mail, Sparkles, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +17,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password) return;
+    if (!email || !password) return;
 
     setIsLoading(true);
     setError(null);
@@ -25,20 +26,20 @@ export default function LoginPage() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const data = await response.json() as { error?: string };
 
       if (response.ok) {
-        toast.success("로그인 성공! 대시보드로 이동합니다.");
-        router.push("/");
+        toast.success("로그인 성공!");
+        router.push("/brands");
         router.refresh();
       } else {
-        setError(data.error || "비밀번호가 올바르지 않습니다.");
-        toast.error(data.error || "로그인 실패");
+        setError(data.error ?? "로그인에 실패했습니다.");
+        toast.error(data.error ?? "로그인 실패");
       }
-    } catch (err) {
+    } catch {
       setError("서버 오류가 발생했습니다. 다시 시도해 주세요.");
       toast.error("연결 오류");
     } finally {
@@ -58,35 +59,43 @@ export default function LoginPage() {
           <div className="mx-auto w-12 h-12 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/20 mb-4">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-white">
-            Threads Uploader
-          </CardTitle>
-          <CardDescription className="text-slate-400">
-            접근 권한이 필요합니다. 관리자 비밀번호를 입력하세요.
-          </CardDescription>
+          <CardTitle className="text-2xl font-bold tracking-tight text-white">Threads Uploader</CardTitle>
+          <CardDescription className="text-slate-400">계정에 로그인하세요</CardDescription>
         </CardHeader>
+
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-                <Input
-                  type="password"
-                  placeholder="Admin Password"
-                  className="pl-10 bg-slate-950/50 border-slate-700 text-white placeholder:text-slate-600 focus:ring-violet-500"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              {error && (
-                <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-2 rounded-lg border border-red-500/20 animate-in fade-in slide-in-from-top-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {error}
-                </div>
-              )}
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+              <Input
+                type="email"
+                placeholder="이메일"
+                className="pl-10 bg-slate-950/50 border-slate-700 text-white placeholder:text-slate-600 focus:ring-violet-500"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoFocus
+                required
+              />
             </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+              <Input
+                type="password"
+                placeholder="비밀번호"
+                className="pl-10 bg-slate-950/50 border-slate-700 text-white placeholder:text-slate-600 focus:ring-violet-500"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-2 rounded-lg border border-red-500/20 animate-in fade-in slide-in-from-top-1">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {error}
+              </div>
+            )}
           </CardContent>
+
           <CardFooter>
             <Button
               type="submit"
@@ -94,21 +103,14 @@ export default function LoginPage() {
               disabled={isLoading}
             >
               {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  로그인 중...
-                </>
-              ) : (
-                "Dashboard 입장"
-              )}
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />로그인 중...</>
+              ) : "로그인"}
             </Button>
           </CardFooter>
         </form>
       </Card>
-      
-      <p className="absolute bottom-8 text-slate-600 text-xs">
-        &copy; 2026 Threads Uploader. Private Access Only.
-      </p>
+
+      <p className="absolute bottom-8 text-slate-600 text-xs">&copy; 2026 Threads Uploader.</p>
     </div>
   );
 }
