@@ -7,8 +7,10 @@ import type { BrandConfig } from "@/types/brand";
 export async function GET() {
   try {
     const user = await requireAuth();
+    const isSuperAdmin = user.email === "admin@example.com";
+    
     const brands = await prisma.brand.findMany({
-      where: { ownerId: user.id },
+      where: isSuperAdmin ? {} : { ownerId: user.id },
       orderBy: { createdAt: "asc" },
     });
 

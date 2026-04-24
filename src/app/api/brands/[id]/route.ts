@@ -4,10 +4,13 @@ import { requireAuth, AuthError } from "@/lib/auth";
 import { parseBrandConfig } from "@/types/brand";
 import type { BrandConfig } from "@/types/brand";
 
-async function getBrandForUser(id: string, userId: string) {
+async function getBrandForUser(id: string, user: { id: string; email: string }) {
   const brand = await prisma.brand.findUnique({ where: { id } });
   if (!brand) return null;
-  if (brand.ownerId !== userId) return null;
+  
+  const isSuperAdmin = user.email === "admin@example.com";
+  if (!isSuperAdmin && brand.ownerId !== user.id) return null;
+  
   return brand;
 }
 
@@ -18,7 +21,7 @@ export async function GET(
   try {
     const user = await requireAuth();
     const { id } = await params;
-    const brand = await getBrandForUser(id, user.id);
+    const brand = await getBrandForUser(id, user);
     if (!brand) {
       return NextResponse.json({ error: "브랜드를 찾을 수 없습니다" }, { status: 404 });
     }
@@ -48,7 +51,7 @@ export async function PATCH(
   try {
     const user = await requireAuth();
     const { id } = await params;
-    const brand = await getBrandForUser(id, user.id);
+    const brand = await getBrandForUser(id, user);
     if (!brand) {
       return NextResponse.json({ error: "브랜드를 찾을 수 없습니다" }, { status: 404 });
     }
@@ -108,7 +111,7 @@ export async function DELETE(
   try {
     const user = await requireAuth();
     const { id } = await params;
-    const brand = await getBrandForUser(id, user.id);
+    const brand = await getBrandForUser(id, user);
     if (!brand) {
       return NextResponse.json({ error: "브랜드를 찾을 수 없습니다" }, { status: 404 });
     }
