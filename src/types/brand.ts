@@ -18,6 +18,7 @@ export interface BrandConfig {
   websiteUrl: string;
   formulas: BrandFormula[];
   qualityRules?: BrandQualityRules;
+  trendingTopics?: string[];
 }
 
 export interface BrandResponse {
@@ -39,6 +40,7 @@ export const DEFAULT_BRAND_CONFIG: BrandConfig = {
   situations: [],
   websiteUrl: "",
   formulas: [],
+  trendingTopics: [],
 };
 
 export function parseBrandConfig(raw: string): BrandConfig {
@@ -52,6 +54,7 @@ export function parseBrandConfig(raw: string): BrandConfig {
       websiteUrl: parsed.websiteUrl ?? DEFAULT_BRAND_CONFIG.websiteUrl,
       formulas: parsed.formulas ?? DEFAULT_BRAND_CONFIG.formulas,
       qualityRules: parsed.qualityRules,
+      trendingTopics: parsed.trendingTopics ?? [],
     };
   } catch {
     return DEFAULT_BRAND_CONFIG;
