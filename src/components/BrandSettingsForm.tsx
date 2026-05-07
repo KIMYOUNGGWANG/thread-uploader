@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Save, Plus, Trash2, RefreshCw, Settings,
-  Sparkles, FileText, Users, MessageSquare, Zap, Key,
+  Sparkles, FileText, Users, MessageSquare, Zap, Key, TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast, Toaster } from "sonner";
@@ -25,7 +25,7 @@ interface BrandSettingsFormProps {
   initialData: InitialData;
 }
 
-type Tab = "basic" | "ai" | "topics" | "targets" | "situations" | "formulas";
+type Tab = "basic" | "ai" | "topics" | "targets" | "situations" | "formulas" | "trending";
 
 export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }: BrandSettingsFormProps) {
   const router = useRouter();
@@ -50,6 +50,11 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
   // 공식
   const [formulas, setFormulas] = useState<BrandFormula[]>(initialData.config.formulas);
 
+  // 트렌딩 토픽
+  const [trendingTopics, setTrendingTopics] = useState<string[]>(
+    initialData.config.trendingTopics ?? []
+  );
+
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
@@ -68,6 +73,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             targets,
             situations,
             formulas,
+            trendingTopics,
           } satisfies BrandConfig,
         }),
       });
@@ -80,7 +86,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     } finally {
       setIsSaving(false);
     }
-  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, topics, targets, situations, formulas, router]);
+  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, topics, targets, situations, formulas, trendingTopics, router]);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "basic", label: "기본 정보", icon: <Key className="w-4 h-4" /> },
@@ -89,6 +95,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     { id: "targets", label: "타겟", icon: <Users className="w-4 h-4" />, badge: targets.length },
     { id: "situations", label: "상황", icon: <MessageSquare className="w-4 h-4" />, badge: situations.length },
     { id: "formulas", label: "공식", icon: <Zap className="w-4 h-4" />, badge: formulas.length },
+    { id: "trending", label: "트렌딩", icon: <TrendingUp className="w-4 h-4" />, badge: trendingTopics.length },
   ];
 
   return (
@@ -196,6 +203,15 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
         )}
         {activeTab === "formulas" && (
           <FormulasTab formulas={formulas} setFormulas={setFormulas} />
+        )}
+        {activeTab === "trending" && (
+          <ListTab
+            label="트렌딩 토픽"
+            description="이번 주 핫한 시즌/이슈 키워드. 콘텐츠 생성 시 기존 주제와 함께 랜덤으로 사용됩니다. 매주 1회 업데이트하세요."
+            placeholder="예: 수성 역행 2026년 5월"
+            items={trendingTopics}
+            setItems={setTrendingTopics}
+          />
         )}
       </main>
     </div>
