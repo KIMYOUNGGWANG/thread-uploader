@@ -130,9 +130,6 @@ export async function POST(request: NextRequest) {
     if (!config.formulas.length) {
       return NextResponse.json({ error: "브랜드에 공식이 설정되지 않았습니다. 브랜드 설정에서 formulas를 추가하세요." }, { status: 400 });
     }
-    if (!config.topics.length) {
-      return NextResponse.json({ error: "브랜드에 주제가 설정되지 않았습니다. 브랜드 설정에서 topics를 추가하세요." }, { status: 400 });
-    }
     if (!config.systemPrompt) {
       return NextResponse.json({ error: "브랜드에 시스템 프롬프트가 설정되지 않았습니다." }, { status: 400 });
     }
