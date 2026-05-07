@@ -54,7 +54,7 @@ export function parseBrandConfig(raw: string): BrandConfig {
       websiteUrl: parsed.websiteUrl ?? DEFAULT_BRAND_CONFIG.websiteUrl,
       formulas: parsed.formulas ?? DEFAULT_BRAND_CONFIG.formulas,
       qualityRules: parsed.qualityRules,
-      trendingTopics: parsed.trendingTopics ?? [],
+      trendingTopics: parsed.trendingTopics ?? DEFAULT_BRAND_CONFIG.trendingTopics,
     };
   } catch {
     return DEFAULT_BRAND_CONFIG;
