@@ -47,7 +47,7 @@ async function generateOne(
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const message = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model: "claude-sonnet-4-6",
         max_tokens: 900,
         temperature: 0.95,
         system: config.systemPrompt,
@@ -139,7 +139,11 @@ export async function POST(request: NextRequest) {
 
     const dbWeights = JSON.parse(brand.formulaWeights) as Record<string, number>;
     const formulaPool = buildFormulaPool(config.formulas, dbWeights);
-    const topics = shuffleTopics(config.topics, count);
+    const allTopics = [...config.topics, ...(config.trendingTopics ?? [])];
+    if (allTopics.length === 0) {
+      return NextResponse.json({ error: "토픽이 없습니다. 브랜드 설정에서 주제 또는 트렌딩 토픽을 추가하세요." }, { status: 400 });
+    }
+    const topics = shuffleTopics(allTopics, count);
 
     const BATCH = 3;
     const BATCH_COOLDOWN = 500;
