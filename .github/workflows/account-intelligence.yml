@@ -1,9 +1,6 @@
 name: Account Intelligence
 
 on:
-  schedule:
-    # Every 2 hours. The endpoint analyzes the latest 48-hour account window.
-    - cron: '0 */2 * * *'
   workflow_dispatch:
 
 jobs:

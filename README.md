@@ -60,6 +60,7 @@ npm run growth:metrics
 - `GET /api/cron/viral` discovers viral references and refreshes brand viral memory.
 - `GET /api/cron/account-intelligence` refreshes 48-hour account insight snapshots, intended for a 2-hour cadence.
 
+The account intelligence cadence is registered through `vercel.json` as a Vercel Cron Job.
 Set `CRON_SECRET` to require `Authorization: Bearer <CRON_SECRET>` or `?secret=` for cron calls.
 
 ## Environment
@@ -69,7 +70,7 @@ Copy `.env.example` to `.env` and configure:
 - `DATABASE_URL`
 - `ANTHROPIC_API_KEY`
 - `CRON_SECRET`
-- Optional `APP_URL` GitHub repository variable for the 2-hour account intelligence workflow. Defaults to `https://thread-uploader.vercel.app`.
+- Optional `APP_URL` GitHub repository variable for the manual account intelligence workflow fallback. Defaults to `https://thread-uploader.vercel.app`.
 - Legacy fallback Threads settings if needed
 
 ## Database
