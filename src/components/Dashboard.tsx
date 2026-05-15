@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Users, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
@@ -127,6 +127,43 @@ interface ViralData {
   examples: ViralExampleData[];
   saved?: number;
   errors?: ViralSourceError[];
+}
+
+type RelatedAccountStatus = "candidate" | "watched" | "ignored";
+
+interface RelatedAccountData {
+  id: string;
+  brandId: string;
+  username: string;
+  displayName: string | null;
+  bio: string | null;
+  profileUrl: string | null;
+  status: RelatedAccountStatus;
+  category: string;
+  relevanceScore: number;
+  reason: string;
+  source: string;
+  sourceKeyword: string | null;
+  lastDiscoveredAt: string;
+  lastScannedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AccountPatternData {
+  id: string;
+  brandId: string;
+  accountId: string | null;
+  dimension: string;
+  value: string;
+  sourceCount: number;
+  confidence: number;
+  recommendation: string;
+}
+
+interface RelatedAccountsData {
+  accounts: RelatedAccountData[];
+  patterns: AccountPatternData[];
 }
 
 interface CampaignPostData {
@@ -310,6 +347,11 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const [showManualReference, setShowManualReference] = useState(false);
   const [manualReference, setManualReference] = useState<ManualReferenceFormState>(EMPTY_MANUAL_REFERENCE);
   const [isSavingManualReference, setIsSavingManualReference] = useState(false);
+  const [showRelatedAccounts, setShowRelatedAccounts] = useState(false);
+  const [relatedAccounts, setRelatedAccounts] = useState<RelatedAccountsData | null>(null);
+  const [isLoadingRelatedAccounts, setIsLoadingRelatedAccounts] = useState(false);
+  const [isDiscoveringAccounts, setIsDiscoveringAccounts] = useState(false);
+  const [isAnalyzingAccounts, setIsAnalyzingAccounts] = useState(false);
 
   const fetchPosts = useCallback(async () => {
     setIsFetching(true);
@@ -590,6 +632,95 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
       setIsLoadingViral(false);
     }
   }, [showViral, brandId]);
+
+  const loadRelatedAccounts = useCallback(async () => {
+    setIsLoadingRelatedAccounts(true);
+    try {
+      const response = await fetch(`/api/accounts?brandId=${brandId}`);
+      const data = await response.json() as RelatedAccountsData | { error?: string };
+      if (!response.ok) throw new Error((data as { error?: string }).error ?? "관련 계정 불러오기 실패");
+      setRelatedAccounts(data as RelatedAccountsData);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "관련 계정 불러오기 실패");
+    } finally {
+      setIsLoadingRelatedAccounts(false);
+    }
+  }, [brandId]);
+
+  const handleToggleRelatedAccounts = useCallback(async () => {
+    if (showRelatedAccounts) {
+      setShowRelatedAccounts(false);
+      return;
+    }
+    setShowRelatedAccounts(true);
+    await loadRelatedAccounts();
+  }, [loadRelatedAccounts, showRelatedAccounts]);
+
+  const handleDiscoverAccounts = useCallback(async () => {
+    setIsDiscoveringAccounts(true);
+    try {
+      const response = await fetch("/api/accounts/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId, limit: 20, minScore: 60 }),
+      });
+      const data = await response.json() as { saved?: number; discovered?: number; errors?: ViralSourceError[]; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "관련 계정 발견 실패");
+      await loadRelatedAccounts();
+      const errors = data.errors ?? [];
+      if (errors.length > 0) {
+        toast.warning(`후보 ${data.saved ?? 0}개 저장, 일부 소스 실패 (${errors.length}건)`);
+      } else {
+        toast.success(`관련 계정 후보 ${data.saved ?? 0}개 저장`);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "관련 계정 발견 실패");
+    } finally {
+      setIsDiscoveringAccounts(false);
+    }
+  }, [brandId, loadRelatedAccounts]);
+
+  const handleAnalyzeAccounts = useCallback(async () => {
+    setIsAnalyzingAccounts(true);
+    try {
+      const response = await fetch("/api/accounts/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId, limit: 10 }),
+      });
+      const data = await response.json() as { scannedAccounts?: number; savedPosts?: number; learnedPatterns?: number; errors?: ViralSourceError[]; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "watched 계정 분석 실패");
+      await loadRelatedAccounts();
+      if (showViral) {
+        const viralResponse = await fetch(`/api/viral?brandId=${brandId}`);
+        if (viralResponse.ok) setViral(await viralResponse.json() as ViralData);
+      }
+      toast.success(`계정 ${data.scannedAccounts ?? 0}개 분석 · 글 ${data.savedPosts ?? 0}개 저장`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "watched 계정 분석 실패");
+    } finally {
+      setIsAnalyzingAccounts(false);
+    }
+  }, [brandId, loadRelatedAccounts, showViral]);
+
+  const handleUpdateAccountStatus = useCallback(async (accountId: string, status: RelatedAccountStatus) => {
+    try {
+      const response = await fetch(`/api/accounts/${accountId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json() as { account?: RelatedAccountData; error?: string };
+      if (!response.ok || !data.account) throw new Error(data.error ?? "계정 상태 변경 실패");
+      setRelatedAccounts((current) => current ? {
+        ...current,
+        accounts: current.accounts.map((account) => account.id === accountId ? data.account! : account),
+      } : current);
+      toast.success(status === "watched" ? "watchlist에 추가됨" : status === "ignored" ? "ignore 처리됨" : "후보로 되돌림");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "계정 상태 변경 실패");
+    }
+  }, []);
 
   const handleRunViralLoop = useCallback(async () => {
     setIsRunningViral(true);
@@ -956,6 +1087,33 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   onRefresh={loadCampaignSummary}
                   onDraftChange={handleCampaignDraftChange}
                   onSaveMetrics={handleSaveCampaignMetrics}
+                />
+              )}
+            </div>
+
+            {/* Related Accounts Panel */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+              <button onClick={handleToggleRelatedAccounts} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <Users className="w-4 h-4 text-indigo-500" />
+                  Related Accounts
+                  {relatedAccounts && relatedAccounts.accounts.length > 0 && (
+                    <span className="text-xs text-slate-400 font-normal">({relatedAccounts.accounts.length}개 후보)</span>
+                  )}
+                </div>
+                {showRelatedAccounts ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {showRelatedAccounts && (
+                <RelatedAccountsPanel
+                  data={relatedAccounts}
+                  isLoading={isLoadingRelatedAccounts}
+                  isDiscovering={isDiscoveringAccounts}
+                  isAnalyzing={isAnalyzingAccounts}
+                  onRefresh={loadRelatedAccounts}
+                  onDiscover={handleDiscoverAccounts}
+                  onAnalyze={handleAnalyzeAccounts}
+                  onUpdateStatus={handleUpdateAccountStatus}
                 />
               )}
             </div>
@@ -1334,6 +1492,150 @@ function AccountIntelligencePanel({
                   {action.postId && `post ${action.postId.slice(0, 8)}`}
                 </p>
               )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RelatedAccountsPanel({
+  data,
+  isLoading,
+  isDiscovering,
+  isAnalyzing,
+  onRefresh,
+  onDiscover,
+  onAnalyze,
+  onUpdateStatus,
+}: {
+  data: RelatedAccountsData | null;
+  isLoading: boolean;
+  isDiscovering: boolean;
+  isAnalyzing: boolean;
+  onRefresh: () => void;
+  onDiscover: () => void;
+  onAnalyze: () => void;
+  onUpdateStatus: (accountId: string, status: RelatedAccountStatus) => void;
+}) {
+  const accounts = data?.accounts ?? [];
+  const patterns = data?.patterns ?? [];
+  const watchedCount = accounts.filter((account) => account.status === "watched").length;
+  const ignoredCount = accounts.filter((account) => account.status === "ignored").length;
+  const candidateCount = accounts.filter((account) => account.status === "candidate").length;
+
+  if (isLoading) {
+    return (
+      <div className="border-t border-slate-100 dark:border-slate-700 p-6 flex justify-center">
+        <RefreshCw className="w-5 h-5 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-slate-100 dark:border-slate-700 p-4 space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-white">AI Account Discovery</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            키워드로 관련 공개 계정을 찾고, watched 계정만 학습합니다.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={onRefresh} className="text-xs">
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />새로고침
+          </Button>
+          <Button size="sm" onClick={onDiscover} disabled={isDiscovering || isAnalyzing} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs">
+            {isDiscovering ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Radar className="w-3.5 h-3.5 mr-1.5" />}
+            {isDiscovering ? "발견 중..." : "계정 발견"}
+          </Button>
+          <Button size="sm" onClick={onAnalyze} disabled={isAnalyzing || isDiscovering || watchedCount === 0} className="bg-rose-600 hover:bg-rose-700 text-white text-xs">
+            {isAnalyzing ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5 mr-1.5" />}
+            {isAnalyzing ? "분석 중..." : "watched 분석"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <MetricTile label="후보" value={String(candidateCount)} sub="candidate" />
+        <MetricTile label="Watched" value={String(watchedCount)} sub="학습 대상" />
+        <MetricTile label="Ignored" value={String(ignoredCount)} sub="학습 제외" />
+        <MetricTile label="패턴" value={String(patterns.length)} sub="account signals" />
+      </div>
+
+      {patterns.length > 0 && (
+        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">watched 계정 학습 지침</p>
+          <div className="space-y-1">
+            {patterns.slice(0, 3).map((pattern) => (
+              <p key={pattern.id} className="text-sm text-slate-700 dark:text-slate-300">
+                {accountPatternDimensionLabel(pattern.dimension)} · {pattern.value} ({pattern.sourceCount}개, 신뢰도 {pattern.confidence})
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {accounts.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-6 text-center text-sm text-slate-400">
+          <Users className="w-8 h-8 opacity-40" />
+          <div>
+            <p>아직 발견된 관련 계정이 없습니다.</p>
+            <p className="text-xs">브랜드 키워드로 후보를 찾은 뒤 watch/ignore로 정리하세요.</p>
+          </div>
+          <Button size="sm" onClick={onDiscover} disabled={isDiscovering} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+            {isDiscovering ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Radar className="w-3.5 h-3.5 mr-1.5" />}
+            {isDiscovering ? "발견 중..." : "계정 발견"}
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {accounts.slice(0, 12).map((account) => (
+            <div key={account.id} className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-white">@{account.username}</p>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${accountStatusClass(account.status)}`}>
+                      {account.status}
+                    </span>
+                    <span className="rounded-full bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300 px-2 py-0.5 text-xs">
+                      {accountCategoryLabel(account.category)}
+                    </span>
+                    <span className="rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 px-2 py-0.5 text-xs font-semibold">
+                      {account.relevanceScore}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{account.reason}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {account.sourceKeyword ? `keyword ${account.sourceKeyword}` : account.source}
+                    {account.lastScannedAt ? ` · scanned ${formatDateTime(account.lastScannedAt)}` : ` · discovered ${formatDateTime(account.lastDiscoveredAt)}`}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  {account.profileUrl && (
+                    <a href={account.profileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-md border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
+                      열기 <ExternalLink className="w-3 h-3 ml-1" />
+                    </a>
+                  )}
+                  {account.status !== "watched" && (
+                    <Button size="sm" variant="outline" onClick={() => onUpdateStatus(account.id, "watched")} className="text-xs">
+                      <Eye className="w-3.5 h-3.5 mr-1.5" />Watch
+                    </Button>
+                  )}
+                  {account.status !== "ignored" && (
+                    <Button size="sm" variant="outline" onClick={() => onUpdateStatus(account.id, "ignored")} className="text-xs">
+                      <EyeOff className="w-3.5 h-3.5 mr-1.5" />Ignore
+                    </Button>
+                  )}
+                  {account.status !== "candidate" && (
+                    <Button size="sm" variant="ghost" onClick={() => onUpdateStatus(account.id, "candidate")} className="text-xs">
+                      후보
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -1729,6 +2031,35 @@ function viralDimensionLabel(dimension: string): string {
     cta: "CTA",
   };
   return labels[dimension] ?? dimension;
+}
+
+function accountPatternDimensionLabel(dimension: string): string {
+  const labels: Record<string, string> = {
+    hook: "훅",
+    topic: "주제",
+    emotion: "감정",
+    structure: "구조",
+    cta: "CTA",
+  };
+  return labels[dimension] ?? dimension;
+}
+
+function accountCategoryLabel(category: string): string {
+  const labels: Record<string, string> = {
+    career: "커리어",
+    saju: "사주",
+    creator: "크리에이터",
+    competitor: "경쟁/참고",
+    adjacent: "인접",
+    unknown: "미분류",
+  };
+  return labels[category] ?? category;
+}
+
+function accountStatusClass(status: RelatedAccountStatus): string {
+  if (status === "watched") return "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300";
+  if (status === "ignored") return "bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-400";
+  return "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300";
 }
 
 function sourceLabel(source: string): string {

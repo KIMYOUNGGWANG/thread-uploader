@@ -10,6 +10,7 @@ Multi-brand Threads publishing, campaign experimentation, viral discovery, and g
 - Collect Threads metrics and calculate a weighted performance score.
 - Run 2-hour account intelligence snapshots for reply, format, link-ratio, and quality actions.
 - Discover viral reference posts from brand topics, public Threads profiles, manual imports, and owned post history.
+- Discover related public Threads accounts, approve watch/ignore status, and learn patterns from watched accounts.
 - Manage viral sources per brand: keyword searches, competitor handles, excluded terms, source adapters, and run limits.
 - Extract viral hook, emotion, structure, topic, and CTA patterns.
 - Learn winning and weak growth patterns, then feed that memory into future AI generation.

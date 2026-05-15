@@ -36,6 +36,8 @@ model Brand {
   viralExamples  ViralExample[]
   viralPatterns  ViralPattern[]
   accountInsights AccountInsight[]
+  discoveredAccounts DiscoveredAccount[]
+  accountPatterns AccountPattern[]
 }
 
 model Post {
@@ -159,4 +161,72 @@ model AccountInsight {
   createdAt   DateTime @default(now())
 
   @@index([brandId, generatedAt])
+}
+
+model DiscoveredAccount {
+  id               String   @id @default(cuid())
+  brandId          String
+  brand            Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  username         String
+  displayName      String?
+  bio              String?
+  profileUrl       String?
+  status           String   @default("candidate")
+  category         String   @default("unknown")
+  relevanceScore   Int      @default(0)
+  reason           String   @default("")
+  source           String   @default("keyword_search")
+  sourceKeyword    String?
+  lastDiscoveredAt DateTime @default(now())
+  lastScannedAt    DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  posts            DiscoveredAccountPost[]
+  patterns         AccountPattern[]
+
+  @@unique([brandId, username])
+  @@index([brandId, status])
+  @@index([brandId, relevanceScore])
+}
+
+model DiscoveredAccountPost {
+  id              String   @id @default(cuid())
+  accountId       String
+  account         DiscoveredAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  sourceKey       String
+  permalink       String?
+  content         String
+  publishedAt     DateTime?
+  hookType        String?
+  topic           String?
+  emotionalDriver String?
+  structureType   String?
+  ctaType         String?
+  patternSummary  String?
+  relevanceScore  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([accountId, sourceKey])
+  @@index([accountId, createdAt])
+  @@index([relevanceScore])
+}
+
+model AccountPattern {
+  id             String   @id @default(cuid())
+  brandId        String
+  brand          Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  accountId      String?
+  account        DiscoveredAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  dimension      String
+  value          String
+  sourceCount    Int
+  confidence     Int
+  recommendation String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([brandId, confidence])
+  @@index([brandId, dimension])
+  @@index([accountId])
 }

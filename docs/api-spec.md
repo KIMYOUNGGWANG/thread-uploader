@@ -13,6 +13,9 @@
   → 회원가입/로그인
   → 브랜드 생성 (Threads token 연결)
   → active campaign 설정 (career_timing_wedge_399)
+  → AI Account Discovery로 관련 공개 계정 후보 발견
+  → 후보 계정 watch/ignore 승인
+  → watched 계정 공개 글 구조 학습
   → career_decision 품질 게이트 설정
   → 캠페인 콘텐츠 생성 (3종 공식 + 링크 cadence)
   → PENDING 큐 확인
@@ -180,6 +183,130 @@ interface UpdateBrandRequest {
   formulaWeights?: Record<string, number>;
 }
 ```
+
+---
+
+## AI Account Discovery API
+
+The account discovery engine finds related public Threads accounts, scores them for CosmicPath relevance, and only learns from accounts that the Brand Owner explicitly watches.
+
+### Data Contracts
+
+```typescript
+type DiscoveredAccountStatus = "candidate" | "watched" | "ignored";
+type DiscoveredAccountCategory = "career" | "saju" | "creator" | "competitor" | "adjacent" | "unknown";
+
+interface DiscoveredAccountResponse {
+  id: string;
+  brandId: string;
+  username: string;
+  displayName: string | null;
+  bio: string | null;
+  profileUrl: string | null;
+  status: DiscoveredAccountStatus;
+  category: DiscoveredAccountCategory;
+  relevanceScore: number;
+  reason: string;
+  source: "keyword_search" | "manual" | "profile_expand";
+  sourceKeyword: string | null;
+  lastDiscoveredAt: string;
+  lastScannedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface DiscoveredAccountPostResponse {
+  id: string;
+  accountId: string;
+  sourceKey: string;
+  permalink: string | null;
+  content: string;
+  publishedAt: string | null;
+  hookType: string | null;
+  topic: string | null;
+  emotionalDriver: string | null;
+  structureType: string | null;
+  ctaType: string | null;
+  patternSummary: string | null;
+  relevanceScore: number;
+  createdAt: string;
+}
+
+interface AccountPatternResponse {
+  id: string;
+  brandId: string;
+  accountId: string | null;
+  dimension: "hook" | "topic" | "emotion" | "structure" | "cta";
+  value: string;
+  sourceCount: number;
+  confidence: number;
+  recommendation: string;
+}
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/accounts?brandId=xxx&status=candidate` | 계정 후보/watchlist 조회 |
+| `POST` | `/api/accounts/discover` | seed keywords로 관련 계정 후보 발견 |
+| `PATCH` | `/api/accounts/[id]` | `watch` 또는 `ignore` 상태 변경 |
+| `POST` | `/api/accounts/analyze` | watched 계정 공개 글 수집 및 패턴 학습 |
+
+```typescript
+interface DiscoverAccountsRequest {
+  brandId: string;
+  keywords?: string[];
+  limit?: number;          // default 20, max 50
+  minScore?: number;       // default 60
+}
+
+interface DiscoverAccountsResponse {
+  success: true;
+  discovered: number;
+  saved: number;
+  candidates: DiscoveredAccountResponse[];
+  errors: ViralSourceError[];
+}
+
+interface UpdateDiscoveredAccountRequest {
+  status: "watched" | "ignored" | "candidate";
+}
+
+interface AnalyzeAccountsRequest {
+  brandId: string;
+  accountIds?: string[];   // default all watched accounts
+  limit?: number;          // default 10, max 50 posts per account
+}
+
+interface AnalyzeAccountsResponse {
+  success: true;
+  scannedAccounts: number;
+  savedPosts: number;
+  learnedPatterns: number;
+  recommendations: string[];
+  errors: ViralSourceError[];
+}
+```
+
+### Scoring
+
+Initial MVP scoring is deterministic and explainable:
+
+- target/topic overlap: 30
+- career decision anxiety terms: 25
+- saju/timing/flow language: 15
+- comment/share CTA structure: 15
+- brand safety / excluded term check: 15
+
+AI classification may later refine category and reason, but the first implementation should keep the score auditable.
+
+### Guardrails
+
+- Only `watched` accounts can feed recurring account learning.
+- `ignored` accounts are excluded from future learning even if rediscovered.
+- The system stores public post structure, not private or unauthorized account insights.
+- Generation receives account-level patterns as guidance only; it must not copy exact wording from discovered accounts.
 
 ---
 

@@ -14,14 +14,18 @@ Updated: 2026-05-15
 3. User sets `qualityProfile` to `career_decision`.
 4. User saves campaign config through `PATCH /api/brands/[id]`.
 5. User returns to `/brands/[slug]`.
-6. User generates campaign posts.
-7. System applies career quality gate and 3:1 link cadence.
-8. Dashboard shows today scheduled campaign posts, quality status, and link ratio.
-9. Brand Owner publishes through existing cron/manual publish flow.
-10. Brand Owner uses Reply Playbook templates manually when comments arrive.
-11. Brand Owner inputs manual paid conversions until automatic conversion tracking exists.
-12. Account Intelligence runs every 2 hours and surfaces reply/format/link/quality actions.
-13. Growth learning uses replies/reposts/views/clicks/conversions with campaign weights.
+6. User runs AI Account Discovery from seed keywords.
+7. System shows related public account candidates with relevance scores.
+8. User marks useful accounts as watched and noisy accounts as ignored.
+9. System analyzes watched account public posts and updates viral/account patterns.
+10. User generates campaign posts.
+11. System applies career quality gate and 3:1 link cadence.
+12. Dashboard shows today scheduled campaign posts, quality status, and link ratio.
+13. Brand Owner publishes through existing cron/manual publish flow.
+14. Brand Owner uses Reply Playbook templates manually when comments arrive.
+15. Brand Owner inputs manual paid conversions until automatic conversion tracking exists.
+16. Account Intelligence runs every 2 hours and surfaces reply/format/link/quality actions.
+17. Growth learning uses replies/reposts/views/clicks/conversions with campaign weights.
 
 ## Settings States
 
@@ -57,6 +61,17 @@ Updated: 2026-05-15
 - Cron: `/api/cron/account-intelligence` runs with `CRON_SECRET` every 2 hours.
 - Degraded metrics: if Threads insights fetch fails, use stored metrics and include failed refresh count.
 
+## Related Accounts States
+
+- Empty: no discovered accounts; show seed keyword discovery action.
+- Discovering: button disabled while keyword search and profile expansion run.
+- Candidate list: show username, category, relevance score, source keyword, reason, and recent pattern summary.
+- Watch action: moves the account to watched and makes it eligible for recurring analysis.
+- Ignore action: moves the account to ignored and prevents future learning from that account.
+- Watched list: show last scanned time, saved post count, dominant hook/emotion/structure/CTA patterns.
+- Analyzing: collect recent public posts only from watched accounts and refresh account patterns.
+- Error: show source-specific failures without deleting previous candidates.
+
 ## Reply Playbook States
 
 - Default: show four groups: 버팀형, 이동형, 준비형, CTA.
@@ -82,3 +97,6 @@ Updated: 2026-05-15
 - Confirm generic self-help posts fail `career_decision`.
 - Confirm Reply Playbook templates are visible and copy-ready without auto-send.
 - Confirm Account Intelligence panel can render empty and latest insight states.
+- Confirm account discovery saves candidates from seed keywords.
+- Confirm ignored accounts do not feed account pattern learning.
+- Confirm watched account patterns appear in the viral generation guidance.
