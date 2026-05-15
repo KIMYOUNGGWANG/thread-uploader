@@ -4,11 +4,12 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Save, Plus, Trash2, RefreshCw, Settings,
-  Sparkles, FileText, Users, MessageSquare, Zap, Key, TrendingUp,
+  Sparkles, FileText, Users, MessageSquare, Zap, Key, TrendingUp, Radar, Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast, Toaster } from "sonner";
-import type { BrandConfig, BrandFormula } from "@/types/brand";
+import type { BrandConfig, BrandFormula, CampaignConfig, QualityProfileId, ViralDiscoveryConfig } from "@/types/brand";
+import type { ViralAdapterId } from "@/types/viral";
 
 interface InitialData {
   name: string;
@@ -25,7 +26,7 @@ interface BrandSettingsFormProps {
   initialData: InitialData;
 }
 
-type Tab = "basic" | "ai" | "topics" | "targets" | "situations" | "formulas" | "trending";
+type Tab = "basic" | "ai" | "campaign" | "topics" | "targets" | "situations" | "hooks" | "ctas" | "formulas" | "trending" | "viral";
 
 export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }: BrandSettingsFormProps) {
   const router = useRouter();
@@ -46,13 +47,36 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
   const [topics, setTopics] = useState<string[]>(initialData.config.topics);
   const [targets, setTargets] = useState<string[]>(initialData.config.targets);
   const [situations, setSituations] = useState<string[]>(initialData.config.situations);
+  const [hookTypes, setHookTypes] = useState<string[]>(initialData.config.hookTypes ?? []);
+  const [ctaTypes, setCtaTypes] = useState<string[]>(initialData.config.ctaTypes ?? []);
 
   // 공식
   const [formulas, setFormulas] = useState<BrandFormula[]>(initialData.config.formulas);
+  const [campaigns, setCampaigns] = useState<CampaignConfig[]>(initialData.config.campaigns);
+  const [activeCampaignId, setActiveCampaignId] = useState(initialData.config.activeCampaignId ?? initialData.config.campaigns[0]?.id ?? "");
+  const [qualityProfile, setQualityProfile] = useState<QualityProfileId>(initialData.config.qualityProfile);
 
   // 트렌딩 토픽
   const [trendingTopics, setTrendingTopics] = useState<string[]>(
     initialData.config.trendingTopics ?? []
+  );
+  const [viralKeywords, setViralKeywords] = useState<string[]>(
+    initialData.config.viralDiscovery.keywords
+  );
+  const [competitorHandles, setCompetitorHandles] = useState<string[]>(
+    initialData.config.viralDiscovery.competitorHandles
+  );
+  const [excludedTerms, setExcludedTerms] = useState<string[]>(
+    initialData.config.viralDiscovery.excludedTerms
+  );
+  const [maxExamplesPerRun, setMaxExamplesPerRun] = useState(
+    initialData.config.viralDiscovery.maxExamplesPerRun
+  );
+  const [minViralScore, setMinViralScore] = useState(
+    initialData.config.viralDiscovery.minViralScore
+  );
+  const [viralAdapters, setViralAdapters] = useState(
+    initialData.config.viralDiscovery.adapters
   );
 
   const handleSave = useCallback(async () => {
@@ -72,8 +96,21 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             topics,
             targets,
             situations,
+            hookTypes,
+            ctaTypes,
             formulas,
+            campaigns,
+            activeCampaignId,
+            qualityProfile,
             trendingTopics,
+            viralDiscovery: {
+              keywords: viralKeywords,
+              competitorHandles,
+              excludedTerms,
+              maxExamplesPerRun,
+              minViralScore,
+              adapters: viralAdapters,
+            },
           } satisfies BrandConfig,
         }),
       });
@@ -86,16 +123,20 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     } finally {
       setIsSaving(false);
     }
-  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, topics, targets, situations, formulas, trendingTopics, router]);
+  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, router]);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "basic", label: "기본 정보", icon: <Key className="w-4 h-4" /> },
     { id: "ai", label: "AI 설정", icon: <Sparkles className="w-4 h-4" /> },
+    { id: "campaign", label: "캠페인", icon: <Target className="w-4 h-4" />, badge: campaigns.length },
     { id: "topics", label: "주제", icon: <FileText className="w-4 h-4" />, badge: topics.length },
     { id: "targets", label: "타겟", icon: <Users className="w-4 h-4" />, badge: targets.length },
     { id: "situations", label: "상황", icon: <MessageSquare className="w-4 h-4" />, badge: situations.length },
+    { id: "hooks", label: "훅", icon: <Zap className="w-4 h-4" />, badge: hookTypes.length },
+    { id: "ctas", label: "CTA", icon: <TrendingUp className="w-4 h-4" />, badge: ctaTypes.length },
     { id: "formulas", label: "공식", icon: <Zap className="w-4 h-4" />, badge: formulas.length },
     { id: "trending", label: "트렌딩", icon: <TrendingUp className="w-4 h-4" />, badge: trendingTopics.length },
+    { id: "viral", label: "바이럴 소스", icon: <Radar className="w-4 h-4" />, badge: viralKeywords.length + competitorHandles.length },
   ];
 
   return (
@@ -174,6 +215,16 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             websiteUrl={websiteUrl} setWebsiteUrl={setWebsiteUrl}
           />
         )}
+        {activeTab === "campaign" && (
+          <CampaignTab
+            campaigns={campaigns}
+            setCampaigns={setCampaigns}
+            activeCampaignId={activeCampaignId}
+            setActiveCampaignId={setActiveCampaignId}
+            qualityProfile={qualityProfile}
+            setQualityProfile={setQualityProfile}
+          />
+        )}
         {activeTab === "topics" && (
           <ListTab
             label="주제"
@@ -201,6 +252,24 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             setItems={setSituations}
           />
         )}
+        {activeTab === "hooks" && (
+          <ListTab
+            label="훅 유형"
+            description="첫 문장에서 어떤 심리적 각도를 테스트할지 정의합니다. 성과 학습의 핵심 실험 축입니다."
+            placeholder="예: 반전형 훅"
+            items={hookTypes}
+            setItems={setHookTypes}
+          />
+        )}
+        {activeTab === "ctas" && (
+          <ListTab
+            label="CTA 유형"
+            description="첫 댓글이나 본문 끝에서 어떤 행동을 유도할지 정의합니다."
+            placeholder="예: 댓글 유도"
+            items={ctaTypes}
+            setItems={setCtaTypes}
+          />
+        )}
         {activeTab === "formulas" && (
           <FormulasTab formulas={formulas} setFormulas={setFormulas} />
         )}
@@ -211,6 +280,22 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             placeholder="예: 수성 역행 2026년 5월"
             items={trendingTopics}
             setItems={setTrendingTopics}
+          />
+        )}
+        {activeTab === "viral" && (
+          <ViralSourcesTab
+            keywords={viralKeywords}
+            setKeywords={setViralKeywords}
+            competitorHandles={competitorHandles}
+            setCompetitorHandles={setCompetitorHandles}
+            excludedTerms={excludedTerms}
+            setExcludedTerms={setExcludedTerms}
+            maxExamplesPerRun={maxExamplesPerRun}
+            setMaxExamplesPerRun={setMaxExamplesPerRun}
+            minViralScore={minViralScore}
+            setMinViralScore={setMinViralScore}
+            adapters={viralAdapters}
+            setAdapters={setViralAdapters}
           />
         )}
       </main>
@@ -304,6 +389,154 @@ function AiTab({
   );
 }
 
+/* ───────────────────────────── Campaign Tab ───────────────────────────── */
+function CampaignTab({
+  campaigns,
+  setCampaigns,
+  activeCampaignId,
+  setActiveCampaignId,
+  qualityProfile,
+  setQualityProfile,
+}: {
+  campaigns: CampaignConfig[];
+  setCampaigns: (items: CampaignConfig[]) => void;
+  activeCampaignId: string;
+  setActiveCampaignId: (value: string) => void;
+  qualityProfile: QualityProfileId;
+  setQualityProfile: (value: QualityProfileId) => void;
+}) {
+  const activeCampaign = campaigns.find((campaign) => campaign.id === activeCampaignId) ?? campaigns[0];
+
+  const updateCampaign = (patch: Partial<CampaignConfig>) => {
+    if (!activeCampaign) return;
+    setCampaigns(campaigns.map((campaign) => (
+      campaign.id === activeCampaign.id ? { ...campaign, ...patch } : campaign
+    )));
+  };
+
+  const updatePlaybook = (key: keyof CampaignConfig["replyPlaybook"], value: string) => {
+    if (!activeCampaign) return;
+    updateCampaign({
+      replyPlaybook: {
+        ...activeCampaign.replyPlaybook,
+        [key]: value,
+      },
+    });
+  };
+
+  const updateQualityProfile = (nextProfile: QualityProfileId) => {
+    setQualityProfile(nextProfile);
+    updateCampaign({ qualityProfile: nextProfile });
+  };
+
+  if (!activeCampaign) {
+    return (
+      <SectionCard title="캠페인 설정" description="활성 캠페인을 찾을 수 없습니다. 기본 브랜드 설정을 다시 저장하세요.">
+        <p className="text-sm text-slate-400">캠페인 데이터가 없습니다.</p>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <SectionCard title="활성 캠페인" description="CosmicPath 커리어 wedge 실험에 사용할 캠페인과 품질 프로필입니다.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Active campaign">
+            <select
+              value={activeCampaign.id}
+              onChange={(event) => setActiveCampaignId(event.target.value)}
+              className={INPUT_CLASS}
+            >
+              {campaigns.map((campaign) => (
+                <option key={campaign.id} value={campaign.id}>{campaign.name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Quality profile">
+            <select
+              value={qualityProfile}
+              onChange={(event) => updateQualityProfile(event.target.value as QualityProfileId)}
+              className={INPUT_CLASS}
+            >
+              <option value="career_decision">career_decision</option>
+              <option value="saju_viral">saju_viral</option>
+            </select>
+          </Field>
+          <Field label="Landing URL">
+            <input
+              value={activeCampaign.landingUrl}
+              onChange={(event) => updateCampaign({ landingUrl: event.target.value })}
+              className={INPUT_CLASS}
+              placeholder="/career/uncertainty"
+            />
+          </Field>
+          <Field label="UTM campaign">
+            <input
+              value={activeCampaign.utmCampaign}
+              onChange={(event) => updateCampaign({ utmCampaign: event.target.value })}
+              className={INPUT_CLASS}
+              placeholder="career_timing_wedge_399"
+            />
+          </Field>
+          <Field label="하루 목표">
+            <input
+              type="number"
+              min={1}
+              max={12}
+              value={activeCampaign.dailyPostTarget}
+              onChange={(event) => updateCampaign({ dailyPostTarget: clampNumberInput(event.target.value, 1, 12, 3) })}
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <Field label="링크 cadence" hint="3이면 3개 중 1개">
+            <input
+              type="number"
+              min={1}
+              max={12}
+              value={activeCampaign.linkCadenceEvery}
+              onChange={(event) => updateCampaign({ linkCadenceEvery: clampNumberInput(event.target.value, 1, 12, 3) })}
+              className={INPUT_CLASS}
+            />
+          </Field>
+        </div>
+        <p className="text-xs text-slate-500 mt-3">
+          UTM: utm_source=threads · utm_campaign={activeCampaign.utmCampaign} · utm_content=postId
+        </p>
+      </SectionCard>
+
+      <SectionCard title="3종 포스트 공식" description="캠페인 생성 시 이 공식들만 회전시키며 테스트합니다.">
+        <div className="grid gap-3 md:grid-cols-3">
+          {activeCampaign.formulas.map((formula) => (
+            <div key={formula.id} className="rounded-xl border border-slate-700 bg-slate-800/60 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-mono text-violet-300">{formula.id}</span>
+                <span className="text-xs text-slate-500">w{formula.weight}</span>
+              </div>
+              <p className="mt-1 text-sm font-medium text-white">{formula.name}</p>
+              <p className="mt-1 text-xs text-slate-400">{formula.instruction}</p>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Reply Playbook" description="자동 댓글은 하지 않고, 대시보드에서 복사 가능한 답글 템플릿만 제공합니다.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(["stay", "move", "prepare", "cta"] as const).map((key) => (
+            <Field key={key} label={replyPlaybookLabel(key)}>
+              <textarea
+                value={activeCampaign.replyPlaybook[key]}
+                onChange={(event) => updatePlaybook(key, event.target.value)}
+                rows={4}
+                className={`${INPUT_CLASS} resize-y`}
+              />
+            </Field>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
 /* ──────────────────────────────── List Tab ─────────────────────────────── */
 function ListTab({
   label, description, placeholder, items, setItems,
@@ -371,6 +604,143 @@ function ListTab({
       <p className="text-xs text-slate-500 mt-3">총 {items.length}개</p>
     </SectionCard>
   );
+}
+
+/* ───────────────────────────── Viral Sources Tab ───────────────────────── */
+function ViralSourcesTab({
+  keywords,
+  setKeywords,
+  competitorHandles,
+  setCompetitorHandles,
+  excludedTerms,
+  setExcludedTerms,
+  maxExamplesPerRun,
+  setMaxExamplesPerRun,
+  minViralScore,
+  setMinViralScore,
+  adapters,
+  setAdapters,
+}: {
+  keywords: string[];
+  setKeywords: (items: string[]) => void;
+  competitorHandles: string[];
+  setCompetitorHandles: (items: string[]) => void;
+  excludedTerms: string[];
+  setExcludedTerms: (items: string[]) => void;
+  maxExamplesPerRun: number;
+  setMaxExamplesPerRun: (value: number) => void;
+  minViralScore: number;
+  setMinViralScore: (value: number) => void;
+  adapters: ViralDiscoveryConfig["adapters"];
+  setAdapters: (items: ViralDiscoveryConfig["adapters"]) => void;
+}) {
+  const toggleAdapter = (id: ViralAdapterId) => {
+    setAdapters(adapters.map((adapter) => (
+      adapter.id === id ? { ...adapter, enabled: !adapter.enabled } : adapter
+    )));
+  };
+
+  return (
+    <div className="space-y-6">
+      <ListTab
+        label="키워드 소스"
+        description="Threads TOP 검색에 사용할 키워드입니다. 비어 있으면 브랜드 주제와 트렌딩 토픽을 폴백으로 사용합니다."
+        placeholder="예: 사주 연애운"
+        items={keywords}
+        setItems={setKeywords}
+      />
+      <ListTab
+        label="경쟁 계정 핸들"
+        description="@ 없이 저장합니다. 해당 공개 프로필의 최근 글을 바이럴 레퍼런스로 수집합니다."
+        placeholder="예: cosmicpath_official"
+        items={competitorHandles}
+        setItems={(items) => setCompetitorHandles(items.map((item) => item.replace(/^@/, "")))}
+      />
+      <ListTab
+        label="제외어"
+        description="이 단어가 포함된 레퍼런스는 저장하지 않습니다. 브랜드 리스크나 원치 않는 주제를 막을 때 사용합니다."
+        placeholder="예: 정치"
+        items={excludedTerms}
+        setItems={setExcludedTerms}
+      />
+
+      <SectionCard title="수집 실행 설정" description="저장된 소스로 한 번에 얼마나 넓게 수집할지와 어떤 어댑터를 켤지 정합니다.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="실행당 최대 레퍼런스" hint="1~50">
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={maxExamplesPerRun}
+              onChange={(e) => setMaxExamplesPerRun(clampNumberInput(e.target.value, 1, 50, 15))}
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <Field label="최소 바이럴 점수" hint="0이면 모두 저장">
+            <input
+              type="number"
+              min={0}
+              value={minViralScore}
+              onChange={(e) => setMinViralScore(clampNumberInput(e.target.value, 0, 1000000, 0))}
+              className={INPUT_CLASS}
+            />
+          </Field>
+        </div>
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          {adapters.map((adapter) => (
+            <label key={adapter.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2.5">
+              <span>
+                <span className="block text-sm font-medium text-slate-200">{adapterLabel(adapter.id)}</span>
+                <span className="block text-xs text-slate-500">{adapterDescription(adapter.id)}</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={adapter.enabled}
+                onChange={() => toggleAdapter(adapter.id)}
+                className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-violet-600 focus:ring-violet-500"
+              />
+            </label>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+function clampNumberInput(value: string, min: number, max: number, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, Math.round(parsed))) : fallback;
+}
+
+function replyPlaybookLabel(key: keyof CampaignConfig["replyPlaybook"]): string {
+  const labels: Record<keyof CampaignConfig["replyPlaybook"], string> = {
+    stay: "버팀형 답변",
+    move: "이동형 답변",
+    prepare: "준비형 답변",
+    cta: "CTA 답변",
+  };
+  return labels[key];
+}
+
+function adapterLabel(id: ViralAdapterId): string {
+  const labels: Record<ViralAdapterId, string> = {
+    owned_posts: "내 게시물",
+    threads_keyword: "Threads 키워드",
+    threads_profile: "경쟁 프로필",
+    manual: "수동 레퍼런스",
+  };
+  return labels[id];
+}
+
+function adapterDescription(id: ViralAdapterId): string {
+  const descriptions: Record<ViralAdapterId, string> = {
+    owned_posts: "성과 있는 발행 글을 다시 학습",
+    threads_keyword: "저장 키워드와 브랜드 토픽 검색",
+    threads_profile: "경쟁 계정 공개 글 수집",
+    manual: "직접 붙여넣은 레퍼런스 저장",
+  };
+  return descriptions[id];
 }
 
 /* ─────────────────────────────── Formulas Tab ──────────────────────────── */

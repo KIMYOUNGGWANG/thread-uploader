@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseBrandConfig } from "@/types/brand";
+import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
+import { calculatePerformanceScore } from "@/lib/growth-learning";
 
 export async function POST(request: NextRequest) {
   const body = await request.json() as { brandId?: unknown };
@@ -10,9 +12,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "brandId is required" }, { status: 400 });
   }
 
-  const brand = await prisma.brand.findUnique({ where: { id: brandId } });
-  if (!brand) {
-    return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+  let brand;
+  try {
+    ({ brand } = await requireBrandForCurrentUser(brandId));
+  } catch (error) {
+    const response = accessErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
 
   const config = parseBrandConfig(brand.brandConfig);
@@ -31,7 +37,16 @@ export async function POST(request: NextRequest) {
       metricsAt: { not: null },
       createdAt: { gte: thirtyDaysAgo },
     },
-    select: { formulaId: true, views: true, likes: true, replies: true, reposts: true },
+    select: {
+      formulaId: true,
+      views: true,
+      likes: true,
+      replies: true,
+      reposts: true,
+      clicks: true,
+      conversions: true,
+      manualPaidConversions: true,
+    },
   });
 
   if (posts.length < 10) {
@@ -44,7 +59,7 @@ export async function POST(request: NextRequest) {
   const byFormula: Record<string, number[]> = {};
   for (const post of posts) {
     const fid = post.formulaId!;
-    const score = (post.views ?? 0) + (post.likes ?? 0) * 5 + (post.replies ?? 0) * 3 + (post.reposts ?? 0) * 4;
+    const score = calculatePerformanceScore(post);
     if (!byFormula[fid]) byFormula[fid] = [];
     byFormula[fid].push(score);
   }

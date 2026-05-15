@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Threads Uploader
 
-## Getting Started
+Multi-brand Threads publishing, viral discovery, and growth-learning dashboard.
 
-First, run the development server:
+## What It Does
+
+- Manage multiple brands, each with its own Threads credentials and AI content settings.
+- Generate batches of Threads posts from brand topics, target audiences, situations, formulas, hooks, and CTA types.
+- Publish pending posts manually or via cron.
+- Collect Threads metrics and calculate a weighted performance score.
+- Discover viral reference posts from brand topics, public Threads profiles, manual imports, and owned post history.
+- Manage viral sources per brand: keyword searches, competitor handles, excluded terms, source adapters, and run limits.
+- Extract viral hook, emotion, structure, topic, and CTA patterns.
+- Learn winning and weak growth patterns, then feed that memory into future AI generation.
+
+## Growth Loop
+
+```
+Discover viral references → Learn viral patterns → Generate experiments → Publish → Collect metrics → Learn growth patterns
+```
+
+Each generated post can store:
+
+- `formulaId`
+- `topic`
+- `targetAudience`
+- `situation`
+- `hookType`
+- `ctaType`
+- `qualityScore`
+- `performanceScore`
+- `performanceTier`
+
+Brand-level `growthMemory` stores the latest winners, weak signals, and next-batch recommendations.
+Brand-level `viralMemory` stores viral reference patterns that are injected into future AI generation.
+
+## Commands
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run typecheck
+npm run build
+npm run growth:metrics
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Cron Endpoints
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `GET /api/cron/publish` publishes one pending post per brand.
+- `GET /api/cron/refresh-token` refreshes Threads tokens.
+- `GET /api/cron/learn` refreshes brand growth memory from collected metrics.
+- `GET /api/cron/viral` discovers viral references and refreshes brand viral memory.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Set `CRON_SECRET` to require `Authorization: Bearer <CRON_SECRET>` or `?secret=` for cron calls.
 
-## Learn More
+## Environment
 
-To learn more about Next.js, take a look at the following resources:
+Copy `.env.example` to `.env` and configure:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `DATABASE_URL`
+- `ANTHROPIC_API_KEY`
+- `CRON_SECRET`
+- Legacy fallback Threads settings if needed
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Database
 
-## Deploy on Vercel
+Prisma schema lives in `prisma/schema.prisma`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+After schema changes:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npx prisma generate
+npx prisma migrate deploy
+```

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Sparkles, Plus, LogOut, RefreshCw, Settings, ChevronRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast, Toaster } from "sonner";
-import type { BrandResponse } from "@/types/brand";
+import { DEFAULT_BRAND_CONFIG, type BrandResponse } from "@/types/brand";
 
 export default function BrandsPage() {
   const [brands, setBrands] = useState<BrandResponse[]>([]);
@@ -178,6 +178,7 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           threadsUserId: form.threadsUserId,
           tokenExpiry: new Date(form.tokenExpiry).toISOString(),
           brandConfig: {
+            ...DEFAULT_BRAND_CONFIG,
             systemPrompt: "",
             topics: [],
             targets: [],

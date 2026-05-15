@@ -52,7 +52,9 @@ export async function POST(request: NextRequest) {
     const accessToken = typeof body.accessToken === "string" ? body.accessToken.trim() : null;
     const threadsUserId = typeof body.threadsUserId === "string" ? body.threadsUserId.trim() : null;
     const tokenExpiry = typeof body.tokenExpiry === "string" ? body.tokenExpiry : null;
-    const brandConfig = body.brandConfig as BrandConfig | undefined;
+    const brandConfig = typeof body.brandConfig === "object" && body.brandConfig !== null
+      ? body.brandConfig as Partial<BrandConfig>
+      : undefined;
 
     if (!name || !slug || !accessToken || !threadsUserId || !tokenExpiry) {
       return NextResponse.json({ error: "필수 필드가 누락되었습니다" }, { status: 400 });
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
         accessToken,
         threadsUserId,
         tokenExpiry: new Date(tokenExpiry),
-        brandConfig: brandConfig ? JSON.stringify(brandConfig) : "{}",
+        brandConfig: JSON.stringify(parseBrandConfig(JSON.stringify(brandConfig ?? {}))),
         ownerId: user.id,
       },
     });

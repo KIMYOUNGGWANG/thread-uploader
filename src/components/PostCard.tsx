@@ -18,6 +18,25 @@ interface PostCardProps {
     status?: string;
     threadsId?: string | null;
     errorLog?: string | null;
+    formulaId?: string | null;
+    topic?: string | null;
+    targetAudience?: string | null;
+    hookType?: string | null;
+    ctaType?: string | null;
+    qualityScore?: number | null;
+    qualityProfile?: string | null;
+    qualityPass?: boolean | null;
+    qualityReasons?: string[];
+    campaignId?: string | null;
+    campaignFormulaId?: string | null;
+    careerDecisionType?: string | null;
+    linkUrl?: string | null;
+    utmContent?: string | null;
+    clicks?: number | null;
+    conversions?: number | null;
+    manualPaidConversions?: number | null;
+    performanceScore?: number | null;
+    performanceTier?: string | null;
     onUpdate: (index: number, post: ParsedPost) => void;
     onDelete: (index: number) => void;
     onTogglePosted?: (index: number) => void;
@@ -30,6 +49,25 @@ export function PostCard({
     isPosted = false,
     dbPostId,
     errorLog,
+    formulaId,
+    topic,
+    targetAudience,
+    hookType,
+    ctaType,
+    qualityScore,
+    qualityProfile,
+    qualityPass,
+    qualityReasons = [],
+    campaignId,
+    campaignFormulaId,
+    careerDecisionType,
+    linkUrl,
+    utmContent,
+    clicks,
+    conversions,
+    manualPaidConversions,
+    performanceScore,
+    performanceTier,
     onUpdate,
     onDelete,
     onTogglePosted,
@@ -240,7 +278,77 @@ export function PostCard({
                             >
                                 {charCount}/500
                             </div>
+
+                            {formulaId && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-xs font-medium">
+                                    공식 {formulaId}
+                                </div>
+                            )}
+
+                            {campaignId && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 rounded-full text-xs font-medium">
+                                    캠페인 {campaignId}
+                                </div>
+                            )}
+
+                            {campaignFormulaId && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-medium">
+                                    포맷 {campaignFormulaId}
+                                </div>
+                            )}
+
+                            {hookType && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-xs font-medium">
+                                    훅 {hookType}
+                                </div>
+                            )}
+
+                            {ctaType && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-medium">
+                                    CTA {ctaType}
+                                </div>
+                            )}
+
+                            {performanceScore !== null && performanceScore !== undefined && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-xs font-medium">
+                                    점수 {performanceScore.toLocaleString()}{performanceTier ? ` · ${performanceTier}` : ""}
+                                </div>
+                            )}
+
+                            {qualityPass !== null && qualityPass !== undefined && (
+                                <div className={cn(
+                                    "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+                                    qualityPass
+                                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                                        : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                )}>
+                                    Quality {qualityPass ? "PASS" : "FAIL"}
+                                </div>
+                            )}
                         </div>
+
+                        {(topic || targetAudience || qualityScore !== null && qualityScore !== undefined || qualityProfile || careerDecisionType) && (
+                            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
+                                {topic && <span className="truncate max-w-full">주제: {topic}</span>}
+                                {targetAudience && <span className="truncate max-w-full">타겟: {targetAudience}</span>}
+                                {qualityProfile && <span>프로필: {qualityProfile}</span>}
+                                {careerDecisionType && <span>타입: {careerDecisionLabel(careerDecisionType)}</span>}
+                                {qualityScore !== null && qualityScore !== undefined && <span>품질 {qualityScore}</span>}
+                            </div>
+                        )}
+
+                        {(linkUrl || utmContent || qualityReasons.length > 0 || clicks || conversions || manualPaidConversions) && (
+                            <div className="mt-3 space-y-1 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 p-2 text-xs text-slate-500 dark:text-slate-400">
+                                {linkUrl && <p className="break-all">UTM: {linkUrl}</p>}
+                                {utmContent && <p>utm_content: {utmContent}</p>}
+                                {(clicks || conversions || manualPaidConversions) && (
+                                    <p>클릭 {clicks ?? 0} · 전환 {conversions ?? 0} · 유료전환 {manualPaidConversions ?? 0}</p>
+                                )}
+                                {qualityReasons.length > 0 && (
+                                    <p>Gate: {qualityReasons.join(" / ")}</p>
+                                )}
+                            </div>
+                        )}
 
                         {/* Validation errors */}
                         {!validation.valid && (
@@ -329,4 +437,13 @@ export function PostCard({
             )}
         </Card>
     );
+}
+
+function careerDecisionLabel(value: string): string {
+    const labels: Record<string, string> = {
+        stay: "버팀형",
+        move: "이동형",
+        prepare: "준비형",
+    };
+    return labels[value] ?? value;
 }

@@ -13,6 +13,24 @@
  */
 
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
+const THREADS_DISCOVERY_API_BASE = "https://graph.threads.net";
+const THREADS_DISCOVERY_FIELDS = [
+    "id",
+    "media_product_type",
+    "media_type",
+    "permalink",
+    "owner",
+    "username",
+    "text",
+    "timestamp",
+    "shortcode",
+    "is_quote_post",
+    "quoted_post",
+    "reposted_post",
+    "has_replies",
+    "link_attachment_url",
+    "topic_tag",
+].join(",");
 
 interface ThreadsContainerResponse {
     id: string;
@@ -34,6 +52,28 @@ interface TokenRefreshResponse {
     access_token: string;
     token_type: string;
     expires_in: number;
+}
+
+export interface ThreadsPublicPost {
+    id: string;
+    text?: string;
+    permalink?: string;
+    username?: string;
+    timestamp?: string;
+    topic_tag?: string;
+    shortcode?: string;
+    is_quote_post?: boolean;
+    has_replies?: boolean;
+}
+
+interface ThreadsListResponse<T> {
+    data?: T[];
+    paging?: {
+        cursors?: {
+            before?: string;
+            after?: string;
+        };
+    };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -630,4 +670,50 @@ export async function publishReplyWithRetry(
     throw lastError instanceof Error
         ? lastError
         : new Error("Failed to publish first comment");
+}
+
+export async function searchThreadsByKeyword(
+    accessToken: string,
+    keyword: string,
+    limit = 25
+): Promise<ThreadsPublicPost[]> {
+    const params = new URLSearchParams({
+        q: keyword,
+        search_type: "TOP",
+        search_mode: "KEYWORD",
+        fields: THREADS_DISCOVERY_FIELDS,
+        limit: String(Math.min(Math.max(limit, 1), 100)),
+        access_token: accessToken,
+    });
+
+    return fetchThreadsList(`/keyword_search?${params}`);
+}
+
+export async function fetchPublicProfilePosts(
+    accessToken: string,
+    username: string,
+    limit = 25
+): Promise<ThreadsPublicPost[]> {
+    const normalizedUsername = username.replace(/^@/, "").trim();
+    const params = new URLSearchParams({
+        username: normalizedUsername,
+        fields: THREADS_DISCOVERY_FIELDS,
+        limit: String(Math.min(Math.max(limit, 1), 100)),
+        access_token: accessToken,
+    });
+
+    return fetchThreadsList(`/profile_posts?${params}`);
+}
+
+async function fetchThreadsList(path: string): Promise<ThreadsPublicPost[]> {
+    const response = await fetch(`${THREADS_DISCOVERY_API_BASE}${path}`, { method: "GET" });
+    const data = await response.json() as ThreadsListResponse<ThreadsPublicPost> | ThreadsError;
+
+    if (!response.ok) {
+        const errorData = data as ThreadsError;
+        throw new Error(`Threads discovery failed: ${errorData.error?.message || "Unknown error"}`);
+    }
+
+    const listResponse = data as ThreadsListResponse<ThreadsPublicPost>;
+    return Array.isArray(listResponse.data) ? listResponse.data : [];
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { publishPostWithCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
+import { accessErrorResponse, requirePostForCurrentUser } from "@/lib/brand-access";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -11,17 +12,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const postId: string = id;
 
   try {
-    const post = await prisma.post.findUnique({ where: { id } });
-    if (!post) {
-      return NextResponse.json({ error: "Post not found" }, { status: 404 });
-    }
+    const { post, brand } = await requirePostForCurrentUser(id);
     if (post.status === "PUBLISHED" || post.threadsId) {
       return NextResponse.json({ error: "Post is already published" }, { status: 400 });
-    }
-
-    const brand = await prisma.brand.findUnique({ where: { id: post.brandId } });
-    if (!brand) {
-      return NextResponse.json({ error: "Brand not found" }, { status: 404 });
     }
 
     const credentials = { accessToken: brand.accessToken, userId: brand.threadsUserId };
@@ -59,6 +52,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       message: replyErrorMessage ? "본문 업로드 성공, 첫 댓글 실패" : "Posted to Threads successfully!",
     });
   } catch (error) {
+    const response = accessErrorResponse(error);
+    if (response) return response;
     console.error("Publish error:", error);
     if (postId) {
       await prisma.post.update({

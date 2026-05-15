@@ -6,6 +6,7 @@
  *
  * 수집 대상: 게시 후 2일~7일 사이인 게시물 (성과 안정화 구간)
  * GitHub Actions에서 매일 1회 실행된다.
+ * 수집 후 /api/cron/learn 또는 대시보드의 학습 버튼으로 growthMemory를 갱신한다.
  */
 
 const { PrismaClient } = require("@prisma/client");
@@ -14,6 +15,22 @@ const prisma = new PrismaClient();
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
 const BATCH_SIZE = 20;
 const REQUEST_DELAY_MS = 600; // Threads API rate limit 여유
+
+function calculatePerformanceScore(metrics) {
+  return (
+    (metrics.views ?? 0) +
+    (metrics.likes ?? 0) * 4 +
+    (metrics.replies ?? 0) * 9 +
+    (metrics.reposts ?? 0) * 14
+  );
+}
+
+function getPerformanceTier(score) {
+  if (score >= 1000) return "breakout";
+  if (score >= 300) return "strong";
+  if (score >= 80) return "promising";
+  return "learning";
+}
 
 async function fetchInsights(threadsId, accessToken) {
   const params = new URLSearchParams({
@@ -47,11 +64,6 @@ async function fetchInsights(threadsId, accessToken) {
 }
 
 async function main() {
-  const settings = await prisma.settings.findUnique({ where: { id: "default" } });
-  if (!settings?.accessToken) {
-    throw new Error("Threads 설정이 DB에 없습니다. 먼저 초기화하세요.");
-  }
-
   const now = Date.now();
   const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
   const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
@@ -67,6 +79,7 @@ async function main() {
         lte: new Date(now - TWO_DAYS),
       },
     },
+    include: { brand: true },
     orderBy: { createdAt: "asc" },
     take: BATCH_SIZE,
   });
@@ -83,7 +96,8 @@ async function main() {
 
   for (const post of posts) {
     try {
-      const insights = await fetchInsights(post.threadsId, settings.accessToken);
+      const insights = await fetchInsights(post.threadsId, post.brand.accessToken);
+      const performanceScore = calculatePerformanceScore(insights);
 
       await prisma.post.update({
         where: { id: post.id },
@@ -93,13 +107,16 @@ async function main() {
           replies: insights.replies,
           reposts: insights.reposts,
           metricsAt: new Date(),
+          performanceScore,
+          performanceTier: getPerformanceTier(performanceScore),
         },
       });
 
       console.log(
-        `✓ ${post.id} (${post.formulaId ?? "unknown"}) | ` +
+        `✓ ${post.brand.slug}/${post.id} (${post.formulaId ?? "unknown"}) | ` +
         `views=${insights.views} likes=${insights.likes} ` +
-        `replies=${insights.replies} reposts=${insights.reposts}`
+        `replies=${insights.replies} reposts=${insights.reposts} ` +
+        `score=${performanceScore}`
       );
       success++;
     } catch (error) {

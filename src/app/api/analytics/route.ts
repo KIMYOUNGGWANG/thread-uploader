@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
+import { calculatePerformanceScore } from "@/lib/growth-learning";
 
 export async function GET(request: NextRequest) {
   const brandId = request.nextUrl.searchParams.get("brandId");
@@ -7,9 +9,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "brandId is required" }, { status: 400 });
   }
 
+  try {
+    await requireBrandForCurrentUser(brandId);
+  } catch (error) {
+    const response = accessErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   const posts = await prisma.post.findMany({
     where: { brandId, status: "PUBLISHED", formulaId: { not: null }, views: { not: null } },
-    select: { formulaId: true, views: true, likes: true, replies: true, reposts: true, createdAt: true },
+    select: {
+      formulaId: true,
+      views: true,
+      likes: true,
+      replies: true,
+      reposts: true,
+      clicks: true,
+      conversions: true,
+      manualPaidConversions: true,
+      createdAt: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -26,14 +46,15 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const byFormula: Record<string, { views: number[]; likes: number[]; replies: number[]; reposts: number[] }> = {};
+  const byFormula: Record<string, { views: number[]; likes: number[]; replies: number[]; reposts: number[]; scores: number[] }> = {};
   for (const post of posts) {
     const fid = post.formulaId!;
-    if (!byFormula[fid]) byFormula[fid] = { views: [], likes: [], replies: [], reposts: [] };
+    if (!byFormula[fid]) byFormula[fid] = { views: [], likes: [], replies: [], reposts: [], scores: [] };
     byFormula[fid].views.push(post.views ?? 0);
     byFormula[fid].likes.push(post.likes ?? 0);
     byFormula[fid].replies.push(post.replies ?? 0);
     byFormula[fid].reposts.push(post.reposts ?? 0);
+    byFormula[fid].scores.push(calculatePerformanceScore(post));
   }
 
   const avg = (arr: number[]) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0);
@@ -45,7 +66,7 @@ export async function GET(request: NextRequest) {
       const avgLikes = avg(data.likes);
       const avgReplies = avg(data.replies);
       const avgReposts = avg(data.reposts);
-      const engagementScore = avgViews + avgLikes * 5 + avgReplies * 3 + avgReposts * 4;
+      const engagementScore = avg(data.scores);
       return {
         formulaId,
         count: data.views.length,

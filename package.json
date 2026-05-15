@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "growth:metrics": "node scripts/fetch-metrics-standalone.js",
     "recover:first-comments": "node scripts/retry-first-comments.js",
     "postinstall": "prisma generate && patch-package"
   },

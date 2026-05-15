@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ParsedPost, validatePost } from "@/lib/parser";
+import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
+import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
 
 interface CreatePostsRequest {
   brandId: string;
@@ -15,12 +17,25 @@ function normalizeErrorLog(status: string, errorLog: string | null): string | nu
   return errorLog.startsWith(FIRST_COMMENT_FAILURE_PREFIX) ? errorLog : null;
 }
 
+function parseStringList(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const brandId = request.nextUrl.searchParams.get("brandId");
     if (!brandId) {
       return NextResponse.json({ error: "brandId is required" }, { status: 400 });
     }
+
+    await requireBrandForCurrentUser(brandId);
 
     const posts = await prisma.post.findMany({
       where: { brandId },
@@ -31,10 +46,15 @@ export async function GET(request: NextRequest) {
       posts: posts.map((p) => ({
         ...p,
         imageUrls: JSON.parse(p.imageUrls) as string[],
+        qualityReasons: parseStringList(p.qualityReasons),
         errorLog: normalizeErrorLog(p.status, p.errorLog),
+        performanceScore: p.performanceScore ?? (p.views === null ? null : calculatePerformanceScore(p)),
+        performanceTier: p.performanceTier ?? (p.views === null ? null : getPerformanceTier(calculatePerformanceScore(p))),
       })),
     });
   } catch (error) {
+    const response = accessErrorResponse(error);
+    if (response) return response;
     console.error("Error fetching posts:", error);
     return NextResponse.json({ error: "Failed to fetch posts" }, { status: 500 });
   }
@@ -52,10 +72,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No posts provided" }, { status: 400 });
     }
 
-    const brandExists = await prisma.brand.findUnique({ where: { id: brandId } });
-    if (!brandExists) {
-      return NextResponse.json({ error: "Brand not found" }, { status: 404 });
-    }
+    await requireBrandForCurrentUser(brandId);
 
     const validationResults = posts.map((post, index) => ({ index, ...validatePost(post) }));
     const invalidPosts = validationResults.filter((r) => !r.valid);
@@ -104,6 +121,8 @@ export async function POST(request: NextRequest) {
       posts: createdPosts.map((p) => ({ id: p.id, scheduledAt: p.scheduledAt, status: p.status })),
     });
   } catch (error) {
+    const response = accessErrorResponse(error);
+    if (response) return response;
     console.error("Error creating posts:", error);
     return NextResponse.json({ error: "Failed to create posts" }, { status: 500 });
   }

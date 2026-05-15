@@ -1,7 +1,7 @@
 # 📜 API Spec — Threads Auto Uploader
 
 - **Version**: v2.0 (Multi-brand SaaS)
-- **Updated**: 2026-04-16
+- **Updated**: 2026-05-14
 - **Base URL**: `/api`
 
 ---
@@ -12,9 +12,14 @@
 [Brand Owner]
   → 회원가입/로그인
   → 브랜드 생성 (Threads token 연결)
-  → 콘텐츠 생성 (AI) or 수동 업로드
+  → active campaign 설정 (career_timing_wedge_399)
+  → career_decision 품질 게이트 설정
+  → 캠페인 콘텐츠 생성 (3종 공식 + 링크 cadence)
   → PENDING 큐 확인
   → [Cron] 각 브랜드 FIFO 자동 발행
+  → 댓글 대응 플레이북으로 수동 답글
+  → UTM/성과/수동 전환 입력
+  → 캠페인 성과 학습
 ```
 
 ---
@@ -22,7 +27,7 @@
 ## Authentication
 
 - **Method**: email + password → httpOnly 쿠키 세션 (`auth_session` 쿠키에 userId 저장)
-- **bcrypt**: 비밀번호 해싱 (rounds=12)
+- **scrypt**: 비밀번호 해싱 (`crypto.scrypt`, per-user salt)
 - **Cron 예외**: `Authorization: Bearer <CRON_SECRET>` 헤더 or `?secret=` 쿼리
 
 ### Auth Endpoints
@@ -89,10 +94,58 @@ interface BrandConfig {
     weight: number;
     instruction: string;
   }>;
+  hookTypes?: string[];          // 실험할 첫 문장/각도 유형
+  ctaTypes?: string[];           // 실험할 CTA 유형
   qualityRules?: {              // 품질 게이트 설정 (선택)
     minLength?: number;
     requiredTerms?: string[];
   };
+  trendingTopics?: string[];
+  viralDiscovery?: ViralDiscoveryConfig;
+  campaigns?: CampaignConfig[];
+  activeCampaignId?: string;
+  qualityProfile?: QualityProfileId;
+}
+
+type QualityProfileId = "saju_viral" | "career_decision";
+type CampaignFormulaId = "comment_diagnosis" | "friend_tag" | "self_confession";
+type CareerDecisionType = "stay" | "move" | "prepare";
+
+interface CampaignConfig {
+  id: string;                     // career_timing_wedge_399
+  name: string;
+  mode: "viral-content" | "landing-test";
+  qualityProfile: QualityProfileId;
+  landingUrl: string;             // /career/uncertainty
+  utmSource: "threads";
+  utmCampaign: string;            // career_timing_wedge_399
+  utmContentTemplate: "{{postId}}";
+  dailyPostTarget: number;        // default 3
+  linkCadenceEvery: number;       // default 3, only 1 linked post per 3
+  linkPlacement: "firstComment";
+  formulas: Array<{
+    id: CampaignFormulaId;
+    weight: number;
+    instruction: string;
+  }>;
+  replyPlaybook: {
+    stay: string[];
+    move: string[];
+    prepare: string[];
+    cta: string[];
+  };
+}
+
+interface ViralDiscoveryConfig {
+  keywords: string[];            // Threads keyword_search 입력
+  competitorHandles: string[];   // Threads public profile posts 입력, @ 없이 저장
+  excludedTerms: string[];       // 저장 전 제외할 단어/문구
+  maxExamplesPerRun: number;     // default 15, hard max 50
+  minViralScore: number;         // default 0
+  adapters: Array<{
+    id: "owned_posts" | "threads_keyword" | "threads_profile" | "manual";
+    enabled: boolean;
+  }>;
 }
 
 interface BrandResponse {
@@ -170,6 +223,25 @@ interface PostResponse {
   errorLog: string | null;
   firstComment: string | null;
   formulaId: string | null;
+  topic: string | null;
+  targetAudience: string | null;
+  situation: string | null;
+  hookType: string | null;
+  ctaType: string | null;
+  qualityScore: number | null;
+  qualityProfile: QualityProfileId | null;
+  qualityPass: boolean | null;
+  qualityReasons: string[];
+  campaignId: string | null;
+  campaignFormulaId: CampaignFormulaId | null;
+  careerDecisionType: CareerDecisionType | null;
+  linkUrl: string | null;
+  utmContent: string | null;
+  clicks: number | null;
+  conversions: number | null;
+  manualPaidConversions: number | null;
+  performanceScore: number | null;
+  performanceTier: "learning" | "promising" | "strong" | "breakout" | null;
 }
 ```
 
@@ -188,11 +260,14 @@ interface GenerateRequest {
   brandId: string;
   count?: number;         // 1..300, default 30
   insertAtFront?: boolean;
+  campaignId?: string;    // default activeCampaignId
 }
 
 interface GenerateResponse {
   success: true;
   count: number;
+  linkedCount?: number;
+  campaignId?: string;
 }
 
 // POST /api/generate/optimize
@@ -213,12 +288,318 @@ interface OptimizeResponse {
 
 ---
 
+## Campaign Engine Contract
+
+### Active Campaign
+
+Default campaign for CosmicPath career wedge:
+
+```typescript
+const CAREER_TIMING_WEDGE_399: CampaignConfig = {
+  id: "career_timing_wedge_399",
+  name: "커리어 타이밍 불안 wedge",
+  mode: "landing-test",
+  qualityProfile: "career_decision",
+  landingUrl: "/career/uncertainty",
+  utmSource: "threads",
+  utmCampaign: "career_timing_wedge_399",
+  utmContentTemplate: "{{postId}}",
+  dailyPostTarget: 3,
+  linkCadenceEvery: 3,
+  linkPlacement: "firstComment",
+  formulas: [
+    {
+      id: "comment_diagnosis",
+      weight: 4,
+      instruction: "댓글에 상황을 쓰면 버팀형/이동형/준비형으로 분류해준다는 진단형 포스트",
+    },
+    {
+      id: "friend_tag",
+      weight: 2,
+      instruction: "이직/퇴사 고민하는 친구에게 보내주라는 공유 유도형 포스트",
+    },
+    {
+      id: "self_confession",
+      weight: 3,
+      instruction: "퇴사/이직 불안에 대한 자기고백과 공감형 포스트",
+    },
+  ],
+  replyPlaybook: {
+    stay: ["지금은 옮기기보다 버티면서 조건을 정리할 타이밍으로 보여요."],
+    move: ["이미 버틸 이유보다 옮겨야 할 신호가 더 커 보여요."],
+    prepare: ["바로 움직이기보다 2~4주 준비 기간을 먼저 잡는 쪽이 좋아 보여요."],
+    cta: ["자세히 보려면 첫 댓글 링크에서 커리어 타이밍을 확인해보세요."],
+  },
+};
+```
+
+### Link Cadence
+
+- In each campaign batch, only 1 of every 3 posts receives a landing link.
+- Links are placed in `firstComment`, not the main body.
+- For 21 generated posts, exactly 7 should include links.
+- UTM format:
+
+```text
+/career/uncertainty?utm_source=threads&utm_campaign=career_timing_wedge_399&utm_content={{postId}}
+```
+
+If `postId` is unavailable before insert, the system must either:
+
+- create posts first, then update linked `firstComment` with the real post id, or
+- create a stable post token and store it as `utmContent`.
+
+### Quality Gate Profiles
+
+```typescript
+interface QualityResult {
+  pass: boolean;
+  score: number;
+  profile: QualityProfileId;
+  reasons: string[];
+  careerDecisionType?: CareerDecisionType;
+}
+```
+
+`saju_viral` keeps the existing astrology/saju viral checks but should not be the default for `career_timing_wedge_399`.
+
+`career_decision` must pass all core checks:
+
+- First line contains career anxiety: `이직`, `퇴사`, `버틸지`, `옮길지`, `번아웃`, or equivalent.
+- Comment prompt exists.
+- The post can be classified as one of:
+  - `stay` / 버팀형
+  - `move` / 이동형
+  - `prepare` / 준비형
+- Generic self-help phrasing is rejected, including patterns like:
+  - "좋은 일이 올 거예요"
+  - "스스로를 믿으세요"
+  - "작은 변화가 큰 기적을"
+  - "포기하지 마세요"
+
+Saju-specific terms are optional in this profile. The post should retain CosmicPath language through timing, 흐름, 성향, 결정 패턴, or 운의 리듬 rather than forced astrology jargon.
+
+### Campaign Summary
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/campaigns/summary?brandId=xxx&campaignId=yyy` | campaign dashboard summary |
+| `PATCH` | `/api/posts/[id]/campaign-metrics` | clicks/conversions/manual paid conversion 입력 |
+
+```typescript
+interface CampaignSummaryResponse {
+  brandId: string;
+  campaignId: string;
+  todayScheduled: Array<{
+    id: string;
+    content: string;
+    scheduledAt: string;
+    campaignFormulaId: CampaignFormulaId | null;
+    hasLink: boolean;
+    qualityPass: boolean | null;
+    qualityReasons: string[];
+    careerDecisionType: CareerDecisionType | null;
+    views: number | null;
+    replies: number | null;
+    reposts: number | null;
+    clicks: number | null;
+    conversions: number | null;
+    manualPaidConversions: number | null;
+  }>;
+  linkRatio: {
+    linked: number;
+    total: number;
+  };
+  quality: {
+    passed: number;
+    failed: number;
+  };
+  scoreWeights: {
+    replies: 0.4;
+    reposts: 0.25;
+    views: 0.2;
+    clicksConversions: 0.15;
+  };
+}
+
+interface UpdateCampaignMetricsRequest {
+  clicks?: number;
+  conversions?: number;
+  manualPaidConversions?: number;
+}
+```
+
+### Reply Playbook
+
+No automatic replies or DMs are allowed. The dashboard may display copy-ready templates only.
+
+Template groups:
+
+- `stay`: 버팀형 답변
+- `move`: 이동형 답변
+- `prepare`: 준비형 답변
+- `cta`: first-comment/landing CTA 답변
+
+---
+
+## Growth Learning API
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/growth?brandId=xxx` | 브랜드 성장 학습 리포트 조회 |
+| `POST` | `/api/growth/learn` | 수집된 메트릭으로 growthMemory 재학습 |
+
+```typescript
+interface GrowthPattern {
+  dimension: "formula" | "hook" | "topic" | "target" | "cta";
+  value: string;
+  count: number;
+  avgScore: number;
+  avgViews: number;
+  avgLikes: number;
+  avgReplies: number;
+  avgReposts: number;
+}
+
+interface GrowthMemory {
+  version: 1;
+  updatedAt: string;
+  sampleSize: number;
+  avgScore: number;
+  winners: GrowthPattern[];
+  weakSignals: GrowthPattern[];
+  recommendations: string[];
+}
+
+interface GrowthReportResponse {
+  brandId: string;
+  sampleSize: number;
+  memory: GrowthMemory;
+  topPatterns: GrowthPattern[];
+  weakPatterns: GrowthPattern[];
+}
+```
+
+---
+
+## Viral Discovery API
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/viral?brandId=xxx` | 브랜드 바이럴 레퍼런스/패턴 리포트 조회 |
+| `POST` | `/api/viral/discover` | 저장된 소스, 요청 override, 수동 입력에서 바이럴 후보 저장 |
+| `POST` | `/api/viral/learn` | 저장된 레퍼런스로 viralMemory 및 ViralPattern 재학습 |
+
+```typescript
+type ViralAdapterId = "owned_posts" | "threads_keyword" | "threads_profile" | "manual";
+
+interface ViralPatternSummary {
+  dimension: "hook" | "topic" | "emotion" | "structure" | "cta";
+  value: string;
+  count: number;
+  avgViralScore: number;
+  confidence: number;
+  exampleIds: string[];
+  recommendation: string;
+}
+
+interface ViralMemory {
+  version: 1;
+  updatedAt: string;
+  sampleSize: number;
+  avgViralScore: number;
+  sourceMix: Record<string, number>;
+  topPatterns: ViralPatternSummary[];
+  recommendations: string[];
+}
+
+interface ViralDiscoverRequest {
+  brandId: string;
+  useSavedSources?: boolean;      // default true
+  keywords?: string[];            // request-level override/addition
+  handles?: string[];             // request-level override/addition
+  includeOwnPosts?: boolean;      // default follows saved adapter setting
+  manualExamples?: Array<{
+    content: string;
+    authorUsername?: string;
+    permalink?: string;
+    views?: number;
+    likes?: number;
+    replies?: number;
+    reposts?: number;
+    quotes?: number;
+    shares?: number;
+  }>;
+  limit?: number;
+}
+
+interface ViralDiscoverResponse {
+  success: true;
+  brandId: string;
+  discovered: number;
+  saved: number;
+  errors: Array<{
+    adapter: ViralAdapterId;
+    source: string;
+    message: string;
+  }>;
+  sampleSize: number;
+  memory: ViralMemory;
+  topPatterns: Array<{
+    id: string;
+    dimension: string;
+    value: string;
+    sourceCount: number;
+    avgViralScore: number;
+    confidence: number;
+    recommendation: string;
+    exampleIds: string[];
+  }>;
+}
+
+interface ViralAdapterResult {
+  adapter: ViralAdapterId;
+  sourceKey: string;
+  authorUsername: string | null;
+  permalink: string | null;
+  content: string;
+  publishedAt: string | null;
+  metrics: {
+    views?: number;
+    likes?: number;
+    replies?: number;
+    reposts?: number;
+    quotes?: number;
+    shares?: number;
+  };
+  raw: Record<string, unknown>;
+}
+```
+
+### Auth, Error, Empty-State Behavior
+
+- All `/api/viral/*` user endpoints require `auth_session` and brand ownership.
+- Cron `/api/cron/viral` requires `CRON_SECRET` when configured.
+- `POST /api/viral/discover` returns partial success when one source fails and another source saves examples.
+- Empty saved sources fall back to owned posts and brand topics; if no candidates exist, response is `success: true`, `saved: 0`, `sampleSize: 0`.
+- External reference content is used for pattern extraction only; generation must not copy source text verbatim.
+
+### Non-Goals
+
+- No auto-commenting, DM, or engagement automation.
+- No non-Threads external provider implementation in this cycle.
+- No conversion tracking or paid attribution in this cycle.
+
+---
+
 ## Cron API
 
 | Method | Path | Description |
 |:-------|:-----|:------------|
 | `GET` | `/api/cron/publish` | 모든 active 브랜드 순회 → 각 1개 FIFO 발행 |
 | `GET` | `/api/cron/refresh-token` | 모든 브랜드 토큰 상태 확인 및 갱신 |
+| `GET` | `/api/cron/learn` | 모든 브랜드 growthMemory 재학습 |
+| `GET` | `/api/cron/viral` | 모든 브랜드 viral discovery + viralMemory 재학습 |
 
 ```typescript
 interface CronPublishResponse {
@@ -281,9 +662,13 @@ model Brand {
   createdAt      DateTime @default(now())
   formulaWeights String   @default("{}")  // JSON
   brandConfig    String   @default("{}")  // JSON: BrandConfig
+  growthMemory   String   @default("{}")  // JSON: GrowthMemory
+  viralMemory    String   @default("{}")  // JSON: ViralMemory
   ownerId        String
   owner          User     @relation(fields: [ownerId], references: [id])
   posts          Post[]
+  viralExamples  ViralExample[]
+  viralPatterns  ViralPattern[]
 }
 
 model Post {
@@ -299,11 +684,69 @@ model Post {
   errorLog     String?
   firstComment String?
   formulaId    String?
+  topic        String?
+  targetAudience String?
+  situation    String?
+  hookType     String?
+  ctaType      String?
+  qualityScore Int?
   views        Int?
   likes        Int?
   replies      Int?
   reposts      Int?
   metricsAt    DateTime?
+  performanceScore Int?
+  performanceTier  String?
+  learnedAt    DateTime?
+}
+
+model ViralExample {
+  id              String    @id @default(cuid())
+  brandId         String
+  brand           Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  source          String
+  sourceKey       String
+  authorUsername  String?
+  permalink       String?
+  content         String
+  publishedAt     DateTime?
+  discoveredAt    DateTime  @default(now())
+  views           Int?
+  likes           Int?
+  replies         Int?
+  reposts         Int?
+  quotes          Int?
+  shares          Int?
+  engagementRate  Float?
+  velocityScore   Int?
+  viralScore      Int       @default(0)
+  hookType        String?
+  topic           String?
+  emotionalDriver String?
+  structureType   String?
+  ctaType         String?
+  patternSummary  String?
+  keyTakeaway     String?
+  rawMetrics      String    @default("{}")
+
+  @@unique([brandId, source, sourceKey])
+}
+
+model ViralPattern {
+  id              String   @id @default(cuid())
+  brandId         String
+  brand           Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  dimension       String
+  value           String
+  sourceCount     Int
+  avgViralScore   Int
+  confidence      Int
+  exampleIds      String   @default("[]")
+  recommendation  String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([brandId, dimension, value])
 }
 
 // Settings 테이블은 Brand로 완전 대체 (마이그레이션 후 제거)

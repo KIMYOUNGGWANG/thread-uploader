@@ -1,11 +1,10 @@
+import type { CareerDecisionType, QualityProfileId } from "@/types/brand";
+
 /**
  * Quality Gate — CosmicPath 바이럴 공식 준수 검사기
  *
- * go-viral-or-die의 Core Value Congruence 원칙 기반:
- * 콘텐츠가 사주 특화 바이럴 공식을 준수하는지 자동 검증해
- * generic 동기부여 글로 drift하는 것을 시스템 레벨에서 방지한다.
- *
- * 점수 기준: 3점 만점, 2점 미만 → FAIL → 재생성 트리거
+ * saju_viral은 기존 사주 특화 훅을 보존하고, career_decision은
+ * 커리어 wedge 실험용 댓글 진단형 콘텐츠를 검증한다.
  */
 
 const SAJU_KEYWORDS = [
@@ -59,11 +58,64 @@ const ENGAGEMENT_PATTERNS = [
 
 export interface QualityResult {
   pass: boolean;
-  score: number; // 0–3
+  score: number;
+  profile: QualityProfileId;
   reasons: string[];
+  careerDecisionType?: CareerDecisionType;
 }
 
-export function checkQuality(post: string): QualityResult {
+const CAREER_FIRST_LINE_PATTERNS = [
+  /이직/,
+  /퇴사/,
+  /버틸지/,
+  /옮길지/,
+  /번아웃/,
+  /그만둘지/,
+  /커리어/,
+  /직장/,
+  /회사/,
+];
+
+const CAREER_COMMENT_PATTERNS = [
+  /댓글/,
+  /답글/,
+  /남겨/,
+  /써줘/,
+  /적어줘/,
+  /상황/,
+  /A\/B\/C/i,
+  /버팀형/,
+  /이동형/,
+  /준비형/,
+];
+
+const GENERIC_SELF_HELP_PATTERNS = [
+  /좋은 일이 올 거예요/,
+  /좋은 일이 올 거야/,
+  /스스로를 믿으세요/,
+  /스스로를 믿어/,
+  /작은 변화가 큰 기적/,
+  /포기하지 마세요/,
+  /포기하지 마/,
+  /당신은 할 수 있어/,
+  /언젠가 다 잘될/,
+];
+
+const CAREER_DECISION_PATTERNS: Array<{
+  type: CareerDecisionType;
+  patterns: RegExp[];
+}> = [
+  { type: "stay", patterns: [/버팀형/, /버티/, /남아/, /유지/, /견디/] },
+  { type: "move", patterns: [/이동형/, /옮기/, /이직/, /퇴사/, /나가/] },
+  { type: "prepare", patterns: [/준비형/, /준비/, /정리/, /포트폴리오/, /지원/, /2주|4주/] },
+];
+
+export function checkQuality(post: string, profile: QualityProfileId = "saju_viral"): QualityResult {
+  if (profile === "career_decision") return checkCareerDecisionQuality(post);
+  return checkSajuViralQuality(post);
+}
+
+function checkSajuViralQuality(post: string): QualityResult {
   const firstLine = post.split("\n").find((l) => l.trim().length > 0) ?? "";
   const reasons: string[] = [];
   let score = 0;
@@ -92,5 +144,55 @@ export function checkQuality(post: string): QualityResult {
     reasons.push("참여 유도 요소 없음 (선택지/시리즈/질문 필요)");
   }
 
-  return { pass: score >= 2, score, reasons };
+  return { pass: score >= 2, score, profile: "saju_viral", reasons };
+}
+
+function checkCareerDecisionQuality(post: string): QualityResult {
+  const firstLine = post.split("\n").find((line) => line.trim().length > 0) ?? "";
+  const reasons: string[] = [];
+  let score = 0;
+
+  if (CAREER_FIRST_LINE_PATTERNS.some((pattern) => pattern.test(firstLine))) {
+    score++;
+  } else {
+    reasons.push(`첫 줄에 커리어 불안 없음: "${firstLine.slice(0, 40)}"`);
+  }
+
+  if (CAREER_COMMENT_PATTERNS.some((pattern) => pattern.test(post))) {
+    score++;
+  } else {
+    reasons.push("댓글 유도 없음 — 상황 공유/분류 요청 필요");
+  }
+
+  const careerDecisionType = detectCareerDecisionType(post);
+  if (careerDecisionType) {
+    score++;
+  } else {
+    reasons.push("버팀형/이동형/준비형 중 하나로 분류하기 어려움");
+  }
+
+  if (GENERIC_SELF_HELP_PATTERNS.some((pattern) => pattern.test(post))) {
+    reasons.push("generic 자기계발 문장 포함");
+  } else {
+    score++;
+  }
+
+  return {
+    pass: score === 4,
+    score,
+    profile: "career_decision",
+    reasons,
+    ...(careerDecisionType && { careerDecisionType }),
+  };
+}
+
+function detectCareerDecisionType(post: string): CareerDecisionType | undefined {
+  const explicitType = CAREER_DECISION_PATTERNS.find(({ patterns }) => (
+    patterns[0]?.test(post)
+  ));
+  if (explicitType) return explicitType.type;
+
+  return CAREER_DECISION_PATTERNS.find(({ patterns }) => (
+    patterns.slice(1).filter((pattern) => pattern.test(post)).length >= 2
+  ))?.type;
 }

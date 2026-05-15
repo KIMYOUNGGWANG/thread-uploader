@@ -28,9 +28,13 @@ model Brand {
   createdAt      DateTime @default(now())
   formulaWeights String   @default("{}")
   brandConfig    String   @default("{}")
+  growthMemory   String   @default("{}")
+  viralMemory    String   @default("{}")
   ownerId        String
   owner          User     @relation(fields: [ownerId], references: [id])
   posts          Post[]
+  viralExamples  ViralExample[]
+  viralPatterns  ViralPattern[]
 }
 
 model Post {
@@ -46,11 +50,34 @@ model Post {
   errorLog     String?
   firstComment String?
   formulaId    String?
+  topic        String?
+  targetAudience String?
+  situation    String?
+  hookType     String?
+  ctaType      String?
+  qualityScore Int?
+  qualityProfile String?
+  qualityPass Boolean?
+  qualityReasons String @default("[]")
+  campaignId String?
+  campaignFormulaId String?
+  careerDecisionType String?
+  linkUrl String?
+  utmContent String?
+  clicks Int?
+  conversions Int?
+  manualPaidConversions Int?
   views        Int?
   likes        Int?
   replies      Int?
   reposts      Int?
   metricsAt    DateTime?
+  performanceScore Int?
+  performanceTier  String?
+  learnedAt    DateTime?
+
+  @@index([brandId, campaignId])
+  @@index([brandId, scheduledAt])
 }
 
 model Settings {
@@ -60,4 +87,57 @@ model Settings {
   tokenExpiry    DateTime
   updatedAt      DateTime @updatedAt
   formulaWeights String   @default("{}")
+}
+
+model ViralExample {
+  id              String    @id @default(cuid())
+  brandId         String
+  brand           Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  source          String
+  sourceKey       String
+  authorUsername  String?
+  permalink       String?
+  content         String
+  publishedAt     DateTime?
+  discoveredAt    DateTime  @default(now())
+  views           Int?
+  likes           Int?
+  replies         Int?
+  reposts         Int?
+  quotes          Int?
+  shares          Int?
+  engagementRate  Float?
+  velocityScore   Int?
+  viralScore      Int       @default(0)
+  hookType        String?
+  topic           String?
+  targetAudience  String?
+  emotionalDriver String?
+  structureType   String?
+  ctaType         String?
+  patternSummary  String?
+  keyTakeaway     String?
+  rawMetrics      String    @default("{}")
+
+  @@unique([brandId, source, sourceKey])
+  @@index([brandId, viralScore])
+  @@index([brandId, discoveredAt])
+}
+
+model ViralPattern {
+  id              String   @id @default(cuid())
+  brandId         String
+  brand           Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  dimension       String
+  value           String
+  sourceCount     Int
+  avgViralScore   Int
+  confidence      Int
+  exampleIds      String   @default("[]")
+  recommendation  String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([brandId, dimension, value])
+  @@index([brandId, avgViralScore])
 }

@@ -66,10 +66,12 @@ export async function PATCH(
     };
 
     const currentConfig = parseBrandConfig(brand.brandConfig);
-    const incomingConfig = body.brandConfig as Partial<BrandConfig> | undefined;
-    const mergedConfig = incomingConfig
-      ? { ...currentConfig, ...incomingConfig }
-      : currentConfig;
+    const incomingConfig = typeof body.brandConfig === "object" && body.brandConfig !== null
+      ? body.brandConfig as Partial<BrandConfig>
+      : undefined;
+    const mergedConfig = parseBrandConfig(JSON.stringify(
+      incomingConfig ? { ...currentConfig, ...incomingConfig } : currentConfig
+    ));
 
     const updated = await prisma.brand.update({
       where: { id },
