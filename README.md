@@ -69,7 +69,7 @@ Copy `.env.example` to `.env` and configure:
 - `DATABASE_URL`
 - `ANTHROPIC_API_KEY`
 - `CRON_SECRET`
-- `APP_URL` GitHub secret for the 2-hour account intelligence workflow
+- `VERCEL_URL` GitHub secret for the 2-hour account intelligence workflow
 - Legacy fallback Threads settings if needed
 
 ## Database
