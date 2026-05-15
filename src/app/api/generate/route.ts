@@ -63,6 +63,7 @@ async function generateOne(
   config: BrandConfig,
   growthContext: string,
   viralContext: string,
+  qualityFeedback: string[] = [],
   retries = 5,
   delayMs = 3000
 ): Promise<{ post: string; firstComment: string }> {
@@ -76,7 +77,7 @@ async function generateOne(
         messages: [
           {
             role: "user",
-            content: buildGenerationPrompt(experiment, growthContext, viralContext),
+            content: buildGenerationPrompt(experiment, growthContext, viralContext, qualityFeedback),
           },
         ],
       });
@@ -126,7 +127,7 @@ async function generateWithQuality(
 
   for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
     console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
-    lastResult = await generateOne(experiment, config, growthContext, viralContext);
+    lastResult = await generateOne(experiment, config, growthContext, viralContext, qualityResult.reasons);
     qualityResult = checkQuality(lastResult.post, experiment.qualityProfile);
   }
 
@@ -180,7 +181,8 @@ function buildExperiment(
 function buildGenerationPrompt(
   experiment: GrowthExperiment,
   growthContext: string,
-  viralContext: string
+  viralContext: string,
+  qualityFeedback: string[] = []
 ): string {
   return [
     `[공식: ${experiment.formula.name}]`,
@@ -194,6 +196,7 @@ function buildGenerationPrompt(
     `[CTA 유형]\n${experiment.ctaType}`,
     `[성과 학습 메모리]\n${growthContext}`,
     `[바이럴 레퍼런스 학습 메모리]\n${viralContext}`,
+    ...formatQualityFeedback(qualityFeedback),
     "",
     `위 실험 조건을 조합해서 Threads 포스트 1개를 작성해줘. 작성 후 ${SEPARATOR} 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.`,
     "본문과 첫 댓글에 실제 URL은 쓰지 마. 시스템이 저장 후 필요한 경우 UTM 링크를 붙인다.",
@@ -205,14 +208,28 @@ function formatCampaignPrompt(experiment: GrowthExperiment): string[] {
   return [
     `[캠페인]\n${experiment.campaign.name} (${experiment.campaign.id})`,
     `[품질 프로필]\n${experiment.qualityProfile}`,
+    "[중요: 캠페인 예외]",
+    "- 브랜드 기본 프롬프트의 '댓글로 남겨줘 금지'는 일반 사주 글 기준이다.",
+    "- 이 캠페인은 댓글 진단 실험이므로 본문 안에 상황 공유/댓글 CTA가 반드시 있어야 한다.",
+    "- 자동 답장 약속처럼 보이지 않게 '댓글에 상황 짧게 써줘' 또는 'A/B/C 중 어디에 가까운지 같이 보자'처럼 쓴다.",
     "[커리어 wedge 필수 조건]",
-    "- 첫 줄은 이직/퇴사/버틸지/옮길지/번아웃 같은 커리어 불안으로 시작",
+    "- 첫 줄은 반드시 이직/퇴사/버틸지/옮길지/번아웃/월급 현타/동기보다 뒤처짐 중 하나의 커리어 불안으로 시작",
     "- 댓글에 현재 상황을 쓰게 만들기",
-    "- 버팀형/이동형/준비형 중 하나로 분류 가능한 구조",
+    "- 본문 후반에 버팀형/이동형/준비형 또는 A/B/C 분류 프레임을 명확히 넣기",
     "- '좋은 일이 올 거예요' 같은 generic 자기계발 문장 금지",
     "- 사주 전문용어를 억지로 넣지 말고, 타이밍/흐름/성향/결정 패턴 정도로 CosmicPath 결을 유지",
+    "- 마지막 2줄 안에 댓글 CTA 또는 친구 공유 CTA를 넣기",
     `[링크 정책]\n${experiment.shouldLink ? "이번 글은 첫 댓글에 링크가 붙을 예정이므로 댓글 CTA를 자연스럽게 작성" : "이번 글은 링크 없이 댓글/프로필 방문만 유도"}`,
     "",
+  ];
+}
+
+function formatQualityFeedback(qualityFeedback: string[]): string[] {
+  if (qualityFeedback.length === 0) return [];
+  return [
+    "",
+    "[품질 게이트 실패 이유 - 이번 재작성에서 반드시 수정]",
+    ...qualityFeedback.map((reason) => `- ${reason}`),
   ];
 }
 

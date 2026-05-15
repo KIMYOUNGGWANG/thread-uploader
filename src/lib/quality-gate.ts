@@ -74,6 +74,19 @@ const CAREER_FIRST_LINE_PATTERNS = [
   /커리어/,
   /직장/,
   /회사/,
+  /월급/,
+  /통장/,
+  /현타/,
+  /동기/,
+  /제자리/,
+  /뒤처/,
+  /때려치우/,
+  /일도\s*다\s*놓/,
+  /출근/,
+  /연봉/,
+  /승진/,
+  /상사/,
+  /업무/,
 ];
 
 const CAREER_COMMENT_PATTERNS = [
@@ -87,6 +100,17 @@ const CAREER_COMMENT_PATTERNS = [
   /버팀형/,
   /이동형/,
   /준비형/,
+  /A\s*\/\s*B/i,
+  /어느\s*쪽/,
+  /짧게\s*써/,
+  /달아줘/,
+  /손\s*들/,
+  /몇\s*개/,
+  /체크/,
+  /해당/,
+  /공유/,
+  /태그/,
+  /보내줘/,
 ];
 
 const GENERIC_SELF_HELP_PATTERNS = [
@@ -105,9 +129,19 @@ const CAREER_DECISION_PATTERNS: Array<{
   type: CareerDecisionType;
   patterns: RegExp[];
 }> = [
-  { type: "stay", patterns: [/버팀형/, /버티/, /남아/, /유지/, /견디/] },
-  { type: "move", patterns: [/이동형/, /옮기/, /이직/, /퇴사/, /나가/] },
-  { type: "prepare", patterns: [/준비형/, /준비/, /정리/, /포트폴리오/, /지원/, /2주|4주/] },
+  { type: "stay", patterns: [/버팀형/, /버티/, /버텨/, /남아/, /유지/, /견디/, /숨\s*고르/, /에너지\s*보존/, /기다리/] },
+  { type: "move", patterns: [/이동형/, /옮기/, /이직/, /퇴사/, /나가/, /움직여/, /전환/, /밀어붙/] },
+  { type: "prepare", patterns: [/준비형/, /준비/, /정리/, /포트폴리오/, /지원/, /2주|4주/, /시작해야/, /조건/] },
+];
+
+const CAREER_DECISION_FRAME_PATTERNS = [
+  /버팀형[\s\S]*이동형[\s\S]*준비형/,
+  /버티[\s\S]*나가[\s\S]*준비/,
+  /버텨야[\s\S]*움직여야[\s\S]*준비/,
+  /버티고\s*있는지[\s\S]*나가야[\s\S]*준비/,
+  /세\s*가지로?\s*갈린/,
+  /3가지로?\s*나뉘/,
+  /어느\s*쪽인지/,
 ];
 
 export function checkQuality(post: string, profile: QualityProfileId = "saju_viral"): QualityResult {
@@ -165,7 +199,7 @@ function checkCareerDecisionQuality(post: string): QualityResult {
   }
 
   const careerDecisionType = detectCareerDecisionType(post);
-  if (careerDecisionType) {
+  if (careerDecisionType || hasCareerDecisionFrame(post)) {
     score++;
   } else {
     reasons.push("버팀형/이동형/준비형 중 하나로 분류하기 어려움");
@@ -195,4 +229,8 @@ function detectCareerDecisionType(post: string): CareerDecisionType | undefined 
   return CAREER_DECISION_PATTERNS.find(({ patterns }) => (
     patterns.slice(1).filter((pattern) => pattern.test(post)).length >= 2
   ))?.type;
+}
+
+function hasCareerDecisionFrame(post: string): boolean {
+  return CAREER_DECISION_FRAME_PATTERNS.some((pattern) => pattern.test(post));
 }
