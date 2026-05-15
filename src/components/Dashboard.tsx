@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
 import { parseExcelFile, parseMarkdownFile, ParsedPost, validatePost } from "@/lib/parser";
 import { Toaster, toast } from "sonner";
 import Link from "next/link";
+import type { AccountInsightSnapshot } from "@/types/account-intelligence";
 
 interface FormulaStats {
   formulaId: string;
@@ -194,6 +195,11 @@ interface CampaignMetricDraft {
   manualPaidConversions: string;
 }
 
+interface AccountIntelligenceData {
+  latest: AccountInsightSnapshot | null;
+  history: AccountInsightSnapshot[];
+}
+
 interface ManualReferenceFormState {
   content: string;
   permalink: string;
@@ -284,6 +290,10 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const [growth, setGrowth] = useState<GrowthData | null>(null);
   const [isLoadingGrowth, setIsLoadingGrowth] = useState(false);
   const [isLearningGrowth, setIsLearningGrowth] = useState(false);
+  const [showAccountIntelligence, setShowAccountIntelligence] = useState(false);
+  const [accountIntelligence, setAccountIntelligence] = useState<AccountIntelligenceData | null>(null);
+  const [isLoadingAccountIntelligence, setIsLoadingAccountIntelligence] = useState(false);
+  const [isRunningAccountIntelligence, setIsRunningAccountIntelligence] = useState(false);
   const [showCampaign, setShowCampaign] = useState(false);
   const [campaignSummary, setCampaignSummary] = useState<CampaignSummaryData | null>(null);
   const [isLoadingCampaign, setIsLoadingCampaign] = useState(false);
@@ -318,6 +328,52 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
 
   useEffect(() => {
     fetchPosts();
+  }, [brandId, fetchPosts]);
+
+  const loadAccountIntelligence = useCallback(async () => {
+    setIsLoadingAccountIntelligence(true);
+    try {
+      const response = await fetch(`/api/account-intelligence?brandId=${brandId}`);
+      const data = await response.json() as AccountIntelligenceData | { error?: string };
+      if (!response.ok) throw new Error((data as { error?: string }).error ?? "계정 분석 불러오기 실패");
+      setAccountIntelligence(data as AccountIntelligenceData);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "계정 분석 불러오기 실패");
+    } finally {
+      setIsLoadingAccountIntelligence(false);
+    }
+  }, [brandId]);
+
+  const handleToggleAccountIntelligence = useCallback(async () => {
+    if (showAccountIntelligence) {
+      setShowAccountIntelligence(false);
+      return;
+    }
+    setShowAccountIntelligence(true);
+    await loadAccountIntelligence();
+  }, [loadAccountIntelligence, showAccountIntelligence]);
+
+  const handleRunAccountIntelligence = useCallback(async () => {
+    setIsRunningAccountIntelligence(true);
+    try {
+      const response = await fetch("/api/account-intelligence/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId, fetchMetrics: true, windowHours: 48 }),
+      });
+      const data = await response.json() as { insight?: AccountInsightSnapshot; error?: string };
+      if (!response.ok || !data.insight) throw new Error(data.error ?? "계정 분석 실행 실패");
+      setAccountIntelligence((current) => ({
+        latest: data.insight ?? null,
+        history: [data.insight!, ...(current?.history ?? [])].slice(0, 8),
+      }));
+      toast.success("계정 분석 업데이트 완료");
+      await fetchPosts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "계정 분석 실행 실패");
+    } finally {
+      setIsRunningAccountIntelligence(false);
+    }
   }, [brandId, fetchPosts]);
 
   const loadCampaignSummary = useCallback(async () => {
@@ -358,12 +414,13 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
       toast.success(`${data.count}개 포스트 생성 완료${linkText}`);
       await fetchPosts();
       if (showCampaign) await loadCampaignSummary();
+      if (showAccountIntelligence) await loadAccountIntelligence();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "AI 생성 실패");
     } finally {
       setIsGenerating(false);
     }
-  }, [brandId, generateCount, insertAtFront, fetchPosts, loadCampaignSummary, showCampaign]);
+  }, [brandId, generateCount, insertAtFront, fetchPosts, loadAccountIntelligence, loadCampaignSummary, showAccountIntelligence, showCampaign]);
 
   const handleCreatePost = useCallback(async () => {
     try {
@@ -850,6 +907,32 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
               <input type="file" accept=".xlsx,.md" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); }} />
             </div>
 
+            {/* Account Intelligence Panel */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+              <button onClick={handleToggleAccountIntelligence} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <Activity className="w-4 h-4 text-emerald-500" />
+                  Account Intelligence
+                  {accountIntelligence?.latest && (
+                    <span className="text-xs text-slate-400 font-normal">
+                      ({accountIntelligence.latest.actions.length} 액션)
+                    </span>
+                  )}
+                </div>
+                {showAccountIntelligence ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {showAccountIntelligence && (
+                <AccountIntelligencePanel
+                  data={accountIntelligence}
+                  isLoading={isLoadingAccountIntelligence}
+                  isRunning={isRunningAccountIntelligence}
+                  onRefresh={loadAccountIntelligence}
+                  onRun={handleRunAccountIntelligence}
+                />
+              )}
+            </div>
+
             {/* Campaign Experiment Panel */}
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
               <button onClick={handleToggleCampaign} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
@@ -1156,6 +1239,102 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function AccountIntelligencePanel({
+  data,
+  isLoading,
+  isRunning,
+  onRefresh,
+  onRun,
+}: {
+  data: AccountIntelligenceData | null;
+  isLoading: boolean;
+  isRunning: boolean;
+  onRefresh: () => void;
+  onRun: () => void;
+}) {
+  const latest = data?.latest ?? null;
+
+  if (isLoading) {
+    return (
+      <div className="border-t border-slate-100 dark:border-slate-700 p-6 flex justify-center">
+        <RefreshCw className="w-5 h-5 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
+
+  if (!latest) {
+    return (
+      <div className="border-t border-slate-100 dark:border-slate-700 p-6 text-center text-sm text-slate-400">
+        아직 계정 분석 스냅샷이 없습니다.
+        <div className="mt-3">
+          <Button size="sm" onClick={onRun} disabled={isRunning} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            {isRunning ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1.5" />}
+            {isRunning ? "분석 중..." : "지금 분석"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const metrics = latest.metrics;
+  return (
+    <div className="border-t border-slate-100 dark:border-slate-700 p-4 space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-white">{latest.summary}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {formatDateTime(latest.generatedAt)} · {metrics.metricsRefresh.updated}/{metrics.metricsRefresh.attempted} metrics updated
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={onRefresh} className="text-xs">
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />새로고침
+          </Button>
+          <Button size="sm" onClick={onRun} disabled={isRunning} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+            {isRunning ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1.5" />}
+            {isRunning ? "분석 중..." : "지금 분석"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <MetricTile label="발행/예약" value={`${metrics.publishedPosts}/${metrics.pendingPosts}`} sub={`${metrics.windowHours}h window`} />
+        <MetricTile label="댓글" value={String(metrics.totalReplies)} sub={`리포스트 ${metrics.totalReposts}`} />
+        <MetricTile label="평균 점수" value={String(metrics.avgPerformanceScore)} sub={`조회 ${metrics.totalViews}`} />
+        <MetricTile label="전환 신호" value={String(metrics.totalConversions)} sub={`클릭 ${metrics.totalClicks}`} />
+      </div>
+
+      {latest.actions.length === 0 ? (
+        <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3 text-sm text-slate-400">
+          지금 당장 처리할 액션은 없습니다.
+        </div>
+      ) : (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {latest.actions.map((action) => (
+            <div key={action.id} className="rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${priorityClass(action.priority)}`}>
+                  {priorityLabel(action.priority)}
+                </span>
+                <span className="text-xs text-slate-400">{actionTypeLabel(action.type)}</span>
+              </div>
+              <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-white">{action.title}</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{action.detail}</p>
+              {(action.formulaId || action.postId) && (
+                <p className="mt-2 text-xs text-slate-400">
+                  {action.formulaId && `포맷 ${action.formulaId}`}
+                  {action.formulaId && action.postId && " · "}
+                  {action.postId && `post ${action.postId.slice(0, 8)}`}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1567,6 +1746,45 @@ function careerDecisionLabel(value: string): string {
     prepare: "준비형",
   };
   return labels[value] ?? value;
+}
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function priorityClass(priority: string): string {
+  const classes: Record<string, string> = {
+    high: "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+    medium: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+    low: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  };
+  return classes[priority] ?? classes.low;
+}
+
+function priorityLabel(priority: string): string {
+  const labels: Record<string, string> = {
+    high: "높음",
+    medium: "보통",
+    low: "낮음",
+  };
+  return labels[priority] ?? priority;
+}
+
+function actionTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    reply_now: "답글",
+    boost_format: "확대",
+    reduce_format: "축소",
+    link_ratio_warning: "링크",
+    quality_warning: "품질",
+    watch_post: "관찰",
+  };
+  return labels[type] ?? type;
 }
 
 function formatViralSourceError(error: ViralSourceError): string {

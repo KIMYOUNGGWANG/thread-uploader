@@ -17,12 +17,14 @@ const BATCH_SIZE = 20;
 const REQUEST_DELAY_MS = 600; // Threads API rate limit 여유
 
 function calculatePerformanceScore(metrics) {
-  return (
-    (metrics.views ?? 0) +
-    (metrics.likes ?? 0) * 4 +
-    (metrics.replies ?? 0) * 9 +
-    (metrics.reposts ?? 0) * 14
-  );
+  const views = metrics.views ?? 0;
+  const replies = metrics.replies ?? 0;
+  const reposts = metrics.reposts ?? 0;
+  const clicks = metrics.clicks ?? 0;
+  const conversions = metrics.conversions ?? 0;
+  const manualPaidConversions = metrics.manualPaidConversions ?? 0;
+  const conversionSignal = clicks + conversions * 5 + manualPaidConversions * 20;
+  return Math.round(views * 0.2 + replies * 40 + reposts * 25 + conversionSignal * 15);
 }
 
 function getPerformanceTier(score) {

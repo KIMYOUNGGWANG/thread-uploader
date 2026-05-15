@@ -486,6 +486,45 @@ export interface ThreadsCredentials {
     userId: string;
 }
 
+export interface ThreadsPostInsights {
+    views: number;
+    likes: number;
+    replies: number;
+    reposts: number;
+}
+
+export async function fetchPostInsightsForBrand(
+    threadsId: string,
+    accessToken: string
+): Promise<ThreadsPostInsights> {
+    const params = new URLSearchParams({
+        metric: "views,likes,replies,reposts,quotes",
+        access_token: accessToken,
+    });
+
+    const response = await fetch(`${THREADS_API_BASE}/${threadsId}/insights?${params}`);
+    const data = await response.json() as {
+        data?: Array<{ name: string; values?: Array<{ value?: number }> }>;
+        error?: { message?: string };
+    };
+
+    if (!response.ok) {
+        throw new Error(`Threads insights failed: ${data.error?.message ?? "Unknown error"}`);
+    }
+
+    const metrics = Object.fromEntries((data.data ?? []).map((item) => [
+        item.name,
+        item.values?.[0]?.value ?? 0,
+    ]));
+
+    return {
+        views: Number(metrics.views ?? 0),
+        likes: Number(metrics.likes ?? 0),
+        replies: Number(metrics.replies ?? 0),
+        reposts: Number(metrics.reposts ?? 0),
+    };
+}
+
 /**
  * Publish a post using explicit brand credentials
  */

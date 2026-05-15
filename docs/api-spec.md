@@ -1,7 +1,7 @@
 # 📜 API Spec — Threads Auto Uploader
 
 - **Version**: v2.0 (Multi-brand SaaS)
-- **Updated**: 2026-05-14
+- **Updated**: 2026-05-15
 - **Base URL**: `/api`
 
 ---
@@ -776,12 +776,85 @@ model ViralPattern {
 
 ---
 
+## Account Intelligence Contract
+
+2시간 간격 계정 분석은 `AccountInsight` 스냅샷으로 저장한다. 목적은 완전 실시간 자동 판단이 아니라, 최근 48시간의 성과를 읽고 운영자가 바로 할 일을 제안하는 것이다.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/account-intelligence?brandId=xxx` | 최신 계정 분석과 최근 히스토리 조회 |
+| `POST` | `/api/account-intelligence/run` | 현재 브랜드 계정 분석 수동 실행 |
+| `GET` | `/api/cron/account-intelligence` | 전체 브랜드 2시간 간격 계정 분석 cron |
+
+```typescript
+type AccountInsightActionType =
+  | "reply_now"
+  | "boost_format"
+  | "reduce_format"
+  | "link_ratio_warning"
+  | "quality_warning"
+  | "watch_post";
+
+interface AccountInsightAction {
+  id: string;
+  type: AccountInsightActionType;
+  priority: "high" | "medium" | "low";
+  title: string;
+  detail: string;
+  postId?: string;
+  campaignId?: string;
+  formulaId?: string;
+  score?: number;
+}
+
+interface AccountInsightMetrics {
+  windowHours: number;            // default 48
+  totalPosts: number;
+  publishedPosts: number;
+  pendingPosts: number;
+  linkedPosts: number;
+  qualityFailedPosts: number;
+  totalViews: number;
+  totalReplies: number;
+  totalReposts: number;
+  totalClicks: number;
+  totalConversions: number;
+  avgPerformanceScore: number;
+  metricsRefresh: {
+    attempted: number;
+    updated: number;
+    failed: number;
+  };
+}
+
+interface AccountInsightSnapshot {
+  id: string;
+  brandId: string;
+  generatedAt: string;
+  windowStart: string;
+  windowEnd: string;
+  source: "cron" | "manual";
+  summary: string;
+  actions: AccountInsightAction[];
+  metrics: AccountInsightMetrics;
+}
+```
+
+Cron recommendation:
+
+```bash
+0 */2 * * * curl -H "Authorization: Bearer $CRON_SECRET" \
+  https://<app>/api/cron/account-intelligence
+```
+
+---
+
 ## Non-goals
 
 - X, Instagram, TikTok 등 타 플랫폼 연동
 - 공개 API / 3rd party webhook
 - 브랜드 간 콘텐츠 공유
-- 실시간 알림
+- 초단위 실시간 알림/자동 판단
 
 > [!IMPORTANT]
 > 코드와 계약이 어긋나면 ship 게이트에서 먼저 문서를 갱신하거나 구현을 되돌려야 한다.

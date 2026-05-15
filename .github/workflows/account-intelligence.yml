@@ -1,0 +1,21 @@
+name: Account Intelligence
+
+on:
+  schedule:
+    # Every 2 hours. The endpoint analyzes the latest 48-hour account window.
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+
+jobs:
+  account-intelligence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run account intelligence cron
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          curl --fail --show-error --silent \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/account-intelligence"

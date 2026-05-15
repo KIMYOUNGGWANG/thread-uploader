@@ -1,6 +1,6 @@
 # Screen Flow — CosmicPath Career Wedge Engine
 
-Updated: 2026-05-14
+Updated: 2026-05-15
 
 ## Actors
 
@@ -20,7 +20,8 @@ Updated: 2026-05-14
 9. Brand Owner publishes through existing cron/manual publish flow.
 10. Brand Owner uses Reply Playbook templates manually when comments arrive.
 11. Brand Owner inputs manual paid conversions until automatic conversion tracking exists.
-12. Growth learning uses replies/reposts/views/clicks/conversions with campaign weights.
+12. Account Intelligence runs every 2 hours and surfaces reply/format/link/quality actions.
+13. Growth learning uses replies/reposts/views/clicks/conversions with campaign weights.
 
 ## Settings States
 
@@ -47,6 +48,15 @@ Updated: 2026-05-14
 - Partial metrics: missing clicks/conversions are treated as 0 but visually marked manual/missing.
 - Error: keep last known summary visible and show toast.
 
+## Account Intelligence States
+
+- Empty: no saved `AccountInsight`; user can run analysis manually.
+- Loading: spinner while latest insight loads.
+- Running: button disabled while metrics refresh and insight generation run.
+- Ready: show latest summary, metrics refresh count, priority actions, and recent window metrics.
+- Cron: `/api/cron/account-intelligence` runs with `CRON_SECRET` every 2 hours.
+- Degraded metrics: if Threads insights fetch fails, use stored metrics and include failed refresh count.
+
 ## Reply Playbook States
 
 - Default: show four groups: 버팀형, 이동형, 준비형, CTA.
@@ -71,3 +81,4 @@ Updated: 2026-05-14
 - Confirm career comment-diagnosis posts pass without forced saju terms.
 - Confirm generic self-help posts fail `career_decision`.
 - Confirm Reply Playbook templates are visible and copy-ready without auto-send.
+- Confirm Account Intelligence panel can render empty and latest insight states.
