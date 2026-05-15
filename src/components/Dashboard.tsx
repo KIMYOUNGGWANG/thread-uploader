@@ -133,6 +133,8 @@ interface CampaignPostData {
   id: string;
   content: string;
   scheduledAt: string;
+  publishedAt: string | null;
+  createdAt: string;
   status: string;
   firstComment: string | null;
   linkUrl: string | null;
@@ -217,6 +219,7 @@ interface DBPost {
   content: string;
   imageUrls: string[];
   scheduledAt: string;
+  publishedAt: string | null;
   status: string;
   threadsId: string | null;
   createdAt: string;
@@ -1408,7 +1411,7 @@ function CampaignSummaryPanel({
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">
-        <MetricTile label="오늘 예약" value={`${summary.todayScheduled.length}`} sub={`목표 ${summary.campaign.dailyPostTarget}`} />
+        <MetricTile label="오늘 캠페인" value={`${summary.todayScheduled.length}`} sub={`목표 ${summary.campaign.dailyPostTarget}`} />
         <MetricTile label="링크 비율" value={`${summary.linkRatio.linked}/${summary.linkRatio.total}`} sub={`${summary.linkRatio.percent}%`} />
         <MetricTile label="Quality" value={`${summary.quality.passed}/${summary.quality.total}`} sub={summary.quality.failed ? `fail ${summary.quality.failed}` : "pass"} />
         <MetricTile label="반응" value={`${summary.metrics.replies} 댓글`} sub={`조회 ${summary.metrics.views} · 리포스트 ${summary.metrics.reposts}`} />
@@ -1416,9 +1419,9 @@ function CampaignSummaryPanel({
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">오늘 예약된 포스트</p>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">오늘 캠페인 포스트</p>
           {summary.todayScheduled.length === 0 ? (
-            <p className="text-sm text-slate-400">오늘 예약된 캠페인 포스트가 없습니다.</p>
+            <p className="text-sm text-slate-400">오늘 생성/발행된 캠페인 포스트가 없습니다.</p>
           ) : (
             <div className="space-y-3">
               {summary.todayScheduled.map((post, index) => {
@@ -1430,7 +1433,7 @@ function CampaignSummaryPanel({
                 return (
                   <div key={post.id} className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">#{index + 1} · {post.campaignFormulaId ?? "formula"}</p>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">#{index + 1} · {post.status} · {post.campaignFormulaId ?? "formula"}</p>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                         post.qualityPass
                           ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"

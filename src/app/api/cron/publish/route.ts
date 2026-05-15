@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
           data: {
             status: "PUBLISHED",
             threadsId,
+            publishedAt: new Date(),
             errorLog: replyError ? `First comment failed: ${replyError}` : null,
           },
         });

@@ -312,19 +312,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let baseTime = Date.now();
+    const now = Date.now();
+    let baseTime = now;
     if (insertAtFront) {
       const earliest = await prisma.post.findFirst({
         where: { status: "PENDING", brandId },
         orderBy: { scheduledAt: "asc" },
       });
-      if (earliest) baseTime = earliest.scheduledAt.getTime() - count * 1000;
+      if (earliest && earliest.scheduledAt.getTime() > now) {
+        baseTime = Math.max(now, earliest.scheduledAt.getTime() - count * 1000);
+      }
     } else {
       const latest = await prisma.post.findFirst({
         where: { status: "PENDING", brandId },
         orderBy: { scheduledAt: "desc" },
       });
-      if (latest && latest.scheduledAt.getTime() > Date.now()) {
+      if (latest && latest.scheduledAt.getTime() > now) {
         baseTime = latest.scheduledAt.getTime() + 1000;
       }
     }

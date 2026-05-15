@@ -47,6 +47,7 @@ model Post {
   scheduledAt  DateTime
   status       String    @default("PENDING")
   threadsId    String?
+  publishedAt  DateTime?
   createdAt    DateTime  @default(now())
   errorLog     String?
   firstComment String?
@@ -79,6 +80,7 @@ model Post {
 
   @@index([brandId, campaignId])
   @@index([brandId, scheduledAt])
+  @@index([brandId, publishedAt])
 }
 
 model Settings {

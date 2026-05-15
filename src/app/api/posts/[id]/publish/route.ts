@@ -40,6 +40,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: {
         status: "PUBLISHED",
         threadsId,
+        publishedAt: new Date(),
         errorLog: replyErrorMessage ? `First comment failed: ${replyErrorMessage}` : null,
       },
     });

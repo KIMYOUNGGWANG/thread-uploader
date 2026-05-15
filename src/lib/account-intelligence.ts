@@ -1,4 +1,4 @@
-import type { Brand, Post } from "@prisma/client";
+import type { Brand, Post, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
 import { fetchPostInsightsForBrand } from "@/lib/threads-api";
@@ -78,9 +78,9 @@ async function refreshRecentMetrics(brand: Brand, windowStart: Date): Promise<Me
       brandId: brand.id,
       status: "PUBLISHED",
       threadsId: { not: null },
-      scheduledAt: { gte: windowStart },
+      ...buildActivitySinceWhere(windowStart),
     },
-    orderBy: { scheduledAt: "desc" },
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
     take: MAX_METRICS_REFRESH_POSTS,
   });
 
@@ -117,15 +117,34 @@ function loadWindowPosts(brandId: string, windowStart: Date, windowEnd: Date): P
   return prisma.post.findMany({
     where: {
       brandId,
-      scheduledAt: {
-        gte: windowStart,
-        lte: windowEnd,
-      },
       status: { in: ["PENDING", "PUBLISHED", "FAILED"] },
+      ...buildActivityWindowWhere(windowStart, windowEnd),
     },
-    orderBy: { scheduledAt: "desc" },
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
     take: 300,
   });
+}
+
+function buildActivitySinceWhere(windowStart: Date): Prisma.PostWhereInput {
+  return {
+    OR: [
+      { publishedAt: { gte: windowStart } },
+      { createdAt: { gte: windowStart } },
+      { scheduledAt: { gte: windowStart } },
+      { metricsAt: { gte: windowStart } },
+    ],
+  };
+}
+
+function buildActivityWindowWhere(windowStart: Date, windowEnd: Date): Prisma.PostWhereInput {
+  return {
+    OR: [
+      { publishedAt: { gte: windowStart, lte: windowEnd } },
+      { createdAt: { gte: windowStart, lte: windowEnd } },
+      { scheduledAt: { gte: windowStart, lte: windowEnd } },
+      { metricsAt: { gte: windowStart, lte: windowEnd } },
+    ],
+  };
 }
 
 function buildMetrics(

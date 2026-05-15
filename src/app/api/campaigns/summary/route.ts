@@ -16,6 +16,18 @@ function startOfTomorrow(): Date {
   return date;
 }
 
+function todayActivityWhere() {
+  const start = startOfToday();
+  const end = startOfTomorrow();
+  return {
+    OR: [
+      { scheduledAt: { gte: start, lt: end } },
+      { createdAt: { gte: start, lt: end } },
+      { publishedAt: { gte: start, lt: end } },
+    ],
+  };
+}
+
 function parseQualityReasons(raw: string): string[] {
   try {
     const parsed = JSON.parse(raw) as unknown;
@@ -46,12 +58,9 @@ export async function GET(request: NextRequest) {
       where: {
         brandId,
         campaignId: campaign.id,
-        scheduledAt: {
-          gte: startOfToday(),
-          lt: startOfTomorrow(),
-        },
+        ...todayActivityWhere(),
       },
-      orderBy: { scheduledAt: "asc" },
+      orderBy: [{ publishedAt: "asc" }, { createdAt: "asc" }, { scheduledAt: "asc" }],
     });
 
     const linked = posts.filter((post) => Boolean(post.linkUrl)).length;
@@ -70,6 +79,8 @@ export async function GET(request: NextRequest) {
         id: post.id,
         content: post.content,
         scheduledAt: post.scheduledAt,
+        publishedAt: post.publishedAt,
+        createdAt: post.createdAt,
         status: post.status,
         firstComment: post.firstComment,
         linkUrl: post.linkUrl,
