@@ -16,6 +16,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (post.status === "PUBLISHED" || post.threadsId) {
       return NextResponse.json({ error: "Post is already published" }, { status: 400 });
     }
+    if (post.qualityPass === false) {
+      return NextResponse.json({
+        error: "Quality FAIL 글은 업로드할 수 없습니다. 수정하거나 다시 생성한 뒤 업로드하세요.",
+      }, { status: 400 });
+    }
 
     const credentials = { accessToken: brand.accessToken, userId: brand.threadsUserId };
     const imageUrls = JSON.parse(post.imageUrls || "[]") as string[];

@@ -196,6 +196,8 @@ interface UpdateBrandRequest {
 | `DELETE` | `/api/posts/reset?brandId=xxx` | PENDING 전체 삭제 |
 | `POST` | `/api/posts/[id]/publish` | 즉시 발행 |
 
+`qualityPass === false` posts are review-only and must not be published by either immediate publish or cron publish.
+
 ```typescript
 // POST /api/posts
 interface CreatePostsRequest {
@@ -219,6 +221,7 @@ interface PostResponse {
   scheduledAt: string;
   status: "PENDING" | "PUBLISHED" | "FAILED";
   threadsId: string | null;
+  publishedAt: string | null;
   createdAt: string;
   errorLog: string | null;
   firstComment: string | null;
@@ -378,6 +381,8 @@ interface QualityResult {
   - "포기하지 마세요"
 
 Saju-specific terms are optional in this profile. The post should retain CosmicPath language through timing, 흐름, 성향, 결정 패턴, or 운의 리듬 rather than forced astrology jargon.
+
+Quality gate failures are allowed to remain visible in the queue for review and editing, but publish boundaries must reject them.
 
 ### Campaign Summary
 

@@ -81,6 +81,7 @@ export function PostCard({
     );
     const [copied, setCopied] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const isQualityBlocked = qualityPass === false;
 
     const handleCopy = async () => {
         try {
@@ -98,6 +99,10 @@ export function PostCard({
 
         if (!dbPostId) {
             toast.error("저장되지 않은 포스트입니다");
+            return;
+        }
+        if (isQualityBlocked) {
+            toast.error("Quality FAIL 글은 업로드할 수 없습니다. 수정하거나 다시 생성하세요.");
             return;
         }
 
@@ -385,16 +390,19 @@ export function PostCard({
                                     isPosted && "from-green-500 to-green-600"
                                 )}
                                 onClick={handleUpload}
-                                disabled={isUploading || !validation.valid || isPosted}
+                                disabled={isUploading || !validation.valid || isPosted || isQualityBlocked}
+                                title={isQualityBlocked ? "Quality FAIL 글은 업로드할 수 없습니다" : undefined}
                             >
                                 {isUploading ? (
                                     <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                ) : isQualityBlocked ? (
+                                    <AlertCircle className="w-3.5 h-3.5 mr-1.5" />
                                 ) : isPosted ? (
                                     <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
                                 ) : (
                                     <Upload className="w-3.5 h-3.5 mr-1.5" />
                                 )}
-                                {isUploading ? "업로드 중..." : isPosted ? "업로드됨" : "Threads 업로드"}
+                                {isUploading ? "업로드 중..." : isQualityBlocked ? "품질 실패" : isPosted ? "업로드됨" : "Threads 업로드"}
                             </Button>
 
                             {/* Copy Button */}

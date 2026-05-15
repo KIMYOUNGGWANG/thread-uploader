@@ -21,17 +21,31 @@ export async function GET(request: NextRequest) {
   }
 
   const published: { brandId: string; brandName: string; postId: string; threadsId: string }[] = [];
-  const skipped: { brandId: string; brandName: string; reason: "no_pending" | "publish_failed" }[] = [];
+  const skipped: { brandId: string; brandName: string; reason: "no_pending" | "quality_blocked" | "publish_failed" }[] = [];
 
   for (const brand of brands) {
     try {
       const post = await prisma.post.findFirst({
-        where: { brandId: brand.id, status: "PENDING" },
+        where: {
+          brandId: brand.id,
+          status: "PENDING",
+          OR: [
+            { qualityPass: true },
+            { qualityPass: null },
+          ],
+        },
         orderBy: { scheduledAt: "asc" },
       });
 
       if (!post) {
-        skipped.push({ brandId: brand.id, brandName: brand.name, reason: "no_pending" });
+        const blockedCount = await prisma.post.count({
+          where: { brandId: brand.id, status: "PENDING", qualityPass: false },
+        });
+        skipped.push({
+          brandId: brand.id,
+          brandName: brand.name,
+          reason: blockedCount > 0 ? "quality_blocked" : "no_pending",
+        });
         continue;
       }
 
