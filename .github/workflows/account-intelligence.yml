@@ -12,10 +12,10 @@ jobs:
     steps:
       - name: Run account intelligence cron
         env:
-          APP_URL: ${{ secrets.VERCEL_URL }}
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           test -n "$APP_URL"
-          curl --fail --show-error --silent \
+          curl --fail-with-body --show-error --silent --location \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             "${APP_URL%/}/api/cron/account-intelligence"

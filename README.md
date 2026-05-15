@@ -69,7 +69,7 @@ Copy `.env.example` to `.env` and configure:
 - `DATABASE_URL`
 - `ANTHROPIC_API_KEY`
 - `CRON_SECRET`
-- `VERCEL_URL` GitHub secret for the 2-hour account intelligence workflow
+- Optional `APP_URL` GitHub repository variable for the 2-hour account intelligence workflow. Defaults to `https://thread-uploader.vercel.app`.
 - Legacy fallback Threads settings if needed
 
 ## Database
