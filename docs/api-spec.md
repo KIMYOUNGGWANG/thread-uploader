@@ -257,6 +257,7 @@ interface AccountPatternResponse {
 interface DiscoverAccountsRequest {
   brandId: string;
   keywords?: string[];
+  handles?: string[];       // @handle or threads.net/@handle seed fallback
   limit?: number;          // default 20, max 50
   minScore?: number;       // default 60
 }
@@ -288,6 +289,8 @@ interface AnalyzeAccountsResponse {
   errors: ViralSourceError[];
 }
 ```
+
+If Threads `keyword_search` is blocked by Meta app permissions, discovery returns source errors and may find zero keyword candidates. Operators can pass `handles` or configure `viralDiscovery.competitorHandles`; these seed handles are saved as manual candidates so the Brand Owner can choose `watch` or `ignore` before any learning occurs.
 
 ### Scoring
 

@@ -14,6 +14,7 @@ import type {
   AccountPatternResponse,
   DiscoveredAccountCategory,
   DiscoveredAccountResponse,
+  DiscoveredAccountSource,
   DiscoveredAccountStatus,
 } from "@/types/account-discovery";
 import type { ViralSourceError } from "@/types/viral";
@@ -23,9 +24,11 @@ const DEFAULT_DISCOVERY_LIMIT = 20;
 const DEFAULT_POST_LIMIT = 10;
 const MAX_LIMIT = 50;
 const MAX_KEYWORDS = 5;
+const MAX_HANDLES = 20;
 
 interface DiscoverOptions {
   keywords?: string[];
+  handles?: string[];
   limit?: number;
   minScore?: number;
 }
@@ -38,6 +41,8 @@ interface AnalyzeOptions {
 interface CandidateSeed {
   username: string;
   sourceKeyword: string;
+  source: DiscoveredAccountSource;
+  trusted: boolean;
   posts: ThreadsPublicPost[];
 }
 
@@ -83,6 +88,7 @@ export async function discoverAccounts(brandId: string, options: DiscoverOptions
 
   const config = parseBrandConfig(brand.brandConfig);
   const keywords = buildSeedKeywords(config, options.keywords);
+  const handles = buildSeedHandles(config, options.handles);
   const limit = clamp(options.limit ?? DEFAULT_DISCOVERY_LIMIT, 1, MAX_LIMIT);
   const minScore = clamp(options.minScore ?? DEFAULT_MIN_SCORE, 0, 100);
   const errors: ViralSourceError[] = [];
@@ -98,6 +104,8 @@ export async function discoverAccounts(brandId: string, options: DiscoverOptions
         seeds.set(username, {
           username,
           sourceKeyword: existing?.sourceKeyword ?? keyword,
+          source: existing?.source ?? "keyword_search",
+          trusted: existing?.trusted ?? false,
           posts: [...(existing?.posts ?? []), post],
         });
       }
@@ -106,13 +114,34 @@ export async function discoverAccounts(brandId: string, options: DiscoverOptions
     }
   }
 
+  for (const handle of handles.slice(0, MAX_HANDLES)) {
+    const username = normalizeUsername(handle);
+    if (!username) continue;
+
+    const existing = seeds.get(username);
+    const profilePosts = existing ? [] : await fetchProfilePostsSafely(brand.accessToken, username, errors);
+    seeds.set(username, {
+      username,
+      sourceKeyword: existing?.sourceKeyword ?? "seed_handle",
+      source: existing?.source ?? "manual",
+      trusted: true,
+      posts: dedupePosts([...(existing?.posts ?? []), ...profilePosts]),
+    });
+  }
+
   let saved = 0;
   const candidateSeeds = Array.from(seeds.values()).slice(0, limit);
   for (const seed of candidateSeeds) {
-    const profilePosts = await fetchProfilePostsSafely(brand.accessToken, seed.username, errors);
+    const profilePosts = seed.source === "keyword_search"
+      ? await fetchProfilePostsSafely(brand.accessToken, seed.username, errors)
+      : [];
     const allPosts = dedupePosts([...seed.posts, ...profilePosts]);
     const scored = scoreAccount(seed.username, allPosts, config, seed.sourceKeyword);
-    if (scored.score < minScore) continue;
+    const relevanceScore = seed.trusted ? Math.max(scored.score, minScore) : scored.score;
+    if (relevanceScore < minScore) continue;
+    const reason = seed.trusted && scored.score < minScore
+      ? "사용자가 지정한 seed handle · watch 여부를 직접 판단"
+      : scored.reason;
 
     const existing = await prisma.discoveredAccount.findUnique({
       where: { brandId_username: { brandId, username: seed.username } },
@@ -121,9 +150,10 @@ export async function discoverAccounts(brandId: string, options: DiscoverOptions
     await prisma.discoveredAccount.upsert({
       where: { brandId_username: { brandId, username: seed.username } },
       update: {
-        relevanceScore: scored.score,
+        relevanceScore,
         category: scored.category,
-        reason: scored.reason,
+        reason,
+        source: seed.source,
         sourceKeyword: seed.sourceKeyword,
         lastDiscoveredAt: new Date(),
       },
@@ -133,9 +163,9 @@ export async function discoverAccounts(brandId: string, options: DiscoverOptions
         profileUrl: `https://www.threads.net/@${seed.username}`,
         status: "candidate",
         category: scored.category,
-        relevanceScore: scored.score,
-        reason: scored.reason,
-        source: "keyword_search",
+        relevanceScore,
+        reason,
+        source: seed.source,
         sourceKeyword: seed.sourceKeyword,
       },
     });
@@ -434,6 +464,15 @@ function buildSeedKeywords(config: BrandConfig, requested: string[] = []): strin
   ]).slice(0, MAX_KEYWORDS);
 }
 
+function buildSeedHandles(config: BrandConfig, requested: string[] = []): string[] {
+  return unique([
+    ...requested,
+    ...config.viralDiscovery.competitorHandles,
+  ])
+    .map((handle) => extractUsername(handle))
+    .filter((handle): handle is string => Boolean(handle));
+}
+
 function buildBrandTopics(config: BrandConfig): string[] {
   return unique([
     ...config.topics,
@@ -573,6 +612,19 @@ function normalizeDimension(dimension: string): AccountPatternDimension {
 function normalizeUsername(username?: string | null): string | null {
   const normalized = username?.replace(/^@/, "").trim().toLowerCase();
   return normalized && /^[a-z0-9._]+$/.test(normalized) ? normalized : null;
+}
+
+function extractUsername(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(trimmed);
+    const match = url.pathname.match(/@([^/?#]+)/);
+    return normalizeUsername(match?.[1]);
+  } catch {
+    return normalizeUsername(trimmed);
+  }
 }
 
 function dedupePosts(posts: ThreadsPublicPost[]): ThreadsPublicPost[] {

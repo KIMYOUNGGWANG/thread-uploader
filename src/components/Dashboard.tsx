@@ -349,6 +349,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const [isSavingManualReference, setIsSavingManualReference] = useState(false);
   const [showRelatedAccounts, setShowRelatedAccounts] = useState(false);
   const [relatedAccounts, setRelatedAccounts] = useState<RelatedAccountsData | null>(null);
+  const [relatedHandleInput, setRelatedHandleInput] = useState("");
   const [isLoadingRelatedAccounts, setIsLoadingRelatedAccounts] = useState(false);
   const [isDiscoveringAccounts, setIsDiscoveringAccounts] = useState(false);
   const [isAnalyzingAccounts, setIsAnalyzingAccounts] = useState(false);
@@ -659,17 +660,19 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const handleDiscoverAccounts = useCallback(async () => {
     setIsDiscoveringAccounts(true);
     try {
+      const handles = parseAccountHandles(relatedHandleInput);
       const response = await fetch("/api/accounts/discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId, limit: 20, minScore: 60 }),
+        body: JSON.stringify({ brandId, handles, limit: 20, minScore: 60 }),
       });
       const data = await response.json() as { saved?: number; discovered?: number; errors?: ViralSourceError[]; error?: string };
       if (!response.ok) throw new Error(data.error ?? "관련 계정 발견 실패");
       await loadRelatedAccounts();
+      if (handles.length > 0 && (data.saved ?? 0) > 0) setRelatedHandleInput("");
       const errors = data.errors ?? [];
       if (errors.length > 0) {
-        toast.warning(`후보 ${data.saved ?? 0}개 저장, 일부 소스 실패 (${errors.length}건)`);
+        toast.warning(`후보 ${data.saved ?? 0}개 저장 · ${summarizeSourceErrors(errors)}`);
       } else {
         toast.success(`관련 계정 후보 ${data.saved ?? 0}개 저장`);
       }
@@ -678,7 +681,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     } finally {
       setIsDiscoveringAccounts(false);
     }
-  }, [brandId, loadRelatedAccounts]);
+  }, [brandId, loadRelatedAccounts, relatedHandleInput]);
 
   const handleAnalyzeAccounts = useCallback(async () => {
     setIsAnalyzingAccounts(true);
@@ -1110,6 +1113,8 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   isLoading={isLoadingRelatedAccounts}
                   isDiscovering={isDiscoveringAccounts}
                   isAnalyzing={isAnalyzingAccounts}
+                  handleInput={relatedHandleInput}
+                  onHandleInputChange={setRelatedHandleInput}
                   onRefresh={loadRelatedAccounts}
                   onDiscover={handleDiscoverAccounts}
                   onAnalyze={handleAnalyzeAccounts}
@@ -1505,6 +1510,8 @@ function RelatedAccountsPanel({
   isLoading,
   isDiscovering,
   isAnalyzing,
+  handleInput,
+  onHandleInputChange,
   onRefresh,
   onDiscover,
   onAnalyze,
@@ -1514,6 +1521,8 @@ function RelatedAccountsPanel({
   isLoading: boolean;
   isDiscovering: boolean;
   isAnalyzing: boolean;
+  handleInput: string;
+  onHandleInputChange: (value: string) => void;
   onRefresh: () => void;
   onDiscover: () => void;
   onAnalyze: () => void;
@@ -1562,6 +1571,25 @@ function RelatedAccountsPanel({
         <MetricTile label="Watched" value={String(watchedCount)} sub="학습 대상" />
         <MetricTile label="Ignored" value={String(ignoredCount)} sub="학습 제외" />
         <MetricTile label="패턴" value={String(patterns.length)} sub="account signals" />
+      </div>
+
+      <div className="rounded-lg border border-indigo-100 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/10 p-3">
+        <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Seed handles</label>
+        <div className="mt-2 flex flex-col gap-2 lg:flex-row">
+          <input
+            value={handleInput}
+            onChange={(event) => onHandleInputChange(event.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+            placeholder="@handle, threads.net/@handle 또는 여러 계정"
+          />
+          <Button size="sm" onClick={onDiscover} disabled={isDiscovering || isAnalyzing} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs">
+            {isDiscovering ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Radar className="w-3.5 h-3.5 mr-1.5" />}
+            후보 저장
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          Meta keyword_search 권한이 없으면 자동 키워드 발견은 0개가 될 수 있습니다. 그때는 관련 계정을 seed로 넣고 watch/ignore로 학습 대상을 고르세요.
+        </p>
       </div>
 
       {patterns.length > 0 && (
@@ -2123,6 +2151,39 @@ function actionTypeLabel(type: string): string {
 
 function formatViralSourceError(error: ViralSourceError): string {
   return `${sourceLabel(error.adapter)}:${error.source} - ${error.message}`;
+}
+
+function summarizeSourceErrors(errors: ViralSourceError[]): string {
+  const permissionError = errors.find((error) => /permission|권한/i.test(error.message));
+  if (permissionError) {
+    return `Meta discovery 권한 없음 (${errors.length}건): ${permissionError.message}`;
+  }
+  return `일부 소스 실패 (${errors.length}건): ${errors.slice(0, 2).map(formatViralSourceError).join(" / ")}`;
+}
+
+function parseAccountHandles(input: string): string[] {
+  return Array.from(new Set(input
+    .split(/[\s,]+/)
+    .map(extractAccountHandle)
+    .filter((handle): handle is string => Boolean(handle))))
+    .slice(0, 20);
+}
+
+function extractAccountHandle(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    const match = url.pathname.match(/@([^/?#]+)/);
+    return normalizeAccountHandle(match?.[1] ?? "");
+  } catch {
+    return normalizeAccountHandle(trimmed);
+  }
+}
+
+function normalizeAccountHandle(input: string): string | null {
+  const normalized = input.replace(/^@/, "").trim().toLowerCase();
+  return normalized && /^[a-z0-9._]+$/.test(normalized) ? normalized : null;
 }
 
 function optionalString(value: string): string | undefined {

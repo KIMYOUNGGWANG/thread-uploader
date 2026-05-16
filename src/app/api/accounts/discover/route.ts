@@ -5,6 +5,7 @@ import { discoverAccounts } from "@/lib/account-discovery";
 interface DiscoverAccountsRequest {
   brandId?: unknown;
   keywords?: unknown;
+  handles?: unknown;
   limit?: unknown;
   minScore?: unknown;
 }
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
     await requireBrandForCurrentUser(brandId);
     return NextResponse.json(await discoverAccounts(brandId, {
       keywords: normalizeStringList(body.keywords),
+      handles: normalizeStringList(body.handles),
       limit: typeof body.limit === "number" ? body.limit : undefined,
       minScore: typeof body.minScore === "number" ? body.minScore : undefined,
     }));
