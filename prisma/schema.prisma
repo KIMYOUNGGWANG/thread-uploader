@@ -38,6 +38,7 @@ model Brand {
   accountInsights AccountInsight[]
   discoveredAccounts DiscoveredAccount[]
   accountPatterns AccountPattern[]
+  tiktokVideoDrafts TikTokVideoDraft[]
 }
 
 model Post {
@@ -229,4 +230,55 @@ model AccountPattern {
   @@index([brandId, confidence])
   @@index([brandId, dimension])
   @@index([accountId])
+}
+
+model TikTokVideoDraft {
+  id              String   @id @default(cuid())
+  brandId         String
+  brand           Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  campaignId      String
+  formatId        String
+  status          String   @default("DRAFT")
+  title           String
+  spokenHook      String
+  script          String
+  sceneBeats      String   @default("[]")
+  captionOverlays String   @default("[]")
+  onScreenText    String   @default("[]")
+  hashtags        String   @default("[]")
+  cta             String
+  landingUrl      String?
+  utmContent      String?
+  qualityProfile  String   @default("tiktok_career_timing")
+  qualityPass     Boolean  @default(false)
+  qualityScore    Int      @default(0)
+  qualityReasons  String   @default("[]")
+  durationSeconds Int      @default(25)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  metrics         TikTokVideoMetric[]
+
+  @@index([brandId, campaignId])
+  @@index([brandId, status])
+  @@index([brandId, createdAt])
+}
+
+model TikTokVideoMetric {
+  id               String   @id @default(cuid())
+  draftId          String
+  draft            TikTokVideoDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  measuredAt       DateTime @default(now())
+  views            Int      @default(0)
+  likes            Int      @default(0)
+  comments         Int      @default(0)
+  shares           Int      @default(0)
+  saves            Int      @default(0)
+  profileClicks    Int      @default(0)
+  landingClicks    Int      @default(0)
+  conversions      Int      @default(0)
+  performanceScore Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([draftId, measuredAt])
 }

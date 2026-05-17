@@ -1,6 +1,6 @@
 # Screen Flow — CosmicPath Career Wedge Engine
 
-Updated: 2026-05-15
+Updated: 2026-05-17
 
 ## Actors
 
@@ -26,6 +26,12 @@ Updated: 2026-05-15
 15. Brand Owner inputs manual paid conversions until automatic conversion tracking exists.
 16. Account Intelligence runs every 2 hours and surfaces reply/format/link/quality actions.
 17. Growth learning uses replies/reposts/views/clicks/conversions with campaign weights.
+18. Brand Owner opens TikTok Video Lab from the same campaign dashboard.
+19. System generates TikTok video draft/specs from campaign, viral, growth, and account memories.
+20. Brand Owner reviews quality pass/fail, edits weak drafts, and approves only passing drafts.
+21. Brand Owner manually uploads approved drafts to TikTok.
+22. Brand Owner returns after 48 hours and inputs TikTok performance metrics.
+23. TikTok Video Lab shows format-level recommendations for the next batch.
 
 ## Settings States
 
@@ -79,6 +85,21 @@ Updated: 2026-05-15
 - Comment diagnosis: user reads a real comment and copies the matching template manually.
 - No auto-reply: the app must not send replies or DMs.
 
+## TikTok Video Lab States
+
+- Empty: no TikTok drafts exist; show generate action and the active parent campaign.
+- Generating: button disabled while AI creates video scripts/specs and quality gate runs.
+- Ready: show draft cards with format, hook, duration, quality score, and status.
+- Quality fail: show fail reasons and keep the draft editable, but hide/disable approve action.
+- Approved: show copy-ready script, caption overlays, hashtags, CTA, and landing URL.
+- Browser render: user clicks video render and the app records a 9:16 WebM from the draft spec.
+- Manual upload: user marks a draft as manually uploaded after posting in TikTok.
+- Metrics pending: uploaded draft waits for 48-hour manual metrics.
+- Metrics editing: user enters views, likes, comments, shares, saves, profile clicks, landing clicks, and conversions.
+- Summary ready: show top formats, quality pass rate, manual upload count, and next-batch recommendations.
+- Error: keep existing drafts visible and show the failed operation message.
+- No upload automation: the UI must not ask for TikTok cookies, passwords, or browser sessions.
+
 ## Manual Conversion Flow
 
 1. Brand Owner opens Campaign Dashboard.
@@ -101,3 +122,9 @@ Updated: 2026-05-15
 - Confirm account discovery saves candidates from seed keywords.
 - Confirm ignored accounts do not feed account pattern learning.
 - Confirm watched account patterns appear in the viral generation guidance.
+- Generate 21 TikTok video drafts and confirm all have script, scene beats, caption overlays, CTA, and hashtags.
+- Confirm generic TikTok drafts fail `tiktok_career_timing`.
+- Confirm `qualityPass=false` TikTok drafts cannot be approved.
+- Confirm approved TikTok drafts expose copy-ready script/caption/hashtag fields.
+- Confirm TikTok draft video render creates a 9:16 WebM without TikTok API credentials.
+- Confirm manual TikTok metrics update the TikTok summary without requiring TikTok API credentials.

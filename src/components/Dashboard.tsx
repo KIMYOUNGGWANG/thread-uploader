@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Users, Eye, EyeOff } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Users, Eye, EyeOff, Video, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
@@ -9,6 +9,7 @@ import { parseExcelFile, parseMarkdownFile, ParsedPost, validatePost } from "@/l
 import { Toaster, toast } from "sonner";
 import Link from "next/link";
 import type { AccountInsightSnapshot } from "@/types/account-intelligence";
+import type { TikTokSummaryResponse, TikTokVideoDraftResponse, TikTokVideoDraftStatus } from "@/types/tiktok-video";
 
 interface FormulaStats {
   formulaId: string;
@@ -234,6 +235,17 @@ interface CampaignMetricDraft {
   manualPaidConversions: string;
 }
 
+interface TikTokMetricDraft {
+  views: string;
+  likes: string;
+  comments: string;
+  shares: string;
+  saves: string;
+  profileClicks: string;
+  landingClicks: string;
+  conversions: string;
+}
+
 interface AccountIntelligenceData {
   latest: AccountInsightSnapshot | null;
   history: AccountInsightSnapshot[];
@@ -301,6 +313,17 @@ const EMPTY_MANUAL_REFERENCE: ManualReferenceFormState = {
   shares: "",
 };
 
+const EMPTY_TIKTOK_METRIC_DRAFT: TikTokMetricDraft = {
+  views: "0",
+  likes: "0",
+  comments: "0",
+  shares: "0",
+  saves: "0",
+  profileClicks: "0",
+  landingClicks: "0",
+  conversions: "0",
+};
+
 const MANUAL_METRIC_FIELDS: Array<{
   key: keyof Pick<ManualReferenceFormState, "views" | "likes" | "replies" | "reposts" | "quotes" | "shares">;
   label: string;
@@ -311,6 +334,20 @@ const MANUAL_METRIC_FIELDS: Array<{
   { key: "reposts", label: "리포스트" },
   { key: "quotes", label: "인용" },
   { key: "shares", label: "공유" },
+];
+
+const TIKTOK_METRIC_FIELDS: Array<{
+  key: keyof TikTokMetricDraft;
+  label: string;
+}> = [
+  { key: "views", label: "조회" },
+  { key: "likes", label: "좋아요" },
+  { key: "comments", label: "댓글" },
+  { key: "shares", label: "공유" },
+  { key: "saves", label: "저장" },
+  { key: "profileClicks", label: "프로필" },
+  { key: "landingClicks", label: "랜딩" },
+  { key: "conversions", label: "전환" },
 ];
 
 export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
@@ -339,6 +376,15 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const [isLoadingCampaign, setIsLoadingCampaign] = useState(false);
   const [campaignMetricDrafts, setCampaignMetricDrafts] = useState<Record<string, CampaignMetricDraft>>({});
   const [savingCampaignMetricId, setSavingCampaignMetricId] = useState<string | null>(null);
+  const [showTikTokLab, setShowTikTokLab] = useState(false);
+  const [tiktokSummary, setTikTokSummary] = useState<TikTokSummaryResponse | null>(null);
+  const [isLoadingTikTok, setIsLoadingTikTok] = useState(false);
+  const [isGeneratingTikTok, setIsGeneratingTikTok] = useState(false);
+  const [tiktokGenerateCount, setTikTokGenerateCount] = useState(7);
+  const [tiktokMetricDrafts, setTikTokMetricDrafts] = useState<Record<string, TikTokMetricDraft>>({});
+  const [savingTikTokMetricId, setSavingTikTokMetricId] = useState<string | null>(null);
+  const [updatingTikTokDraftId, setUpdatingTikTokDraftId] = useState<string | null>(null);
+  const [renderingTikTokDraftId, setRenderingTikTokDraftId] = useState<string | null>(null);
   const [showViral, setShowViral] = useState(false);
   const [viral, setViral] = useState<ViralData | null>(null);
   const [isLoadingViral, setIsLoadingViral] = useState(false);
@@ -617,6 +663,125 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
       setSavingCampaignMetricId(null);
     }
   }, [campaignMetricDrafts, fetchPosts, loadCampaignSummary]);
+
+  const loadTikTokSummary = useCallback(async () => {
+    setIsLoadingTikTok(true);
+    try {
+      const response = await fetch(`/api/tiktok/summary?brandId=${brandId}`);
+      const data = await response.json() as TikTokSummaryResponse | { error?: string };
+      if (!response.ok) throw new Error((data as { error?: string }).error ?? "TikTok Lab 불러오기 실패");
+      const summary = data as TikTokSummaryResponse;
+      setTikTokSummary(summary);
+      setTikTokMetricDrafts(Object.fromEntries(summary.recentDrafts.map((draft) => [
+        draft.id,
+        buildTikTokMetricDraft(draft),
+      ])));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "TikTok Lab 불러오기 실패");
+    } finally {
+      setIsLoadingTikTok(false);
+    }
+  }, [brandId]);
+
+  const handleToggleTikTokLab = useCallback(async () => {
+    if (showTikTokLab) {
+      setShowTikTokLab(false);
+      return;
+    }
+    setShowTikTokLab(true);
+    await loadTikTokSummary();
+  }, [loadTikTokSummary, showTikTokLab]);
+
+  const handleGenerateTikTokDrafts = useCallback(async () => {
+    setIsGeneratingTikTok(true);
+    try {
+      const response = await fetch("/api/tiktok/videos/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId, count: tiktokGenerateCount }),
+      });
+      const data = await response.json() as { count?: number; quality?: { passed: number; failed: number }; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "TikTok draft 생성 실패");
+      toast.success(`TikTok draft ${data.count ?? 0}개 생성 · pass ${data.quality?.passed ?? 0}/fail ${data.quality?.failed ?? 0}`);
+      await loadTikTokSummary();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "TikTok draft 생성 실패");
+    } finally {
+      setIsGeneratingTikTok(false);
+    }
+  }, [brandId, loadTikTokSummary, tiktokGenerateCount]);
+
+  const handleUpdateTikTokStatus = useCallback(async (draftId: string, status: TikTokVideoDraftStatus) => {
+    setUpdatingTikTokDraftId(draftId);
+    try {
+      const response = await fetch(`/api/tiktok/videos/${draftId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json() as { draft?: TikTokVideoDraftResponse; error?: string };
+      if (!response.ok || !data.draft) throw new Error(data.error ?? "TikTok draft 상태 변경 실패");
+      toast.success(status === "APPROVED" ? "TikTok draft 승인됨" : status === "UPLOADED_MANUAL" ? "수동 업로드로 표시됨" : "상태 변경 완료");
+      await loadTikTokSummary();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "TikTok draft 상태 변경 실패");
+    } finally {
+      setUpdatingTikTokDraftId(null);
+    }
+  }, [loadTikTokSummary]);
+
+  const handleRenderTikTokVideo = useCallback(async (draft: TikTokVideoDraftResponse) => {
+    setRenderingTikTokDraftId(draft.id);
+    try {
+      const blob = await renderTikTokDraftVideo(draft);
+      downloadBlob(blob, `${sanitizeFilename(draft.title || draft.id)}.webm`);
+      toast.success("TikTok 영상 생성 완료");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "영상 생성 실패");
+    } finally {
+      setRenderingTikTokDraftId(null);
+    }
+  }, []);
+
+  const handleTikTokMetricDraftChange = useCallback((draftId: string, field: keyof TikTokMetricDraft, value: string) => {
+    setTikTokMetricDrafts((current) => ({
+      ...current,
+      [draftId]: {
+        ...(current[draftId] ?? EMPTY_TIKTOK_METRIC_DRAFT),
+        [field]: value,
+      },
+    }));
+  }, []);
+
+  const handleSaveTikTokMetrics = useCallback(async (draftId: string) => {
+    const draft = tiktokMetricDrafts[draftId];
+    if (!draft) return;
+    setSavingTikTokMetricId(draftId);
+    try {
+      const response = await fetch(`/api/tiktok/videos/${draftId}/metrics`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          views: optionalMetric(draft.views) ?? 0,
+          likes: optionalMetric(draft.likes) ?? 0,
+          comments: optionalMetric(draft.comments) ?? 0,
+          shares: optionalMetric(draft.shares) ?? 0,
+          saves: optionalMetric(draft.saves) ?? 0,
+          profileClicks: optionalMetric(draft.profileClicks) ?? 0,
+          landingClicks: optionalMetric(draft.landingClicks) ?? 0,
+          conversions: optionalMetric(draft.conversions) ?? 0,
+        }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? "TikTok metrics 저장 실패");
+      toast.success("TikTok metrics 저장 완료");
+      await loadTikTokSummary();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "TikTok metrics 저장 실패");
+    } finally {
+      setSavingTikTokMetricId(null);
+    }
+  }, [loadTikTokSummary, tiktokMetricDrafts]);
 
   const handleToggleViral = useCallback(async () => {
     if (showViral) { setShowViral(false); return; }
@@ -1090,6 +1255,38 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   onRefresh={loadCampaignSummary}
                   onDraftChange={handleCampaignDraftChange}
                   onSaveMetrics={handleSaveCampaignMetrics}
+                />
+              )}
+            </div>
+
+            {/* TikTok Video Lab Panel */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+              <button onClick={handleToggleTikTokLab} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <Video className="w-4 h-4 text-pink-500" />
+                  TikTok Video Lab
+                  {tiktokSummary && <span className="text-xs text-slate-400 font-normal">({tiktokSummary.totals.drafts} drafts)</span>}
+                </div>
+                {showTikTokLab ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {showTikTokLab && (
+                <TikTokVideoLabPanel
+                  summary={tiktokSummary}
+                  isLoading={isLoadingTikTok}
+                  isGenerating={isGeneratingTikTok}
+                  generateCount={tiktokGenerateCount}
+                  metricDrafts={tiktokMetricDrafts}
+                  savingMetricId={savingTikTokMetricId}
+                  updatingDraftId={updatingTikTokDraftId}
+                  renderingDraftId={renderingTikTokDraftId}
+                  onGenerateCountChange={setTikTokGenerateCount}
+                  onRefresh={loadTikTokSummary}
+                  onGenerate={handleGenerateTikTokDrafts}
+                  onUpdateStatus={handleUpdateTikTokStatus}
+                  onRenderVideo={handleRenderTikTokVideo}
+                  onMetricDraftChange={handleTikTokMetricDraftChange}
+                  onSaveMetrics={handleSaveTikTokMetrics}
                 />
               )}
             </div>
@@ -1672,6 +1869,238 @@ function RelatedAccountsPanel({
   );
 }
 
+function TikTokVideoLabPanel({
+  summary,
+  isLoading,
+  isGenerating,
+  generateCount,
+  metricDrafts,
+  savingMetricId,
+  updatingDraftId,
+  renderingDraftId,
+  onGenerateCountChange,
+  onRefresh,
+  onGenerate,
+  onUpdateStatus,
+  onRenderVideo,
+  onMetricDraftChange,
+  onSaveMetrics,
+}: {
+  summary: TikTokSummaryResponse | null;
+  isLoading: boolean;
+  isGenerating: boolean;
+  generateCount: number;
+  metricDrafts: Record<string, TikTokMetricDraft>;
+  savingMetricId: string | null;
+  updatingDraftId: string | null;
+  renderingDraftId: string | null;
+  onGenerateCountChange: (value: number) => void;
+  onRefresh: () => void;
+  onGenerate: () => void;
+  onUpdateStatus: (draftId: string, status: TikTokVideoDraftStatus) => void;
+  onRenderVideo: (draft: TikTokVideoDraftResponse) => void;
+  onMetricDraftChange: (draftId: string, field: keyof TikTokMetricDraft, value: string) => void;
+  onSaveMetrics: (draftId: string) => void;
+}) {
+  const copyText = async (label: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} 복사됨`);
+    } catch {
+      toast.error("복사 실패");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="border-t border-slate-100 dark:border-slate-700 p-6 flex justify-center">
+        <RefreshCw className="w-5 h-5 animate-spin text-pink-500" />
+      </div>
+    );
+  }
+
+  if (!summary) {
+    return (
+      <div className="border-t border-slate-100 dark:border-slate-700 p-6 text-center text-sm text-slate-400">
+        TikTok Video Lab 데이터를 불러오지 못했습니다.
+        <div className="mt-3">
+          <Button size="sm" variant="outline" onClick={onRefresh}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />다시 불러오기
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-slate-100 dark:border-slate-700 p-4 space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-white">TikTok Video Experiment Engine</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Campaign {summary.campaignId} · script/spec 생성 · 수동 업로드/성과 입력
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={generateCount}
+            onChange={(event) => onGenerateCountChange(Math.min(30, Math.max(1, Number(event.target.value))))}
+            className="w-16 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-center text-xs text-slate-800 dark:text-slate-100"
+          />
+          <Button size="sm" variant="outline" onClick={onRefresh} className="text-xs">
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />새로고침
+          </Button>
+          <Button size="sm" onClick={onGenerate} disabled={isGenerating} className="bg-pink-600 hover:bg-pink-700 text-white text-xs">
+            {isGenerating ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Video className="w-3.5 h-3.5 mr-1.5" />}
+            {isGenerating ? "생성 중..." : "draft 생성"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <MetricTile label="Drafts" value={String(summary.totals.drafts)} sub={`approved ${summary.totals.approved}`} />
+        <MetricTile label="Quality" value={`${summary.totals.qualityPassed}/${summary.totals.drafts || 0}`} sub={summary.totals.qualityFailed ? `fail ${summary.totals.qualityFailed}` : "pass"} />
+        <MetricTile label="Manual Uploads" value={String(summary.totals.manualUploads)} sub="TikTok 수동 게시" />
+        <MetricTile label="Top Formats" value={String(summary.topFormats.length)} sub={summary.topFormats[0] ? formatTikTokFormatLabel(summary.topFormats[0].formatId) : "learning"} />
+      </div>
+
+      {summary.recommendations.length > 0 && (
+        <div className="rounded-lg bg-pink-50/70 dark:bg-pink-950/10 border border-pink-100 dark:border-pink-900 p-3">
+          <p className="text-xs font-semibold text-pink-700 dark:text-pink-300 mb-2">다음 TikTok batch 지침</p>
+          <div className="space-y-1">
+            {summary.recommendations.map((recommendation) => (
+              <p key={recommendation} className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {summary.topFormats.length > 0 && (
+        <div className="grid gap-2 md:grid-cols-3">
+          {summary.topFormats.slice(0, 3).map((format) => (
+            <div key={format.formatId} className="rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-3">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{formatTikTokFormatLabel(format.formatId)}</p>
+              <p className="mt-1 text-lg font-bold text-slate-800 dark:text-white">{format.avgPerformanceScore.toLocaleString()}</p>
+              <p className="text-xs text-slate-400">{format.count} drafts</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {summary.recentDrafts.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-6 text-center text-sm text-slate-400">
+          <Video className="w-8 h-8 opacity-40" />
+          <div>
+            <p>아직 TikTok draft가 없습니다.</p>
+            <p className="text-xs">7개부터 생성해 포맷별 반응을 테스트하세요.</p>
+          </div>
+          <Button size="sm" onClick={onGenerate} disabled={isGenerating} className="bg-pink-600 hover:bg-pink-700 text-white">
+            {isGenerating ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Video className="w-3.5 h-3.5 mr-1.5" />}
+            draft 생성
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {summary.recentDrafts.map((draft) => {
+            const metricDraft = metricDrafts[draft.id] ?? buildTikTokMetricDraft(draft);
+            const copyBundle = [
+              draft.spokenHook,
+              "",
+              draft.script,
+              "",
+              draft.cta,
+              "",
+              draft.hashtags.join(" "),
+              draft.landingUrl ?? "",
+            ].filter(Boolean).join("\n");
+            return (
+              <div key={draft.id} className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tiktokStatusClass(draft.status)}`}>{draft.status}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${draft.qualityPass ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300"}`}>
+                        {draft.qualityPass ? "PASS" : "FAIL"} {draft.qualityScore}
+                      </span>
+                      <span className="rounded-full bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300 px-2 py-0.5 text-xs">
+                        {formatTikTokFormatLabel(draft.formatId)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-white">{draft.title}</p>
+                    <p className="mt-1 text-sm text-pink-600 dark:text-pink-300">{draft.spokenHook}</p>
+                    <p className="mt-2 line-clamp-3 text-sm text-slate-700 dark:text-slate-200">{draft.script}</p>
+                    <p className="mt-2 text-xs text-slate-400">
+                      {draft.durationSeconds}s · {draft.captionOverlays.slice(0, 2).join(" / ")}
+                    </p>
+                    {draft.qualityReasons.length > 0 && (
+                      <p className="mt-2 text-xs text-red-500">{draft.qualityReasons.join(" / ")}</p>
+                    )}
+                    {draft.landingUrl && (
+                      <p className="mt-2 break-all text-xs text-cyan-600 dark:text-cyan-300">{draft.landingUrl}</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => copyText("영상 번들", copyBundle)} className="text-xs">
+                      <Copy className="w-3.5 h-3.5 mr-1.5" />복사
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => onRenderVideo(draft)} disabled={renderingDraftId === draft.id} className="text-xs">
+                      {renderingDraftId === draft.id ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Video className="w-3.5 h-3.5 mr-1.5" />}
+                      {renderingDraftId === draft.id ? "생성 중" : "영상 생성"}
+                    </Button>
+                    {draft.status === "DRAFT" && (
+                      <Button size="sm" variant="outline" onClick={() => onUpdateStatus(draft.id, "APPROVED")} disabled={!draft.qualityPass || updatingDraftId === draft.id} className="text-xs">
+                        {updatingDraftId === draft.id ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+                        승인
+                      </Button>
+                    )}
+                    {draft.status === "APPROVED" && (
+                      <Button size="sm" variant="outline" onClick={() => onUpdateStatus(draft.id, "UPLOADED_MANUAL")} disabled={updatingDraftId === draft.id} className="text-xs">
+                        {updatingDraftId === draft.id ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
+                        업로드 표시
+                      </Button>
+                    )}
+                    {draft.status !== "ARCHIVED" && (
+                      <Button size="sm" variant="ghost" onClick={() => onUpdateStatus(draft.id, "ARCHIVED")} disabled={updatingDraftId === draft.id} className="text-xs">
+                        보관
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid gap-2 md:grid-cols-4">
+                  {TIKTOK_METRIC_FIELDS.map((field) => (
+                    <input
+                      key={field.key}
+                      type="number"
+                      min={0}
+                      value={metricDraft[field.key]}
+                      onChange={(event) => onMetricDraftChange(draft.id, field.key, event.target.value)}
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs text-slate-800 dark:text-slate-100"
+                      placeholder={field.label}
+                    />
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <p className="text-xs text-slate-400">
+                    최근 점수 {draft.latestMetric?.performanceScore ?? 0} · {draft.latestMetric ? formatDateTime(draft.latestMetric.measuredAt) : "성과 입력 대기"}
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => onSaveMetrics(draft.id)} disabled={savingMetricId === draft.id} className="text-xs">
+                    {savingMetricId === draft.id ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+                    성과 저장
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CampaignSummaryPanel({
   summary,
   isLoading,
@@ -2090,6 +2519,38 @@ function accountStatusClass(status: RelatedAccountStatus): string {
   return "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300";
 }
 
+function tiktokStatusClass(status: TikTokVideoDraftStatus): string {
+  if (status === "APPROVED") return "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300";
+  if (status === "UPLOADED_MANUAL") return "bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300";
+  if (status === "ARCHIVED") return "bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-400";
+  return "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
+}
+
+function formatTikTokFormatLabel(formatId: string): string {
+  const labels: Record<string, string> = {
+    career_timing_diagnosis: "커리어 진단",
+    comment_diagnosis: "댓글 진단",
+    self_confession: "자기고백",
+    saju_myth_busting: "사주 오해",
+    landing_teaser: "리포트 티저",
+  };
+  return labels[formatId] ?? formatId;
+}
+
+function buildTikTokMetricDraft(draft: TikTokVideoDraftResponse): TikTokMetricDraft {
+  const metric = draft.latestMetric;
+  return {
+    views: String(metric?.views ?? 0),
+    likes: String(metric?.likes ?? 0),
+    comments: String(metric?.comments ?? 0),
+    shares: String(metric?.shares ?? 0),
+    saves: String(metric?.saves ?? 0),
+    profileClicks: String(metric?.profileClicks ?? 0),
+    landingClicks: String(metric?.landingClicks ?? 0),
+    conversions: String(metric?.conversions ?? 0),
+  };
+}
+
 function sourceLabel(source: string): string {
   const labels: Record<string, string> = {
     own_post: "내 게시물",
@@ -2184,6 +2645,200 @@ function extractAccountHandle(input: string): string | null {
 function normalizeAccountHandle(input: string): string | null {
   const normalized = input.replace(/^@/, "").trim().toLowerCase();
   return normalized && /^[a-z0-9._]+$/.test(normalized) ? normalized : null;
+}
+
+async function renderTikTokDraftVideo(draft: TikTokVideoDraftResponse): Promise<Blob> {
+  if (typeof MediaRecorder === "undefined") {
+    throw new Error("이 브라우저는 영상 생성을 지원하지 않습니다");
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = draft.renderTarget.width;
+  canvas.height = draft.renderTarget.height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas를 초기화하지 못했습니다");
+
+  const stream = canvas.captureStream(draft.renderTarget.fps);
+  const mimeType = pickSupportedVideoMimeType();
+  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  const chunks: BlobPart[] = [];
+  recorder.ondataavailable = (event) => {
+    if (event.data.size > 0) chunks.push(event.data);
+  };
+
+  const durationMs = Math.max(5, draft.durationSeconds) * 1000;
+  const startTime = performance.now();
+  const stopped = new Promise<Blob>((resolve) => {
+    recorder.onstop = () => {
+      stream.getTracks().forEach((track) => track.stop());
+      resolve(new Blob(chunks, { type: mimeType || "video/webm" }));
+    };
+  });
+
+  recorder.start();
+  const draw = () => {
+    const elapsed = performance.now() - startTime;
+    const progress = Math.min(1, elapsed / durationMs);
+    drawTikTokFrame(context, draft, progress, elapsed / 1000);
+    if (progress < 1) {
+      requestAnimationFrame(draw);
+    } else {
+      recorder.stop();
+    }
+  };
+  draw();
+  return stopped;
+}
+
+function drawTikTokFrame(
+  context: CanvasRenderingContext2D,
+  draft: TikTokVideoDraftResponse,
+  progress: number,
+  elapsedSeconds: number
+): void {
+  const { width, height } = context.canvas;
+  const beat = currentSceneBeat(draft, elapsedSeconds);
+  const caption = currentCaption(draft, progress);
+  const pulse = 0.5 + Math.sin(progress * Math.PI * 8) * 0.5;
+
+  const gradient = context.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, "#111827");
+  gradient.addColorStop(0.48, "#312e81");
+  gradient.addColorStop(1, "#be185d");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
+
+  context.globalAlpha = 0.12 + pulse * 0.06;
+  context.fillStyle = "#ffffff";
+  context.beginPath();
+  context.arc(width * 0.83, height * 0.18, 340, 0, Math.PI * 2);
+  context.fill();
+  context.beginPath();
+  context.arc(width * 0.18, height * 0.82, 300, 0, Math.PI * 2);
+  context.fill();
+  context.globalAlpha = 1;
+
+  drawPill(context, 72, 82, "CosmicPath · 커리어 타이밍", "#fdf2f8", "#be185d");
+  drawWrappedText(context, caption || draft.spokenHook, 78, 250, width - 156, 96, 4, "#ffffff", "bold");
+  drawWrappedText(context, beat?.narration || draft.script, 96, 790, width - 192, 50, 5, "#f8fafc", "normal");
+
+  const sceneLabel = beat?.visualDirection || "9:16 자동 생성 영상";
+  drawRoundedPanel(context, 78, 1280, width - 156, 300, "rgba(15, 23, 42, 0.62)");
+  drawWrappedText(context, sceneLabel, 118, 1335, width - 236, 38, 3, "#fce7f3", "bold");
+  drawWrappedText(context, draft.cta, 118, 1480, width - 236, 38, 2, "#ffffff", "normal");
+
+  const hashtagLine = draft.hashtags.slice(0, 4).join(" ");
+  drawWrappedText(context, hashtagLine, 78, 1660, width - 156, 34, 2, "#fbcfe8", "normal");
+
+  context.fillStyle = "rgba(255, 255, 255, 0.24)";
+  context.fillRect(78, height - 92, width - 156, 12);
+  context.fillStyle = "#f472b6";
+  context.fillRect(78, height - 92, (width - 156) * progress, 12);
+}
+
+function currentSceneBeat(draft: TikTokVideoDraftResponse, elapsedSeconds: number) {
+  return draft.sceneBeats.find((beat) => (
+    elapsedSeconds >= beat.startSecond && elapsedSeconds <= beat.endSecond
+  )) ?? draft.sceneBeats[0];
+}
+
+function currentCaption(draft: TikTokVideoDraftResponse, progress: number): string {
+  if (draft.captionOverlays.length === 0) return draft.spokenHook;
+  const index = Math.min(draft.captionOverlays.length - 1, Math.floor(progress * draft.captionOverlays.length));
+  return draft.captionOverlays[index] ?? draft.spokenHook;
+}
+
+function drawPill(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  text: string,
+  background: string,
+  foreground: string
+): void {
+  context.font = "700 34px -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif";
+  const width = context.measureText(text).width + 52;
+  drawRoundedPanel(context, x, y, width, 64, background);
+  context.fillStyle = foreground;
+  context.fillText(text, x + 26, y + 43);
+}
+
+function drawRoundedPanel(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  fillStyle: string
+): void {
+  context.fillStyle = fillStyle;
+  context.beginPath();
+  context.roundRect(x, y, width, height, 28);
+  context.fill();
+}
+
+function drawWrappedText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  maxLines: number,
+  color: string,
+  weight: "bold" | "normal"
+): void {
+  context.fillStyle = color;
+  context.font = `${weight === "bold" ? 800 : 500} ${lineHeight * 0.78}px -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif`;
+  const lines = wrapCanvasText(context, text, maxWidth, maxLines);
+  lines.forEach((line, index) => {
+    context.fillText(line, x, y + index * lineHeight);
+  });
+}
+
+function wrapCanvasText(context: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
+  const words = text.replace(/\s+/g, " ").trim().split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (context.measureText(next).width <= maxWidth) {
+      current = next;
+    } else {
+      if (current) lines.push(current);
+      current = word;
+    }
+    if (lines.length === maxLines) break;
+  }
+  if (current && lines.length < maxLines) lines.push(current);
+  if (lines.length === maxLines && words.length > 0) {
+    const last = lines[maxLines - 1] ?? "";
+    if (context.measureText(`${last}...`).width <= maxWidth) lines[maxLines - 1] = `${last}...`;
+  }
+  return lines;
+}
+
+function pickSupportedVideoMimeType(): string {
+  const candidates = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+  ];
+  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? "";
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function sanitizeFilename(input: string): string {
+  return input.replace(/[^\w가-힣.-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80) || "tiktok-video";
 }
 
 function optionalString(value: string): string | undefined {

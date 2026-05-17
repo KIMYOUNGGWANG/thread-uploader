@@ -1,7 +1,7 @@
 # 📜 API Spec — Threads Auto Uploader
 
 - **Version**: v2.0 (Multi-brand SaaS)
-- **Updated**: 2026-05-15
+- **Updated**: 2026-05-17
 - **Base URL**: `/api`
 
 ---
@@ -23,6 +23,11 @@
   → 댓글 대응 플레이북으로 수동 답글
   → UTM/성과/수동 전환 입력
   → 캠페인 성과 학습
+  → TikTok Video Lab에서 짧은 영상 draft/spec 생성
+  → TikTok quality gate 통과 draft만 승인
+  → Brand Owner가 TikTok에 수동 업로드
+  → 48시간 후 TikTok 수동 성과 입력
+  → TikTok-only learning recommendation 갱신
 ```
 
 ---
@@ -108,11 +113,31 @@ interface BrandConfig {
   campaigns?: CampaignConfig[];
   activeCampaignId?: string;
   qualityProfile?: QualityProfileId;
+  tiktokVideo?: TikTokVideoConfig;
 }
 
 type QualityProfileId = "saju_viral" | "career_decision";
 type CampaignFormulaId = "comment_diagnosis" | "friend_tag" | "self_confession";
 type CareerDecisionType = "stay" | "move" | "prepare";
+type TikTokVideoFormatId =
+  | "career_timing_diagnosis"
+  | "comment_diagnosis"
+  | "self_confession"
+  | "saju_myth_busting"
+  | "landing_teaser";
+
+interface TikTokVideoConfig {
+  enabled: boolean;
+  parentCampaignId: string;       // default career_timing_wedge_399
+  defaultDurationSeconds: number; // default 25
+  landingUrl: string;             // /career/uncertainty
+  qualityProfile: "tiktok_career_timing";
+  formats: Array<{
+    id: TikTokVideoFormatId;
+    weight: number;
+    instruction: string;
+  }>;
+}
 
 interface CampaignConfig {
   id: string;                     // career_timing_wedge_399
@@ -577,6 +602,185 @@ Template groups:
 
 ---
 
+## TikTok Video Experiment Engine Contract
+
+This MVP generates, scores, and browser-renders TikTok-ready video drafts for CosmicPath. It does **not** upload, publish, comment, DM, scrape private data, or control a browser session.
+
+### Data Contracts
+
+```typescript
+type TikTokVideoDraftStatus = "DRAFT" | "APPROVED" | "UPLOADED_MANUAL" | "ARCHIVED";
+type TikTokQualityProfileId = "tiktok_career_timing";
+
+interface TikTokVideoDraftResponse {
+  id: string;
+  brandId: string;
+  campaignId: string;
+  formatId: TikTokVideoFormatId;
+  status: TikTokVideoDraftStatus;
+  title: string;
+  spokenHook: string;             // intended 0-2s hook
+  script: string;                 // 15-35s spoken script
+  sceneBeats: Array<{
+    startSecond: number;
+    endSecond: number;
+    visualDirection: string;
+    narration: string;
+  }>;
+  captionOverlays: string[];
+  onScreenText: string[];
+  hashtags: string[];
+  cta: string;
+  landingUrl: string | null;
+  utmContent: string | null;
+  qualityProfile: TikTokQualityProfileId;
+  qualityPass: boolean;
+  qualityScore: number;
+  qualityReasons: string[];
+  durationSeconds: number;
+  renderTarget: {
+    format: "webm";
+    width: 1080;
+    height: 1920;
+    fps: 30;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface TikTokVideoMetricResponse {
+  draftId: string;
+  measuredAt: string;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  profileClicks: number;
+  landingClicks: number;
+  conversions: number;
+  performanceScore: number;
+}
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/tiktok/videos?brandId=xxx&status=DRAFT` | TikTok draft 목록 조회 |
+| `POST` | `/api/tiktok/videos/generate` | AI로 TikTok 영상 draft/spec 생성 |
+| `PATCH` | `/api/tiktok/videos/[id]` | draft 상태, title, script/spec 편집 |
+| `PATCH` | `/api/tiktok/videos/[id]/metrics` | 수동 TikTok 성과 입력 |
+| `GET` | `/api/tiktok/summary?brandId=xxx&campaignId=yyy` | TikTok Video Lab summary |
+
+```typescript
+interface GenerateTikTokVideosRequest {
+  brandId: string;
+  campaignId?: string;            // default active campaign
+  count?: number;                 // default 7, max 30
+  formatIds?: TikTokVideoFormatId[];
+}
+
+interface GenerateTikTokVideosResponse {
+  success: true;
+  count: number;
+  drafts: TikTokVideoDraftResponse[];
+  quality: {
+    passed: number;
+    failed: number;
+  };
+}
+
+interface UpdateTikTokVideoDraftRequest {
+  status?: TikTokVideoDraftStatus;
+  title?: string;
+  spokenHook?: string;
+  script?: string;
+  sceneBeats?: TikTokVideoDraftResponse["sceneBeats"];
+  captionOverlays?: string[];
+  onScreenText?: string[];
+  hashtags?: string[];
+  cta?: string;
+}
+
+interface UpdateTikTokVideoMetricsRequest {
+  views?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  saves?: number;
+  profileClicks?: number;
+  landingClicks?: number;
+  conversions?: number;
+  measuredAt?: string;
+}
+
+interface TikTokSummaryResponse {
+  brandId: string;
+  campaignId: string;
+  totals: {
+    drafts: number;
+    approved: number;
+    manualUploads: number;
+    qualityPassed: number;
+    qualityFailed: number;
+  };
+  topFormats: Array<{
+    formatId: TikTokVideoFormatId;
+    count: number;
+    avgPerformanceScore: number;
+  }>;
+  recommendations: string[];
+  recentDrafts: TikTokVideoDraftResponse[];
+}
+```
+
+### Quality Gate
+
+`tiktok_career_timing` must check:
+
+- 0-2초 안에 spoken hook이 있다.
+- 첫 hook이나 첫 caption에 커리어 불안이 있다: `이직`, `퇴사`, `버틸지`, `옮길지`, `번아웃`, `커리어`, `일`, `회사`.
+- CosmicPath language exists through timing, 흐름, 성향, 결정 패턴, 운의 리듬, or 사주/타로/점성술 language.
+- One clear comment CTA exists.
+- The draft is classifiable as `stay`, `move`, or `prepare` when using `career_timing_diagnosis` or `comment_diagnosis`.
+- Generic self-help phrases fail.
+- Medical, legal, financial certainty and guaranteed fortune claims fail.
+
+`qualityPass=false` drafts may be edited or archived, but cannot move to `APPROVED`.
+
+### Performance Score
+
+Initial TikTok score is manual-metrics based:
+
+- comments: 35%
+- shares: 20%
+- saves: 20%
+- views: 15%
+- profileClicks + landingClicks + conversions: 10%
+
+The score stays separate from Threads `performanceScore` until cross-channel learning is explicitly planned.
+
+### Auth, Error, Empty-State Behavior
+
+- All `/api/tiktok/*` endpoints require `auth_session` and brand ownership.
+- Generate returns partial success if some drafts fail quality but others pass.
+- Empty state returns `drafts: 0` and recommendations to generate a first batch.
+- Status update to `APPROVED` fails with `400` when `qualityPass=false`.
+- Metrics update accepts missing fields as zero and recomputes score.
+- No TikTok OAuth or external API token is required in this MVP.
+- Browser-side render creates a 9:16 WebM file from the approved/draft spec without server FFmpeg.
+
+### Non-Goals
+
+- No TikTok upload, draft upload, or Direct Post integration in this cycle.
+- No Selenium/Playwright cookie uploader.
+- No TikTok comments, DMs, likes, follows, or engagement automation.
+- No TikTok private analytics or scraping.
+- No server-side MP4/Remotion/FFmpeg render pipeline in this cycle.
+
+---
+
 ## Growth Learning API
 
 | Method | Path | Description |
@@ -722,7 +926,7 @@ interface ViralAdapterResult {
 ### Non-Goals
 
 - No auto-commenting, DM, or engagement automation.
-- No non-Threads external provider implementation in this cycle.
+- No TikTok discovery, upload, or publishing provider implementation inside the viral discovery cycle.
 - No conversion tracking or paid attribution in this cycle.
 
 ---
@@ -884,6 +1088,57 @@ model ViralPattern {
   @@unique([brandId, dimension, value])
 }
 
+model TikTokVideoDraft {
+  id              String   @id @default(cuid())
+  brandId         String
+  brand           Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  campaignId      String
+  formatId        String
+  status          String   @default("DRAFT")
+  title           String
+  spokenHook      String
+  script          String
+  sceneBeats      String   @default("[]")
+  captionOverlays String   @default("[]")
+  onScreenText    String   @default("[]")
+  hashtags        String   @default("[]")
+  cta             String
+  landingUrl      String?
+  utmContent      String?
+  qualityProfile  String   @default("tiktok_career_timing")
+  qualityPass     Boolean  @default(false)
+  qualityScore    Int      @default(0)
+  qualityReasons  String   @default("[]")
+  durationSeconds Int      @default(25)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  metrics         TikTokVideoMetric[]
+
+  @@index([brandId, campaignId])
+  @@index([brandId, status])
+  @@index([brandId, createdAt])
+}
+
+model TikTokVideoMetric {
+  id               String   @id @default(cuid())
+  draftId          String
+  draft            TikTokVideoDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  measuredAt       DateTime @default(now())
+  views            Int      @default(0)
+  likes            Int      @default(0)
+  comments         Int      @default(0)
+  shares           Int      @default(0)
+  saves            Int      @default(0)
+  profileClicks    Int      @default(0)
+  landingClicks    Int      @default(0)
+  conversions      Int      @default(0)
+  performanceScore Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([draftId, measuredAt])
+}
+
 // Settings 테이블은 Brand로 완전 대체 (마이그레이션 후 제거)
 ```
 
@@ -986,7 +1241,8 @@ Cron recommendation:
 
 ## Non-goals
 
-- X, Instagram, TikTok 등 타 플랫폼 연동
+- X/Instagram 외부 플랫폼 연동
+- TikTok upload/publish 외부 API 연동
 - 공개 API / 3rd party webhook
 - 브랜드 간 콘텐츠 공유
 - 초단위 실시간 알림/자동 판단
