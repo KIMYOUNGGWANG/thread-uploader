@@ -12,13 +12,7 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function publishPost(text, imageUrls = []) {
-    const settings = await prisma.settings.findUnique({ where: { id: "default" } });
-    if (!settings) throw new Error("No Threads settings found in DB");
-
-    const userId = settings.userId;
-    const accessToken = settings.accessToken;
-
+async function publishPost(text, credentials, imageUrls = []) {
     let containerId;
 
     if (imageUrls.length === 0) {
@@ -26,9 +20,9 @@ async function publishPost(text, imageUrls = []) {
         const params = new URLSearchParams({
             media_type: "TEXT",
             text,
-            access_token: accessToken,
+            access_token: credentials.accessToken,
         });
-        const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
+        const res = await fetch(`${THREADS_API_BASE}/${credentials.userId}/threads?${params}`, { method: "POST" });
         const data = await res.json();
         if (!res.ok) throw new Error(`Threads API Error (Text): ${data.error?.message || "Unknown error"}`);
         containerId = data.id;
@@ -39,9 +33,9 @@ async function publishPost(text, imageUrls = []) {
             media_type: "IMAGE",
             image_url: imageUrls[0],
             text,
-            access_token: accessToken,
+            access_token: credentials.accessToken,
         });
-        const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
+        const res = await fetch(`${THREADS_API_BASE}/${credentials.userId}/threads?${params}`, { method: "POST" });
         const data = await res.json();
         if (!res.ok) throw new Error(`Threads API Error (Image): ${data.error?.message || "Unknown error"}`);
         containerId = data.id;
@@ -53,24 +47,24 @@ async function publishPost(text, imageUrls = []) {
     // Publish
     const pubParams = new URLSearchParams({
         creation_id: containerId,
-        access_token: accessToken,
+        access_token: credentials.accessToken,
     });
-    const pubRes = await fetch(`${THREADS_API_BASE}/${userId}/threads_publish?${pubParams}`, { method: "POST" });
+    const pubRes = await fetch(`${THREADS_API_BASE}/${credentials.userId}/threads_publish?${pubParams}`, { method: "POST" });
     const pubData = await pubRes.json();
     if (!pubRes.ok) throw new Error(`Threads Publish Error: ${pubData.error?.message || "Unknown error"}`);
 
     return pubData.id;
 }
 
-async function publishReply(text, replyToId, settings) {
+async function publishReply(text, replyToId, credentials) {
     const params = new URLSearchParams({
         media_type: "TEXT",
         text,
         reply_to_id: replyToId,
-        access_token: settings.accessToken,
+        access_token: credentials.accessToken,
     });
 
-    const res = await fetch(`${THREADS_API_BASE}/${settings.userId}/threads?${params}`, {
+    const res = await fetch(`${THREADS_API_BASE}/${credentials.userId}/threads?${params}`, {
         method: "POST",
     });
     const data = await res.json();
@@ -82,9 +76,9 @@ async function publishReply(text, replyToId, settings) {
 
     const pubParams = new URLSearchParams({
         creation_id: data.id,
-        access_token: settings.accessToken,
+        access_token: credentials.accessToken,
     });
-    const pubRes = await fetch(`${THREADS_API_BASE}/${settings.userId}/threads_publish?${pubParams}`, {
+    const pubRes = await fetch(`${THREADS_API_BASE}/${credentials.userId}/threads_publish?${pubParams}`, {
         method: "POST",
     });
     const pubData = await pubRes.json();
@@ -95,14 +89,14 @@ async function publishReply(text, replyToId, settings) {
     return pubData.id;
 }
 
-async function publishReplyWithRetry(text, replyToId, settings, retries = 4, initialDelayMs = 4000) {
+async function publishReplyWithRetry(text, replyToId, credentials, retries = 4, initialDelayMs = 4000) {
     let lastError = null;
 
     await sleep(initialDelayMs);
 
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            return await publishReply(text, replyToId, settings);
+            return await publishReply(text, replyToId, credentials);
         } catch (error) {
             lastError = error;
             if (attempt === retries) break;
@@ -121,24 +115,29 @@ async function publishReplyWithRetry(text, replyToId, settings, retries = 4, ini
 async function main() {
     console.log("Starting standalone publisher...");
 
-    const refreshResult = await refreshTokens({ prismaClient: prisma });
-    if (refreshResult.settingsFailed) {
-        throw new Error("Threads Settings token refresh failed. Generate a new long-lived token and update the DB before publishing.");
-    }
-
-    const settings = await prisma.settings.findUnique({ where: { id: "default" } });
-    if (!settings) {
-        throw new Error("No Threads settings found in DB");
-    }
+    await refreshTokens({ prismaClient: prisma });
 
     const pendingPosts = await prisma.post.findMany({
-        where: { status: "PENDING" },
+        where: {
+            status: "PENDING",
+            OR: [
+                { qualityPass: true },
+                { qualityPass: null },
+            ],
+        },
+        include: { brand: true },
         orderBy: { scheduledAt: "asc" },
         take: 1
     });
 
     if (pendingPosts.length === 0) {
-        console.log("No pending posts found.");
+        const blockedCount = await prisma.post.count({
+            where: { status: "PENDING", qualityPass: false },
+        });
+        if (blockedCount > 0) {
+            console.log(`No publishable posts found. ${blockedCount} quality-failed posts are blocked.`);
+        }
+        console.log("No publishable pending posts found.");
         return;
     }
 
@@ -147,13 +146,17 @@ async function main() {
     for (const post of pendingPosts) {
         try {
             console.log(`Publishing post ${post.id}...`);
+            const credentials = {
+                accessToken: post.brand.accessToken,
+                userId: post.brand.threadsUserId,
+            };
             const imageUrls = JSON.parse(post.imageUrls || "[]");
-            const threadsId = await publishPost(post.content, imageUrls);
+            const threadsId = await publishPost(post.content, credentials, imageUrls);
             let replyErrorMessage = null;
 
             if (post.firstComment?.trim()) {
                 try {
-                    const replyId = await publishReplyWithRetry(post.firstComment.trim(), threadsId, settings);
+                    const replyId = await publishReplyWithRetry(post.firstComment.trim(), threadsId, credentials);
                     console.log(`First comment published for ${post.id}. Reply ID: ${replyId}`);
                 } catch (replyError) {
                     replyErrorMessage =
