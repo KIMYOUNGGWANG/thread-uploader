@@ -14,6 +14,7 @@
 
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
 const THREADS_DISCOVERY_API_BASE = "https://graph.threads.net";
+export const TOKEN_REFRESH_WINDOW_DAYS = 14;
 const THREADS_DISCOVERY_FIELDS = [
     "id",
     "media_product_type",
@@ -78,6 +79,16 @@ interface ThreadsListResponse<T> {
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function getTokenRefreshCutoff(now = new Date()): Date {
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() + TOKEN_REFRESH_WINDOW_DAYS);
+    return cutoff;
+}
+
+export function isTokenRefreshDue(tokenExpiry: Date, now = new Date()): boolean {
+    return tokenExpiry <= getTokenRefreshCutoff(now);
 }
 
 /**
@@ -161,7 +172,7 @@ async function getUserId(): Promise<string> {
 }
 
 /**
- * Check if token needs refresh (expires within 7 days)
+ * Check if token needs refresh before it gets close to expiry.
  */
 export async function shouldRefreshToken(): Promise<boolean> {
     const { prisma } = await import("@/lib/prisma");
@@ -174,11 +185,7 @@ export async function shouldRefreshToken(): Promise<boolean> {
         return false;
     }
 
-    const now = new Date();
-    const sevenDaysFromNow = new Date();
-    sevenDaysFromNow.setDate(now.getDate() + 7);
-
-    return settings.tokenExpiry <= sevenDaysFromNow;
+    return isTokenRefreshDue(settings.tokenExpiry);
 }
 
 /**

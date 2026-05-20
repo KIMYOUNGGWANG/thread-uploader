@@ -56,12 +56,12 @@ npm run growth:metrics
 ## Cron Endpoints
 
 - `GET /api/cron/publish` publishes one pending post per brand.
-- `GET /api/cron/refresh-token` refreshes Threads tokens.
+- `GET /api/cron/refresh-token` refreshes Threads tokens when they are within 14 days of expiry.
 - `GET /api/cron/learn` refreshes brand growth memory from collected metrics.
 - `GET /api/cron/viral` discovers viral references and refreshes brand viral memory.
 - `GET /api/cron/account-intelligence` refreshes 48-hour account insight snapshots, intended for a 2-hour cadence.
 
-The account intelligence cadence is registered through `vercel.json` as a daily Vercel Cron Job.
+Token refresh and account intelligence cadences are registered through `vercel.json` as daily Vercel Cron Jobs.
 Set `CRON_SECRET` to require `Authorization: Bearer <CRON_SECRET>` or `?secret=` for cron calls.
 
 ## Environment

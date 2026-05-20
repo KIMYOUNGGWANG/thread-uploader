@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
     initializeTokensInDB,
+    isTokenRefreshDue,
     shouldRefreshToken,
     refreshAccessToken,
     getTokenStatus,
     refreshBrandAccessToken,
+    TOKEN_REFRESH_WINDOW_DAYS,
 } from "@/lib/threads-api";
 
 /**
  * Cron endpoint for refreshing Threads API access token
  * 
  * This should be called daily by Vercel Cron to check if the token
- * needs refresh (within 7 days of expiry) and refresh it if needed.
+ * needs refresh before expiry and refresh it if needed.
  * 
  * Security: Requires CRON_SECRET header or query param
  */
@@ -30,23 +32,28 @@ export async function GET(request: NextRequest) {
         const { prisma } = await import("@/lib/prisma");
 
         // 1. Legacy Settings refresh (fallback)
-        await initializeTokensInDB();
-        const status = await getTokenStatus();
         let legacyRefreshResults = null;
+        let legacyRefreshError = null;
 
-        if (status.hasToken && await shouldRefreshToken()) {
-            legacyRefreshResults = await refreshAccessToken();
+        try {
+            await initializeTokensInDB();
+            const status = await getTokenStatus();
+
+            if (status.hasToken && await shouldRefreshToken()) {
+                legacyRefreshResults = await refreshAccessToken();
+            }
+        } catch (err) {
+            legacyRefreshError = err instanceof Error ? err.message : "Unknown error";
+            console.warn("Legacy token refresh skipped:", err);
         }
 
         // 2. Multi-brand refresh
         const brands = await prisma.brand.findMany();
         const now = new Date();
-        const sevenDaysFromNow = new Date();
-        sevenDaysFromNow.setDate(now.getDate() + 7);
 
         const refreshResults = [];
         for (const brand of brands) {
-            if (brand.tokenExpiry <= sevenDaysFromNow) {
+            if (isTokenRefreshDue(brand.tokenExpiry, now)) {
                 try {
                     const result = await refreshBrandAccessToken(brand.id);
                     refreshResults.push({
@@ -74,7 +81,9 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
+            refreshWindowDays: TOKEN_REFRESH_WINDOW_DAYS,
             legacyRefreshed: !!legacyRefreshResults,
+            legacyRefreshError,
             brandsCount: brands.length,
             refreshResults,
         });

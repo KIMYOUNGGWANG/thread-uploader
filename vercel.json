@@ -2,6 +2,10 @@
   "framework": "nextjs",
   "crons": [
     {
+      "path": "/api/cron/refresh-token",
+      "schedule": "0 15 * * *"
+    },
+    {
       "path": "/api/cron/account-intelligence",
       "schedule": "0 17 * * *"
     }
