@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { refreshTokens } = require('./refresh-token-standalone');
 const prisma = new PrismaClient();
 
 // Dynamic import for fetch if needed, but Node 18+ has it built-in
@@ -119,6 +120,11 @@ async function publishReplyWithRetry(text, replyToId, settings, retries = 4, ini
 
 async function main() {
     console.log("Starting standalone publisher...");
+
+    const refreshResult = await refreshTokens({ prismaClient: prisma });
+    if (refreshResult.settingsFailed) {
+        throw new Error("Threads Settings token refresh failed. Generate a new long-lived token and update the DB before publishing.");
+    }
 
     const settings = await prisma.settings.findUnique({ where: { id: "default" } });
     if (!settings) {

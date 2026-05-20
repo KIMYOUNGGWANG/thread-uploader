@@ -50,6 +50,7 @@ npm run dev
 npm run lint
 npm run typecheck
 npm run build
+npm run refresh:tokens
 npm run growth:metrics
 ```
 
@@ -62,6 +63,7 @@ npm run growth:metrics
 - `GET /api/cron/account-intelligence` refreshes 48-hour account insight snapshots, intended for a 2-hour cadence.
 
 Token refresh and account intelligence cadences are registered through `vercel.json` as daily Vercel Cron Jobs.
+The standalone publisher calls `scripts/refresh-token-standalone.js` before posting, so GitHub Actions publishing uses refreshed DB tokens without a separate workflow permission.
 Set `CRON_SECRET` to require `Authorization: Bearer <CRON_SECRET>` or `?secret=` for cron calls.
 
 ## Environment
