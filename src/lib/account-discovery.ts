@@ -25,6 +25,20 @@ const DEFAULT_POST_LIMIT = 10;
 const MAX_LIMIT = 50;
 const MAX_KEYWORDS = 5;
 const MAX_HANDLES = 20;
+const CAREER_DISCOVERY_KEYWORDS = [
+  "이직 고민",
+  "퇴사 고민",
+  "번아웃",
+  "커리어 타이밍",
+  "직업운",
+];
+const CAREER_DISCOVERY_TOPICS = [
+  "이직",
+  "퇴사",
+  "번아웃",
+  "커리어",
+  "직업운",
+];
 
 interface DiscoverOptions {
   keywords?: string[];
@@ -50,6 +64,14 @@ interface ScoredAccount {
   score: number;
   category: DiscoveredAccountCategory;
   reason: string;
+}
+
+type AccountDiscoveryMode = "career" | "product";
+
+interface AccountDiscoverySignals {
+  mode: AccountDiscoveryMode;
+  seedKeywords: string[];
+  brandTopics: string[];
 }
 
 interface PatternSeed {
@@ -427,10 +449,12 @@ function scoreAccount(
 ): ScoredAccount {
   const text = [username, sourceKeyword, ...posts.map((post) => post.text ?? "")].join("\n");
   const score = scoreContent(text, config);
-  const category = categorize(text);
+  const category = categorize(text, config);
   const reasons = [];
-  if (hasCareerSignal(text)) reasons.push("커리어 불안 신호");
-  if (hasSajuSignal(text)) reasons.push("사주/타이밍 언어");
+  const mode = getAccountDiscoveryMode(config);
+  if (mode === "career" && hasCareerSignal(text)) reasons.push("커리어 불안 신호");
+  if (mode === "career" && hasSajuSignal(text)) reasons.push("사주/타이밍 언어");
+  if (mode === "product" && hasProductProfileSignal(text, config)) reasons.push("제품 프로필 겹침");
   if (hasCtaSignal(text)) reasons.push("댓글/공유 CTA");
   if (hasBrandTopicSignal(text, config)) reasons.push("브랜드 토픽 겹침");
   return {
@@ -440,27 +464,49 @@ function scoreAccount(
   };
 }
 
+export function buildAccountDiscoverySignals(
+  config: BrandConfig,
+  requestedKeywords: string[] = []
+): AccountDiscoverySignals {
+  return {
+    mode: getAccountDiscoveryMode(config),
+    seedKeywords: buildSeedKeywords(config, requestedKeywords),
+    brandTopics: buildBrandTopics(config),
+  };
+}
+
+export function scoreAccountForDiscovery(
+  username: string,
+  posts: ThreadsPublicPost[],
+  config: BrandConfig,
+  sourceKeyword: string
+): ScoredAccount {
+  return scoreAccount(username, posts, config, sourceKeyword);
+}
+
 function scoreContent(content: string, config: BrandConfig): number {
   let score = 0;
+  const mode = getAccountDiscoveryMode(config);
   if (hasBrandTopicSignal(content, config)) score += 30;
-  if (hasCareerSignal(content)) score += 25;
-  if (hasSajuSignal(content)) score += 15;
+  if (mode === "career" && hasCareerSignal(content)) score += 25;
+  if (mode === "career" && hasSajuSignal(content)) score += 15;
+  if (mode === "product" && hasProductProfileSignal(content, config)) score += 25;
+  if (mode === "product" && hasProductDomainSignal(content, config)) score += 15;
   if (hasCtaSignal(content)) score += 15;
   if (!hasExcludedTerm(content, config.viralDiscovery.excludedTerms)) score += 15;
   return Math.min(100, score);
 }
 
 function buildSeedKeywords(config: BrandConfig, requested: string[] = []): string[] {
+  const discoveryKeywords = getAccountDiscoveryMode(config) === "career"
+    ? CAREER_DISCOVERY_KEYWORDS
+    : buildProductDiscoveryTerms(config);
   return unique([
     ...requested,
     ...config.viralDiscovery.keywords,
+    ...discoveryKeywords,
     ...config.topics,
     ...(config.trendingTopics ?? []),
-    "이직 고민",
-    "퇴사 고민",
-    "번아웃",
-    "커리어 타이밍",
-    "직업운",
   ]).slice(0, MAX_KEYWORDS);
 }
 
@@ -474,16 +520,15 @@ function buildSeedHandles(config: BrandConfig, requested: string[] = []): string
 }
 
 function buildBrandTopics(config: BrandConfig): string[] {
+  const discoveryTopics = getAccountDiscoveryMode(config) === "career"
+    ? CAREER_DISCOVERY_TOPICS
+    : buildProductDiscoveryTerms(config);
   return unique([
     ...config.topics,
     ...(config.trendingTopics ?? []),
     ...config.targets,
     ...config.situations,
-    "이직",
-    "퇴사",
-    "번아웃",
-    "커리어",
-    "직업운",
+    ...discoveryTopics,
   ]);
 }
 
@@ -527,10 +572,11 @@ function buildPatternRecommendation(dimension: AccountPatternDimension, value: s
   return `watched 계정에서 ${labels[dimension]} '${value}' 패턴이 반복됩니다. 다음 배치에서 구조만 변주해 테스트하세요.`;
 }
 
-function categorize(content: string): DiscoveredAccountCategory {
-  if (hasSajuSignal(content) && hasCareerSignal(content)) return "competitor";
-  if (hasSajuSignal(content)) return "saju";
-  if (hasCareerSignal(content)) return "career";
+function categorize(content: string, config: BrandConfig): DiscoveredAccountCategory {
+  const mode = getAccountDiscoveryMode(config);
+  if (mode === "career" && hasSajuSignal(content) && hasCareerSignal(content)) return "competitor";
+  if (mode === "career" && hasSajuSignal(content)) return "saju";
+  if (mode === "career" && hasCareerSignal(content)) return "career";
   if (hasCtaSignal(content)) return "creator";
   return "adjacent";
 }
@@ -538,6 +584,52 @@ function categorize(content: string): DiscoveredAccountCategory {
 function hasBrandTopicSignal(content: string, config: BrandConfig): boolean {
   const normalized = content.toLowerCase();
   return buildBrandTopics(config).some((topic) => normalized.includes(topic.toLowerCase()));
+}
+
+function hasProductProfileSignal(content: string, config: BrandConfig): boolean {
+  const normalized = content.toLowerCase();
+  return buildProductProfileTerms(config).some((term) => normalized.includes(term.toLowerCase()));
+}
+
+function hasProductDomainSignal(content: string, config: BrandConfig): boolean {
+  const normalized = content.toLowerCase();
+  return buildProductDiscoveryTerms(config).some((term) => normalized.includes(term.toLowerCase()));
+}
+
+function getAccountDiscoveryMode(config: BrandConfig): AccountDiscoveryMode {
+  const activeCampaign = config.campaigns.find((campaign) => campaign.id === config.activeCampaignId);
+  return config.qualityProfile === "career_decision" || activeCampaign?.qualityProfile === "career_decision"
+    ? "career"
+    : "product";
+}
+
+function buildProductDiscoveryTerms(config: BrandConfig): string[] {
+  return unique([
+    ...buildProductProfileTerms(config),
+    ...expandDiscoveryTerms(config.activeExperiment.name),
+    ...expandDiscoveryTerms(config.activeExperiment.hypothesis),
+  ]);
+}
+
+function buildProductProfileTerms(config: BrandConfig): string[] {
+  const profile = config.productProfile;
+  return unique([
+    ...expandDiscoveryTerms(profile.productName === "Untitled Product" ? "" : profile.productName),
+    ...expandDiscoveryTerms(profile.oneLineDescription),
+    ...expandDiscoveryTerms(profile.targetCustomer),
+    ...expandDiscoveryTerms(profile.offerPromise),
+    ...expandDiscoveryTerms(profile.positioningNotes),
+  ]);
+}
+
+function expandDiscoveryTerms(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  const tokens = trimmed
+    .split(/[\s,./|·:;!?()[\]{}"'`~]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+  return [trimmed, ...tokens];
 }
 
 function hasCareerSignal(content: string): boolean {

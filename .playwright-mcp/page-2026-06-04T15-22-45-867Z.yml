@@ -1,0 +1,153 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - region "Notifications alt+T"
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - button [ref=e6]:
+            - img [ref=e7]
+          - img [ref=e10]
+          - generic [ref=e13]:
+            - heading "CosmicPath — 제품 설정" [level=1] [ref=e14]
+            - paragraph [ref=e15]: 제품 프로필, 실험 지표, 채널 연결 관리
+        - button "저장" [ref=e16]:
+          - img
+          - text: 저장
+      - generic [ref=e17]:
+        - button "기본 정보" [ref=e18]:
+          - img [ref=e19]
+          - text: 기본 정보
+        - button "제품" [active] [ref=e23]:
+          - img [ref=e24]
+          - text: 제품
+        - button "AI 설정" [ref=e28]:
+          - img [ref=e29]
+          - text: AI 설정
+        - button "캠페인 1" [ref=e32]:
+          - img [ref=e33]
+          - text: 캠페인
+          - generic [ref=e37]: "1"
+        - button "주제 3" [ref=e38]:
+          - img [ref=e39]
+          - text: 주제
+          - generic [ref=e42]: "3"
+        - button "타겟 1" [ref=e43]:
+          - img [ref=e44]
+          - text: 타겟
+          - generic [ref=e49]: "1"
+        - button "상황 0" [ref=e50]:
+          - img [ref=e51]
+          - text: 상황
+          - generic [ref=e53]: "0"
+        - button "훅 13" [ref=e54]:
+          - img [ref=e55]
+          - text: 훅
+          - generic [ref=e57]: "13"
+        - button "CTA 12" [ref=e58]:
+          - img [ref=e59]
+          - text: CTA
+          - generic [ref=e62]: "12"
+        - button "공식 0" [ref=e63]:
+          - img [ref=e64]
+          - text: 공식
+          - generic [ref=e66]: "0"
+        - button "트렌딩 0" [ref=e67]:
+          - img [ref=e68]
+          - text: 트렌딩
+          - generic [ref=e71]: "0"
+        - button "바이럴 소스 0" [ref=e72]:
+          - img [ref=e73]
+          - text: 바이럴 소스
+          - generic [ref=e80]: "0"
+    - main [ref=e81]:
+      - generic [ref=e107]:
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - heading "제품 프로필" [level=2] [ref=e110]
+            - paragraph [ref=e111]: 이 제품의 포지셔닝과 마케팅 실험 기준입니다.
+          - generic [ref=e112]:
+            - generic [ref=e113]:
+              - generic [ref=e114]:
+                - generic [ref=e115]: 제품명
+                - textbox "제품명" [ref=e116]:
+                  - /placeholder: CosmicPath
+                  - text: CosmicPath
+              - generic [ref=e117]:
+                - generic [ref=e118]: 주요 채널
+                - combobox "주요 채널" [ref=e119]:
+                  - option "Threads" [selected]
+                  - option "TikTok"
+                  - option "Manual"
+              - generic [ref=e120]:
+                - generic [ref=e121]: 한 줄 설명
+                - textbox "한 줄 설명" [ref=e122]:
+                  - /placeholder: 커리어 타이밍 결정을 돕는 리포트
+                  - text: Career timing insight product for decision anxiety.
+              - generic [ref=e123]:
+                - generic [ref=e124]: 타깃 고객
+                - textbox "타깃 고객" [ref=e125]:
+                  - /placeholder: 20-35 커리어 고민 여성
+                  - text: 20-35 career decision makers
+              - generic [ref=e126]:
+                - generic [ref=e127]: 오퍼 약속
+                - textbox "오퍼 약속" [ref=e128]:
+                  - /placeholder: 퇴사/이직 타이밍을 더 선명하게 판단
+                  - text: Clarify whether to stay, move, or prepare before making a career decision.
+              - generic [ref=e129]:
+                - generic [ref=e130]: 랜딩 URL
+                - textbox "랜딩 URL" [ref=e131]:
+                  - /placeholder: /career/uncertainty
+                  - text: /career/uncertainty
+              - generic [ref=e132]:
+                - generic [ref=e133]: 핵심 지표
+                - textbox "핵심 지표" [ref=e134]:
+                  - /placeholder: views
+                  - text: views
+              - generic [ref=e135]:
+                - generic [ref=e136]: 전환 지표
+                - textbox "전환 지표" [ref=e137]:
+                  - /placeholder: conversions
+                  - text: conversions
+            - generic [ref=e138]:
+              - generic [ref=e139]: 포지셔닝 메모
+              - textbox "포지셔닝 메모" [ref=e140]:
+                - /placeholder: 이 제품에서 지켜야 할 메시지, 금지어, 차별점
+                - text: Use CosmicPath as one owned product, not the whole app identity.
+        - generic [ref=e141]:
+          - generic [ref=e142]:
+            - heading "현재 실험" [level=2] [ref=e143]
+            - paragraph [ref=e144]: 이번 7일 증거 스프린트에서 판단할 가설입니다.
+          - generic [ref=e145]:
+            - generic [ref=e146]:
+              - generic [ref=e147]:
+                - generic [ref=e148]: 실험명
+                - textbox "실험명" [ref=e149]:
+                  - /placeholder: Career timing wedge
+                  - text: Career timing wedge
+              - generic [ref=e150]:
+                - generic [ref=e151]: 상태
+                - combobox "상태" [ref=e152]:
+                  - option "active" [selected]
+                  - option "paused"
+                  - option "completed"
+              - generic [ref=e153]:
+                - generic [ref=e154]: 단계
+                - combobox "단계" [ref=e155]:
+                  - option "content" [selected]
+                  - option "landing"
+                  - option "conversion"
+              - generic [ref=e156]:
+                - generic [ref=e157]: 기간
+                - spinbutton "기간" [ref=e158]: "7"
+              - generic [ref=e159]:
+                - generic [ref=e160]: 핵심 지표
+                - textbox "핵심 지표" [ref=e161]: views
+              - generic [ref=e162]:
+                - generic [ref=e163]: 가드레일
+                - textbox "가드레일" [ref=e164]: quality_pass_rate
+            - generic [ref=e165]:
+              - generic [ref=e166]: 가설
+              - textbox "가설" [ref=e167]: Career timing posts with comment diagnosis will drive qualified attention.
+  - button "Open Next.js Dev Tools" [ref=e102] [cursor=pointer]:
+    - img [ref=e103]
+  - alert [ref=e106]

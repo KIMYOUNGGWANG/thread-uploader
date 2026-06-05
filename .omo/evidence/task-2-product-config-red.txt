@@ -1,0 +1,7 @@
+$ npm run test -- brand
+
+FAIL src/types/brand.test.ts > parseBrandConfig > normalizes empty config to product profile and active experiment
+TypeError: Cannot read properties of undefined (reading 'productName')
+
+FAIL src/types/brand.test.ts > parseBrandConfig > normalizes malformed product profile safely
+TypeError: Cannot read properties of undefined (reading 'productName')

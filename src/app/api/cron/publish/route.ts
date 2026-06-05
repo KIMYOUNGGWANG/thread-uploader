@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { publishPostWithCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
+import { getFreshBrandCredentials, publishPostWithCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
 
 function verifyCronSecret(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const credentials = { accessToken: brand.accessToken, userId: brand.threadsUserId };
+      const credentials = await getFreshBrandCredentials(brand.id);
       const imageUrls = JSON.parse(post.imageUrls || "[]") as string[];
 
       try {

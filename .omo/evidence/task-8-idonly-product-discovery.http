@@ -1,0 +1,72 @@
+POST /api/brands
+Cookie: auth_session=ulw_qa_user_portfolio
+Body: {
+  "name": "Campaign Create Probe",
+  "slug": "ulw-qa-campaign-create-probe-36",
+  "brandConfig": {
+    "campaigns": [{ "id": "product_growth_baseline", "landingUrl": "" }],
+    "activeCampaignId": "product_growth_baseline"
+  }
+}
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "id": "cmpzq2xig000913u7j96qod51",
+  "brandConfig": {
+    "campaigns": [
+      {
+        "id": "product_growth_baseline",
+        "qualityProfile": "product_growth",
+        "landingUrl": ""
+      }
+    ],
+    "activeCampaignId": "product_growth_baseline",
+    "qualityProfile": "product_growth",
+    "tiktokVideo": {
+      "enabled": false,
+      "parentCampaignId": "product_growth_baseline",
+      "landingUrl": "",
+      "formats": []
+    }
+  }
+}
+
+POST /api/accounts/discover
+Cookie: auth_session=ulw_qa_user_portfolio
+Body: {"brandId":"cmpzq2xig000913u7j96qod51","handles":["campaign_probe_seed"],"limit":3,"minScore":60}
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "success": true,
+  "discovered": 1,
+  "saved": 1,
+  "candidates": [
+    {
+      "brandId": "cmpzq2xig000913u7j96qod51",
+      "username": "campaign_probe_seed",
+      "status": "candidate",
+      "category": "adjacent",
+      "relevanceScore": 85,
+      "reason": "제품 프로필 겹침 · 브랜드 토픽 겹침",
+      "source": "manual",
+      "sourceKeyword": "seed_handle"
+    }
+  ],
+  "errors": [
+    { "adapter": "threads_keyword", "source": "Campaign Create Probe" },
+    { "adapter": "threads_keyword", "source": "Campaign" },
+    { "adapter": "threads_keyword", "source": "Create" },
+    { "adapter": "threads_keyword", "source": "Probe" },
+    { "adapter": "threads_keyword", "source": "Campaign Create Probe baseline growth loop" },
+    { "adapter": "threads_profile", "source": "campaign_probe_seed" }
+  ]
+}
+
+Leakage check:
+- The id-only product baseline request produced top-level qualityProfile "product_growth".
+- Account discovery used product/create-probe seed sources, not hardcoded career/saju sources.
+- The saved candidate category was "adjacent", not "career", "saju", or "competitor".

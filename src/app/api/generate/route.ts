@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
+import { formatCreatorPatternContext } from "@/lib/creator-prompt-patterns";
 import { formatGrowthPromptContext, parseStoredGrowthMemory } from "@/lib/growth-learning";
+import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
 import { checkQuality } from "@/lib/quality-gate";
 import { formatViralPromptContext } from "@/lib/viral-analysis";
 import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
@@ -32,6 +34,8 @@ interface GenerationFormula {
   weight: number;
   instruction: string;
 }
+
+type CampaignGrowthExperiment = GrowthExperiment & { campaign: CampaignConfig };
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -77,7 +81,7 @@ async function generateOne(
         messages: [
           {
             role: "user",
-            content: buildGenerationPrompt(experiment, growthContext, viralContext, qualityFeedback),
+            content: buildGenerationPrompt(experiment, config, growthContext, viralContext, qualityFeedback),
           },
         ],
       });
@@ -123,12 +127,13 @@ async function generateWithQuality(
   shouldLink: boolean;
 }> {
   let lastResult = await generateOne(experiment, config, growthContext, viralContext);
-  let qualityResult = checkQuality(lastResult.post, experiment.qualityProfile);
+  const qualityContext = buildProductQualityContext(config);
+  let qualityResult = checkQuality(lastResult.post, experiment.qualityProfile, qualityContext);
 
   for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
     console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
     lastResult = await generateOne(experiment, config, growthContext, viralContext, qualityResult.reasons);
-    qualityResult = checkQuality(lastResult.post, experiment.qualityProfile);
+    qualityResult = checkQuality(lastResult.post, experiment.qualityProfile, qualityContext);
   }
 
   if (!qualityResult.pass) {
@@ -178,22 +183,27 @@ function buildExperiment(
   };
 }
 
-function buildGenerationPrompt(
+export function buildGenerationPrompt(
   experiment: GrowthExperiment,
+  config: BrandConfig,
   growthContext: string,
   viralContext: string,
   qualityFeedback: string[] = []
 ): string {
+  const creatorPatternContext = formatCreatorPatternContext(experiment.hookType, experiment.ctaType);
+
   return [
     `[공식: ${experiment.formula.name}]`,
     experiment.formula.instruction,
     "",
+    ...formatProductPrompt(config),
     ...formatCampaignPrompt(experiment),
     `[주제]\n${experiment.topic}`,
     `[타겟 독자]\n${experiment.targetAudience}`,
     `[상황/맥락]\n${experiment.situation}`,
     `[훅 유형]\n${experiment.hookType}`,
     `[CTA 유형]\n${experiment.ctaType}`,
+    ...(creatorPatternContext ? [creatorPatternContext] : []),
     `[성과 학습 메모리]\n${growthContext}`,
     `[바이럴 레퍼런스 학습 메모리]\n${viralContext}`,
     ...formatQualityFeedback(qualityFeedback),
@@ -203,8 +213,61 @@ function buildGenerationPrompt(
   ].join("\n");
 }
 
+function formatProductPrompt(config: BrandConfig): string[] {
+  const profile = config.productProfile;
+  const experiment = config.activeExperiment;
+  return [
+    "[제품 프로필]",
+    `제품명: ${profile.productName}`,
+    `한 줄 설명: ${profile.oneLineDescription || "미설정"}`,
+    `타깃 고객: ${profile.targetCustomer || "미설정"}`,
+    `오퍼 약속: ${profile.offerPromise || "미설정"}`,
+    `랜딩 URL: ${profile.landingUrl || config.websiteUrl || "미설정"}`,
+    `주요 채널: ${profile.primaryChannel}`,
+    `핵심 지표: ${profile.primaryMetric}`,
+    `전환 지표: ${profile.conversionMetric}`,
+    `포지셔닝 메모: ${profile.positioningNotes || "미설정"}`,
+    "[현재 실험]",
+    `실험명: ${experiment.name}`,
+    `가설: ${experiment.hypothesis}`,
+    `단계: ${experiment.stage}`,
+    `기간: ${experiment.durationDays}일`,
+    `핵심 지표: ${experiment.primaryMetric}`,
+    `가드레일: ${experiment.guardrailMetric}`,
+    `상태: ${experiment.status}`,
+    "",
+  ];
+}
+
+function buildProductQualityContext(config: BrandConfig) {
+  const profile = config.productProfile;
+  return {
+    productName: profile.productName,
+    productKeywords: [
+      profile.productName,
+      profile.oneLineDescription,
+      profile.targetCustomer,
+      profile.offerPromise,
+      ...config.topics,
+    ].filter((value) => value.trim().length > 0),
+    ctaTerms: ["확인", "랜딩", "링크", "프로필", profile.conversionMetric],
+  };
+}
+
 function formatCampaignPrompt(experiment: GrowthExperiment): string[] {
   if (!experiment.campaign) return [];
+  const campaignExperiment = { ...experiment, campaign: experiment.campaign };
+  if (experiment.qualityProfile === "career_decision") return formatCareerCampaignPrompt(campaignExperiment);
+  if (experiment.qualityProfile === "product_growth") return formatProductGrowthCampaignPrompt(campaignExperiment);
+  return [
+    `[캠페인]\n${campaignExperiment.campaign.name} (${campaignExperiment.campaign.id})`,
+    `[품질 프로필]\n${experiment.qualityProfile}`,
+    `[링크 정책]\n${experiment.shouldLink ? "이번 글은 첫 댓글에 링크가 붙을 예정이므로 CTA를 자연스럽게 작성" : "이번 글은 링크 없이 댓글/프로필 방문만 유도"}`,
+    "",
+  ];
+}
+
+function formatCareerCampaignPrompt(experiment: CampaignGrowthExperiment): string[] {
   return [
     `[캠페인]\n${experiment.campaign.name} (${experiment.campaign.id})`,
     `[품질 프로필]\n${experiment.qualityProfile}`,
@@ -224,6 +287,21 @@ function formatCampaignPrompt(experiment: GrowthExperiment): string[] {
   ];
 }
 
+function formatProductGrowthCampaignPrompt(experiment: CampaignGrowthExperiment): string[] {
+  return [
+    `[캠페인]\n${experiment.campaign.name} (${experiment.campaign.id})`,
+    `[품질 프로필]\n${experiment.qualityProfile}`,
+    "[제품 성장 필수 조건]",
+    "- 첫 줄은 타깃 고객의 구체적인 문제, 비용, 시간 낭비, 망설임, 또는 반복 작업에서 시작",
+    "- 제품명/제품 카테고리/오퍼 약속 중 하나를 본문 안에 자연스럽게 포함",
+    "- 추상적인 자기계발 문장이 아니라 실제 제품 사용 전후 차이를 보여주기",
+    "- 댓글, 링크 확인, 프로필 방문, 신청, 가입, 요청 중 하나의 명확한 행동을 넣기",
+    "- 특정 제품과 무관한 generic 동기부여 문장 금지",
+    `[링크 정책]\n${experiment.shouldLink ? "이번 글은 첫 댓글에 링크가 붙을 예정이므로 제품 확인 CTA를 자연스럽게 작성" : "이번 글은 링크 없이 댓글/프로필 방문만 유도"}`,
+    "",
+  ];
+}
+
 function formatQualityFeedback(qualityFeedback: string[]): string[] {
   if (qualityFeedback.length === 0) return [];
   return [
@@ -237,7 +315,57 @@ function buildLegacyFormula(formula: { id: string; name: string; weight: number;
   return formula;
 }
 
-function buildCampaignUtmLink(websiteUrl: string, campaign: CampaignConfig, postId: string): { url: string; utmContent: string } | null {
+export function validateGenerationReadiness(
+  config: BrandConfig,
+  activeCampaign: CampaignConfig | null,
+  dbWeights: Record<string, number> = {},
+  approvedCampaignStart = false
+): string | null {
+  if (!config.formulas.length && !activeCampaign?.formulas.length) {
+    return "제품에 공식이 설정되지 않았습니다. 제품 설정에서 formulas를 추가하세요.";
+  }
+  if (!config.systemPrompt) {
+    return "제품에 시스템 프롬프트가 설정되지 않았습니다.";
+  }
+
+  const sourceFormulas = activeCampaign
+    ? activeCampaign.formulas
+    : config.formulas.map(buildLegacyFormula);
+  const formulaPool = buildFormulaPool(sourceFormulas, activeCampaign ? {} : dbWeights);
+  if (formulaPool.length === 0) {
+    return "공식 가중치가 모두 0입니다. 제품 설정을 확인하세요.";
+  }
+  const allTopics = [...config.topics, ...(config.trendingTopics ?? [])];
+  if (allTopics.length === 0) {
+    return "토픽이 없습니다. 제품 설정에서 주제 또는 트렌딩 토픽을 추가하세요.";
+  }
+  if (activeCampaign?.qualityProfile === "product_growth" || config.qualityProfile === "product_growth") {
+    return validateProductGrowthCampaignReadiness(config, activeCampaign, approvedCampaignStart);
+  }
+  return null;
+}
+
+function validateProductGrowthCampaignReadiness(
+  config: BrandConfig,
+  activeCampaign: CampaignConfig | null,
+  approvedCampaignStart: boolean
+): string | null {
+  const profile = config.productProfile;
+  if (!profile.oneLineDescription) return "제품 한 줄 설명이 필요합니다.";
+  if (!profile.targetCustomer) return "타깃 고객이 필요합니다.";
+  if (!profile.offerPromise) return "오퍼 약속이 필요합니다.";
+  if (!profile.landingUrl || !isValidCampaignLandingUrl(profile.landingUrl)) {
+    return "제품 랜딩 URL 형식이 필요합니다.";
+  }
+  if (!activeCampaign?.landingUrl || !isValidCampaignLandingUrl(activeCampaign.landingUrl)) {
+    return "캠페인 랜딩 URL 형식이 필요합니다.";
+  }
+  if (config.activeExperiment.status !== "active") return "제품 실험 상태가 active가 아닙니다.";
+  if (!approvedCampaignStart) return "캠페인 시작 승인이 필요합니다.";
+  return null;
+}
+
+export function buildCampaignUtmLink(websiteUrl: string, campaign: CampaignConfig, postId: string): { url: string; utmContent: string } | null {
   const utmContent = campaign.utmContentTemplate === "{{postId}}" ? postId : postId;
   const landingUrl = campaign.landingUrl.trim();
   if (!landingUrl) return null;
@@ -272,11 +400,12 @@ function appendFirstCommentLink(firstComment: string, linkUrl: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as { brandId?: unknown; count?: unknown; insertAtFront?: unknown; campaignId?: unknown };
+    const body = await request.json() as { brandId?: unknown; count?: unknown; insertAtFront?: unknown; campaignId?: unknown; approvedCampaignStart?: unknown };
     const brandId = typeof body.brandId === "string" ? body.brandId : null;
     const count = typeof body.count === "number" ? body.count : 30;
     const insertAtFront = body.insertAtFront === true;
     const requestedCampaignId = typeof body.campaignId === "string" ? body.campaignId : null;
+    const approvedCampaignStart = body.approvedCampaignStart === true;
 
     if (!brandId) {
       return NextResponse.json({ error: "brandId is required" }, { status: 400 });
@@ -289,25 +418,16 @@ export async function POST(request: NextRequest) {
 
     const config = parseBrandConfig(brand.brandConfig);
     const activeCampaign = getActiveCampaign(config, requestedCampaignId);
-    if (!config.formulas.length && !activeCampaign?.formulas.length) {
-      return NextResponse.json({ error: "브랜드에 공식이 설정되지 않았습니다. 브랜드 설정에서 formulas를 추가하세요." }, { status: 400 });
-    }
-    if (!config.systemPrompt) {
-      return NextResponse.json({ error: "브랜드에 시스템 프롬프트가 설정되지 않았습니다." }, { status: 400 });
-    }
-
     const dbWeights = JSON.parse(brand.formulaWeights) as Record<string, number>;
+    const readinessError = validateGenerationReadiness(config, activeCampaign, dbWeights, approvedCampaignStart);
+    if (readinessError) {
+      return NextResponse.json({ error: readinessError }, { status: 400 });
+    }
     const sourceFormulas = activeCampaign
       ? activeCampaign.formulas
       : config.formulas.map(buildLegacyFormula);
     const formulaPool = buildFormulaPool(sourceFormulas, activeCampaign ? {} : dbWeights);
-    if (formulaPool.length === 0) {
-      return NextResponse.json({ error: "공식 가중치가 모두 0입니다. 브랜드 설정을 확인하세요." }, { status: 400 });
-    }
     const allTopics = [...config.topics, ...(config.trendingTopics ?? [])];
-    if (allTopics.length === 0) {
-      return NextResponse.json({ error: "토픽이 없습니다. 브랜드 설정에서 주제 또는 트렌딩 토픽을 추가하세요." }, { status: 400 });
-    }
     const topics = shuffleTopics(allTopics, count);
     const growthContext = formatGrowthPromptContext(parseStoredGrowthMemory(brand.growthMemory));
     const viralContext = formatViralPromptContext(parseViralMemory(brand.viralMemory));

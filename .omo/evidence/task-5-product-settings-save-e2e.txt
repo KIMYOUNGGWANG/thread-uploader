@@ -1,0 +1,31 @@
+Browser E2E: Product tab save payload and readback
+
+URL: http://127.0.0.1:3107/brands/ulw-qa-no-posts/settings
+Cookie: auth_session=ulw_qa_user_portfolio
+
+Edited fields:
+- productProfile.productName: InvoiceFlow E2E
+- productProfile.oneLineDescription: 브라우저 저장 검증용 제품 설명
+- productProfile.targetCustomer: E2E 프리랜서
+- productProfile.offerPromise: 견적서 저장 증거를 남긴다
+- productProfile.landingUrl: /invoice-e2e
+- activeExperiment.name: Browser save proof
+- activeExperiment.hypothesis: Product tab edits persist through save and reload.
+
+Captured PATCH:
+- URL: /api/brands/ulw_qa_product_no_posts
+- Status: 200
+- Payload included brandConfig.productProfile with the edited values.
+- Payload included brandConfig.activeExperiment with the edited values.
+
+Reload readback:
+- productName: InvoiceFlow E2E
+- oneLineDescription: 브라우저 저장 검증용 제품 설명
+- targetCustomer: E2E 프리랜서
+- offerPromise: 견적서 저장 증거를 남긴다
+- landingUrl: /invoice-e2e
+- experimentName: Browser save proof
+- hypothesis: Product tab edits persist through save and reload.
+
+Screenshot:
+- .omo/evidence/portfolio-product-save-e2e.png

@@ -1,0 +1,51 @@
+{
+  "brandId": "ulw_qa_product_no_posts",
+  "campaignId": "product_growth_baseline",
+  "campaign": {
+    "id": "product_growth_baseline",
+    "name": "제품 성장 baseline",
+    "qualityProfile": "product_growth",
+    "landingUrl": "/qa/no-posts",
+    "utmCampaign": "no_posts_learning_state"
+  },
+  "productProfile": {
+    "productName": "No Posts Product",
+    "targetCustomer": "QA operator",
+    "primaryMetric": "views",
+    "conversionMetric": "conversions"
+  },
+  "activeExperiment": {
+    "id": "no_posts_learning_state",
+    "name": "No posts learning state",
+    "stage": "content",
+    "durationDays": 7,
+    "status": "active"
+  },
+  "primaryMetric": {
+    "name": "views",
+    "value": 0
+  },
+  "conversionMetric": {
+    "name": "conversions",
+    "value": 0
+  },
+  "evidenceState": "learning",
+  "todayScheduled": [],
+  "linkRatio": {
+    "linked": 0,
+    "total": 0,
+    "percent": 0
+  },
+  "quality": {
+    "passed": 0,
+    "failed": 0,
+    "unknown": 0,
+    "total": 0
+  },
+  "scoreWeights": {
+    "replies": 40,
+    "reposts": 25,
+    "views": 20,
+    "clicksConversions": 15
+  }
+}

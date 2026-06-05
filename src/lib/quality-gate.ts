@@ -1,4 +1,8 @@
 import type { CareerDecisionType, QualityProfileId } from "@/types/brand";
+import {
+  checkProductGrowthQuality,
+  type ProductQualityContext,
+} from "@/lib/product-quality-gate";
 
 /**
  * Quality Gate — CosmicPath 바이럴 공식 준수 검사기
@@ -144,8 +148,13 @@ const CAREER_DECISION_FRAME_PATTERNS = [
   /어느\s*쪽인지/,
 ];
 
-export function checkQuality(post: string, profile: QualityProfileId = "saju_viral"): QualityResult {
+export function checkQuality(
+  post: string,
+  profile: QualityProfileId = "saju_viral",
+  context: ProductQualityContext = {}
+): QualityResult {
   if (profile === "career_decision") return checkCareerDecisionQuality(post);
+  if (profile === "product_growth") return checkProductGrowthQuality(post, context);
   return checkSajuViralQuality(post);
 }
 

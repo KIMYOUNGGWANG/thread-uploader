@@ -1,0 +1,30 @@
+POST /api/brands
+Request: no brandConfig supplied for ULW QA API Product Three.
+Result: PASS
+- id: cmpzot7ox000514ao3peg68vw
+- campaign.id: product_growth_baseline
+- campaign.qualityProfile: product_growth
+- campaign.landingUrl: ""
+- activeCampaignId: product_growth_baseline
+- qualityProfile: product_growth
+- tiktokVideo.enabled: false
+- tiktokVideo.parentCampaignId: product_growth_baseline
+- tiktokVideo.landingUrl: ""
+- tiktokVideo.formats: []
+- productProfile.productName: ULW QA API Product Three
+- activeExperiment.id: ulw_qa_api_product_final_3
+
+PATCH /api/brands/cmpzot7ox000514ao3peg68vw
+Request: update productProfile.
+Result: PASS
+- productProfile.oneLineDescription: API update proof product
+- productProfile.targetCustomer: QA operator
+- productProfile.offerPromise: Proves product profile update/readback
+- productProfile.landingUrl: /api-proof
+- product_growth_baseline campaign preserved
+
+GET /api/brands/cmpzot7ox000514ao3peg68vw
+Result: PASS
+- Readback preserved updated productProfile.
+- Readback preserved product_growth_baseline.
+- Readback preserved disabled neutral TikTok config.

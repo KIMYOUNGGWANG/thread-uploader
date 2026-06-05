@@ -4,12 +4,13 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Save, Plus, Trash2, RefreshCw, Settings,
-  Sparkles, FileText, Users, MessageSquare, Zap, Key, TrendingUp, Radar, Target,
+  Sparkles, FileText, Users, MessageSquare, Zap, Key, TrendingUp, Radar, Target, Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast, Toaster } from "sonner";
 import type { BrandConfig, BrandFormula, CampaignConfig, QualityProfileId, ViralDiscoveryConfig } from "@/types/brand";
 import type { ViralAdapterId } from "@/types/viral";
+import { ProductSettingsTab } from "@/components/ProductSettingsTab";
 
 interface InitialData {
   name: string;
@@ -26,7 +27,7 @@ interface BrandSettingsFormProps {
   initialData: InitialData;
 }
 
-type Tab = "basic" | "ai" | "campaign" | "topics" | "targets" | "situations" | "hooks" | "ctas" | "formulas" | "trending" | "viral";
+type Tab = "basic" | "product" | "ai" | "campaign" | "topics" | "targets" | "situations" | "hooks" | "ctas" | "formulas" | "trending" | "viral";
 
 export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }: BrandSettingsFormProps) {
   const router = useRouter();
@@ -42,6 +43,8 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
   // AI 설정
   const [systemPrompt, setSystemPrompt] = useState(initialData.config.systemPrompt);
   const [websiteUrl, setWebsiteUrl] = useState(initialData.config.websiteUrl);
+  const [productProfile, setProductProfile] = useState(initialData.config.productProfile);
+  const [activeExperiment, setActiveExperiment] = useState(initialData.config.activeExperiment);
 
   // 리스트형 설정
   const [topics, setTopics] = useState<string[]>(initialData.config.topics);
@@ -104,6 +107,8 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             qualityProfile,
             trendingTopics,
             tiktokVideo: initialData.config.tiktokVideo,
+            productProfile,
+            activeExperiment,
             viralDiscovery: {
               keywords: viralKeywords,
               competitorHandles,
@@ -124,10 +129,11 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     } finally {
       setIsSaving(false);
     }
-  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, trendingTopics, initialData.config.tiktokVideo, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, router]);
+  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, trendingTopics, initialData.config.tiktokVideo, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, router]);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "basic", label: "기본 정보", icon: <Key className="w-4 h-4" /> },
+    { id: "product", label: "제품", icon: <Package className="w-4 h-4" /> },
     { id: "ai", label: "AI 설정", icon: <Sparkles className="w-4 h-4" /> },
     { id: "campaign", label: "캠페인", icon: <Target className="w-4 h-4" />, badge: campaigns.length },
     { id: "topics", label: "주제", icon: <FileText className="w-4 h-4" />, badge: topics.length },
@@ -158,8 +164,8 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
               <Settings className="w-5 h-5 text-violet-400" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">{brandName} — 브랜드 설정</h1>
-              <p className="text-xs text-slate-400">AI 생성 설정 및 Threads 연결 관리</p>
+              <h1 className="text-lg font-bold text-white">{brandName} — 제품 설정</h1>
+              <p className="text-xs text-slate-400">제품 프로필, 실험 지표, 채널 연결 관리</p>
             </div>
           </div>
           <Button
@@ -216,6 +222,20 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             websiteUrl={websiteUrl} setWebsiteUrl={setWebsiteUrl}
           />
         )}
+        {activeTab === "product" && (
+          <ProductSettingsTab
+            brandId={brandId}
+            productProfile={productProfile}
+            setProductProfile={setProductProfile}
+            activeExperiment={activeExperiment}
+            setActiveExperiment={setActiveExperiment}
+            systemPrompt={systemPrompt}
+            topics={topics}
+            formulas={formulas}
+            campaigns={campaigns}
+            activeCampaignId={activeCampaignId}
+          />
+        )}
         {activeTab === "campaign" && (
           <CampaignTab
             campaigns={campaigns}
@@ -229,8 +249,8 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
         {activeTab === "topics" && (
           <ListTab
             label="주제"
-            description="AI가 콘텐츠를 생성할 때 사용할 주제 목록입니다. 브랜드 특화 키워드/개념을 추가하세요."
-            placeholder="예: 화개살 (스님도 파계시키는 매력)"
+            description="AI가 콘텐츠를 생성할 때 사용할 주제 목록입니다. 제품 특화 키워드/개념을 추가하세요."
+            placeholder="예: 견적서 자동화"
             items={topics}
             setItems={setTopics}
           />
@@ -248,7 +268,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
           <ListTab
             label="상황/맥락"
             description="독자가 처한 상황이나 맥락입니다. AI가 공감대를 형성하는 콘텐츠를 만들 때 활용합니다."
-            placeholder="예: 퇴사/이직 마려울 때"
+            placeholder="예: 견적서를 급하게 보내야 할 때"
             items={situations}
             setItems={setSituations}
           />
@@ -278,7 +298,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
           <ListTab
             label="트렌딩 토픽"
             description="이번 주 핫한 시즌/이슈 키워드. 콘텐츠 생성 시 기존 주제와 함께 랜덤으로 사용됩니다. 매주 1회 업데이트하세요."
-            placeholder="예: 수성 역행 2026년 5월"
+            placeholder="예: 프리랜서 세금 시즌"
             items={trendingTopics}
             setItems={setTrendingTopics}
           />
@@ -318,12 +338,12 @@ function BasicTab({
 }) {
   return (
     <div className="space-y-6">
-      <SectionCard title="브랜드 정보" description="브랜드 이름과 Threads API 연결 정보를 관리합니다.">
-        <Field label="브랜드 이름">
+      <SectionCard title="제품 채널 정보" description="제품 이름과 Threads API 연결 정보를 관리합니다.">
+        <Field label="제품 이름">
           <input
             type="text" value={name} onChange={(e) => setName(e.target.value)}
             className={INPUT_CLASS}
-            placeholder="예: CosmicPath"
+            placeholder="예: InvoiceFlow"
           />
         </Field>
         <Field label="Threads Access Token" hint="Meta 개발자 콘솔에서 발급">
@@ -361,13 +381,13 @@ function AiTab({
 }) {
   return (
     <div className="space-y-6">
-      <SectionCard title="시스템 프롬프트" description="AI가 콘텐츠를 생성할 때 항상 따르는 핵심 지침입니다. 브랜드 톤, 금지 사항, 출력 형식을 명시하세요.">
+      <SectionCard title="시스템 프롬프트" description="AI가 콘텐츠를 생성할 때 항상 따르는 핵심 지침입니다. 제품 톤, 금지 사항, 출력 형식을 명시하세요.">
         <textarea
           value={systemPrompt}
           onChange={(e) => setSystemPrompt(e.target.value)}
           rows={14}
           className={`${INPUT_CLASS} font-mono text-xs resize-y`}
-          placeholder={`예시:\n너는 [브랜드명] SNS 담당자야.\n\n규칙:\n1. 반말 사용\n2. 해시태그 1개만\n3. 6-12줄 길이\n...`}
+          placeholder={`예시:\n너는 [제품명] SNS 담당자야.\n\n규칙:\n1. 반말 사용\n2. 해시태그 1개만\n3. 6-12줄 길이\n...`}
         />
         <p className="text-xs text-slate-500 mt-1">
           현재 {systemPrompt.length}자 · 출력 형식(구분자 등)은 반드시 포함하세요
@@ -379,7 +399,7 @@ function AiTab({
           <input
             type="text" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)}
             className={INPUT_CLASS}
-            placeholder="예: cosmicpath.app"
+            placeholder="예: invoiceflow.app"
           />
         </Field>
         <p className="text-xs text-slate-500">
@@ -432,7 +452,7 @@ function CampaignTab({
 
   if (!activeCampaign) {
     return (
-      <SectionCard title="캠페인 설정" description="활성 캠페인을 찾을 수 없습니다. 기본 브랜드 설정을 다시 저장하세요.">
+      <SectionCard title="캠페인 설정" description="활성 캠페인을 찾을 수 없습니다. 기본 제품 설정을 다시 저장하세요.">
         <p className="text-sm text-slate-400">캠페인 데이터가 없습니다.</p>
       </SectionCard>
     );
@@ -440,7 +460,7 @@ function CampaignTab({
 
   return (
     <div className="space-y-6">
-      <SectionCard title="활성 캠페인" description="CosmicPath 커리어 wedge 실험에 사용할 캠페인과 품질 프로필입니다.">
+      <SectionCard title="활성 캠페인" description="이 제품의 현재 성장 실험에 사용할 캠페인과 품질 프로필입니다.">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Active campaign">
             <select
@@ -461,6 +481,7 @@ function CampaignTab({
             >
               <option value="career_decision">career_decision</option>
               <option value="saju_viral">saju_viral</option>
+              <option value="product_growth">product_growth</option>
             </select>
           </Field>
           <Field label="Landing URL">
@@ -468,7 +489,7 @@ function CampaignTab({
               value={activeCampaign.landingUrl}
               onChange={(event) => updateCampaign({ landingUrl: event.target.value })}
               className={INPUT_CLASS}
-              placeholder="/career/uncertainty"
+              placeholder="/product"
             />
           </Field>
           <Field label="UTM campaign">
@@ -476,7 +497,7 @@ function CampaignTab({
               value={activeCampaign.utmCampaign}
               onChange={(event) => updateCampaign({ utmCampaign: event.target.value })}
               className={INPUT_CLASS}
-              placeholder="career_timing_wedge_399"
+              placeholder="product_growth_baseline"
             />
           </Field>
           <Field label="하루 목표">
@@ -645,21 +666,21 @@ function ViralSourcesTab({
     <div className="space-y-6">
       <ListTab
         label="키워드 소스"
-        description="Threads TOP 검색에 사용할 키워드입니다. 비어 있으면 브랜드 주제와 트렌딩 토픽을 폴백으로 사용합니다."
-        placeholder="예: 사주 연애운"
+        description="Threads TOP 검색에 사용할 키워드입니다. 비어 있으면 제품 주제와 트렌딩 토픽을 폴백으로 사용합니다."
+        placeholder="예: 견적서 자동화"
         items={keywords}
         setItems={setKeywords}
       />
       <ListTab
         label="경쟁 계정 핸들"
         description="@ 없이 저장합니다. 해당 공개 프로필의 최근 글을 바이럴 레퍼런스로 수집합니다."
-        placeholder="예: cosmicpath_official"
+        placeholder="예: invoiceflow_official"
         items={competitorHandles}
         setItems={(items) => setCompetitorHandles(items.map((item) => item.replace(/^@/, "")))}
       />
       <ListTab
         label="제외어"
-        description="이 단어가 포함된 레퍼런스는 저장하지 않습니다. 브랜드 리스크나 원치 않는 주제를 막을 때 사용합니다."
+        description="이 단어가 포함된 레퍼런스는 저장하지 않습니다. 제품 리스크나 원치 않는 주제를 막을 때 사용합니다."
         placeholder="예: 정치"
         items={excludedTerms}
         setItems={setExcludedTerms}
@@ -737,7 +758,7 @@ function adapterLabel(id: ViralAdapterId): string {
 function adapterDescription(id: ViralAdapterId): string {
   const descriptions: Record<ViralAdapterId, string> = {
     owned_posts: "성과 있는 발행 글을 다시 학습",
-    threads_keyword: "저장 키워드와 브랜드 토픽 검색",
+    threads_keyword: "저장 키워드와 제품 토픽 검색",
     threads_profile: "경쟁 계정 공개 글 수집",
     manual: "직접 붙여넣은 레퍼런스 저장",
   };

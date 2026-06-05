@@ -1,0 +1,14 @@
+.agent/
+.agent_backup_*/
+.agents/
+.codex/
+.gemini/
+.claude/
+
+.DS_Store
+debug_audit.log
+review/
+split-posts/
+*.db
+*.db-journal
+*.tsbuildinfo

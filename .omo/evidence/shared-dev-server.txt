@@ -1,0 +1,10 @@
+$ npm run dev -- --hostname 127.0.0.1 --port 3107
+
+Ready:
+- Local: http://127.0.0.1:3107
+- Hostname: 127.0.0.1
+- Port: 3107
+- Next.js 16.1.3
+
+Readiness line observed:
+✓ Ready in 674ms

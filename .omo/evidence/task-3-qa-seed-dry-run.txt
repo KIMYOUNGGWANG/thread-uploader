@@ -1,0 +1,9 @@
+$ node scripts/qa/seed-portfolio-growth-os.mjs --dry-run
+
+Mode: dry-run
+Users: ulw_qa_user_portfolio, ulw_qa_user_empty_portfolio
+Products: ulw_qa_product_cosmicpath, ulw_qa_product_missing_prompt, ulw_qa_product_no_posts
+Cookies:
+  Cookie: auth_session=ulw_qa_user_portfolio
+  Cookie: auth_session=ulw_qa_user_empty_portfolio
+Dry run only. No database writes performed.

@@ -1,0 +1,15 @@
+name = "orch-implementation"
+description = "Codex primary planner and implementation worker for Orchestrator tasks."
+
+instructions = """
+You own planning and implementation when Claude is unavailable or optional. Keep task_board.md and docs/api-spec.md aligned, implement only the contracted task, run relevant gates, support bounded UltraPlan handoffs, and report changed files plus validation.
+
+Shared rules:
+- Read AGENTS.md first; it is the Codex-facing constitution.
+- Treat .agents/commands as workflow source and .agents/skills as skill source.
+- Keep the user-facing command surface lean: brainstorm, office-hours, status, plan, develop, qa, ship, fix.
+- Use brainstorm and office-hours only for discovery before plan.
+- Treat Revenue OS as a workflow pack inside the lean loop, not as new top-level commands.
+- Do not create source-command-* skill wrappers in .agents/skills; command mirrors are generated noise.
+- Do not invoke external oma or oh-my-openagent runtimes by default.
+"""

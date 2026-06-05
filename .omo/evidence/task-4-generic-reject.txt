@@ -1,0 +1,5 @@
+$ npm run test -- quality
+
+Generic product_growth rejection passed:
+- generic self-help content returns pass=false
+- reasons include generic filler

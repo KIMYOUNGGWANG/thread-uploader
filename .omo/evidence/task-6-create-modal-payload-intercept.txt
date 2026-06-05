@@ -1,0 +1,30 @@
+Browser E2E: create modal POST payload intercept
+
+URL: http://127.0.0.1:3107/brands
+Cookie: auth_session=ulw_qa_user_portfolio
+
+Submitted modal fields:
+- name: Modal Payload Product
+- slug: modal-payload-product-37
+- accessToken: qa-token
+- threadsUserId: ulw_qa_threads_modal_payload_37
+- tokenExpiry: 2027-01-01
+
+Intercepted POST /api/brands payload:
+- name: Modal Payload Product
+- slug: modal-payload-product-37
+- brandConfig.productProfile.productName: Modal Payload Product
+- brandConfig.productProfile.primaryChannel: threads
+- brandConfig.productProfile.primaryMetric: views
+- brandConfig.productProfile.conversionMetric: conversions
+- brandConfig.activeExperiment.id: modal-payload-product-37
+- brandConfig.activeExperiment.name: Modal Payload Product baseline growth loop
+- brandConfig.activeExperiment.status: active
+- brandConfig.activeExperiment.durationDays: 7
+- brandConfig.activeCampaignId: product_growth_baseline
+- brandConfig.qualityProfile: product_growth
+- brandConfig.tiktokVideo.enabled: false
+- brandConfig.tiktokVideo.formats: []
+
+Screenshot:
+- .omo/evidence/portfolio-create-modal-payload.png

@@ -1,0 +1,94 @@
+$ npm run typecheck
+PASS
+
+$ npm run test
+PASS: 11 files, 37 tests
+
+$ npm run lint
+PASS
+
+$ npm run build
+PASS
+
+$ node scripts/qa/seed-portfolio-growth-os.mjs --dry-run
+PASS: printed fixed QA users/products and performed no database writes
+
+$ node scripts/qa/seed-portfolio-growth-os.mjs --apply
+PASS: upserted fixed QA users/products after product_growth baseline fix
+
+$ curl -H 'Cookie: auth_session=ulw_qa_user_portfolio' http://127.0.0.1:3107/api/brands
+PASS: returned three fixed QA product profiles with productProfile and activeExperiment
+
+$ curl -H 'Cookie: auth_session=ulw_qa_user_portfolio' 'http://127.0.0.1:3107/api/campaigns/summary?brandId=ulw_qa_product_cosmicpath'
+PASS: returned productProfile, activeExperiment, primaryMetric, conversionMetric, evidenceState, and nextAction
+
+$ curl -H 'Cookie: auth_session=ulw_qa_user_portfolio' 'http://127.0.0.1:3107/api/campaigns/summary?brandId=ulw_qa_product_no_posts'
+PASS: returned product_growth_baseline campaign with product_growth quality profile and generic product formulas
+Captured shape: .omo/evidence/noncosmic-summary-response.json
+
+$ curl -i -H 'Cookie: auth_session=ulw_qa_user_portfolio' 'http://127.0.0.1:3107/api/campaigns/summary?brandId=ulw_qa_product_cosmicpath&campaignId=missing_campaign'
+PASS: returned HTTP 404 with {"error":"campaign not found"}
+Captured: .omo/evidence/task-9-summary-missing-campaign.http
+
+$ curl -i -X POST -H 'Content-Type: application/json' -H 'Cookie: auth_session=ulw_qa_user_portfolio' -d '{"brandId":"ulw_qa_product_no_posts","count":1}' http://127.0.0.1:3107/api/tiktok/videos/generate
+PASS: returned HTTP 400 with {"error":"TikTok video lab is disabled for this product"}
+Captured: .omo/evidence/task-10-disabled-tiktok-generate.http
+
+$ curl -i -X POST -H 'Content-Type: application/json' -H 'Cookie: auth_session=ulw_qa_user_portfolio' -d '{"brandId":"ulw_qa_product_no_posts","handles":["invoice_operator_seed"],"limit":3,"minScore":60}' http://127.0.0.1:3107/api/accounts/discover
+PASS: generic product returned adjacent candidate with product/brand-topic reasons; keyword errors used product sources, not career/saju seed sources.
+Captured: .omo/evidence/task-8-account-discovery-product.http
+
+$ curl -i -X POST ... /api/brands with id-only product_growth_baseline campaign, then /api/accounts/discover for the created product
+PASS: created product read back top-level qualityProfile product_growth; discovery returned adjacent product candidate with product/create-probe keyword sources only.
+Captured: .omo/evidence/task-8-idonly-product-discovery.http
+
+$ curl -X POST -H 'Content-Type: application/json' -H 'Cookie: auth_session=ulw_qa_user_portfolio' -d '{"brandId":"ulw_qa_product_missing_prompt","count":1}' http://127.0.0.1:3107/api/generate
+PASS: returned product settings validation error without calling AI generation
+
+$ curl -i -X POST -H 'Content-Type: application/json' -H 'Cookie: auth_session=ulw_qa_user_portfolio' -d '{"brandId":"ulw_qa_product_no_posts","count":1}' http://127.0.0.1:3107/api/generate
+PASS: retry returned HTTP 200 with {"success":true,"count":1,"linkedCount":1,"campaignId":"product_growth_baseline"} after one transient DB-connect failure.
+
+$ curl -i -H 'Cookie: auth_session=ulw_qa_user_portfolio' 'http://127.0.0.1:3107/api/posts?brandId=ulw_qa_product_no_posts'
+PASS: generated post readback has campaignId product_growth_baseline, qualityProfile product_growth, qualityPass true, careerDecisionType null, linkUrl with utm_source=threads, utm_campaign=no_posts_learning_state, and utmContent equal to the post id.
+Captured: .omo/evidence/task-7-generate-product.http
+
+$ curl -H 'Cookie: auth_session=ulw_qa_user_empty_portfolio' http://127.0.0.1:3107/api/brands
+PASS: returned []
+
+Browser QA:
+PASS: /login title is Portfolio Growth OS
+PASS: /brands shows QA product cards and "제품 추가"
+PASS: /brands create product modal shows "예: InvoiceFlow" and "invoiceflow"; modal-scoped forbidden CosmicPath/career/saju regex is false
+PASS: /brands create product modal intercepted POST /api/brands payload includes brandConfig.productProfile and brandConfig.activeExperiment
+PASS: /brands with empty QA user shows "아직 제품이 없어요" and "첫 제품 만들기"
+PASS: /brands/ulw-qa-cosmicpath/settings product tab shows Product Profile and Active Experiment
+PASS: /brands/ulw-qa-no-posts/settings product tab edit/save sends productProfile and activeExperiment in PATCH payload and persists after reload
+PASS: /brands/ulw-qa-cosmicpath shows Portfolio Growth OS overview, current experiment, primary metric, conversion metric, quality state, and next action
+PASS: /brands/ulw-qa-no-posts/settings campaign tab shows product_growth_baseline, product_growth, generic product formulas, and no CosmicPath campaign copy
+PASS: /brands/ulw-qa-no-posts/settings product tab shows neutral placeholders: InvoiceFlow, /invoice, 1인 프리랜서, Baseline growth loop
+
+Product config HTTP QA:
+PASS: POST /api/brands without brandConfig creates product_growth_baseline, disabled neutral TikTok, product profile, and active experiment.
+PASS: PATCH /api/brands/[id] updates productProfile.
+PASS: GET /api/brands/[id] reads back updated productProfile and product defaults.
+
+Screenshots:
+- .omo/evidence/portfolio-brands.png
+- .omo/evidence/portfolio-create-modal.png
+- .omo/evidence/portfolio-create-modal-payload.png
+- .omo/evidence/portfolio-product-save-e2e.png
+- .omo/evidence/portfolio-settings-product-tab.png
+- .omo/evidence/portfolio-dashboard-overview.png
+- .omo/evidence/portfolio-noncosmic-campaign-tab.png
+- .omo/evidence/portfolio-noncosmic-product-tab.png
+- .omo/evidence/noncosmic-summary-response.json
+- .omo/evidence/task-8-account-discovery-product.http
+- .omo/evidence/task-8-idonly-product-discovery.http
+- .omo/evidence/task-9-summary-missing-campaign.http
+- .omo/evidence/task-10-disabled-tiktok-generate.http
+- .omo/evidence/shared-dev-server.txt
+- .omo/evidence/task-2-product-config-http.txt
+- .omo/evidence/task-5-product-settings-save-e2e.txt
+- .omo/evidence/task-6-create-modal-placeholder-browser.txt
+- .omo/evidence/task-6-create-modal-payload-intercept.txt
+- .omo/evidence/task-7-generate-product.http

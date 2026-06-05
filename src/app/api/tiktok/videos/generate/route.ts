@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
-import { generateTikTokVideoDrafts, parseFormatIds } from "@/lib/tiktok-video-service";
+import { TikTokVideoDisabledError, generateTikTokVideoDrafts, parseFormatIds } from "@/lib/tiktok-video-service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +30,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const response = accessErrorResponse(error);
     if (response) return response;
+    if (error instanceof TikTokVideoDisabledError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error("TikTok video generation error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to generate TikTok drafts" }, { status: 500 });
   }

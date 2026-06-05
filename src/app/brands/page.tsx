@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Plus, LogOut, RefreshCw, Settings, ChevronRight, AlertCircle } from "lucide-react";
+import { Sparkles, Plus, LogOut, RefreshCw, Settings, ChevronRight, AlertCircle, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast, Toaster } from "sonner";
-import { DEFAULT_BRAND_CONFIG, type BrandResponse } from "@/types/brand";
+import { DEFAULT_BRAND_CONFIG, PRODUCT_GROWTH_BASELINE, type BrandConfig, type BrandResponse } from "@/types/brand";
+import type { ProductAutoSetupDraft } from "@/lib/product-auto-setup";
 
 export default function BrandsPage() {
   const [brands, setBrands] = useState<BrandResponse[]>([]);
@@ -21,10 +22,10 @@ export default function BrandsPage() {
       const res = await fetch("/api/brands");
       if (res.status === 401) { router.push("/login"); return; }
       const data = await res.json() as BrandResponse[] | { error: string };
-      if (!res.ok) throw new Error((data as { error: string }).error ?? "브랜드 불러오기 실패");
+      if (!res.ok) throw new Error((data as { error: string }).error ?? "제품 불러오기 실패");
       setBrands(data as BrandResponse[]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "브랜드 불러오기 실패");
+      setError(err instanceof Error ? err.message : "제품 불러오기 실패");
     } finally {
       setIsLoading(false);
     }
@@ -49,8 +50,8 @@ export default function BrandsPage() {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">Threads Uploader</h1>
-              <p className="text-xs text-slate-400">브랜드를 선택하세요</p>
+              <h1 className="text-lg font-bold text-white">Portfolio Growth OS</h1>
+              <p className="text-xs text-slate-400">성장 실험을 운영할 제품을 선택하세요</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -60,7 +61,7 @@ export default function BrandsPage() {
               className="bg-violet-600 hover:bg-violet-700 text-white"
             >
               <Plus className="w-4 h-4 mr-1.5" />
-              브랜드 추가
+              제품 추가
             </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-slate-400 hover:text-red-400 hover:bg-red-900/10">
               <LogOut className="w-4 h-4" />
@@ -83,10 +84,10 @@ export default function BrandsPage() {
             <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-8 h-8 text-slate-500" />
             </div>
-            <h2 className="text-xl font-semibold text-white mb-2">아직 브랜드가 없어요</h2>
-            <p className="text-slate-400 text-sm mb-6">첫 번째 브랜드를 추가하고 Threads 자동화를 시작하세요</p>
+            <h2 className="text-xl font-semibold text-white mb-2">아직 제품이 없어요</h2>
+            <p className="text-slate-400 text-sm mb-6">첫 번째 제품을 추가하고 7일 성장 실험을 시작하세요</p>
             <Button onClick={() => setShowCreateForm(true)} className="bg-violet-600 hover:bg-violet-700 text-white">
-              <Plus className="w-4 h-4 mr-1.5" />첫 브랜드 만들기
+              <Plus className="w-4 h-4 mr-1.5" />첫 제품 만들기
             </Button>
           </div>
         ) : (
@@ -126,7 +127,7 @@ export default function BrandsPage() {
                 <div className="w-10 h-10 bg-slate-700/50 rounded-xl flex items-center justify-center">
                   <Plus className="w-5 h-5 text-slate-400" />
                 </div>
-                <span className="text-sm text-slate-400">브랜드 추가</span>
+                <span className="text-sm text-slate-400">제품 추가</span>
               </button>
             </div>
           </div>
@@ -144,23 +145,74 @@ export default function BrandsPage() {
   );
 }
 
+interface CreateProductForm {
+  name: string;
+  slug: string;
+  oneLineDescription: string;
+  targetCustomer: string;
+  offerPromise: string;
+  landingUrl: string;
+  accessToken: string;
+  threadsUserId: string;
+  tokenExpiry: string;
+}
+
 function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<CreateProductForm>({
     name: "",
     slug: "",
+    oneLineDescription: "",
+    targetCustomer: "",
+    offerPromise: "",
+    landingUrl: "",
     accessToken: "",
     threadsUserId: "",
     tokenExpiry: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
   });
+  const [setupDraft, setSetupDraft] = useState<ProductAutoSetupDraft | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const updateForm = (patch: Partial<CreateProductForm>, resetDraft = true) => {
+    if (resetDraft) setSetupDraft(null);
+    setForm((previous) => ({ ...previous, ...patch }));
+  };
+
   const handleNameChange = (value: string) => {
+    setSetupDraft(null);
     setForm((prev) => ({
       ...prev,
       name: value,
       slug: prev.slug || value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
     }));
+  };
+
+  const handlePreview = async () => {
+    if (!form.name.trim()) {
+      setError("제품 이름을 먼저 입력하세요");
+      return;
+    }
+    setIsPreviewing(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/products/auto-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPreviewPayload(form)),
+      });
+      const data: unknown = await response.json();
+      if (!response.ok) {
+        const message = isRecord(data) && typeof data.error === "string" ? data.error : "자동 세팅 실패";
+        throw new Error(message);
+      }
+      if (!isProductAutoSetupDraft(data)) throw new Error("자동 세팅 응답이 올바르지 않습니다");
+      setSetupDraft(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "자동 세팅 실패");
+    } finally {
+      setIsPreviewing(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,23 +229,15 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           accessToken: form.accessToken,
           threadsUserId: form.threadsUserId,
           tokenExpiry: new Date(form.tokenExpiry).toISOString(),
-          brandConfig: {
-            ...DEFAULT_BRAND_CONFIG,
-            systemPrompt: "",
-            topics: [],
-            targets: [],
-            situations: [],
-            websiteUrl: "",
-            formulas: [],
-          },
+          brandConfig: setupDraft?.config ?? buildFallbackProductConfig(form),
         }),
       });
       const data = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "브랜드 생성 실패");
-      toast.success("브랜드가 생성되었습니다!");
+      if (!res.ok) throw new Error(data.error ?? "제품 생성 실패");
+      toast.success("제품이 생성되었습니다!");
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "브랜드 생성 실패");
+      setError(err instanceof Error ? err.message : "제품 생성 실패");
     } finally {
       setIsSubmitting(false);
     }
@@ -201,18 +245,18 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Settings className="w-5 h-5 text-violet-400" />새 브랜드 추가
+            <Settings className="w-5 h-5 text-violet-400" />새 제품 추가
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-xl leading-none">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Field label="브랜드 이름" required>
+          <Field label="제품 이름" required>
             <input
-              type="text" required placeholder="예: CosmicPath"
+              type="text" required placeholder="예: InvoiceFlow"
               value={form.name} onChange={(e) => handleNameChange(e.target.value)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
@@ -220,17 +264,86 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 
           <Field label="Slug (URL용)" required hint="영문 소문자, 숫자, 하이픈만">
             <input
-              type="text" required placeholder="cosmicpath"
-              value={form.slug} onChange={(e) => setForm((p) => ({ ...p, slug: e.target.value.toLowerCase() }))}
+              type="text" required placeholder="invoiceflow"
+              value={form.slug} onChange={(e) => updateForm({ slug: e.target.value.toLowerCase() })}
               pattern="[a-z0-9-]+"
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </Field>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="한 줄 설명">
+              <input
+                type="text" placeholder="견적서 작성 시간을 줄이는 프리랜서 도구"
+                value={form.oneLineDescription} onChange={(e) => updateForm({ oneLineDescription: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </Field>
+
+            <Field label="타깃 고객">
+              <input
+                type="text" placeholder="예: 1인 프리랜서"
+                value={form.targetCustomer} onChange={(e) => updateForm({ targetCustomer: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </Field>
+
+            <Field label="오퍼 약속">
+              <input
+                type="text" placeholder="예: 견적서를 5분 안에 보내게 한다"
+                value={form.offerPromise} onChange={(e) => updateForm({ offerPromise: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </Field>
+
+            <Field label="랜딩 URL">
+              <input
+                type="text" placeholder="예: https://invoiceflow.app"
+                value={form.landingUrl} onChange={(e) => updateForm({ landingUrl: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </Field>
+          </div>
+
+          <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-white">세팅 준비도</h3>
+                <p className="mt-1 text-xs text-slate-400">제품 맥락으로 캠페인 초안을 만들고 시작 가능 여부를 확인합니다.</p>
+              </div>
+              <Button
+                type="button"
+                onClick={handlePreview}
+                disabled={isPreviewing}
+                className="bg-slate-700 hover:bg-slate-600 text-white"
+              >
+                {isPreviewing ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1.5" />}
+                자동 세팅 미리보기
+              </Button>
+            </div>
+            {setupDraft && (
+              <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-slate-200">
+                    {setupDraft.readiness.status === "ready" ? "캠페인 시작 가능" : "입력 보완 필요"}
+                  </span>
+                  <span className="text-slate-400">{setupDraft.readiness.score}/100</span>
+                </div>
+                {setupDraft.readiness.gaps.length > 0 && (
+                  <ul className="mt-3 space-y-1 text-xs text-amber-200">
+                    {setupDraft.readiness.gaps.map((gap) => (
+                      <li key={gap.field}>{gap.message}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
           <Field label="Threads Access Token" required>
             <input
               type="password" required placeholder="THQAA..."
-              value={form.accessToken} onChange={(e) => setForm((p) => ({ ...p, accessToken: e.target.value }))}
+              value={form.accessToken} onChange={(e) => updateForm({ accessToken: e.target.value }, false)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </Field>
@@ -238,7 +351,7 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <Field label="Threads User ID" required>
             <input
               type="text" required placeholder="123456789"
-              value={form.threadsUserId} onChange={(e) => setForm((p) => ({ ...p, threadsUserId: e.target.value }))}
+              value={form.threadsUserId} onChange={(e) => updateForm({ threadsUserId: e.target.value }, false)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </Field>
@@ -246,7 +359,7 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <Field label="토큰 만료일">
             <input
               type="date"
-              value={form.tokenExpiry} onChange={(e) => setForm((p) => ({ ...p, tokenExpiry: e.target.value }))}
+              value={form.tokenExpiry} onChange={(e) => updateForm({ tokenExpiry: e.target.value }, false)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </Field>
@@ -258,13 +371,13 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           )}
 
           <p className="text-xs text-slate-400 bg-slate-800/50 p-3 rounded-lg">
-            💡 브랜드 생성 후 대시보드에서 <strong className="text-slate-300">콘텐츠 공식, 주제, 시스템 프롬프트</strong>를 설정할 수 있습니다.
+            💡 제품 생성 후 설정에서 <strong className="text-slate-300">제품 프로필, 실험 지표, 시스템 프롬프트</strong>를 조정할 수 있습니다.
           </p>
 
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1 border-slate-700 text-slate-300">취소</Button>
             <Button type="submit" disabled={isSubmitting} className="flex-1 bg-violet-600 hover:bg-violet-700 text-white">
-              {isSubmitting ? <><RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />생성 중...</> : "브랜드 만들기"}
+              {isSubmitting ? <><RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />생성 중...</> : "제품 만들기"}
             </Button>
           </div>
         </form>
@@ -283,4 +396,67 @@ function Field({ label, required, hint, children }: { label: string; required?: 
       {children}
     </div>
   );
+}
+
+function buildPreviewPayload(form: CreateProductForm) {
+  return {
+    productName: form.name,
+    slug: form.slug,
+    oneLineDescription: form.oneLineDescription,
+    targetCustomer: form.targetCustomer,
+    offerPromise: form.offerPromise,
+    landingUrl: form.landingUrl,
+  };
+}
+
+function buildFallbackProductConfig(form: CreateProductForm): BrandConfig {
+  const landingUrl = form.landingUrl.trim();
+  const productCampaign = {
+    ...PRODUCT_GROWTH_BASELINE,
+    landingUrl,
+    utmCampaign: form.slug || "product_growth_baseline",
+  };
+
+  return {
+    ...DEFAULT_BRAND_CONFIG,
+    systemPrompt: "",
+    topics: [],
+    targets: form.targetCustomer.trim() ? [form.targetCustomer.trim()] : [],
+    situations: [],
+    websiteUrl: "",
+    formulas: [],
+    campaigns: [productCampaign],
+    activeCampaignId: PRODUCT_GROWTH_BASELINE.id,
+    qualityProfile: "product_growth",
+    productProfile: {
+      ...DEFAULT_BRAND_CONFIG.productProfile,
+      productName: form.name,
+      oneLineDescription: form.oneLineDescription.trim(),
+      targetCustomer: form.targetCustomer.trim(),
+      offerPromise: form.offerPromise.trim(),
+      landingUrl,
+    },
+    activeExperiment: {
+      ...DEFAULT_BRAND_CONFIG.activeExperiment,
+      name: `${form.name} baseline growth loop`,
+      id: form.slug || DEFAULT_BRAND_CONFIG.activeExperiment.id,
+      durationDays: 7,
+      primaryMetric: DEFAULT_BRAND_CONFIG.productProfile.primaryMetric,
+    },
+    tiktokVideo: {
+      ...DEFAULT_BRAND_CONFIG.tiktokVideo,
+      enabled: false,
+      parentCampaignId: PRODUCT_GROWTH_BASELINE.id,
+      landingUrl,
+      formats: [],
+    },
+  };
+}
+
+function isProductAutoSetupDraft(value: unknown): value is ProductAutoSetupDraft {
+  return isRecord(value) && isRecord(value.config) && isRecord(value.readiness);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -1,0 +1,27 @@
+Portfolio Growth OS final plan compliance
+
+Validation commands:
+- npm run test: PASS, 11 files, 37 tests
+- npm run typecheck: PASS
+- npm run lint: PASS
+- npm run build: PASS
+
+Implemented acceptance coverage:
+- Product profile and active experiment are normalized and preserved.
+- Product settings browser E2E proves Product tab edits send productProfile/activeExperiment in PATCH and persist after reload.
+- API-created products default to product_growth_baseline unless campaigns are explicitly provided.
+- Create modal browser intercept proves submitted POST payload includes productProfile and activeExperiment.
+- HTTP create/update/readback evidence exists for `/api/brands`.
+- New product UI and API payload use product growth defaults.
+- product_growth quality profile exists and preserves career/saju behavior through tests.
+- Generation prompt injects product/experiment context and does not inject CosmicPath career guidance for product_growth campaigns.
+- Successful `/api/generate` HTTP QA creates product_growth campaign posts with persisted quality/campaign fields and UTM link readback.
+- Campaign summary returns brandId, campaignId, productProfile, activeExperiment, metrics, evidenceState, and nextAction.
+- Disabled TikTok video products stay disabled through normalization and reject `/api/tiktok/videos/generate` with HTTP 400.
+- Account discovery uses product profile/experiment terms for product_growth products and keeps career/saju seed/scoring behavior gated to career products.
+- Id-only `product_growth_baseline` API configs infer top-level `qualityProfile: "product_growth"` and keep account discovery in product mode.
+- App shell, README, API spec, screen flow, and task board are aligned to internal owned-product Portfolio Growth OS.
+- Browser QA covered /login, /brands, create modal, empty state, product tab, generic campaign tab, and dashboard overview.
+
+Known legacy exception:
+- /api/posts/upload remains documented as a raw legacy upload route outside the product-growth quality-gated publish boundary.

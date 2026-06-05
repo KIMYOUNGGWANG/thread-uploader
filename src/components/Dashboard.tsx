@@ -200,6 +200,26 @@ interface CampaignSummaryData {
     dailyPostTarget: number;
     linkCadenceEvery: number;
   };
+  productProfile: {
+    productName: string;
+    targetCustomer: string;
+    primaryMetric: string;
+    conversionMetric: string;
+  };
+  activeExperiment: {
+    name: string;
+    hypothesis: string;
+    status: string;
+  };
+  primaryMetric: {
+    name: string;
+    value: number;
+  };
+  conversionMetric: {
+    name: string;
+    value: number;
+  };
+  nextAction: string;
   todayScheduled: CampaignPostData[];
   linkRatio: {
     linked: number;
@@ -491,6 +511,10 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     }
   }, [brandId]);
 
+  useEffect(() => {
+    loadCampaignSummary();
+  }, [loadCampaignSummary]);
+
   const handleGenerate = useCallback(async () => {
     if (!confirm(`AI로 ${generateCount}개 포스트를 생성할까요? (약 1-2분 소요)`)) return;
     setIsGenerating(true);
@@ -498,7 +522,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId, count: generateCount, insertAtFront }),
+        body: JSON.stringify({ brandId, count: generateCount, insertAtFront, approvedCampaignStart: true }),
       });
       const data = await response.json() as { count?: number; linkedCount?: number; campaignId?: string | null; error?: string };
       if (!response.ok) throw new Error(data.error ?? "생성 실패");
@@ -1072,7 +1096,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-800 dark:text-white">{brandName}</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">즉시 업로드 & 예약 발행</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">제품 성장 실험 대시보드</p>
             </div>
           </div>
 
@@ -1122,6 +1146,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
+        {campaignSummary && (
+          <PortfolioOverview summary={campaignSummary} />
+        )}
         {isFetching && posts.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <RefreshCw className="w-8 h-8 animate-spin text-violet-500" />
@@ -1240,7 +1267,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
               <button onClick={handleToggleCampaign} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                 <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
                   <Target className="w-4 h-4 text-cyan-500" />
-                  CosmicPath Campaign Engine
+                  Product Campaign Engine
                   {campaignSummary && <span className="text-xs text-slate-400 font-normal">({campaignSummary.campaign.id})</span>}
                 </div>
                 {showCampaign ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -1340,7 +1367,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                       <Radar className="w-8 h-8 opacity-40" />
                       <div>
                         <p>아직 바이럴 레퍼런스가 없습니다.</p>
-                        <p className="text-xs">브랜드 토픽과 게시물 성과를 기준으로 후보를 찾습니다.</p>
+                        <p className="text-xs">제품 토픽과 게시물 성과를 기준으로 후보를 찾습니다.</p>
                       </div>
                       <Button size="sm" onClick={handleRunViralLoop} disabled={isRunningViral} className="bg-rose-600 hover:bg-rose-700 text-white">
                         {isRunningViral ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Radar className="w-3.5 h-3.5 mr-1.5" />}
@@ -1807,7 +1834,7 @@ function RelatedAccountsPanel({
           <Users className="w-8 h-8 opacity-40" />
           <div>
             <p>아직 발견된 관련 계정이 없습니다.</p>
-            <p className="text-xs">브랜드 키워드로 후보를 찾은 뒤 watch/ignore로 정리하세요.</p>
+            <p className="text-xs">제품 키워드로 후보를 찾은 뒤 watch/ignore로 정리하세요.</p>
           </div>
           <Button size="sm" onClick={onDiscover} disabled={isDiscovering} className="bg-indigo-600 hover:bg-indigo-700 text-white">
             {isDiscovering ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Radar className="w-3.5 h-3.5 mr-1.5" />}
@@ -2271,6 +2298,29 @@ function CampaignSummaryPanel({
   );
 }
 
+function PortfolioOverview({ summary }: { summary: CampaignSummaryData }) {
+  return (
+    <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-violet-600 dark:text-violet-400">Portfolio Growth OS</p>
+          <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">{summary.productProfile.productName}</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{summary.productProfile.targetCustomer || "타깃 고객 미설정"}</p>
+        </div>
+        <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+          {summary.nextAction}
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricTile label="현재 실험" value={summary.activeExperiment.name} sub={summary.activeExperiment.status} />
+        <MetricTile label={summary.primaryMetric.name} value={`${summary.primaryMetric.value}`} sub="핵심 지표" />
+        <MetricTile label={summary.conversionMetric.name} value={`${summary.conversionMetric.value}`} sub="전환 지표" />
+        <MetricTile label="Quality" value={`${summary.quality.passed}/${summary.quality.total}`} sub={summary.quality.failed ? `fail ${summary.quality.failed}` : "learning"} />
+      </div>
+    </section>
+  );
+}
+
 function MetricTile({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="rounded-lg bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-100 dark:border-cyan-900 p-3">
@@ -2717,7 +2767,7 @@ function drawTikTokFrame(
   context.fill();
   context.globalAlpha = 1;
 
-  drawPill(context, 72, 82, "CosmicPath · 커리어 타이밍", "#fdf2f8", "#be185d");
+  drawPill(context, 72, 82, "Product Growth · 영상 실험", "#fdf2f8", "#be185d");
   drawWrappedText(context, caption || draft.spokenHook, 78, 250, width - 156, 96, 4, "#ffffff", "bold");
   drawWrappedText(context, beat?.narration || draft.script, 96, 790, width - 192, 50, 5, "#f8fafc", "normal");
 

@@ -1,0 +1,7 @@
+$ npm run test -- brand
+
+Malformed product profile case passed:
+- empty productName normalizes to Untitled Product
+- non-string oneLineDescription normalizes to an empty string
+- invalid durationDays falls back to 7
+- paused status is preserved

@@ -1,62 +1,67 @@
-# Screen Flow — CosmicPath Career Wedge Engine
+# Screen Flow — Portfolio Growth OS
 
-Updated: 2026-05-17
+Updated: 2026-06-04
 
 ## Actors
 
-- Brand Owner: authenticated owner of the CosmicPath brand.
+- Portfolio Operator: authenticated owner promoting their own products.
 - Cron Runner: server-side caller using `CRON_SECRET`.
 
-## Primary Campaign Flow
+## Primary Product Growth Flow
 
-1. Brand Owner opens `/brands/[slug]/settings`.
-2. User selects campaign settings and activates `career_timing_wedge_399`.
-3. User sets `qualityProfile` to `career_decision`.
-4. User saves campaign config through `PATCH /api/brands/[id]`.
-5. User returns to `/brands/[slug]`.
-6. User runs AI Account Discovery from seed keywords.
-7. System shows related public account candidates with relevance scores.
-8. User marks useful accounts as watched and noisy accounts as ignored.
-9. System analyzes watched account public posts and updates viral/account patterns.
-10. User generates campaign posts.
-11. System applies career quality gate and 3:1 link cadence.
-12. Dashboard shows today scheduled campaign posts, quality status, and link ratio.
-13. Brand Owner publishes through existing cron/manual publish flow.
-14. Brand Owner uses Reply Playbook templates manually when comments arrive.
-15. Brand Owner inputs manual paid conversions until automatic conversion tracking exists.
-16. Account Intelligence runs every 2 hours and surfaces reply/format/link/quality actions.
-17. Growth learning uses replies/reposts/views/clicks/conversions with campaign weights.
-18. Brand Owner opens TikTok Video Lab from the same campaign dashboard.
-19. System generates TikTok video draft/specs from campaign, viral, growth, and account memories.
-20. Brand Owner reviews quality pass/fail, edits weak drafts, and approves only passing drafts.
-21. Brand Owner manually uploads approved drafts to TikTok.
-22. Brand Owner returns after 48 hours and inputs TikTok performance metrics.
-23. TikTok Video Lab shows format-level recommendations for the next batch.
+1. Portfolio Operator opens `/brands`.
+2. User creates or selects a product card. The route still uses `/brands/[slug]`.
+3. User opens `/brands/[slug]/settings`.
+4. User fills Product Profile: product name, one-line description, target customer, offer promise, landing URL, positioning notes, primary channel, primary metric, and conversion metric.
+5. User fills Active Experiment: name, hypothesis, stage, duration, primary metric, guardrail metric, and status.
+6. User selects `product_growth` or a product-specific quality profile.
+7. User saves settings through `PATCH /api/brands/[id]`.
+8. User returns to `/brands/[slug]`.
+9. Dashboard shows Portfolio Overview with experiment status, primary/conversion metrics, quality state, and next action.
+10. User generates channel posts.
+11. System injects Product Profile, Active Experiment, growth memory, viral memory, and account patterns into the generation prompt.
+12. System applies the selected quality gate and link cadence.
+13. User reviews PENDING posts and publishes manually or through cron.
+14. User enters clicks, conversions, or manual paid conversions when available.
+15. Campaign summary updates metric tiles, evidence state, and next action.
+16. User repeats the loop for the same product or switches to another product in the portfolio.
 
-## Settings States
+## Product List States
 
-- Empty campaign: show default `career_timing_wedge_399` preset.
-- Editing campaign: campaign fields are local until Save.
-- Quality profile selection: `career_decision` is default for the career wedge.
-- Save success: toast confirms settings saved.
+- Empty: show "첫 제품 만들기".
+- Loading: show spinner while `/api/brands` loads.
+- Ready: show product cards with formula/topic counts and quick navigation.
+- Create modal: product name/slug/Threads credential fields plus default product profile and active experiment payload.
+- Create failure: show API error and keep modal state.
+
+## Product Settings States
+
+- Empty product profile: show safe defaults and editable fields.
+- Editing: local state is preserved until Save.
+- Product tab: profile and experiment fields are edited together.
+- Quality profile selection: `product_growth` is available for non-CosmicPath products.
+- Save success: toast confirms product settings saved.
 - Save failure: show API error and keep unsaved local state visible.
-- Permission error: non-owner receives 403/404 and exits to login or brand list.
+- Permission error: non-owner receives 403/404 and exits to login or product list.
 
 ## Generation States
 
-- Ready: active campaign exists and has at least one campaign formula.
+- Ready: product profile exists, an active experiment exists, and at least one formula can be used.
 - Generating: button disabled and shows progress/spinner.
+- Product-aware prompt: generated content must include product and experiment context.
 - Quality fail: post is still inspectable with fail reasons; generation may retry according to existing quality retry policy.
 - Link cadence: for every 3 generated campaign posts, exactly 1 receives a `firstComment` UTM link.
-- Empty landing URL: generation can proceed, but linked count is 0 and campaign warning is shown.
+- Empty landing URL: generation can proceed, but linked count is 0 and a warning is shown.
 
-## Campaign Dashboard States
+## Portfolio Dashboard States
 
-- Empty: no scheduled campaign posts today; show generate action.
-- Loading: spinner while campaign summary loads.
-- Ready: show today scheduled 3 posts, linked count, quality pass/fail, views/replies/reposts, manual paid conversions.
-- Partial metrics: missing clicks/conversions are treated as 0 but visually marked manual/missing.
-- Error: keep last known summary visible and show toast.
+- Empty summary: show dashboard without the overview rather than blocking the product page.
+- Loading: summary request can run independently of posts.
+- Ready: show product name, active experiment, target customer, next action, primary metric, conversion metric, and quality counts.
+- Learning: no linked posts yet, so next action asks the operator to generate or publish evidence.
+- Measuring: linked or scored posts exist, so next action asks the operator to review evidence and decide the next experiment move.
+- Partial metrics: missing clicks/conversions are treated as 0.
+- Error: keep posts visible and show toast.
 
 ## Account Intelligence States
 
@@ -79,12 +84,6 @@ Updated: 2026-05-17
 - Analyzing: collect recent public posts only from watched accounts and refresh account patterns.
 - Error: show source-specific failures without deleting previous candidates.
 
-## Reply Playbook States
-
-- Default: show four groups: 버팀형, 이동형, 준비형, CTA.
-- Comment diagnosis: user reads a real comment and copies the matching template manually.
-- No auto-reply: the app must not send replies or DMs.
-
 ## TikTok Video Lab States
 
 - Empty: no TikTok drafts exist; show generate action and the active parent campaign.
@@ -100,31 +99,25 @@ Updated: 2026-05-17
 - Error: keep existing drafts visible and show the failed operation message.
 - No upload automation: the UI must not ask for TikTok cookies, passwords, or browser sessions.
 
-## Manual Conversion Flow
+## Manual Metric Flow
 
-1. Brand Owner opens Campaign Dashboard.
+1. Portfolio Operator opens the product dashboard.
 2. User selects a campaign post.
 3. User enters clicks, conversions, or paid conversion count manually.
 4. App calls `PATCH /api/posts/[id]/campaign-metrics`.
-5. Campaign summary refreshes and score recalculates.
+5. Campaign summary refreshes and Portfolio Overview updates.
 
 ## Validation
 
+- `npm run test`
 - `npm run typecheck`
 - `npm run lint`
 - `npm run build`
-- Generate 21 posts and confirm exactly 7 linked `firstComment` values.
-- Confirm all generated links include `utm_content`.
-- Confirm career comment-diagnosis posts pass without forced saju terms.
-- Confirm generic self-help posts fail `career_decision`.
-- Confirm Reply Playbook templates are visible and copy-ready without auto-send.
-- Confirm Account Intelligence panel can render empty and latest insight states.
-- Confirm account discovery saves candidates from seed keywords.
-- Confirm ignored accounts do not feed account pattern learning.
-- Confirm watched account patterns appear in the viral generation guidance.
-- Generate 21 TikTok video drafts and confirm all have script, scene beats, caption overlays, CTA, and hashtags.
-- Confirm generic TikTok drafts fail `tiktok_career_timing`.
-- Confirm `qualityPass=false` TikTok drafts cannot be approved.
-- Confirm approved TikTok drafts expose copy-ready script/caption/hashtag fields.
-- Confirm TikTok draft video render creates a 9:16 WebM without TikTok API credentials.
-- Confirm manual TikTok metrics update the TikTok summary without requiring TikTok API credentials.
+- Confirm `/brands` uses product wording for empty, create, and list states.
+- Confirm `/brands/[slug]/settings` exposes Product Profile and Active Experiment fields.
+- Confirm creating a product writes default `productProfile` and `activeExperiment`.
+- Confirm `/api/campaigns/summary` returns `productProfile`, `activeExperiment`, `primaryMetric`, `conversionMetric`, `evidenceState`, and `nextAction`.
+- Confirm generated prompt includes product and experiment context.
+- Confirm generic content fails `product_growth`.
+- Confirm CosmicPath `career_decision` quality behavior still passes/fails as before.
+- Confirm TikTok manual-upload guardrails remain unchanged.

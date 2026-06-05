@@ -1,0 +1,77 @@
+- generic [ref=e2]:
+  - region "Notifications alt+T"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - button [ref=e6]:
+          - img [ref=e7]
+        - img [ref=e10]
+        - generic [ref=e13]:
+          - heading "No Posts Product — 제품 설정" [level=1] [ref=e14]
+          - paragraph [ref=e15]: 제품 프로필, 실험 지표, 채널 연결 관리
+      - button "저장" [ref=e16]:
+        - img
+        - text: 저장
+    - generic [ref=e17]:
+      - button "기본 정보" [ref=e18]:
+        - img [ref=e19]
+        - text: 기본 정보
+      - button "제품" [ref=e23]:
+        - img [ref=e24]
+        - text: 제품
+      - button "AI 설정" [ref=e28]:
+        - img [ref=e29]
+        - text: AI 설정
+      - button "캠페인 1" [ref=e32]:
+        - img [ref=e33]
+        - text: 캠페인
+        - generic [ref=e37]: "1"
+      - button "주제 3" [ref=e38]:
+        - img [ref=e39]
+        - text: 주제
+        - generic [ref=e42]: "3"
+      - button "타겟 1" [ref=e43]:
+        - img [ref=e44]
+        - text: 타겟
+        - generic [ref=e49]: "1"
+      - button "상황 0" [ref=e50]:
+        - img [ref=e51]
+        - text: 상황
+        - generic [ref=e53]: "0"
+      - button "훅 13" [ref=e54]:
+        - img [ref=e55]
+        - text: 훅
+        - generic [ref=e57]: "13"
+      - button "CTA 12" [ref=e58]:
+        - img [ref=e59]
+        - text: CTA
+        - generic [ref=e62]: "12"
+      - button "공식 0" [ref=e63]:
+        - img [ref=e64]
+        - text: 공식
+        - generic [ref=e66]: "0"
+      - button "트렌딩 0" [ref=e67]:
+        - img [ref=e68]
+        - text: 트렌딩
+        - generic [ref=e71]: "0"
+      - button "바이럴 소스 0" [ref=e72]:
+        - img [ref=e73]
+        - text: 바이럴 소스
+        - generic [ref=e80]: "0"
+  - main [ref=e81]:
+    - generic [ref=e83]:
+      - generic [ref=e85]:
+        - heading "제품 채널 정보" [level=2] [ref=e86]
+        - paragraph [ref=e87]: 제품 이름과 Threads API 연결 정보를 관리합니다.
+      - generic [ref=e88]:
+        - text: 제품 이름
+        - 'textbox "예: CosmicPath" [ref=e89]': No Posts Product
+      - generic [ref=e90]:
+        - generic [ref=e91]: Threads Access TokenMeta 개발자 콘솔에서 발급
+        - textbox "THQAA..." [ref=e92]: qa-token
+      - generic [ref=e93]:
+        - text: Threads User ID
+        - textbox "123456789" [ref=e94]: ulw_qa_threads_no_posts
+      - generic [ref=e95]:
+        - text: 토큰 만료일
+        - textbox [ref=e96]: 2035-01-01

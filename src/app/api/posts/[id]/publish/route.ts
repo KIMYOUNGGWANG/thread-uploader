@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { publishPostWithCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
+import { getFreshBrandCredentials, publishPostWithCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
 import { accessErrorResponse, requirePostForCurrentUser } from "@/lib/brand-access";
 
 interface RouteParams {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
-    const credentials = { accessToken: brand.accessToken, userId: brand.threadsUserId };
+    const credentials = await getFreshBrandCredentials(brand.id);
     const imageUrls = JSON.parse(post.imageUrls || "[]") as string[];
 
     const threadsId = await publishPostWithCredentials(post.content, credentials, imageUrls);

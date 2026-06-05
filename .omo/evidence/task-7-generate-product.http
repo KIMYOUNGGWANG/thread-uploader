@@ -1,0 +1,42 @@
+POST /api/generate
+Cookie: auth_session=ulw_qa_user_portfolio
+Body: {"brandId":"ulw_qa_product_no_posts","count":1}
+
+First attempt:
+- HTTP 500 due transient Prisma DB connection failure before generation.
+- Server log: Can't reach database server at db.prisma.io:5432 during requireAuth.
+
+Retry:
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"success":true,"count":1,"linkedCount":1,"campaignId":"product_growth_baseline"}
+
+GET /api/posts?brandId=ulw_qa_product_no_posts
+Cookie: auth_session=ulw_qa_user_portfolio
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+Readback of generated post:
+{
+  "id": "cmpzr2zra0001641zeprg7az6",
+  "brandId": "ulw_qa_product_no_posts",
+  "formulaId": "friend_tag",
+  "topic": "제품 포지셔닝",
+  "targetAudience": "QA operator",
+  "qualityProfile": "product_growth",
+  "qualityPass": true,
+  "campaignId": "product_growth_baseline",
+  "campaignFormulaId": "friend_tag",
+  "careerDecisionType": null,
+  "linkUrl": "https://qa/qa/no-posts?utm_source=threads&utm_campaign=no_posts_learning_state&utm_content=cmpzr2zra0001641zeprg7az6",
+  "utmContent": "cmpzr2zra0001641zeprg7az6",
+  "firstComment": "…utm_source=threads&utm_campaign=no_posts_learning_state&utm_content=cmpzr2zra0001641zeprg7az6"
+}
+
+Checks:
+- Successful authenticated generation returned success/count/campaignId.
+- Created post persisted product_growth quality profile and product_growth_baseline campaign.
+- Created post has no careerDecisionType.
+- UTM link preserved source=threads, campaign=no_posts_learning_state, content=post id.

@@ -1,0 +1,14 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e32] [cursor=pointer]:
+    - img [ref=e33]
+  - alert [ref=e6]
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - img [ref=e11]
+        - generic [ref=e14]: Portfolio Growth OS
+        - generic [ref=e15]: 내 제품 성장 워크스페이스
+      - generic [ref=e16]:
+        - generic [ref=e17]
+        - button "로그인" [ref=e29]
+    - paragraph [ref=e30]: © 2026 Portfolio Growth OS.

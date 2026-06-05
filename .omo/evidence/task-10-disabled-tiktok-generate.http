@@ -1,0 +1,8 @@
+POST /api/tiktok/videos/generate
+Cookie: auth_session=ulw_qa_user_portfolio
+Body: {"brandId":"ulw_qa_product_no_posts","count":1}
+
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+
+{"error":"TikTok video lab is disabled for this product"}

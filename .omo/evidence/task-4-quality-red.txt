@@ -1,0 +1,4 @@
+$ npm run test -- quality
+
+FAIL src/lib/quality-gate.test.ts > checkQuality > passes non-CosmicPath product content with product growth criteria
+AssertionError: expected 'saju_viral' to be 'product_growth'

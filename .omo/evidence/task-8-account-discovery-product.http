@@ -1,0 +1,36 @@
+POST /api/accounts/discover
+Cookie: auth_session=ulw_qa_user_portfolio
+Body: {"brandId":"ulw_qa_product_no_posts","handles":["invoice_operator_seed"],"limit":3,"minScore":60}
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "success": true,
+  "discovered": 1,
+  "saved": 1,
+  "candidates": [
+    {
+      "brandId": "ulw_qa_product_no_posts",
+      "username": "invoice_operator_seed",
+      "status": "candidate",
+      "category": "adjacent",
+      "relevanceScore": 85,
+      "reason": "제품 프로필 겹침 · 브랜드 토픽 겹침",
+      "source": "manual",
+      "sourceKeyword": "seed_handle"
+    }
+  ],
+  "errors": [
+    { "adapter": "threads_keyword", "source": "No Posts Product" },
+    { "adapter": "threads_keyword", "source": "No" },
+    { "adapter": "threads_keyword", "source": "Posts" },
+    { "adapter": "threads_keyword", "source": "Product" },
+    { "adapter": "threads_keyword", "source": "QA product with no generated posts." },
+    { "adapter": "threads_profile", "source": "invoice_operator_seed" }
+  ]
+}
+
+Career/saju leakage check:
+- No hardcoded "이직 고민", "퇴사 고민", "직업운", or "사주" keyword sources were emitted for this generic product.
+- The saved candidate category was "adjacent", not "career", "saju", or "competitor".

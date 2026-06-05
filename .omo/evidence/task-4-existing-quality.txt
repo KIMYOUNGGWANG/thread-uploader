@@ -1,0 +1,9 @@
+$ npm run test -- quality
+
+> threads-uploader@0.1.0 test
+> vitest run quality
+
+RUN  v4.1.8 /Users/kim-young-gwang/Desktop/projects/threads-uploader
+
+Test Files  1 passed (1)
+Tests  4 passed (4)

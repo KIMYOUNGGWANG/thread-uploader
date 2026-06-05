@@ -1,0 +1,9 @@
+$ npm run test -- brand
+
+> threads-uploader@0.1.0 test
+> vitest run brand
+
+RUN  v4.1.8 /Users/kim-young-gwang/Desktop/projects/threads-uploader
+
+Test Files  1 passed (1)
+Tests  3 passed (3)

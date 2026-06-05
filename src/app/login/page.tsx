@@ -59,8 +59,8 @@ export default function LoginPage() {
           <div className="mx-auto w-12 h-12 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/20 mb-4">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-white">Threads Uploader</CardTitle>
-          <CardDescription className="text-slate-400">계정에 로그인하세요</CardDescription>
+          <CardTitle className="text-2xl font-bold tracking-tight text-white">Portfolio Growth OS</CardTitle>
+          <CardDescription className="text-slate-400">내 제품 성장 워크스페이스</CardDescription>
         </CardHeader>
 
         <form onSubmit={handleLogin}>
@@ -110,7 +110,7 @@ export default function LoginPage() {
         </form>
       </Card>
 
-      <p className="absolute bottom-8 text-slate-600 text-xs">&copy; 2026 Threads Uploader.</p>
+      <p className="absolute bottom-8 text-slate-600 text-xs">&copy; 2026 Portfolio Growth OS.</p>
     </div>
   );
 }

@@ -1,0 +1,20 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - region "Notifications alt+T"
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - img [ref=e7]
+          - generic [ref=e10]:
+            - heading "Portfolio Growth OS" [level=1] [ref=e11]
+            - paragraph [ref=e12]: 성장 실험을 운영할 제품을 선택하세요
+        - generic [ref=e13]:
+          - button "제품 추가" [ref=e14]:
+            - img
+            - text: 제품 추가
+          - button [ref=e15]:
+            - img
+    - main [ref=e16]:
+      - img [ref=e18]
+  - button "Open Next.js Dev Tools" [ref=e28] [cursor=pointer]:
+    - img [ref=e29]

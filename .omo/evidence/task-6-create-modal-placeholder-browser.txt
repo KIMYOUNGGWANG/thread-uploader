@@ -1,0 +1,13 @@
+Browser QA: /brands create product modal
+
+URL: http://127.0.0.1:3107/brands
+Cookie: auth_session=ulw_qa_user_portfolio
+
+Checks:
+- Product name placeholder visible: "예: InvoiceFlow"
+- Slug placeholder visible: "invoiceflow"
+- Modal-scoped forbidden text regex returned false:
+  CosmicPath|cosmicpath|퇴사|이직|사주|화개살|수성 역행|career/uncertainty
+
+Screenshot:
+- .omo/evidence/portfolio-create-modal.png

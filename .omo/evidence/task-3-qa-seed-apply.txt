@@ -1,0 +1,6 @@
+$ node scripts/qa/seed-portfolio-growth-os.mjs --apply
+
+Mode: apply
+Users: ulw_qa_user_portfolio, ulw_qa_user_empty_portfolio
+Products: ulw_qa_product_cosmicpath, ulw_qa_product_missing_prompt, ulw_qa_product_no_posts
+Upserted fixed QA users and products.

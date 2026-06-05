@@ -25,6 +25,12 @@ const VALID_FORMATS = new Set<TikTokVideoFormatId>([
 
 type TikTokDraftWithMetrics = TikTokVideoDraft & { metrics: TikTokVideoMetric[] };
 
+export class TikTokVideoDisabledError extends Error {
+  constructor() {
+    super("TikTok video lab is disabled for this product");
+  }
+}
+
 interface GenerateTikTokVideosInput {
   brand: Brand;
   campaignId?: string | null;
@@ -90,6 +96,7 @@ export async function generateTikTokVideoDrafts(input: GenerateTikTokVideosInput
   quality: { passed: number; failed: number };
 }> {
   const config = parseBrandConfig(input.brand.brandConfig);
+  if (!config.tiktokVideo.enabled) throw new TikTokVideoDisabledError();
   const campaign = getActiveCampaign(config, input.campaignId ?? config.tiktokVideo.parentCampaignId);
   if (!campaign) throw new Error("campaign not found");
 

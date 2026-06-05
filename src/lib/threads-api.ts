@@ -138,6 +138,10 @@ async function getAccessToken(): Promise<string> {
     });
 
     if (settings?.accessToken) {
+        if (isTokenRefreshDue(settings.tokenExpiry)) {
+            const refreshed = await refreshAccessToken();
+            return refreshed.accessToken;
+        }
         return settings.accessToken;
     }
 
@@ -318,6 +322,37 @@ export async function refreshBrandAccessToken(brandId: string): Promise<{
     return {
         accessToken: tokenData.access_token,
         expiresIn: tokenData.expires_in,
+    };
+}
+
+export async function getFreshBrandCredentials(brandId: string): Promise<ThreadsCredentials> {
+    const { prisma } = await import("@/lib/prisma");
+
+    const brand = await prisma.brand.findUnique({
+        where: { id: brandId },
+        select: {
+            accessToken: true,
+            threadsUserId: true,
+            tokenExpiry: true,
+        },
+    });
+
+    if (!brand) {
+        throw new Error(`Brand not found: ${brandId}`);
+    }
+
+    if (!isTokenRefreshDue(brand.tokenExpiry)) {
+        return {
+            accessToken: brand.accessToken,
+            userId: brand.threadsUserId,
+        };
+    }
+
+    const refreshed = await refreshBrandAccessToken(brandId);
+
+    return {
+        accessToken: refreshed.accessToken,
+        userId: brand.threadsUserId,
     };
 }
 

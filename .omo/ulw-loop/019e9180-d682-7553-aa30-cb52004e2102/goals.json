@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "createdAt": "2026-06-04T18:48:23.343Z",
+  "updatedAt": "2026-06-04T19:55:03.233Z",
+  "briefPath": ".omo/ulw-loop/019e9180-d682-7553-aa30-cb52004e2102/brief.md",
+  "goalsPath": ".omo/ulw-loop/019e9180-d682-7553-aa30-cb52004e2102/goals.json",
+  "ledgerPath": ".omo/ulw-loop/019e9180-d682-7553-aa30-cb52004e2102/ledger.jsonl",
+  "codexGoalMode": "aggregate",
+  "goals": [
+    {
+      "id": "G001-implement-a-product-auto-setup-and-a",
+      "title": "Implement a Product Auto Setup and approved 7-day campaign-start work...",
+      "objective": "Implement a Product Auto Setup and approved 7-day campaign-start workflow for Portfolio Growth OS. The user wants the better direction discussed: when registering or configuring a product, the system should help infer a marketing brief from product name/description/landing URL, produce editable product profile, topics, system prompt, active experiment, readiness score, and only start campaign generation after user approval. Deliver an end-to-end working MVP inside /Users/kim-young-gwang/Desktop/projects/threads-uploader using strict TDD and real manual QA. Required success criteria: happy path auto setup draft from product input, edge case insufficient/malformed product input returns actionable readiness gaps and no campaign start, browser create/settings flow submits/saves auto setup and readiness, start 7-day campaign button generates approved product_growth campaign posts only after readiness passes, adjacent regressions preserve existing CosmicPath/product_growth/TikTok-disabled/account-discovery behavior. Evidence must include RED to GREEN tests and HTTP/browser artifacts under .omo/ulw-loop/evidence plus cleanup receipts.",
+      "status": "complete",
+      "successCriteria": [
+        {
+          "id": "C001",
+          "scenario": "Product registration happy path: auto-setup preview for a well-described product returns a ready draft, and creating the product persists profile, prompt, topics, formulas, product_growth campaign, and 7-day active experiment.",
+          "userModel": "happy",
+          "expectedEvidence": "RED/GREEN tests plus HTTP/browser artifacts under .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/C001-* proving ready score >= 80, product_growth campaign, non-empty setup fields, and persisted approved config.",
+          "capturedEvidence": ".omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/C001-http-ready.json; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/http-qa-summary.md; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/C001-C002-C003-green-targeted-tests.md; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/browser-qa-summary.md",
+          "status": "pass",
+          "capturedAt": "2026-06-04T19:26:09.577Z",
+          "notes": "Ready product auto-setup returns score 100, canStartCampaign true, product_growth campaign, non-empty topics/formulas, and browser create modal exposes auto setup controls."
+        },
+        {
+          "id": "C002",
+          "scenario": "Insufficient or malformed product context: auto-setup preview returns actionable readiness gaps and a not-ready state, and campaign start remains blocked instead of silently inventing a ready campaign.",
+          "userModel": "edge",
+          "expectedEvidence": "RED/GREEN tests plus HTTP/browser artifacts under .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/C002-* proving missing description/landing/target fields produce gaps, score below ready threshold, and no ready campaign-start state.",
+          "capturedEvidence": ".omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/C002-http-edge.json; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/C002-http-malformed-url.json; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/malformed-url-http-qa.md; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/reviewer-green-tests.md; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/reviewer-round2-green-tests.md",
+          "status": "pass",
+          "capturedAt": "2026-06-04T19:42:59.470Z",
+          "notes": "Missing, malformed, and protocol-relative product context are blocked. Campaign start panel also disables blank campaign landing URL."
+        },
+        {
+          "id": "C003",
+          "scenario": "Adjacent regression: existing product_growth generation, account-discovery product mode, TikTok-disabled baseline, generic product wording, and campaign UTM behavior remain intact after auto-setup/start changes.",
+          "userModel": "regression",
+          "expectedEvidence": "Targeted regression tests plus manual/browser smoke artifacts under .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/C003-* proving no CosmicPath/career injection, TikTok product baseline disabled, product account discovery keywords, existing generate readiness/UTM tests, and cleanup receipts.",
+          "capturedEvidence": ".omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/C003-regression-tests.md; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/reviewer-green-tests.md; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/reviewer-round2-green-tests.md; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/final-verification.md; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/browser-qa-summary.md; .omo/ulw-loop/evidence/019e9180-d682-7553-aa30-cb52004e2102/final-cleanup.md",
+          "status": "pass",
+          "capturedAt": "2026-06-04T19:43:13.735Z",
+          "notes": "Final regression evidence includes round2 fixes. Product growth server gate and UI start readiness agree on blank/malformed campaign landing; final test/typecheck/lint/build pass."
+        }
+      ],
+      "attempt": 1,
+      "createdAt": "2026-06-04T18:48:23.343Z",
+      "updatedAt": "2026-06-04T19:55:03.233Z",
+      "startedAt": "2026-06-04T18:48:32.048Z",
+      "completedAt": "2026-06-04T19:55:03.233Z",
+      "evidence": "G001-implement-a-product-auto-setup-and-a complete: implementation and validation recorded against .omo/ulw-loop/019e9180-d682-7553-aa30-cb52004e2102/goals.json and ledger.jsonl. Evidence includes product auto setup API/UI, approved campaign start gate, npm test/typecheck/lint/build passed, HTTP/browser QA artifacts, final-ulw-quality-gate.md, and codex-ultrawork-reviewer UNCONDITIONAL APPROVAL."
+    }
+  ],
+  "codexObjective": "Complete the durable ulw-loop plan in .omo/ulw-loop/019e9180-d682-7553-aa30-cb52004e2102/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/019e9180-d682-7553-aa30-cb52004e2102/ledger.jsonl as the audit trail.",
+  "aggregateCompletion": {
+    "status": "complete",
+    "completedAt": "2026-06-04T19:55:03.233Z",
+    "evidence": "G001-implement-a-product-auto-setup-and-a complete: implementation and validation recorded against .omo/ulw-loop/019e9180-d682-7553-aa30-cb52004e2102/goals.json and ledger.jsonl. Evidence includes product auto setup API/UI, approved campaign start gate, npm test/typecheck/lint/build passed, HTTP/browser QA artifacts, final-ulw-quality-gate.md, and codex-ultrawork-reviewer UNCONDITIONAL APPROVAL.",
+    "codexGoal": {
+      "goal": {
+        "threadId": "019e9180-d682-7553-aa30-cb52004e2102",
+        "objective": "Complete the durable ulw-loop plan in .omo/ulw-loop/019e9180-d682-7553-aa30-cb52004e2102/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/019e9180-d682-7553-aa30-cb52004e2102/ledger.jsonl as the audit trail.",
+        "status": "complete",
+        "tokensUsed": 370728,
+        "timeUsedSeconds": 3897,
+        "createdAt": 1780598918,
+        "updatedAt": 1780602815
+      },
+      "remainingTokens": null,
+      "completionBudgetReport": "Goal achieved. Report final usage from this tool result's structured goal fields. If `goal.tokenBudget` is present, include token usage from `goal.tokensUsed` and `goal.tokenBudget`. If `goal.timeUsedSeconds` is greater than 0, summarize elapsed time in a concise, human-friendly form appropriate to the response language."
+    }
+  }
+}

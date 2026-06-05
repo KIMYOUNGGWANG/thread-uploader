@@ -1,33 +1,32 @@
-# 📜 API Spec — Threads Auto Uploader
+# API Spec — Portfolio Growth OS
 
-- **Version**: v2.0 (Multi-brand SaaS)
-- **Updated**: 2026-05-17
+- **Version**: v2.1 (Internal Product Portfolio Growth)
+- **Updated**: 2026-06-04
 - **Base URL**: `/api`
 
 ---
 
 ## Primary Flow & Actors
 
+This is an internal operator workspace for promoting owned products. The API and database still use the legacy `Brand` model and `brandId` parameter, but the user-facing concept is a product profile with an active experiment.
+
 ```
-[Brand Owner]
+[Portfolio Operator]
   → 회원가입/로그인
-  → 브랜드 생성 (Threads token 연결)
-  → active campaign 설정 (career_timing_wedge_399)
+  → 제품 생성 (legacy Brand row + Threads token 연결)
+  → Product Profile 입력
+  → Active Experiment 설정 (7-day evidence sprint)
+  → product_growth 또는 제품별 quality profile 설정
   → AI Account Discovery로 관련 공개 계정 후보 발견
   → 후보 계정 watch/ignore 승인
   → watched 계정 공개 글 구조 학습
-  → career_decision 품질 게이트 설정
-  → 캠페인 콘텐츠 생성 (3종 공식 + 링크 cadence)
+  → 캠페인 콘텐츠 생성 (product context + experiment hypothesis + link cadence)
   → PENDING 큐 확인
-  → [Cron] 각 브랜드 FIFO 자동 발행
+  → [Cron] 각 제품 FIFO 자동 발행
   → 댓글 대응 플레이북으로 수동 답글
   → UTM/성과/수동 전환 입력
-  → 캠페인 성과 학습
-  → TikTok Video Lab에서 짧은 영상 draft/spec 생성
-  → TikTok quality gate 통과 draft만 승인
-  → Brand Owner가 TikTok에 수동 업로드
-  → 48시간 후 TikTok 수동 성과 입력
-  → TikTok-only learning recommendation 갱신
+  → 캠페인 성과 학습 및 Portfolio Overview next action 갱신
+  → 다음 제품 또는 다음 실험으로 이동
 ```
 
 ---
@@ -79,17 +78,45 @@ interface MeResponse {
 
 ---
 
-## Brand API
+## Product API (Legacy Brand Endpoints)
 
 | Method | Path | Description | Auth |
 |:-------|:-----|:------------|:-----|
-| `GET` | `/api/brands` | 내 브랜드 목록 | Required |
-| `POST` | `/api/brands` | 브랜드 생성 | Required |
-| `GET` | `/api/brands/[id]` | 브랜드 상세 | Required + Owner |
-| `PATCH` | `/api/brands/[id]` | 브랜드 수정 | Required + Owner |
-| `DELETE` | `/api/brands/[id]` | 브랜드 삭제 | Required + Owner |
+| `GET` | `/api/brands` | 내 제품 목록 | Required |
+| `POST` | `/api/brands` | 제품 생성 | Required |
+| `GET` | `/api/brands/[id]` | 제품 상세 | Required + Owner |
+| `PATCH` | `/api/brands/[id]` | 제품 수정 | Required + Owner |
+| `DELETE` | `/api/brands/[id]` | 제품 삭제 | Required + Owner |
 
 ```typescript
+type ProductPrimaryChannel = "threads" | "tiktok" | "manual";
+type ExperimentStage = "content" | "landing" | "conversion";
+type ExperimentStatus = "active" | "paused" | "completed";
+
+interface ProductProfile {
+  productName: string;
+  oneLineDescription: string;
+  targetCustomer: string;
+  offerPromise: string;
+  landingUrl: string;
+  positioningNotes: string;
+  primaryChannel: ProductPrimaryChannel;
+  primaryMetric: string;
+  conversionMetric: string;
+}
+
+interface ActiveExperiment {
+  id: string;
+  name: string;
+  hypothesis: string;
+  stage: ExperimentStage;
+  startedAt: string;
+  durationDays: number;
+  primaryMetric: string;
+  guardrailMetric: string;
+  status: ExperimentStatus;
+}
+
 interface BrandConfig {
   systemPrompt: string;         // AI 생성 시스템 프롬프트
   topics: string[];             // 콘텐츠 주제 목록
@@ -114,9 +141,11 @@ interface BrandConfig {
   activeCampaignId?: string;
   qualityProfile?: QualityProfileId;
   tiktokVideo?: TikTokVideoConfig;
+  productProfile: ProductProfile;
+  activeExperiment: ActiveExperiment;
 }
 
-type QualityProfileId = "saju_viral" | "career_decision";
+type QualityProfileId = "saju_viral" | "career_decision" | "product_growth";
 type CampaignFormulaId = "comment_diagnosis" | "friend_tag" | "self_confession";
 type CareerDecisionType = "stay" | "move" | "prepare";
 type TikTokVideoFormatId =
@@ -153,14 +182,15 @@ interface CampaignConfig {
   linkPlacement: "firstComment";
   formulas: Array<{
     id: CampaignFormulaId;
+    name: string;
     weight: number;
     instruction: string;
   }>;
   replyPlaybook: {
-    stay: string[];
-    move: string[];
-    prepare: string[];
-    cta: string[];
+    stay: string;
+    move: string;
+    prepare: string;
+    cta: string;
   };
 }
 
@@ -209,11 +239,13 @@ interface UpdateBrandRequest {
 }
 ```
 
+`productProfile` and `activeExperiment` are normalized on read/write. Missing or malformed values fall back to safe defaults, so older Brand rows remain readable.
+
 ---
 
 ## AI Account Discovery API
 
-The account discovery engine finds related public Threads accounts, scores them for CosmicPath relevance, and only learns from accounts that the Brand Owner explicitly watches.
+The account discovery engine finds related public Threads accounts, scores them against the current product profile, and only learns from accounts that the Portfolio Operator explicitly watches.
 
 ### Data Contracts
 
@@ -322,8 +354,8 @@ If Threads `keyword_search` is blocked by Meta app permissions, discovery return
 Initial MVP scoring is deterministic and explainable:
 
 - target/topic overlap: 30
-- career decision anxiety terms: 25
-- saju/timing/flow language: 15
+- product/topic overlap: 25
+- domain-specific language from the product profile: 15
 - comment/share CTA structure: 15
 - brand safety / excluded term check: 15
 
@@ -351,7 +383,7 @@ AI classification may later refine category and reason, but the first implementa
 | `DELETE` | `/api/posts/reset?brandId=xxx` | PENDING 전체 삭제 |
 | `POST` | `/api/posts/[id]/publish` | 즉시 발행 |
 
-`qualityPass === false` posts are review-only and must not be published by either immediate publish or cron publish.
+`qualityPass === false` queued posts are review-only and must not be published by `/api/posts/[id]/publish` or cron publish. `POST /api/posts/upload` is a legacy raw Threads upload route outside the product-growth queue; do not use it for quality-gated product experiments until it is guarded separately.
 
 ```typescript
 // POST /api/posts
@@ -450,7 +482,7 @@ interface OptimizeResponse {
 
 ### Active Campaign
 
-Default campaign for CosmicPath career wedge:
+Campaigns are still channel-specific experiments attached to a product profile. The existing CosmicPath career wedge remains a valid preset, but it is no longer the only operating model.
 
 ```typescript
 const CAREER_TIMING_WEDGE_399: CampaignConfig = {
@@ -468,25 +500,72 @@ const CAREER_TIMING_WEDGE_399: CampaignConfig = {
   formulas: [
     {
       id: "comment_diagnosis",
+      name: "댓글 진단형",
       weight: 4,
       instruction: "댓글에 상황을 쓰면 버팀형/이동형/준비형으로 분류해준다는 진단형 포스트",
     },
     {
       id: "friend_tag",
+      name: "친구 태그형",
       weight: 2,
       instruction: "이직/퇴사 고민하는 친구에게 보내주라는 공유 유도형 포스트",
     },
     {
       id: "self_confession",
+      name: "자기고백 공감형",
       weight: 3,
       instruction: "퇴사/이직 불안에 대한 자기고백과 공감형 포스트",
     },
   ],
   replyPlaybook: {
-    stay: ["지금은 옮기기보다 버티면서 조건을 정리할 타이밍으로 보여요."],
-    move: ["이미 버틸 이유보다 옮겨야 할 신호가 더 커 보여요."],
-    prepare: ["바로 움직이기보다 2~4주 준비 기간을 먼저 잡는 쪽이 좋아 보여요."],
-    cta: ["자세히 보려면 첫 댓글 링크에서 커리어 타이밍을 확인해보세요."],
+    stay: "지금은 옮기기보다 버티면서 조건을 정리할 타이밍으로 보여요.",
+    move: "이미 버틸 이유보다 옮겨야 할 신호가 더 커 보여요.",
+    prepare: "바로 움직이기보다 2~4주 준비 기간을 먼저 잡는 쪽이 좋아 보여요.",
+    cta: "자세히 보려면 첫 댓글 링크에서 커리어 타이밍을 확인해보세요.",
+  },
+};
+```
+
+For a new owned product, the default campaign should use the product profile and active experiment:
+
+```typescript
+const PRODUCT_GROWTH_BASELINE: CampaignConfig = {
+  id: "product_growth_baseline",
+  name: "제품 성장 baseline",
+  mode: "landing-test",
+  qualityProfile: "product_growth",
+  landingUrl: "{{productProfile.landingUrl}}",
+  utmSource: "threads",
+  utmCampaign: "{{activeExperiment.id}}",
+  utmContentTemplate: "{{postId}}",
+  dailyPostTarget: 3,
+  linkCadenceEvery: 3,
+  linkPlacement: "firstComment",
+  formulas: [
+    {
+      id: "comment_diagnosis",
+      name: "고객 문제 진단형",
+      weight: 3,
+      instruction: "타깃 고객이 겪는 문제를 묻고 댓글로 현재 상황을 남기게 만든다.",
+    },
+    {
+      id: "friend_tag",
+      name: "상황 공유형",
+      weight: 2,
+      instruction: "같은 문제를 겪는 사람에게 공유하고 싶게 만드는 제품 문제/오퍼 구조로 작성한다.",
+    },
+    {
+      id: "self_confession",
+      name: "운영자 관찰형",
+      weight: 2,
+      instruction: "제품을 만들며 관찰한 고객 문제에서 시작해 오퍼 약속으로 연결한다.",
+    },
+  ],
+  replyPlaybook: {
+    stay: "지금 겪는 상황을 조금 더 알려주시면 어떤 흐름에서 막히는지 같이 정리해볼게요.",
+    move: "그 문제라면 지금 쓰는 방식보다 제품으로 줄일 수 있는 시간이 클 수 있어요.",
+    prepare: "바로 바꾸기 어렵다면 가장 자주 반복되는 작업 하나부터 적어보세요.",
+    cta: "자세히 확인하려면 링크에서 제품 흐름을 먼저 확인해보세요.",
   },
 };
 ```
@@ -537,7 +616,15 @@ interface QualityResult {
 
 Saju-specific terms are optional in this profile. The post should retain CosmicPath language through timing, 흐름, 성향, 결정 패턴, or 운의 리듬 rather than forced astrology jargon.
 
-Quality gate failures are allowed to remain visible in the queue for review and editing, but publish boundaries must reject them.
+`product_growth` must pass product-specific checks:
+
+- The post references the product name, product category, target customer, offer promise, or product-specific keywords.
+- The first line is not generic motivation or a content-farm hook.
+- A clear action exists: comment, reply, click, try, join, request, or check the landing URL.
+- The content can stand alone for a non-CosmicPath product.
+- Generic filler such as "좋은 일이 올 거예요" or "스스로를 믿으세요" fails.
+
+Quality gate failures are allowed to remain visible in the queue for review and editing, but `/api/posts/[id]/publish` and cron publish must reject them. The legacy raw `/api/posts/upload` route is outside this product-growth boundary.
 
 ### Campaign Summary
 
@@ -550,35 +637,66 @@ Quality gate failures are allowed to remain visible in the queue for review and 
 interface CampaignSummaryResponse {
   brandId: string;
   campaignId: string;
+  productProfile: ProductProfile;
+  activeExperiment: ActiveExperiment;
+  primaryMetric: {
+    name: string;
+    value: number;
+  };
+  conversionMetric: {
+    name: string;
+    value: number;
+  };
+  evidenceState: "learning" | "measuring";
+  nextAction: string;
   todayScheduled: Array<{
     id: string;
     content: string;
     scheduledAt: string;
+    publishedAt: string | null;
+    createdAt: string;
+    status: "PENDING" | "PUBLISHED" | "FAILED";
+    firstComment: string | null;
+    linkUrl: string | null;
+    utmContent: string | null;
+    qualityProfile: QualityProfileId | null;
     campaignFormulaId: CampaignFormulaId | null;
-    hasLink: boolean;
     qualityPass: boolean | null;
     qualityReasons: string[];
     careerDecisionType: CareerDecisionType | null;
-    views: number | null;
-    replies: number | null;
-    reposts: number | null;
-    clicks: number | null;
-    conversions: number | null;
-    manualPaidConversions: number | null;
+    views: number;
+    replies: number;
+    reposts: number;
+    clicks: number;
+    conversions: number;
+    manualPaidConversions: number;
+    performanceScore: number;
+    performanceTier: "learning" | "promising" | "strong" | "breakout";
   }>;
   linkRatio: {
     linked: number;
     total: number;
+    percent: number;
   };
   quality: {
     passed: number;
     failed: number;
+    unknown: number;
+    total: number;
+  };
+  metrics: {
+    views: number;
+    replies: number;
+    reposts: number;
+    clicks: number;
+    conversions: number;
+    manualPaidConversions: number;
   };
   scoreWeights: {
-    replies: 0.4;
-    reposts: 0.25;
-    views: 0.2;
-    clicksConversions: 0.15;
+    replies: 40;
+    reposts: 25;
+    views: 20;
+    clicksConversions: 15;
   };
 }
 
@@ -604,7 +722,7 @@ Template groups:
 
 ## TikTok Video Experiment Engine Contract
 
-This MVP generates, scores, and browser-renders TikTok-ready video drafts for CosmicPath. It does **not** upload, publish, comment, DM, scrape private data, or control a browser session.
+This existing module generates, scores, and browser-renders TikTok-ready video drafts for a product profile. CosmicPath career timing remains the current preset. It does **not** upload, publish, comment, DM, scrape private data, or control a browser session.
 
 ### Data Contracts
 
@@ -935,10 +1053,10 @@ interface ViralAdapterResult {
 
 | Method | Path | Description |
 |:-------|:-----|:------------|
-| `GET` | `/api/cron/publish` | 모든 active 브랜드 순회 → 각 1개 FIFO 발행 |
-| `GET` | `/api/cron/refresh-token` | 모든 브랜드 토큰 상태 확인 및 갱신 |
-| `GET` | `/api/cron/learn` | 모든 브랜드 growthMemory 재학습 |
-| `GET` | `/api/cron/viral` | 모든 브랜드 viral discovery + viralMemory 재학습 |
+| `GET` | `/api/cron/publish` | 모든 active 제품 순회 → 각 1개 FIFO 발행 |
+| `GET` | `/api/cron/refresh-token` | 모든 제품의 Threads 토큰 상태 확인 및 갱신 |
+| `GET` | `/api/cron/learn` | 모든 제품 growthMemory 재학습 |
+| `GET` | `/api/cron/viral` | 모든 제품 viral discovery + viralMemory 재학습 |
 
 ```typescript
 interface CronPublishResponse {
@@ -962,7 +1080,7 @@ interface CronPublishResponse {
 
 | Method | Path | Description |
 |:-------|:-----|:------------|
-| `GET` | `/api/analytics?brandId=xxx` | 브랜드별 공식 성과 요약 |
+| `GET` | `/api/analytics?brandId=xxx` | 제품별 공식 성과 요약 |
 
 ```typescript
 interface AnalyticsResponse {
