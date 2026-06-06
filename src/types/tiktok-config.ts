@@ -3,8 +3,10 @@ import { CAREER_TIMING_WEDGE_399 } from "@/types/campaign";
 
 export type TikTokVideoFormatId =
   | "career_timing_diagnosis"
-  | "comment_diagnosis"
-  | "self_confession"
+  | "self_classification"
+  | "saveable_tool"
+  | "quiet_contrarian"
+  | "friend_share"
   | "saju_myth_busting"
   | "landing_teaser";
 
@@ -38,16 +40,28 @@ export const TIKTOK_VIDEO_EXPERIMENT_DEFAULT: TikTokVideoConfig = {
       instruction: "퇴사/이직/번아웃 고민을 0-2초 hook으로 열고 버팀형/이동형/준비형 중 어디에 가까운지 판단하게 만든다.",
     },
     {
-      id: "comment_diagnosis",
-      name: "댓글 진단형",
+      id: "self_classification",
+      name: "자기분류 셀프체크형",
       weight: 3,
-      instruction: "댓글에 A/B/C 또는 현재 상황을 남기게 하고, CosmicPath식 타이밍 언어로 분류해주는 구조를 만든다.",
+      instruction: "A/B/C 또는 버팀형/이동형/준비형 중 하나를 화면 안에서 혼자 고르게 해서 운영자 답글 없이도 참여가 완결되게 만든다.",
     },
     {
-      id: "self_confession",
-      name: "자기고백 공감형",
+      id: "saveable_tool",
+      name: "저장형 판단 도구",
       weight: 2,
-      instruction: "퇴사 타이밍을 놓칠까 불안했던 자기고백에서 시작해 시청자가 자기 상황을 떠올리게 만든다.",
+      instruction: "퇴사/이직/번아웃 판단 전에 다시 볼 체크리스트나 순서표를 영상 구조로 만든다.",
+    },
+    {
+      id: "quiet_contrarian",
+      name: "조용한 반전형",
+      weight: 2,
+      instruction: "흔한 운세/타이밍 믿음을 차분히 뒤집고 저장, 프로필 확인, 행동선 정리로 연결한다.",
+    },
+    {
+      id: "friend_share",
+      name: "친구 공유형",
+      weight: 2,
+      instruction: "같은 이직/퇴사 고민을 하는 친구에게 보내주고 싶게 구체 상황을 짚는다.",
     },
     {
       id: "saju_myth_busting",
@@ -96,8 +110,10 @@ function normalizeTikTokVideoFormats(input: unknown, fallback: TikTokVideoFormat
 
 function normalizeTikTokVideoFormatId(input: unknown, fallback: TikTokVideoFormatId): TikTokVideoFormatId {
   return input === "career_timing_diagnosis"
-    || input === "comment_diagnosis"
-    || input === "self_confession"
+    || input === "self_classification"
+    || input === "saveable_tool"
+    || input === "quiet_contrarian"
+    || input === "friend_share"
     || input === "saju_myth_busting"
     || input === "landing_teaser"
     ? input

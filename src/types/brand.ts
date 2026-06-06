@@ -136,10 +136,11 @@ export const DEFAULT_BRAND_CONFIG: BrandConfig = {
     ...ADVANCED_CREATOR_HOOK_TYPES,
   ],
   ctaTypes: [
-    "첫 댓글 링크",
-    "댓글 유도",
+    "링크 확인",
+    "셀프체크",
     "저장 유도",
     "공유 유도",
+    "프로필 확인",
     ...ADVANCED_CREATOR_CTA_TYPES,
   ],
   viralDiscovery: {

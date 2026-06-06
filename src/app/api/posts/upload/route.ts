@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getThreadsContentLimitError } from "@/lib/threads-limits";
 import { initializeTokensInDB, publishPost, publishReplyWithRetry } from "@/lib/threads-api";
 
 /**
@@ -21,9 +22,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (content.length > 500) {
+        const lengthError = getThreadsContentLimitError(content);
+        if (lengthError) {
             return NextResponse.json(
-                { error: "Content exceeds 500 character limit" },
+                { error: lengthError },
                 { status: 400 }
             );
         }

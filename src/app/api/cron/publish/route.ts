@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFreshBrandCredentials, publishPostWithCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
+import { getPublishSafetyBlockReasons } from "@/lib/publish-safety-gate";
 
 function verifyCronSecret(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
@@ -46,6 +47,19 @@ export async function GET(request: NextRequest) {
           brandName: brand.name,
           reason: blockedCount > 0 ? "quality_blocked" : "no_pending",
         });
+        continue;
+      }
+
+      const safetyReasons = getPublishSafetyBlockReasons(post);
+      if (safetyReasons.length > 0) {
+        await prisma.post.update({
+          where: { id: post.id },
+          data: {
+            qualityPass: false,
+            qualityReasons: JSON.stringify(safetyReasons),
+          },
+        });
+        skipped.push({ brandId: brand.id, brandName: brand.name, reason: "quality_blocked" });
         continue;
       }
 

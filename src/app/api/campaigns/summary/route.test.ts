@@ -1,26 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildCampaignNextAction,
-  sumMetricValue,
+  buildViralModeBuckets,
+  resolveSummaryViralIntentModeId,
 } from "@/app/api/campaigns/summary/route";
 
-describe("campaign summary metric helpers", () => {
-  it("maps configured metric names to existing post fields", () => {
+describe("campaign summary viral mode reporting", () => {
+  it("normalizes legacy and current formula ids into viral intent mode buckets", () => {
     const posts = [
-      { views: 10, replies: 2, reposts: 1, clicks: 3, conversions: 1, manualPaidConversions: 0, qualityPass: true },
-      { views: 20, replies: 1, reposts: 0, clicks: 4, conversions: 0, manualPaidConversions: 2, qualityPass: false },
+      { campaignFormulaId: "comment_diagnosis" },
+      { campaignFormulaId: "self_classification" },
+      { campaignFormulaId: "saveable_tool" },
+      { campaignFormulaId: "quiet_contrarian" },
+      { campaignFormulaId: "friend_share" },
+      { campaignFormulaId: "custom_format" },
+      { campaignFormulaId: null },
     ];
 
-    expect(sumMetricValue(posts, "views")).toBe(30);
-    expect(sumMetricValue(posts, "replies")).toBe(3);
-    expect(sumMetricValue(posts, "clicks")).toBe(7);
-    expect(sumMetricValue(posts, "conversions")).toBe(1);
-    expect(sumMetricValue(posts, "manualPaidConversions")).toBe(2);
-  });
-
-  it("returns a learning next action when no posts exist", () => {
-    const nextAction = buildCampaignNextAction([], "views", "conversions");
-
-    expect(nextAction).toContain("첫 배치");
+    expect(resolveSummaryViralIntentModeId(posts[0])).toBe("self_classification");
+    expect(resolveSummaryViralIntentModeId(posts[5])).toBeNull();
+    expect(buildViralModeBuckets(posts)).toEqual({
+      self_classification: 2,
+      saveable_tool: 1,
+      quiet_contrarian: 1,
+      friend_share: 1,
+    });
   });
 });

@@ -1,4 +1,5 @@
 import type { QualityResult } from "@/lib/quality-gate";
+import { hasLowTouchEngagementMechanic } from "@/lib/viral-intent-modes";
 
 export interface ProductQualityContext {
   productName?: string;
@@ -69,5 +70,5 @@ function hasProductRelevance(post: string, context: ProductQualityContext): bool
 
 function hasProductCta(post: string, context: ProductQualityContext): boolean {
   const terms = ["확인", "랜딩", "링크", "프로필", "댓글", "저장", ...(context.ctaTerms ?? [])];
-  return terms.some((term) => post.includes(term));
+  return terms.some((term) => post.includes(term)) && hasLowTouchEngagementMechanic(post);
 }

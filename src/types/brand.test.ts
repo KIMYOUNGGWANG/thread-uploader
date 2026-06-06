@@ -92,6 +92,36 @@ describe("parseBrandConfig", () => {
     expect(config.qualityProfile).toBe("product_growth");
   });
 
+  it("normalizes legacy comment diagnosis formulas into low-touch self classification", () => {
+    const config = parseBrandConfig(JSON.stringify({
+      campaigns: [{
+        ...CAREER_TIMING_WEDGE_399,
+        formulas: [{
+          id: "comment_diagnosis",
+          name: "댓글 진단형",
+          weight: 3,
+          instruction: "댓글에 현재 상황을 쓰면 분류해준다.",
+        }],
+      }],
+      activeCampaignId: CAREER_TIMING_WEDGE_399.id,
+    }));
+
+    expect(config.campaigns[0]?.formulas[0]?.id).toBe("self_classification");
+    expect(config.campaigns[0]?.formulas[0]?.instruction).toContain("A/B/C");
+    expect(config.campaigns[0]?.formulas[0]?.instruction).not.toMatch(/분류해준|답글|진단해준/);
+  });
+
+  it("defaults CosmicPath campaign formulas to self classification and saveable tools", () => {
+    const formulaIds = CAREER_TIMING_WEDGE_399.formulas.map((formula) => formula.id);
+    const formulaText = CAREER_TIMING_WEDGE_399.formulas.map((formula) => formula.instruction).join("\n");
+
+    expect(formulaIds).toContain("self_classification");
+    expect(formulaIds).toContain("saveable_tool");
+    expect(formulaText).toContain("A/B/C");
+    expect(formulaText).toContain("저장");
+    expect(formulaText).not.toMatch(/분류해준|상황을 쓰면|답글|진단해준/);
+  });
+
   it("ignores legacy TikTok formats when TikTok is disabled", () => {
     const config = parseBrandConfig(JSON.stringify({
       tiktokVideo: {

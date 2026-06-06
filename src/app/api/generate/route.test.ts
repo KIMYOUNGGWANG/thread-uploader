@@ -1,13 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCampaignUtmLink,
+  cleanGeneratedContentLabels,
   buildGenerationPrompt,
+  enforceGeneratedSurfaceSafety,
+  selectCampaignFormulaForViralMode,
   validateGenerationReadiness,
 } from "@/app/api/generate/route";
-import { getActiveCampaign, parseBrandConfig, PRODUCT_GROWTH_BASELINE } from "@/types/brand";
+import { selectViralIntentMode } from "@/lib/viral-intent-modes";
+import {
+  CAREER_TIMING_WEDGE_399,
+  getActiveCampaign,
+  parseBrandConfig,
+  PRODUCT_GROWTH_BASELINE,
+} from "@/types/brand";
 import type { QualityProfileId } from "@/types/brand";
+import type { QualityResult } from "@/lib/quality-gate";
 
 describe("buildGenerationPrompt", () => {
+  it("removes model output labels from generated content", () => {
+    expect(cleanGeneratedContentLabels("**[본문]**\n\n이직할지 버틸지 모르겠다면")).toBe("이직할지 버틸지 모르겠다면");
+    expect(cleanGeneratedContentLabels("**본문:**\n퇴사 고민이라면")).toBe("퇴사 고민이라면");
+  });
+
   it("includes product profile and active experiment context", () => {
     const config = parseBrandConfig(JSON.stringify({
       productProfile: {
@@ -46,6 +61,8 @@ describe("buildGenerationPrompt", () => {
       situation: "견적서를 급하게 보내야 하는 상황",
       hookType: "질문형 훅",
       ctaType: "랜딩 확인",
+      angleVariation: "오해 깨기",
+      structureVariation: "질문으로 시작",
       qualityProfile,
       campaign: null,
       campaignFormulaId: null,
@@ -99,6 +116,8 @@ describe("buildGenerationPrompt", () => {
       situation: "견적서를 급하게 보내야 하는 상황",
       hookType: "질문형 훅",
       ctaType: "랜딩 확인",
+      angleVariation: "오해 깨기",
+      structureVariation: "질문으로 시작",
       qualityProfile,
       campaign: PRODUCT_GROWTH_BASELINE,
       campaignFormulaId: PRODUCT_GROWTH_BASELINE.formulas[0].id,
@@ -112,6 +131,188 @@ describe("buildGenerationPrompt", () => {
     expect(prompt).not.toContain("[커리어 wedge 필수 조건]");
     expect(prompt).not.toContain("CosmicPath");
     expect(prompt).not.toContain("이직/퇴사");
+  });
+
+  it("includes viral mode and success metric in generation prompt", () => {
+    const config = parseBrandConfig(JSON.stringify({
+      systemPrompt: "Write concise CosmicPath posts.",
+      topics: ["연락 타이밍"],
+      campaigns: [CAREER_TIMING_WEDGE_399],
+      activeCampaignId: CAREER_TIMING_WEDGE_399.id,
+      qualityProfile: "career_decision",
+    }));
+    const qualityProfile: QualityProfileId = "career_decision";
+    const experiment = {
+      formula: CAREER_TIMING_WEDGE_399.formulas[0],
+      topic: "연락 타이밍",
+      targetAudience: "연락을 고민하는 사람",
+      situation: "답장을 보낼지 망설이는 상황",
+      hookType: "질문형 훅",
+      ctaType: "셀프체크",
+      angleVariation: "A/B/C 분류",
+      structureVariation: "체크박스형",
+      qualityProfile,
+      campaign: CAREER_TIMING_WEDGE_399,
+      campaignFormulaId: CAREER_TIMING_WEDGE_399.formulas[0].id,
+      shouldLink: false,
+    };
+
+    const prompt = buildGenerationPrompt(experiment, config, "growth memory", "viral memory");
+
+    expect(prompt).toContain("[바이럴 의도 모드]");
+    expect(prompt).toContain("self_classification");
+    expect(prompt).toContain("성공 지표: saves");
+    expect(prompt).toContain("댓글을 요구하지 않고");
+  });
+
+  it("bans reply-dependent CTA in every generation prompt", () => {
+    const config = parseBrandConfig(JSON.stringify({
+      systemPrompt: "Write concise CosmicPath posts.",
+      topics: ["이직 타이밍"],
+      campaigns: [CAREER_TIMING_WEDGE_399],
+      activeCampaignId: CAREER_TIMING_WEDGE_399.id,
+      qualityProfile: "career_decision",
+    }));
+    const qualityProfile: QualityProfileId = "career_decision";
+    const experiment = {
+      formula: CAREER_TIMING_WEDGE_399.formulas[0],
+      topic: "이직 타이밍",
+      targetAudience: "이직을 고민하는 사람",
+      situation: "퇴사와 이직 사이에서 흔들리는 상황",
+      hookType: "체크리스트형 훅",
+      ctaType: "셀프체크",
+      angleVariation: "A/B/C 분류",
+      structureVariation: "번호 3개",
+      qualityProfile,
+      campaign: CAREER_TIMING_WEDGE_399,
+      campaignFormulaId: CAREER_TIMING_WEDGE_399.formulas[0].id,
+      shouldLink: false,
+    };
+
+    const prompt = buildGenerationPrompt(experiment, config, "growth memory", "viral memory");
+
+    expect(prompt).toContain("개인 질문 접수, 답글 약속, 무료 풀이 약속 금지");
+    expect(prompt).toContain("장문 사연 요청 금지");
+    expect(prompt).toContain("개인별 검토를 암시하는 CTA 금지");
+    expect(prompt).toContain("'댓글', '남겨', '답글', '상황 써줘', '같이 보자', '같이 봐요', '뭐가 걸렸어', '어디였어' 표현 금지");
+    expect(prompt).toContain("글자 수 확인, 자수 체크, 초안, Threads 본문 같은 메타 텍스트를 절대 출력하지 않는다");
+    expect(prompt).not.toContain("상황을 쓰면 분류해준다");
+  });
+
+  it("rejects generated meta text in the first comment before qualityPass storage", () => {
+    const passingResult: QualityResult = {
+      pass: true,
+      score: 4,
+      profile: "career_decision",
+      reasons: [],
+      careerDecisionType: "stay",
+    };
+
+    const result = enforceGeneratedSurfaceSafety(passingResult, {
+      post: "이직 타이밍이 헷갈리면 A. 버팀형 B. 이동형 C. 준비형 중 가까운 쪽만 체크해.",
+      firstComment: "Threads 본문\n자수 체크: 500자 이하 통과",
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.reasons).toContain("generated meta text 포함");
+  });
+
+  it("keeps quiet contrarian prompts free of question-intake closing instructions", () => {
+    const config = parseBrandConfig(JSON.stringify({
+      systemPrompt: "Write concise CosmicPath posts.",
+      topics: ["이직 타이밍"],
+      campaigns: [CAREER_TIMING_WEDGE_399],
+      activeCampaignId: CAREER_TIMING_WEDGE_399.id,
+      qualityProfile: "career_decision",
+    }));
+    const qualityProfile: QualityProfileId = "career_decision";
+    const quietMode = selectViralIntentMode(14);
+    const experiment = {
+      formula: {
+        id: "quiet_contrarian",
+        name: "조용한 반전형",
+        weight: 2,
+        instruction: "흔한 믿음을 차분하게 뒤집는다.",
+      },
+      topic: "이직 타이밍",
+      targetAudience: "이직을 고민하는 사람",
+      situation: "퇴사와 이직 사이에서 흔들리는 상황",
+      hookType: "반전형 훅",
+      ctaType: "저장 유도",
+      qualityProfile,
+      campaign: CAREER_TIMING_WEDGE_399,
+      campaignFormulaId: quietMode.id,
+      viralIntentMode: quietMode,
+      shouldLink: false,
+    };
+
+    const prompt = buildGenerationPrompt(experiment, config, "growth memory", "viral memory");
+
+    expect(quietMode.id).toBe("quiet_contrarian");
+    expect(prompt).toContain("마지막은 저장, 프로필 확인, 또는 행동선 정리로 닫는다.");
+    expect(prompt).not.toContain("마지막은 질문 접수");
+    expect(prompt).not.toContain("질문 접수 또는 행동선");
+  });
+
+  it("keeps product and generic no-link campaign prompts free of comment-intake language", () => {
+    const productConfig = parseBrandConfig(JSON.stringify({
+      systemPrompt: "Write concise product posts.",
+      topics: ["견적서 자동화"],
+      campaigns: [PRODUCT_GROWTH_BASELINE],
+      activeCampaignId: PRODUCT_GROWTH_BASELINE.id,
+      qualityProfile: "product_growth",
+    }));
+    const productQualityProfile: QualityProfileId = "product_growth";
+    const productExperiment = {
+      formula: PRODUCT_GROWTH_BASELINE.formulas[0],
+      topic: "견적서 자동화",
+      targetAudience: "1인 프리랜서",
+      situation: "견적서를 급하게 보내야 하는 상황",
+      hookType: "질문형 훅",
+      ctaType: "저장 유도",
+      qualityProfile: productQualityProfile,
+      campaign: PRODUCT_GROWTH_BASELINE,
+      campaignFormulaId: PRODUCT_GROWTH_BASELINE.formulas[0].id,
+      shouldLink: false,
+    };
+    const genericCampaign = {
+      ...PRODUCT_GROWTH_BASELINE,
+      id: "generic_campaign",
+      name: "Generic campaign",
+      qualityProfile: "saju_viral" as QualityProfileId,
+    };
+    const genericQualityProfile: QualityProfileId = "saju_viral";
+    const genericExperiment = {
+      ...productExperiment,
+      qualityProfile: genericQualityProfile,
+      campaign: genericCampaign,
+      campaignFormulaId: genericCampaign.formulas[0]?.id ?? "direct_offer",
+    };
+
+    const productPrompt = buildGenerationPrompt(productExperiment, productConfig, "growth memory", "viral memory");
+    const genericPrompt = buildGenerationPrompt(genericExperiment, productConfig, "growth memory", "viral memory");
+
+    expect(productPrompt).toContain("이번 글은 링크 없이 저장/공유/프로필 방문만 유도");
+    expect(genericPrompt).toContain("이번 글은 링크 없이 저장/공유/프로필 방문만 유도");
+    expect(productPrompt).not.toContain("댓글/프로필 방문");
+    expect(genericPrompt).not.toContain("댓글/프로필 방문");
+  });
+
+  it("keeps persisted campaign formula ids aligned with the 28-post viral mode matrix", () => {
+    const counts = Array.from({ length: 28 }, (_, index) => {
+      const viralIntentMode = selectViralIntentMode(index);
+      return selectCampaignFormulaForViralMode(CAREER_TIMING_WEDGE_399.formulas, viralIntentMode).id;
+    }).reduce<Record<string, number>>((result, formulaId) => {
+      result[formulaId] = (result[formulaId] ?? 0) + 1;
+      return result;
+    }, {});
+
+    expect(counts).toEqual({
+      self_classification: 7,
+      saveable_tool: 7,
+      quiet_contrarian: 7,
+      friend_share: 7,
+    });
   });
 
   it("reports missing formula, prompt, and topic readiness errors before generation", () => {

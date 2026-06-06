@@ -17,8 +17,10 @@ const anthropic = process.env.ANTHROPIC_API_KEY
 const VALID_STATUSES = new Set<TikTokVideoDraftStatus>(["DRAFT", "APPROVED", "UPLOADED_MANUAL", "ARCHIVED"]);
 const VALID_FORMATS = new Set<TikTokVideoFormatId>([
   "career_timing_diagnosis",
-  "comment_diagnosis",
-  "self_confession",
+  "self_classification",
+  "saveable_tool",
+  "quiet_contrarian",
+  "friend_share",
   "saju_myth_busting",
   "landing_teaser",
 ]);
@@ -319,7 +321,7 @@ async function buildDraftCandidate(input: {
     model: "claude-sonnet-4-6",
     max_tokens: 1400,
     temperature: 0.9,
-    system: "너는 CosmicPath의 TikTok 숏폼 전략가다. 과장된 운명 보장 없이 커리어 타이밍 불안을 댓글 진단형 영상으로 만든다.",
+    system: "너는 CosmicPath의 TikTok 숏폼 전략가다. 과장된 운명 보장 없이 커리어 타이밍 불안을 자기분류형 영상으로 만든다.",
     messages: [{
       role: "user",
       content: buildTikTokPrompt(input),
@@ -329,7 +331,7 @@ async function buildDraftCandidate(input: {
   return normalizeCandidate(parseJsonObject(raw), input.format, input.durationSeconds, input.index);
 }
 
-function buildTikTokPrompt(input: {
+export function buildTikTokPrompt(input: {
   format: TikTokVideoFormatConfig;
   durationSeconds: number;
   growthContext: string;
@@ -355,7 +357,7 @@ function buildTikTokPrompt(input: {
     "- spokenHook은 첫 0-2초에 말할 1문장",
     "- 첫 hook/caption에 이직, 퇴사, 버틸지, 옮길지, 번아웃, 커리어, 회사 중 하나 포함",
     "- 타이밍/흐름/성향/결정 패턴/운의 리듬 중 하나로 CosmicPath 결 유지",
-    "- 댓글에 A/B/C 또는 현재 상황을 남기게 하는 CTA 포함",
+    "- CTA는 A/B/C, 버팀형/이동형/준비형, 저장, 공유 중 하나로 끝내고 개인별 검토를 약속하지 않기",
     "- '좋은 일이 올 거예요' 같은 generic 자기계발 금지",
     "- 의학/법률/금융/운명 확정 보장 금지",
     "",
@@ -370,7 +372,7 @@ function buildTikTokPrompt(input: {
       captionOverlays: ["큰 자막 1", "큰 자막 2"],
       onScreenText: ["짧은 화면 텍스트"],
       hashtags: ["#커리어", "#퇴사고민"],
-      cta: "댓글 CTA",
+      cta: "저장/프로필 확인 CTA",
       durationSeconds: input.durationSeconds,
     }, null, 2),
   ].join("\n");
@@ -420,16 +422,16 @@ function fallbackDraft(format: TikTokVideoFormatConfig, durationSeconds: number,
   return {
     title: `${format.name} ${index + 1}`,
     spokenHook: variant.hook,
-    script: `${variant.hook}. ${variant.frame} 버팀형은 판을 엎기보다 조건을 정리할 때고, 이동형은 같은 문제가 반복될 때야. 준비형은 당장 결론보다 2주 안에 확인할 조건이 먼저야. 댓글에 A/B/C랑 지금 상황을 짧게 써줘.`,
+    script: `${variant.hook}. ${variant.frame} 버팀형은 판을 엎기보다 조건을 정리할 때고, 이동형은 같은 문제가 반복될 때야. 준비형은 당장 결론보다 2주 안에 확인할 조건이 먼저야. A/B/C 중 가까운 선택지만 화면에서 골라봐.`,
     sceneBeats: [
       { startSecond: 0, endSecond: 2, visualDirection: "정면 클로즈업, 첫 문장 큰 자막", narration: variant.hook },
       { startSecond: 3, endSecond: 12, visualDirection: "A/B/C 선택지 자막 전환", narration: variant.frame },
-      { startSecond: 13, endSecond: durationSeconds, visualDirection: "댓글 입력 예시와 CosmicPath 리포트 화면 티저", narration: "댓글에 상황을 남기면 어느 흐름에 가까운지 같이 볼 수 있어." },
+      { startSecond: 13, endSecond: durationSeconds, visualDirection: "A/B/C 선택 예시와 CosmicPath 리포트 화면 티저", narration: "선택지만 골라도 지금 흐름을 정리하는 첫 단계가 돼." },
     ],
-    captionOverlays: [variant.hook, "버팀형 / 이동형 / 준비형", "댓글에 A/B/C"],
-    onScreenText: ["커리어 타이밍", "결정 패턴", "댓글 진단"],
+    captionOverlays: [variant.hook, "버팀형 / 이동형 / 준비형", "A/B/C 선택"],
+    onScreenText: ["커리어 타이밍", "결정 패턴", "자기분류"],
     hashtags: ["#커리어", "#퇴사고민", "#이직고민", "#CosmicPath"],
-    cta: "댓글에 A/B/C와 지금 상황을 짧게 남겨줘.",
+    cta: "저장해두고 다음 선택 전에 다시 봐.",
     durationSeconds,
   };
 }
@@ -491,7 +493,7 @@ function buildTikTokRecommendations(drafts: TikTokDraftWithMetrics[]): string[] 
   const measured = drafts.filter((draft) => draft.metrics.length > 0).length;
   const topFormat = buildTopFormats(drafts).find((format) => format.avgPerformanceScore > 0);
 
-  if (passRate < 0.7) recommendations.push("quality pass rate가 낮습니다. 첫 hook에 커리어 불안과 댓글 CTA를 더 명확히 넣으세요.");
+  if (passRate < 0.7) recommendations.push("quality pass rate가 낮습니다. 첫 hook에 커리어 불안과 저장/셀프체크 CTA를 더 명확히 넣으세요.");
   if (uploaded === 0) recommendations.push("통과한 draft 중 3개를 골라 TikTok에 수동 업로드하고 48시간 뒤 성과를 입력하세요.");
   if (uploaded > 0 && measured === 0) recommendations.push("업로드한 영상의 48시간 성과를 입력해야 다음 포맷 추천이 가능합니다.");
   if (topFormat) recommendations.push(`${formatLabel(topFormat.formatId)} 포맷을 다음 batch에서 더 자주 테스트하세요.`);

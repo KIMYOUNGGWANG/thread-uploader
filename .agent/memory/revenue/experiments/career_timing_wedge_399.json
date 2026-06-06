@@ -1,0 +1,46 @@
+{
+  "slug": "career_timing_wedge_399",
+  "updatedAt": "2026-05-14",
+  "mode": ["viral-content", "landing-test"],
+  "product": "CosmicPath",
+  "targetCustomer": "20-35세 여성 중 이직, 퇴사, 번아웃, 커리어 타이밍 불안을 가진 사용자",
+  "wedge": "커리어 결정을 사주/타이밍 언어로 정리해주는 셀프체크형 콘텐츠",
+  "offer": {
+    "landingUrl": "/career/uncertainty",
+    "promise": "지금 버틸지, 옮길지, 준비할지 커리어 타이밍을 정리한다",
+    "price": "manual validation before pricing"
+  },
+  "channel": "Threads",
+  "campaign": {
+    "id": "career_timing_wedge_399",
+    "utmSource": "threads",
+    "utmCampaign": "career_timing_wedge_399",
+    "utmContent": "{{postId}}",
+    "dailyPostTarget": 3,
+    "linkCadenceEvery": 3
+  },
+  "contentFormulas": [
+    "self_classification",
+    "saveable_tool",
+    "quiet_contrarian",
+    "friend_share"
+  ],
+  "manualMetricsPlan": [
+    "daily generated posts",
+    "quality pass/fail",
+    "replies",
+    "reposts",
+    "views",
+    "clicks",
+    "manual paid conversions"
+  ],
+  "successCriteria": [
+    "21개 생성 시 7개만 링크 포함",
+    "career_decision quality gate pass rate >= 80%",
+    "generic self-help content fail",
+    "save/share/profile action rate improves week over week",
+    "manual paid conversion can be attributed to postId"
+  ],
+  "status": "planned",
+  "evidence": []
+}

@@ -2579,8 +2579,13 @@ function tiktokStatusClass(status: TikTokVideoDraftStatus): string {
 function formatTikTokFormatLabel(formatId: string): string {
   const labels: Record<string, string> = {
     career_timing_diagnosis: "커리어 진단",
-    comment_diagnosis: "댓글 진단",
-    self_confession: "자기고백",
+    self_classification: "자기분류 셀프체크",
+    saveable_tool: "저장형 판단 도구",
+    quiet_contrarian: "조용한 반전",
+    friend_share: "친구 공유형",
+    comment_diagnosis: "자기분류 셀프체크",
+    friend_tag: "친구 공유형",
+    self_confession: "조용한 반전",
     saju_myth_busting: "사주 오해",
     landing_teaser: "리포트 티저",
   };

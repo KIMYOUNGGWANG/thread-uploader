@@ -1,5 +1,9 @@
 import type { ViralMemory, ViralPatternDimension, ViralPatternSummary } from "@/types/viral";
 import { EMPTY_VIRAL_MEMORY } from "@/types/viral";
+import {
+  hasSaveShareMechanic,
+  hasSelfClassificationMechanic,
+} from "@/lib/viral-intent-modes";
 
 export interface ViralMetricsInput {
   views?: number | null;
@@ -159,7 +163,16 @@ function buildPatternSummaries(examples: ViralExampleInput[]): ViralPatternSumma
         recommendation: buildPatternRecommendation(bucket.dimension, bucket.value),
       };
     })
-    .sort((a, b) => (b.confidence + b.avgViralScore) - (a.confidence + a.avgViralScore));
+    .sort((a, b) => (
+      (b.confidence + b.avgViralScore + patternPriority(b.value))
+      - (a.confidence + a.avgViralScore + patternPriority(a.value))
+    ));
+}
+
+function patternPriority(value: string): number {
+  if (value === "자기분류" || value === "자기분류 댓글" || value === "자기분류 셀프체크") return 40;
+  if (value === "저장형 도구" || value === "저장 유도") return 30;
+  return 0;
 }
 
 function groupByDimension(
@@ -184,6 +197,8 @@ function groupByDimension(
 function calculateStructuralSignalScore(content: string): number {
   let score = 10;
   const firstLine = getFirstLine(content);
+  if (hasSelfClassificationMechanic(content)) score += 14;
+  if (hasSaveShareMechanic(content)) score += 10;
   if (firstLine.includes("?")) score += 12;
   if (/^\s*\d+[.)]/m.test(content)) score += 10;
   if (/(사실|솔직히|아무도|근데|반대로|문제는)/.test(firstLine)) score += 10;
@@ -214,6 +229,8 @@ function detectEmotionalDriver(content: string): string {
 
 function detectStructureType(content: string): string {
   const lines = content.split("\n").filter((line) => line.trim());
+  if (hasSelfClassificationMechanic(content)) return "자기분류";
+  if (hasSaveShareMechanic(content) && /^\s*\d+[.)]/m.test(content)) return "저장형 도구";
   if (/^\s*\d+[.)]/m.test(content)) return "리스트";
   if (/(전에는|예전엔|지금은|바뀐)/.test(content)) return "비포애프터";
   if (/(근데|하지만|문제는|반대로)/.test(content)) return "반전";
@@ -223,8 +240,9 @@ function detectStructureType(content: string): string {
 }
 
 function detectCtaType(content: string): string {
+  if (hasSelfClassificationMechanic(content)) return "자기분류 셀프체크";
   if (/(첫 댓글|링크|프로필)/.test(content)) return "링크 유도";
-  if (/댓글/.test(content)) return "댓글 유도";
+  if (/댓글/.test(content)) return "댓글 부담";
   if (/저장/.test(content)) return "저장 유도";
   if (/(공유|보내줘)/.test(content)) return "공유 유도";
   return "무CTA";
@@ -251,6 +269,12 @@ function buildTakeaway(
 }
 
 function buildPatternRecommendation(dimension: ViralPatternDimension, value: string): string {
+  if (value === "자기분류" || value === "자기분류 댓글" || value === "자기분류 셀프체크") {
+    return "다음 배치에서 A/B/C 또는 4방향 자기분류 구조를 새 고민 주제로 변주해 테스트하세요.";
+  }
+  if (value === "저장형 도구" || value === "저장 유도") {
+    return "다음 배치에서 저장 가능한 체크리스트/판정표 구조를 새 고민 주제로 변주해 테스트하세요.";
+  }
   const labels: Record<ViralPatternDimension, string> = {
     hook: "첫 문장",
     topic: "주제",

@@ -23,7 +23,7 @@ This is an internal operator workspace for promoting owned products. The API and
   → 캠페인 콘텐츠 생성 (product context + experiment hypothesis + link cadence)
   → PENDING 큐 확인
   → [Cron] 각 제품 FIFO 자동 발행
-  → 댓글 대응 플레이북으로 수동 답글
+  → 참여 유형별 안내 플레이북으로 수동 보완
   → UTM/성과/수동 전환 입력
   → 캠페인 성과 학습 및 Portfolio Overview next action 갱신
   → 다음 제품 또는 다음 실험으로 이동
@@ -146,12 +146,14 @@ interface BrandConfig {
 }
 
 type QualityProfileId = "saju_viral" | "career_decision" | "product_growth";
-type CampaignFormulaId = "comment_diagnosis" | "friend_tag" | "self_confession";
+type CampaignFormulaId = "self_classification" | "saveable_tool" | "quiet_contrarian" | "friend_share";
 type CareerDecisionType = "stay" | "move" | "prepare";
 type TikTokVideoFormatId =
   | "career_timing_diagnosis"
-  | "comment_diagnosis"
-  | "self_confession"
+  | "self_classification"
+  | "saveable_tool"
+  | "quiet_contrarian"
+  | "friend_share"
   | "saju_myth_busting"
   | "landing_teaser";
 
@@ -499,22 +501,22 @@ const CAREER_TIMING_WEDGE_399: CampaignConfig = {
   linkPlacement: "firstComment",
   formulas: [
     {
-      id: "comment_diagnosis",
-      name: "댓글 진단형",
-      weight: 4,
-      instruction: "댓글에 상황을 쓰면 버팀형/이동형/준비형으로 분류해준다는 진단형 포스트",
-    },
-    {
-      id: "friend_tag",
-      name: "친구 태그형",
-      weight: 2,
-      instruction: "이직/퇴사 고민하는 친구에게 보내주라는 공유 유도형 포스트",
-    },
-    {
-      id: "self_confession",
-      name: "자기고백 공감형",
+      id: "self_classification",
+      name: "자기분류 셀프체크형",
       weight: 3,
-      instruction: "퇴사/이직 불안에 대한 자기고백과 공감형 포스트",
+      instruction: "A/B/C 또는 버팀형/이동형/준비형 중 가까운 선택지를 본문 안에서 혼자 체크하게 만든다. 운영자 추가 개입 없이도 참여가 완결되어야 한다.",
+    },
+    {
+      id: "saveable_tool",
+      name: "저장형 판단 도구",
+      weight: 2,
+      instruction: "이직, 퇴사, 번아웃 판단 전에 저장해두고 다시 볼 3-4칸 체크리스트나 판정표로 작성한다.",
+    },
+    {
+      id: "friend_share",
+      name: "친구 공유형",
+      weight: 2,
+      instruction: "이직, 퇴사, 번아웃을 고민하는 친구에게 보내주고 싶게 만드는 공유 유도형 구조로 작성한다.",
     },
   ],
   replyPlaybook: {
@@ -543,26 +545,26 @@ const PRODUCT_GROWTH_BASELINE: CampaignConfig = {
   linkPlacement: "firstComment",
   formulas: [
     {
-      id: "comment_diagnosis",
+      id: "self_classification",
       name: "고객 문제 진단형",
       weight: 3,
-      instruction: "타깃 고객이 겪는 문제를 묻고 댓글로 현재 상황을 남기게 만든다.",
+      instruction: "타깃 고객이 A/B/C 중 가까운 문제 유형만 고르게 만든다. 운영자 추가 개입 없이도 참여가 완결되어야 한다.",
     },
     {
-      id: "friend_tag",
+      id: "saveable_tool",
+      name: "저장형 판단 도구",
+      weight: 2,
+      instruction: "제품 사용 전후 차이를 저장 가능한 체크리스트나 순서표로 보여준다.",
+    },
+    {
+      id: "friend_share",
       name: "상황 공유형",
       weight: 2,
       instruction: "같은 문제를 겪는 사람에게 공유하고 싶게 만드는 제품 문제/오퍼 구조로 작성한다.",
     },
-    {
-      id: "self_confession",
-      name: "운영자 관찰형",
-      weight: 2,
-      instruction: "제품을 만들며 관찰한 고객 문제에서 시작해 오퍼 약속으로 연결한다.",
-    },
   ],
   replyPlaybook: {
-    stay: "지금 겪는 상황을 조금 더 알려주시면 어떤 흐름에서 막히는지 같이 정리해볼게요.",
+    stay: "A/B/C 중 가까운 문제 유형을 먼저 고르면 다음 행동선을 줄이기 쉽습니다.",
     move: "그 문제라면 지금 쓰는 방식보다 제품으로 줄일 수 있는 시간이 클 수 있어요.",
     prepare: "바로 바꾸기 어렵다면 가장 자주 반복되는 작업 하나부터 적어보세요.",
     cta: "자세히 확인하려면 링크에서 제품 흐름을 먼저 확인해보세요.",
@@ -620,7 +622,7 @@ Saju-specific terms are optional in this profile. The post should retain CosmicP
 
 - The post references the product name, product category, target customer, offer promise, or product-specific keywords.
 - The first line is not generic motivation or a content-farm hook.
-- A clear action exists: comment, reply, click, try, join, request, or check the landing URL.
+- A clear action exists: self-check, save, share, profile visit, click, try, join, request, or check the landing URL.
 - The content can stand alone for a non-CosmicPath product.
 - Generic filler such as "좋은 일이 올 거예요" or "스스로를 믿으세요" fails.
 
@@ -860,8 +862,8 @@ interface TikTokSummaryResponse {
 - 0-2초 안에 spoken hook이 있다.
 - 첫 hook이나 첫 caption에 커리어 불안이 있다: `이직`, `퇴사`, `버틸지`, `옮길지`, `번아웃`, `커리어`, `일`, `회사`.
 - CosmicPath language exists through timing, 흐름, 성향, 결정 패턴, 운의 리듬, or 사주/타로/점성술 language.
-- One clear comment CTA exists.
-- The draft is classifiable as `stay`, `move`, or `prepare` when using `career_timing_diagnosis` or `comment_diagnosis`.
+- One clear self-check, save, share, or profile CTA exists.
+- The draft is classifiable as `stay`, `move`, or `prepare` when using `career_timing_diagnosis` or `self_classification`.
 - Generic self-help phrases fail.
 - Medical, legal, financial certainty and guaranteed fortune claims fail.
 
@@ -1069,7 +1071,7 @@ interface CronPublishResponse {
   skipped: Array<{
     brandId: string;
     brandName: string;
-    reason: "no_pending" | "publish_failed";
+    reason: "no_pending" | "quality_blocked" | "publish_failed";
   }>;
 }
 ```

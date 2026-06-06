@@ -3,12 +3,18 @@ import {
   checkProductGrowthQuality,
   type ProductQualityContext,
 } from "@/lib/product-quality-gate";
+import { getThreadsContentLimitError } from "@/lib/threads-limits";
+import {
+  hasFortuneOverclaim,
+  hasLowTouchEngagementMechanic,
+  hasReplyBurdenPromise,
+} from "@/lib/viral-intent-modes";
 
 /**
  * Quality Gate — CosmicPath 바이럴 공식 준수 검사기
  *
  * saju_viral은 기존 사주 특화 훅을 보존하고, career_decision은
- * 커리어 wedge 실험용 댓글 진단형 콘텐츠를 검증한다.
+ * 커리어 wedge 실험용 셀프체크/저장형 콘텐츠를 검증한다.
  */
 
 const SAJU_KEYWORDS = [
@@ -51,7 +57,7 @@ const HOOK_PATTERNS = [
 const ENGAGEMENT_PATTERNS = [
   /^\s*1\./m,     // 선택지 (1. 2. 3.)
   /1\/\d/,        // 시리즈 (1/2)
-  /댓글/,         // 댓글 유도
+  /댓글/,
   /깔려있어/,     // 해당여부 확인
   /있어\?/,       // "있어?" 참여 유도
   /저장/,         // 저장 CTA
@@ -94,24 +100,20 @@ const CAREER_FIRST_LINE_PATTERNS = [
 ];
 
 const CAREER_COMMENT_PATTERNS = [
-  /댓글/,
-  /답글/,
-  /남겨/,
-  /써줘/,
-  /적어줘/,
-  /상황/,
   /A\/B\/C/i,
   /버팀형/,
   /이동형/,
   /준비형/,
   /A\s*\/\s*B/i,
   /어느\s*쪽/,
-  /짧게\s*써/,
-  /달아줘/,
   /손\s*들/,
   /몇\s*개/,
   /체크/,
   /해당/,
+  /저장/,
+  /캡처/,
+  /판정표/,
+  /순서표/,
   /공유/,
   /태그/,
   /보내줘/,
@@ -127,6 +129,15 @@ const GENERIC_SELF_HELP_PATTERNS = [
   /포기하지 마/,
   /당신은 할 수 있어/,
   /언젠가 다 잘될/,
+];
+
+const GENERATED_META_PATTERNS = [
+  /자수\s*체크/,
+  /글자\s*수\s*확인/,
+  /공백[·\s]*줄바꿈.*포함/,
+  /500자\s*이하\s*통과/,
+  /Threads\s*본문/,
+  /초안\s*작성/,
 ];
 
 const CAREER_DECISION_PATTERNS: Array<{
@@ -153,9 +164,27 @@ export function checkQuality(
   profile: QualityProfileId = "saju_viral",
   context: ProductQualityContext = {}
 ): QualityResult {
-  if (profile === "career_decision") return checkCareerDecisionQuality(post);
-  if (profile === "product_growth") return checkProductGrowthQuality(post, context);
-  return checkSajuViralQuality(post);
+  if (profile === "career_decision") return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkCareerDecisionQuality(post)));
+  if (profile === "product_growth") return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkProductGrowthQuality(post, context)));
+  return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkSajuViralQuality(post)));
+}
+
+function enforceThreadsContentLimit(post: string, result: QualityResult): QualityResult {
+  const lengthError = getThreadsContentLimitError(post);
+  if (!lengthError) return result;
+  return {
+    ...result,
+    pass: false,
+    reasons: [lengthError, ...result.reasons],
+  };
+}
+
+function enforceSafetyRules(post: string, result: QualityResult): QualityResult {
+  const reasons = [...result.reasons];
+  if (hasReplyBurdenPromise(post)) reasons.unshift("reply-burden CTA 포함");
+  if (hasFortuneOverclaim(post)) reasons.unshift("overclaim 운세/상대 마음 보장 표현 포함");
+  if (GENERATED_META_PATTERNS.some((pattern) => pattern.test(post))) reasons.unshift("generated meta text 포함");
+  return reasons.length === result.reasons.length ? result : { ...result, pass: false, reasons };
 }
 
 function checkSajuViralQuality(post: string): QualityResult {
@@ -201,10 +230,10 @@ function checkCareerDecisionQuality(post: string): QualityResult {
     reasons.push(`첫 줄에 커리어 불안 없음: "${firstLine.slice(0, 40)}"`);
   }
 
-  if (CAREER_COMMENT_PATTERNS.some((pattern) => pattern.test(post))) {
+  if (CAREER_COMMENT_PATTERNS.some((pattern) => pattern.test(post)) && hasLowTouchEngagementMechanic(post)) {
     score++;
   } else {
-    reasons.push("댓글 유도 없음 — 상황 공유/분류 요청 필요");
+    reasons.push("low-touch 자기분류/저장/공유 장치 없음");
   }
 
   const careerDecisionType = detectCareerDecisionType(post);

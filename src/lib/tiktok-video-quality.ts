@@ -55,11 +55,24 @@ const COMMENT_CTA_PATTERNS = [
   /적어/,
   /써줘/,
   /A\/B\/C/i,
-  /상황/,
   /어느\s*쪽/,
   /체크/,
   /저장/,
   /공유/,
+  /선택지만/,
+  /골라/,
+];
+
+const SITUATION_REVIEW_PATTERN = new RegExp([
+  "상황",
+  "(남기|써|적어)",
+].join(".*"));
+
+const REPLY_BURDEN_PATTERNS = [
+  SITUATION_REVIEW_PATTERN,
+  /(같이|함께).*(볼|봐)/,
+  /댓글\s*진단/,
+  /진단해줄/,
 ];
 
 const GENERIC_SELF_HELP_PATTERNS = [
@@ -91,7 +104,7 @@ const DECISION_PATTERNS: Array<{ type: CareerDecisionType; patterns: RegExp[] }>
 
 const CLASSIFICATION_FORMATS = new Set<TikTokVideoFormatId>([
   "career_timing_diagnosis",
-  "comment_diagnosis",
+  "self_classification",
 ]);
 
 export function checkTikTokVideoQuality(input: TikTokQualityInput): TikTokQualityResult {
@@ -125,10 +138,14 @@ export function checkTikTokVideoQuality(input: TikTokQualityInput): TikTokQualit
     reasons.push("CosmicPath 타이밍/흐름 언어가 없습니다");
   }
 
+  if (REPLY_BURDEN_PATTERNS.some((pattern) => pattern.test(fullSurface))) {
+    reasons.push("운영자 답변이 필요한 상황 검토 CTA가 있습니다");
+  }
+
   if (COMMENT_CTA_PATTERNS.some((pattern) => pattern.test(input.cta)) || COMMENT_CTA_PATTERNS.some((pattern) => pattern.test(input.script))) {
     score += 15;
   } else {
-    reasons.push("댓글/상황 공유 CTA가 없습니다");
+    reasons.push("자기분류/저장/공유 CTA가 없습니다");
   }
 
   const careerDecisionType = detectCareerDecisionType(fullSurface);

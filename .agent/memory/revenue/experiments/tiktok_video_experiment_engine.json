@@ -1,0 +1,71 @@
+{
+  "slug": "tiktok_video_experiment_engine",
+  "updatedAt": "2026-05-17",
+  "mode": ["viral-content", "landing-test"],
+  "stage": "idea-validation",
+  "product": "CosmicPath",
+  "target_customer": "20-35세 여성 중 이직, 퇴사, 번아웃, 커리어 타이밍 불안을 짧은 영상으로 소비하는 TikTok 사용자",
+  "targetCustomer": "20-35세 여성 중 이직, 퇴사, 번아웃, 커리어 타이밍 불안을 짧은 영상으로 소비하는 TikTok 사용자",
+  "wedge": "커리어 결정을 사주/타이밍 언어로 쉽게 정리해주는 15-35초 셀프체크형 숏폼",
+  "offer": {
+    "landingUrl": "/career/uncertainty",
+    "promise": "지금 버틸지, 옮길지, 준비할지 커리어 타이밍을 정리한다",
+    "price": "manual validation before pricing"
+  },
+  "channel": "TikTok",
+  "parentCampaign": {
+    "id": "career_timing_wedge_399",
+    "utmSource": "tiktok",
+    "utmCampaign": "career_timing_wedge_399",
+    "utmContent": "{{draftId}}"
+  },
+  "contentFormats": [
+    "career_timing_diagnosis",
+    "self_classification",
+    "saveable_tool",
+    "quiet_contrarian",
+    "friend_share",
+    "saju_myth_busting",
+    "landing_teaser"
+  ],
+  "manualMetricsPlan": [
+    "drafts generated",
+    "quality pass/fail",
+    "approved drafts",
+    "manual uploads",
+    "views",
+    "likes",
+    "comments",
+    "shares",
+    "saves",
+    "profile clicks",
+    "landing clicks",
+    "manual conversions"
+  ],
+  "metrics": {
+    "views": 0,
+    "clicks": 0,
+    "replies": 0,
+    "calls": 0,
+    "waitlist": 0,
+    "preorders": 0,
+    "paid": 0
+  },
+  "scores": {
+    "problem_strength": 4,
+    "willingness_to_pay": 2,
+    "reachability": 4,
+    "competition_gap": 3,
+    "delivery_feasibility": 4,
+    "monthly_revenue_potential": 3
+  },
+  "successCriteria": [
+    "21개 생성 시 5개 TikTok 포맷이 모두 최소 1회 등장",
+    "tiktok_career_timing quality pass rate >= 70%",
+    "generic self-help video drafts fail",
+    "approved drafts expose copy-ready script/caption/hashtags",
+    "manual performance score identifies top 2 formats after 48 hours"
+  ],
+  "status": "planned",
+  "evidence": []
+}

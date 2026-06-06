@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
 import { prisma } from "@/lib/prisma";
+import { normalizeViralIntentModeId } from "@/lib/viral-intent-modes";
 import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 
 function startOfToday(): Date {
@@ -47,6 +48,24 @@ export interface SummaryMetricPost {
   conversions: number | null;
   manualPaidConversions: number | null;
   qualityPass: boolean | null;
+}
+
+export interface SummaryViralModePost {
+  campaignFormulaId: string | null;
+}
+
+export function resolveSummaryViralIntentModeId(post: SummaryViralModePost): string | null {
+  if (!post.campaignFormulaId) return null;
+  return normalizeViralIntentModeId(post.campaignFormulaId);
+}
+
+export function buildViralModeBuckets(posts: SummaryViralModePost[]): Record<string, number> {
+  return posts.reduce<Record<string, number>>((buckets, post) => {
+    const modeId = resolveSummaryViralIntentModeId(post);
+    if (!modeId) return buckets;
+    buckets[modeId] = (buckets[modeId] ?? 0) + 1;
+    return buckets;
+  }, {});
 }
 
 export function sumMetricValue(posts: SummaryMetricPost[], metricName: string): number {
@@ -137,6 +156,7 @@ export async function GET(request: NextRequest) {
         qualityPass: post.qualityPass,
         qualityReasons: parseQualityReasons(post.qualityReasons),
         campaignFormulaId: post.campaignFormulaId,
+        viralIntentModeId: resolveSummaryViralIntentModeId(post),
         careerDecisionType: post.careerDecisionType,
         views: post.views ?? 0,
         replies: post.replies ?? 0,
@@ -147,6 +167,7 @@ export async function GET(request: NextRequest) {
         performanceScore: post.performanceScore ?? calculatePerformanceScore(post),
         performanceTier: post.performanceTier ?? getPerformanceTier(calculatePerformanceScore(post)),
       })),
+      viralModeBuckets: buildViralModeBuckets(posts),
       linkRatio: {
         linked,
         total: posts.length,

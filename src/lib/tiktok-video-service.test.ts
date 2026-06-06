@@ -1,8 +1,27 @@
 import type { Brand } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { generateTikTokVideoDrafts } from "@/lib/tiktok-video-service";
+import { buildTikTokPrompt, generateTikTokVideoDrafts } from "@/lib/tiktok-video-service";
+import { TIKTOK_VIDEO_EXPERIMENT_DEFAULT } from "@/types/tiktok-config";
 
 describe("generateTikTokVideoDrafts", () => {
+  it("keeps default quiet contrarian TikTok prompt free of question intake", () => {
+    const format = TIKTOK_VIDEO_EXPERIMENT_DEFAULT.formats.find((item) => item.id === "quiet_contrarian");
+
+    expect(format).toBeDefined();
+    if (!format) throw new Error("quiet_contrarian format missing");
+    const prompt = buildTikTokPrompt({
+      format,
+      durationSeconds: 25,
+      growthContext: "growth memory",
+      viralContext: "viral memory",
+      accountContext: "account memory",
+    });
+
+    expect(prompt).toContain("저장, 프로필 확인, 행동선 정리");
+    expect(prompt).not.toContain("질문 접수");
+    expect(prompt).not.toContain("댓글/프로필");
+  });
+
   it("rejects disabled TikTok video lab before generating drafts", async () => {
     const brand: Brand = {
       id: "brand_disabled_tiktok",
