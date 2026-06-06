@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
 import { parseExcelFile, parseMarkdownFile, ParsedPost, validatePost } from "@/lib/parser";
+import { generatePostsInChunks } from "@/lib/generate-client";
 import { Toaster, toast } from "sonner";
 import Link from "next/link";
 import type { AccountInsightSnapshot } from "@/types/account-intelligence";
@@ -519,13 +520,13 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     if (!confirm(`AI로 ${generateCount}개 포스트를 생성할까요? (약 1-2분 소요)`)) return;
     setIsGenerating(true);
     try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId, count: generateCount, insertAtFront, approvedCampaignStart: true }),
+      const data = await generatePostsInChunks({
+        brandId,
+        count: generateCount,
+        insertAtFront,
+        approvedCampaignStart: true,
+        fallbackMessage: "생성 실패",
       });
-      const data = await response.json() as { count?: number; linkedCount?: number; campaignId?: string | null; error?: string };
-      if (!response.ok) throw new Error(data.error ?? "생성 실패");
       const linkText = data.linkedCount !== undefined ? ` · 링크 ${data.linkedCount}개` : "";
       toast.success(`${data.count}개 포스트 생성 완료${linkText}`);
       await fetchPosts();

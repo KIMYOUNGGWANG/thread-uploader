@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { RefreshCw, Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import { generatePostsInChunks } from "@/lib/generate-client";
 import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
 import type { ActiveExperiment, BrandFormula, CampaignConfig, ProductProfile } from "@/types/brand";
 
@@ -53,19 +54,14 @@ export function ProductCampaignStartPanel({
     if (!window.confirm(`${activeExperiment.durationDays}일 캠페인으로 ${postCount}개 포스트를 생성할까요?`)) return;
     setIsStarting(true);
     try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          brandId,
-          count: postCount,
-          campaignId: activeCampaign?.id,
-          approvedCampaignStart: true,
-        }),
+      const data = await generatePostsInChunks({
+        brandId,
+        count: postCount,
+        campaignId: activeCampaign?.id,
+        approvedCampaignStart: true,
+        fallbackMessage: "캠페인 시작 실패",
       });
-      const data = await response.json() as { count?: number; error?: string };
-      if (!response.ok) throw new Error(data.error ?? "캠페인 시작 실패");
-      toast.success(`${data.count ?? postCount}개 포스트가 생성되었습니다`);
+      toast.success(`${data.count}개 포스트가 생성되었습니다`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "캠페인 시작 실패");
     } finally {
