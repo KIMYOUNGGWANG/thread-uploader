@@ -25,6 +25,22 @@ describe("readJsonObjectResponse", () => {
 });
 
 describe("generatePostsInChunks", () => {
+  it("throws a readable message when the API error field is an object", async () => {
+    const fetchMock = vi.fn(async () => (
+      new Response(JSON.stringify({ error: { message: "Claude quota exceeded" } }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      })
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(generatePostsInChunks({
+      brandId: "brand_1",
+      count: 1,
+      fallbackMessage: "생성 실패",
+    })).rejects.toThrow("Claude quota exceeded");
+  });
+
   it("splits large generation requests into smaller API calls", async () => {
     const fetchMock = vi.fn(async () => (
       new Response(JSON.stringify({ count: 7, linkedCount: 1, campaignId: "campaign_1" }), {

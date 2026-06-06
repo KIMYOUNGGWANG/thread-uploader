@@ -35,7 +35,15 @@ export async function readJsonObjectResponse<T extends object>(
 
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (isRecord(parsed)) return parsed as T & ApiErrorPayload;
+    if (isRecord(parsed)) {
+      if ("error" in parsed) {
+        return {
+          ...parsed,
+          error: normalizeApiErrorValue(parsed.error, fallbackMessage),
+        } as T & ApiErrorPayload;
+      }
+      return parsed as T & ApiErrorPayload;
+    }
     return { error: fallbackMessage } as T & ApiErrorPayload;
   } catch {
     return { error: normalizePlainTextError(raw, fallbackMessage) } as T & ApiErrorPayload;
@@ -87,4 +95,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function normalizePlainTextError(raw: string, fallbackMessage: string): string {
   const normalized = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   return normalized ? normalized.slice(0, 220) : fallbackMessage;
+}
+
+function normalizeApiErrorValue(value: unknown, fallbackMessage: string): string {
+  if (typeof value === "string") return value.trim() || fallbackMessage;
+  if (value instanceof Error) return value.message || fallbackMessage;
+  if (!isRecord(value)) return fallbackMessage;
+
+  const message = value.message ?? value.error ?? value.detail;
+  if (typeof message === "string") return message.trim() || fallbackMessage;
+  if (isRecord(message)) return normalizeApiErrorValue(message, fallbackMessage);
+
+  return normalizePlainTextError(JSON.stringify(value), fallbackMessage);
 }
