@@ -1,6 +1,10 @@
 import type { Brand } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { buildTikTokPrompt, generateTikTokVideoDrafts } from "@/lib/tiktok-video-service";
+import {
+  buildTikTokPrompt,
+  generateTikTokVideoDrafts,
+  normalizeTikTokCandidateFromRaw,
+} from "@/lib/tiktok-video-service";
 import { TIKTOK_VIDEO_EXPERIMENT_DEFAULT } from "@/types/tiktok-config";
 
 describe("generateTikTokVideoDrafts", () => {
@@ -20,6 +24,23 @@ describe("generateTikTokVideoDrafts", () => {
     expect(prompt).toContain("저장, 프로필 확인, 행동선 정리");
     expect(prompt).not.toContain("질문 접수");
     expect(prompt).not.toContain("댓글/프로필");
+  });
+
+  it("falls back when the AI returns a non-JSON error message", () => {
+    const format = TIKTOK_VIDEO_EXPERIMENT_DEFAULT.formats.find((item) => item.id === "self_classification");
+
+    expect(format).toBeDefined();
+    if (!format) throw new Error("self_classification format missing");
+    const candidate = normalizeTikTokCandidateFromRaw(
+      "An error occurred while generating the response.",
+      format,
+      25,
+      0
+    );
+
+    expect(candidate.title).toContain(format.name);
+    expect(candidate.script).toContain("버팀형");
+    expect(candidate.cta).toContain("저장");
   });
 
   it("rejects disabled TikTok video lab before generating drafts", async () => {

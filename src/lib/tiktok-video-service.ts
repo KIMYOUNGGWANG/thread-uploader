@@ -328,7 +328,20 @@ async function buildDraftCandidate(input: {
     }],
   });
   const raw = (message.content[0] as { text: string }).text.trim();
-  return normalizeCandidate(parseJsonObject(raw), input.format, input.durationSeconds, input.index);
+  return normalizeTikTokCandidateFromRaw(raw, input.format, input.durationSeconds, input.index);
+}
+
+export function normalizeTikTokCandidateFromRaw(
+  raw: string,
+  format: TikTokVideoFormatConfig,
+  durationSeconds: number,
+  index: number
+): DraftCandidate {
+  try {
+    return normalizeCandidate(parseJsonObject(raw), format, durationSeconds, index);
+  } catch {
+    return fallbackDraft(format, durationSeconds, index);
+  }
 }
 
 export function buildTikTokPrompt(input: {
