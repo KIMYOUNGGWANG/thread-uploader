@@ -7,9 +7,18 @@ const prisma = new PrismaClient();
 
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
 const FIRST_COMMENT_FAILURE_PREFIX = "First comment failed:";
+const DEFAULT_PUBLISH_BRAND_SLUGS = "cosmicpath";
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getPublishBrandSlugs() {
+    const rawSlugs = process.env.PUBLISH_BRAND_SLUGS || DEFAULT_PUBLISH_BRAND_SLUGS;
+    return rawSlugs
+        .split(",")
+        .map((slug) => slug.trim())
+        .filter(Boolean);
 }
 
 async function publishPost(text, credentials, imageUrls = []) {
@@ -117,6 +126,15 @@ async function main() {
 
     await refreshTokens({ prismaClient: prisma });
 
+    const publishBrandSlugs = getPublishBrandSlugs();
+    const brandFilter = publishBrandSlugs.length > 0
+        ? { brand: { slug: { in: publishBrandSlugs } } }
+        : {};
+
+    if (publishBrandSlugs.length > 0) {
+        console.log(`Publishing only brand slugs: ${publishBrandSlugs.join(", ")}`);
+    }
+
     const pendingPosts = await prisma.post.findMany({
         where: {
             status: "PENDING",
@@ -124,6 +142,7 @@ async function main() {
                 { qualityPass: true },
                 { qualityPass: null },
             ],
+            ...brandFilter,
         },
         include: { brand: true },
         orderBy: { scheduledAt: "asc" },
@@ -132,7 +151,7 @@ async function main() {
 
     if (pendingPosts.length === 0) {
         const blockedCount = await prisma.post.count({
-            where: { status: "PENDING", qualityPass: false },
+            where: { status: "PENDING", qualityPass: false, ...brandFilter },
         });
         if (blockedCount > 0) {
             console.log(`No publishable posts found. ${blockedCount} quality-failed posts are blocked.`);
@@ -172,6 +191,7 @@ async function main() {
                 data: {
                     status: "PUBLISHED",
                     threadsId,
+                    publishedAt: new Date(),
                     errorLog: replyErrorMessage
                         ? `${FIRST_COMMENT_FAILURE_PREFIX} ${replyErrorMessage}`
                         : null
