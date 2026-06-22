@@ -1157,6 +1157,378 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         {campaignSummary && (
           <PortfolioOverview summary={campaignSummary} />
         )}
+        <div className="space-y-6 mb-6">
+        {/* Account Intelligence Panel */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <button onClick={handleToggleAccountIntelligence} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <Activity className="w-4 h-4 text-emerald-500" />
+              Account Intelligence
+              {accountIntelligence?.latest && (
+                <span className="text-xs text-slate-400 font-normal">
+                  ({accountIntelligence.latest.actions.length} 액션)
+                </span>
+              )}
+            </div>
+            {showAccountIntelligence ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </button>
+
+          {showAccountIntelligence && (
+            <AccountIntelligencePanel
+              data={accountIntelligence}
+              isLoading={isLoadingAccountIntelligence}
+              isRunning={isRunningAccountIntelligence}
+              onRefresh={loadAccountIntelligence}
+              onRun={handleRunAccountIntelligence}
+            />
+          )}
+        </div>
+
+        {/* Campaign Experiment Panel */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <button onClick={handleToggleCampaign} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <Target className="w-4 h-4 text-cyan-500" />
+              Product Campaign Engine
+              {campaignSummary && <span className="text-xs text-slate-400 font-normal">({campaignSummary.campaign.id})</span>}
+            </div>
+            {showCampaign ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </button>
+
+          {showCampaign && (
+            <CampaignSummaryPanel
+              summary={campaignSummary}
+              isLoading={isLoadingCampaign}
+              drafts={campaignMetricDrafts}
+              savingPostId={savingCampaignMetricId}
+              onRefresh={loadCampaignSummary}
+              onDraftChange={handleCampaignDraftChange}
+              onSaveMetrics={handleSaveCampaignMetrics}
+            />
+          )}
+        </div>
+
+        {/* TikTok Video Lab Panel */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <button onClick={handleToggleTikTokLab} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <Video className="w-4 h-4 text-pink-500" />
+              TikTok Video Lab
+              {tiktokSummary && <span className="text-xs text-slate-400 font-normal">({tiktokSummary.totals.drafts} drafts)</span>}
+            </div>
+            {showTikTokLab ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </button>
+
+          {showTikTokLab && (
+            <TikTokVideoLabPanel
+              summary={tiktokSummary}
+              isLoading={isLoadingTikTok}
+              isGenerating={isGeneratingTikTok}
+              generateCount={tiktokGenerateCount}
+              metricDrafts={tiktokMetricDrafts}
+              savingMetricId={savingTikTokMetricId}
+              updatingDraftId={updatingTikTokDraftId}
+              renderingDraftId={renderingTikTokDraftId}
+              onGenerateCountChange={setTikTokGenerateCount}
+              onRefresh={loadTikTokSummary}
+              onGenerate={handleGenerateTikTokDrafts}
+              onUpdateStatus={handleUpdateTikTokStatus}
+              onRenderVideo={handleRenderTikTokVideo}
+              onMetricDraftChange={handleTikTokMetricDraftChange}
+              onSaveMetrics={handleSaveTikTokMetrics}
+            />
+          )}
+        </div>
+
+        {/* Demo Asset Generator Panel */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <button onClick={handleToggleDemoAssets} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <Sparkles className="w-4 h-4 text-violet-500" />
+              제품 데모 에셋 생성기
+            </div>
+            {showDemoAssets ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </button>
+
+          {showDemoAssets && (
+            <div className="border-t border-slate-100 dark:border-slate-700 p-4">
+              <DemoAssetGeneratorPanel brandId={brandId} />
+            </div>
+          )}
+        </div>
+
+        {/* Related Accounts Panel */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <button onClick={handleToggleRelatedAccounts} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <Users className="w-4 h-4 text-indigo-500" />
+              Related Accounts
+              {relatedAccounts && relatedAccounts.accounts.length > 0 && (
+                <span className="text-xs text-slate-400 font-normal">({relatedAccounts.accounts.length}개 후보)</span>
+              )}
+            </div>
+            {showRelatedAccounts ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </button>
+
+          {showRelatedAccounts && (
+            <RelatedAccountsPanel
+              data={relatedAccounts}
+              isLoading={isLoadingRelatedAccounts}
+              isDiscovering={isDiscoveringAccounts}
+              isAnalyzing={isAnalyzingAccounts}
+              handleInput={relatedHandleInput}
+              onHandleInputChange={setRelatedHandleInput}
+              onRefresh={loadRelatedAccounts}
+              onDiscover={handleDiscoverAccounts}
+              onAnalyze={handleAnalyzeAccounts}
+              onUpdateStatus={handleUpdateAccountStatus}
+            />
+          )}
+        </div>
+
+        {/* Viral Discovery Panel */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <button onClick={handleToggleViral} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <Flame className="w-4 h-4 text-rose-500" />
+              Viral Discovery Loop
+              {viral && viral.sampleSize > 0 && <span className="text-xs text-slate-400 font-normal">({viral.sampleSize}개 레퍼런스)</span>}
+            </div>
+            {showViral ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </button>
+
+          {showViral && (
+            <div className="border-t border-slate-100 dark:border-slate-700 p-4">
+              {isLoadingViral ? (
+                <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-rose-500" /></div>
+              ) : !viral || viral.sampleSize === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-6 text-center text-sm text-slate-400">
+                  <Radar className="w-8 h-8 opacity-40" />
+                  <div>
+                    <p>아직 바이럴 레퍼런스가 없습니다.</p>
+                    <p className="text-xs">제품 토픽과 게시물 성과를 기준으로 후보를 찾습니다.</p>
+                  </div>
+                  <Button size="sm" onClick={handleRunViralLoop} disabled={isRunningViral} className="bg-rose-600 hover:bg-rose-700 text-white">
+                    {isRunningViral ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Radar className="w-3.5 h-3.5 mr-1.5" />}
+                    {isRunningViral ? "실행 중..." : "바이럴 찾고 학습"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowManualReference((value) => !value)} disabled={isSavingManualReference}>
+                    <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                    수동 레퍼런스
+                  </Button>
+                  {showManualReference && (
+                    <ManualReferenceForm
+                      value={manualReference}
+                      onChange={setManualReference}
+                      onSubmit={handleSaveManualReference}
+                      isSaving={isSavingManualReference}
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900 p-3">
+                      <p className="text-xs text-rose-500 dark:text-rose-300">레퍼런스</p>
+                      <p className="text-xl font-bold text-slate-800 dark:text-white">{viral.sampleSize.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">평균 바이럴 점수</p>
+                      <p className="text-xl font-bold text-slate-800 dark:text-white">{viral.memory.avgViralScore.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 p-3">
+                      <p className="text-xs text-amber-600 dark:text-amber-300">학습 패턴</p>
+                      <p className="text-xl font-bold text-slate-800 dark:text-white">{viral.topPatterns.length.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {viral.memory.recommendations.length > 0 && (
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">바이럴 생성 지침</p>
+                      <div className="space-y-1">
+                        {viral.memory.recommendations.map((recommendation) => (
+                          <p key={recommendation} className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <ViralPatternList patterns={viral.topPatterns.slice(0, 5)} />
+                    <ViralExampleList examples={viral.examples.slice(0, 5)} />
+                  </div>
+
+                  {showManualReference && (
+                    <ManualReferenceForm
+                      value={manualReference}
+                      onChange={setManualReference}
+                      onSubmit={handleSaveManualReference}
+                      isSaving={isSavingManualReference}
+                    />
+                  )}
+
+                  {viral.errors && viral.errors.length > 0 && (
+                    <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/20 p-3">
+                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">외부 소스 일부 실패</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300">{viral.errors.slice(0, 2).map(formatViralSourceError).join(" / ")}</p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setShowManualReference((value) => !value)} disabled={isSavingManualReference || isRunningViral || isLearningViral} className="text-xs">
+                      <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                      수동 레퍼런스
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleLearnViral} disabled={isLearningViral || isRunningViral} className="text-xs">
+                      {isLearningViral ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5 mr-1.5" />}
+                      {isLearningViral ? "학습 중..." : "패턴만 재학습"}
+                    </Button>
+                    <Button size="sm" onClick={handleRunViralLoop} disabled={isRunningViral || isLearningViral} className="bg-rose-600 hover:bg-rose-700 text-white text-xs">
+                      {isRunningViral ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Radar className="w-3.5 h-3.5 mr-1.5" />}
+                      {isRunningViral ? "실행 중..." : "바이럴 찾고 학습"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Growth Learning Panel */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <button onClick={handleToggleGrowth} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <BrainCircuit className="w-4 h-4 text-violet-500" />
+              Growth Learning Loop
+              {growth && growth.sampleSize > 0 && <span className="text-xs text-slate-400 font-normal">({growth.sampleSize}개 학습)</span>}
+            </div>
+            {showGrowth ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </button>
+
+          {showGrowth && (
+            <div className="border-t border-slate-100 dark:border-slate-700 p-4">
+              {isLoadingGrowth ? (
+                <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-violet-500" /></div>
+              ) : !growth || growth.sampleSize === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-6 text-center text-sm text-slate-400">
+                  <Target className="w-8 h-8 opacity-40" />
+                  <div>
+                    <p>아직 학습 가능한 성과 데이터가 없습니다.</p>
+                    <p className="text-xs">메트릭 수집 후 패턴 학습을 실행하면 다음 생성 프롬프트에 반영됩니다.</p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={handleLearnGrowth} disabled={isLearningGrowth}>
+                    {isLearningGrowth ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5 mr-1.5" />}
+                    지금 학습
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-lg bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900 p-3">
+                      <p className="text-xs text-violet-500 dark:text-violet-300">학습 표본</p>
+                      <p className="text-xl font-bold text-slate-800 dark:text-white">{growth.sampleSize.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">평균 점수</p>
+                      <p className="text-xl font-bold text-slate-800 dark:text-white">{growth.memory.avgScore.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 p-3">
+                      <p className="text-xs text-emerald-600 dark:text-emerald-300">승자 패턴</p>
+                      <p className="text-xl font-bold text-slate-800 dark:text-white">{growth.memory.winners.length.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {growth.memory.recommendations.length > 0 && (
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">다음 배치 지침</p>
+                      <div className="space-y-1">
+                        {growth.memory.recommendations.map((recommendation) => (
+                          <p key={recommendation} className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <PatternList title="잘 먹힌 패턴" patterns={growth.topPatterns.slice(0, 5)} />
+                    <PatternList title="재실험 대상" patterns={growth.weakPatterns.slice(0, 5)} muted />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button size="sm" onClick={handleLearnGrowth} disabled={isLearningGrowth} className="bg-violet-600 hover:bg-violet-700 text-white text-xs">
+                      {isLearningGrowth ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5 mr-1.5" />}
+                      {isLearningGrowth ? "학습 중..." : "성과 패턴 다시 학습"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Analytics Panel */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <button onClick={handleToggleAnalytics} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <BarChart2 className="w-4 h-4 text-violet-500" />
+              공식별 성과 분석
+              {analytics && analytics.total > 0 && <span className="text-xs text-slate-400 font-normal">({analytics.total}개 게시물 기준)</span>}
+            </div>
+            {showAnalytics ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </button>
+
+          {showAnalytics && (
+            <div className="border-t border-slate-100 dark:border-slate-700 p-4">
+              {isLoadingAnalytics ? (
+                <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-violet-500" /></div>
+              ) : analytics?.message || !analytics?.byFormula.length ? (
+                <div className="text-center py-6 text-sm text-slate-400">
+                  <BarChart2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  아직 수집된 성과 데이터가 없어요.<br />
+                  <span className="text-xs">게시 후 2일이 지나면 자동으로 수집됩니다.</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-xs text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                          <th className="text-left pb-2 font-medium">공식</th>
+                          <th className="text-right pb-2 font-medium">횟수</th>
+                          <th className="text-right pb-2 font-medium">평균 조회</th>
+                          <th className="text-right pb-2 font-medium">평균 좋아요</th>
+                          <th className="text-right pb-2 font-medium">종합점수</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                        {analytics.byFormula.map((f, i) => (
+                          <tr key={f.formulaId} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                            <td className="py-2 font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                              {i === 0 ? <span className="text-xs">🥇</span> : i === analytics.byFormula.length - 1 && analytics.byFormula.length > 1 ? <span className="text-xs">🔻</span> : <span className="w-4" />}
+                              {f.formulaId}
+                            </td>
+                            <td className="py-2 text-right text-slate-500">{f.count}</td>
+                            <td className="py-2 text-right text-slate-600 dark:text-slate-300">{f.avgViews.toLocaleString()}</td>
+                            <td className="py-2 text-right text-slate-600 dark:text-slate-300">{f.avgLikes.toLocaleString()}</td>
+                            <td className="py-2 text-right font-semibold text-violet-600 dark:text-violet-400">{f.engagementScore.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <Button size="sm" onClick={handleOptimize} disabled={isOptimizing} className="bg-violet-600 hover:bg-violet-700 text-white text-xs">
+                      {isOptimizing ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 mr-1.5" />}
+                      {isOptimizing ? "최적화 중..." : "공식 가중치 최적화"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        </div>
         {isFetching && posts.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <RefreshCw className="w-8 h-8 animate-spin text-violet-500" />
@@ -1242,376 +1614,6 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                 </div>
               </div>
               <input type="file" accept=".xlsx,.md" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); }} />
-            </div>
-
-            {/* Account Intelligence Panel */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              <button onClick={handleToggleAccountIntelligence} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <Activity className="w-4 h-4 text-emerald-500" />
-                  Account Intelligence
-                  {accountIntelligence?.latest && (
-                    <span className="text-xs text-slate-400 font-normal">
-                      ({accountIntelligence.latest.actions.length} 액션)
-                    </span>
-                  )}
-                </div>
-                {showAccountIntelligence ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {showAccountIntelligence && (
-                <AccountIntelligencePanel
-                  data={accountIntelligence}
-                  isLoading={isLoadingAccountIntelligence}
-                  isRunning={isRunningAccountIntelligence}
-                  onRefresh={loadAccountIntelligence}
-                  onRun={handleRunAccountIntelligence}
-                />
-              )}
-            </div>
-
-            {/* Campaign Experiment Panel */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              <button onClick={handleToggleCampaign} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <Target className="w-4 h-4 text-cyan-500" />
-                  Product Campaign Engine
-                  {campaignSummary && <span className="text-xs text-slate-400 font-normal">({campaignSummary.campaign.id})</span>}
-                </div>
-                {showCampaign ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {showCampaign && (
-                <CampaignSummaryPanel
-                  summary={campaignSummary}
-                  isLoading={isLoadingCampaign}
-                  drafts={campaignMetricDrafts}
-                  savingPostId={savingCampaignMetricId}
-                  onRefresh={loadCampaignSummary}
-                  onDraftChange={handleCampaignDraftChange}
-                  onSaveMetrics={handleSaveCampaignMetrics}
-                />
-              )}
-            </div>
-
-            {/* TikTok Video Lab Panel */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              <button onClick={handleToggleTikTokLab} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <Video className="w-4 h-4 text-pink-500" />
-                  TikTok Video Lab
-                  {tiktokSummary && <span className="text-xs text-slate-400 font-normal">({tiktokSummary.totals.drafts} drafts)</span>}
-                </div>
-                {showTikTokLab ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {showTikTokLab && (
-                <TikTokVideoLabPanel
-                  summary={tiktokSummary}
-                  isLoading={isLoadingTikTok}
-                  isGenerating={isGeneratingTikTok}
-                  generateCount={tiktokGenerateCount}
-                  metricDrafts={tiktokMetricDrafts}
-                  savingMetricId={savingTikTokMetricId}
-                  updatingDraftId={updatingTikTokDraftId}
-                  renderingDraftId={renderingTikTokDraftId}
-                  onGenerateCountChange={setTikTokGenerateCount}
-                  onRefresh={loadTikTokSummary}
-                  onGenerate={handleGenerateTikTokDrafts}
-                  onUpdateStatus={handleUpdateTikTokStatus}
-                  onRenderVideo={handleRenderTikTokVideo}
-                  onMetricDraftChange={handleTikTokMetricDraftChange}
-                  onSaveMetrics={handleSaveTikTokMetrics}
-                />
-              )}
-            </div>
-
-            {/* Demo Asset Generator Panel */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              <button onClick={handleToggleDemoAssets} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <Sparkles className="w-4 h-4 text-violet-500" />
-                  제품 데모 에셋 생성기
-                </div>
-                {showDemoAssets ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {showDemoAssets && (
-                <div className="border-t border-slate-100 dark:border-slate-700 p-4">
-                  <DemoAssetGeneratorPanel brandId={brandId} />
-                </div>
-              )}
-            </div>
-
-            {/* Related Accounts Panel */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              <button onClick={handleToggleRelatedAccounts} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <Users className="w-4 h-4 text-indigo-500" />
-                  Related Accounts
-                  {relatedAccounts && relatedAccounts.accounts.length > 0 && (
-                    <span className="text-xs text-slate-400 font-normal">({relatedAccounts.accounts.length}개 후보)</span>
-                  )}
-                </div>
-                {showRelatedAccounts ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {showRelatedAccounts && (
-                <RelatedAccountsPanel
-                  data={relatedAccounts}
-                  isLoading={isLoadingRelatedAccounts}
-                  isDiscovering={isDiscoveringAccounts}
-                  isAnalyzing={isAnalyzingAccounts}
-                  handleInput={relatedHandleInput}
-                  onHandleInputChange={setRelatedHandleInput}
-                  onRefresh={loadRelatedAccounts}
-                  onDiscover={handleDiscoverAccounts}
-                  onAnalyze={handleAnalyzeAccounts}
-                  onUpdateStatus={handleUpdateAccountStatus}
-                />
-              )}
-            </div>
-
-            {/* Viral Discovery Panel */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              <button onClick={handleToggleViral} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <Flame className="w-4 h-4 text-rose-500" />
-                  Viral Discovery Loop
-                  {viral && viral.sampleSize > 0 && <span className="text-xs text-slate-400 font-normal">({viral.sampleSize}개 레퍼런스)</span>}
-                </div>
-                {showViral ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {showViral && (
-                <div className="border-t border-slate-100 dark:border-slate-700 p-4">
-                  {isLoadingViral ? (
-                    <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-rose-500" /></div>
-                  ) : !viral || viral.sampleSize === 0 ? (
-                    <div className="flex flex-col items-center gap-3 py-6 text-center text-sm text-slate-400">
-                      <Radar className="w-8 h-8 opacity-40" />
-                      <div>
-                        <p>아직 바이럴 레퍼런스가 없습니다.</p>
-                        <p className="text-xs">제품 토픽과 게시물 성과를 기준으로 후보를 찾습니다.</p>
-                      </div>
-                      <Button size="sm" onClick={handleRunViralLoop} disabled={isRunningViral} className="bg-rose-600 hover:bg-rose-700 text-white">
-                        {isRunningViral ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Radar className="w-3.5 h-3.5 mr-1.5" />}
-                        {isRunningViral ? "실행 중..." : "바이럴 찾고 학습"}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setShowManualReference((value) => !value)} disabled={isSavingManualReference}>
-                        <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                        수동 레퍼런스
-                      </Button>
-                      {showManualReference && (
-                        <ManualReferenceForm
-                          value={manualReference}
-                          onChange={setManualReference}
-                          onSubmit={handleSaveManualReference}
-                          isSaving={isSavingManualReference}
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <div className="rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900 p-3">
-                          <p className="text-xs text-rose-500 dark:text-rose-300">레퍼런스</p>
-                          <p className="text-xl font-bold text-slate-800 dark:text-white">{viral.sampleSize.toLocaleString()}</p>
-                        </div>
-                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
-                          <p className="text-xs text-slate-500 dark:text-slate-400">평균 바이럴 점수</p>
-                          <p className="text-xl font-bold text-slate-800 dark:text-white">{viral.memory.avgViralScore.toLocaleString()}</p>
-                        </div>
-                        <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 p-3">
-                          <p className="text-xs text-amber-600 dark:text-amber-300">학습 패턴</p>
-                          <p className="text-xl font-bold text-slate-800 dark:text-white">{viral.topPatterns.length.toLocaleString()}</p>
-                        </div>
-                      </div>
-
-                      {viral.memory.recommendations.length > 0 && (
-                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
-                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">바이럴 생성 지침</p>
-                          <div className="space-y-1">
-                            {viral.memory.recommendations.map((recommendation) => (
-                              <p key={recommendation} className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="grid gap-4 lg:grid-cols-2">
-                        <ViralPatternList patterns={viral.topPatterns.slice(0, 5)} />
-                        <ViralExampleList examples={viral.examples.slice(0, 5)} />
-                      </div>
-
-                      {showManualReference && (
-                        <ManualReferenceForm
-                          value={manualReference}
-                          onChange={setManualReference}
-                          onSubmit={handleSaveManualReference}
-                          isSaving={isSavingManualReference}
-                        />
-                      )}
-
-                      {viral.errors && viral.errors.length > 0 && (
-                        <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/20 p-3">
-                          <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">외부 소스 일부 실패</p>
-                          <p className="text-xs text-amber-700 dark:text-amber-300">{viral.errors.slice(0, 2).map(formatViralSourceError).join(" / ")}</p>
-                        </div>
-                      )}
-
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setShowManualReference((value) => !value)} disabled={isSavingManualReference || isRunningViral || isLearningViral} className="text-xs">
-                          <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                          수동 레퍼런스
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={handleLearnViral} disabled={isLearningViral || isRunningViral} className="text-xs">
-                          {isLearningViral ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5 mr-1.5" />}
-                          {isLearningViral ? "학습 중..." : "패턴만 재학습"}
-                        </Button>
-                        <Button size="sm" onClick={handleRunViralLoop} disabled={isRunningViral || isLearningViral} className="bg-rose-600 hover:bg-rose-700 text-white text-xs">
-                          {isRunningViral ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Radar className="w-3.5 h-3.5 mr-1.5" />}
-                          {isRunningViral ? "실행 중..." : "바이럴 찾고 학습"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Growth Learning Panel */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              <button onClick={handleToggleGrowth} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <BrainCircuit className="w-4 h-4 text-violet-500" />
-                  Growth Learning Loop
-                  {growth && growth.sampleSize > 0 && <span className="text-xs text-slate-400 font-normal">({growth.sampleSize}개 학습)</span>}
-                </div>
-                {showGrowth ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {showGrowth && (
-                <div className="border-t border-slate-100 dark:border-slate-700 p-4">
-                  {isLoadingGrowth ? (
-                    <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-violet-500" /></div>
-                  ) : !growth || growth.sampleSize === 0 ? (
-                    <div className="flex flex-col items-center gap-3 py-6 text-center text-sm text-slate-400">
-                      <Target className="w-8 h-8 opacity-40" />
-                      <div>
-                        <p>아직 학습 가능한 성과 데이터가 없습니다.</p>
-                        <p className="text-xs">메트릭 수집 후 패턴 학습을 실행하면 다음 생성 프롬프트에 반영됩니다.</p>
-                      </div>
-                      <Button size="sm" variant="outline" onClick={handleLearnGrowth} disabled={isLearningGrowth}>
-                        {isLearningGrowth ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5 mr-1.5" />}
-                        지금 학습
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <div className="rounded-lg bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900 p-3">
-                          <p className="text-xs text-violet-500 dark:text-violet-300">학습 표본</p>
-                          <p className="text-xl font-bold text-slate-800 dark:text-white">{growth.sampleSize.toLocaleString()}</p>
-                        </div>
-                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
-                          <p className="text-xs text-slate-500 dark:text-slate-400">평균 점수</p>
-                          <p className="text-xl font-bold text-slate-800 dark:text-white">{growth.memory.avgScore.toLocaleString()}</p>
-                        </div>
-                        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 p-3">
-                          <p className="text-xs text-emerald-600 dark:text-emerald-300">승자 패턴</p>
-                          <p className="text-xl font-bold text-slate-800 dark:text-white">{growth.memory.winners.length.toLocaleString()}</p>
-                        </div>
-                      </div>
-
-                      {growth.memory.recommendations.length > 0 && (
-                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
-                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">다음 배치 지침</p>
-                          <div className="space-y-1">
-                            {growth.memory.recommendations.map((recommendation) => (
-                              <p key={recommendation} className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="grid gap-4 lg:grid-cols-2">
-                        <PatternList title="잘 먹힌 패턴" patterns={growth.topPatterns.slice(0, 5)} />
-                        <PatternList title="재실험 대상" patterns={growth.weakPatterns.slice(0, 5)} muted />
-                      </div>
-
-                      <div className="flex justify-end">
-                        <Button size="sm" onClick={handleLearnGrowth} disabled={isLearningGrowth} className="bg-violet-600 hover:bg-violet-700 text-white text-xs">
-                          {isLearningGrowth ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5 mr-1.5" />}
-                          {isLearningGrowth ? "학습 중..." : "성과 패턴 다시 학습"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Analytics Panel */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              <button onClick={handleToggleAnalytics} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <BarChart2 className="w-4 h-4 text-violet-500" />
-                  공식별 성과 분석
-                  {analytics && analytics.total > 0 && <span className="text-xs text-slate-400 font-normal">({analytics.total}개 게시물 기준)</span>}
-                </div>
-                {showAnalytics ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {showAnalytics && (
-                <div className="border-t border-slate-100 dark:border-slate-700 p-4">
-                  {isLoadingAnalytics ? (
-                    <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-violet-500" /></div>
-                  ) : analytics?.message || !analytics?.byFormula.length ? (
-                    <div className="text-center py-6 text-sm text-slate-400">
-                      <BarChart2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                      아직 수집된 성과 데이터가 없어요.<br />
-                      <span className="text-xs">게시 후 2일이 지나면 자동으로 수집됩니다.</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="text-xs text-slate-400 border-b border-slate-100 dark:border-slate-700">
-                              <th className="text-left pb-2 font-medium">공식</th>
-                              <th className="text-right pb-2 font-medium">횟수</th>
-                              <th className="text-right pb-2 font-medium">평균 조회</th>
-                              <th className="text-right pb-2 font-medium">평균 좋아요</th>
-                              <th className="text-right pb-2 font-medium">종합점수</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
-                            {analytics.byFormula.map((f, i) => (
-                              <tr key={f.formulaId} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                <td className="py-2 font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                                  {i === 0 ? <span className="text-xs">🥇</span> : i === analytics.byFormula.length - 1 && analytics.byFormula.length > 1 ? <span className="text-xs">🔻</span> : <span className="w-4" />}
-                                  {f.formulaId}
-                                </td>
-                                <td className="py-2 text-right text-slate-500">{f.count}</td>
-                                <td className="py-2 text-right text-slate-600 dark:text-slate-300">{f.avgViews.toLocaleString()}</td>
-                                <td className="py-2 text-right text-slate-600 dark:text-slate-300">{f.avgLikes.toLocaleString()}</td>
-                                <td className="py-2 text-right font-semibold text-violet-600 dark:text-violet-400">{f.engagementScore.toLocaleString()}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="flex justify-end pt-1">
-                        <Button size="sm" onClick={handleOptimize} disabled={isOptimizing} className="bg-violet-600 hover:bg-violet-700 text-white text-xs">
-                          {isOptimizing ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 mr-1.5" />}
-                          {isOptimizing ? "최적화 중..." : "공식 가중치 최적화"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Posts Grid */}
