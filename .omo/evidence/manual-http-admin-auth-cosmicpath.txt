@@ -1,0 +1,11 @@
+HTTP/1.1 200 OK
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+set-cookie: auth_session=cmoci3wy20000kabqtmlkv4bs; Path=/; Expires=Sat, 13 Jun 2026 00:48:58 GMT; Max-Age=604800; HttpOnly; SameSite=lax
+Date: Sat, 06 Jun 2026 00:48:58 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"success":true,"user":{"id":"cmoci3wy20000kabqtmlkv4bs","email":"admin@example.com","name":"Admin"}}
+admin_login_exit=0

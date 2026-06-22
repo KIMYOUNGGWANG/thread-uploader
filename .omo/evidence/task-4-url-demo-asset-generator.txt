@@ -1,0 +1,17 @@
+
+> threads-uploader@0.1.0 demo-assets:worker
+> npx tsx scripts/demo-assets-worker.mjs --once --stage capture --job-id cmqlxb5tw0001fjlwtbhbbedo
+
+Processing job cmqlxb5tw0001fjlwtbhbbedo targeting URL: http://127.0.0.1:54006/invoiceflow
+Saving capture artifacts...
+CAPTURED
+
+> threads-uploader@0.1.0 demo-assets:worker
+> npx tsx scripts/demo-assets-worker.mjs --once --stage capture --job-id cmqlxevtc000195xzc34i7neo
+
+Processing job cmqlxevtc000195xzc34i7neo targeting URL: http://127.0.0.1:54885/redirect-private
+
+> threads-uploader@0.1.0 demo-assets:worker
+> npx tsx scripts/demo-assets-worker.mjs --once --stage capture --job-id cmqlxhvqk0001137pcjtx682i
+
+Processing job cmqlxhvqk0001137pcjtx682i targeting URL: http://127.0.0.1:55622/redirect-private

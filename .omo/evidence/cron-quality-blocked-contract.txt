@@ -1,0 +1,5 @@
+docs/api-spec.md:    reason: "no_pending" | "quality_blocked" | "publish_failed";
+src/app/api/cron/publish/route.ts:  const skipped: { brandId: string; brandName: string; reason: "no_pending" | "quality_blocked" | "publish_failed" }[] = [];
+src/app/api/cron/publish/route.ts:          reason: blockedCount > 0 ? "quality_blocked" : "no_pending",
+src/app/api/cron/publish/route.ts:        skipped.push({ brandId: brand.id, brandName: brand.name, reason: "quality_blocked" });
+exit=0

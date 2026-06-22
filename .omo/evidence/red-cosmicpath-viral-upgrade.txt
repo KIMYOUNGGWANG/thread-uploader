@@ -1,0 +1,313 @@
+
+> threads-uploader@0.1.0 test
+> vitest run --run src/types/brand.test.ts src/app/api/generate/route.test.ts src/lib/quality-gate.test.ts src/lib/viral-analysis.test.ts
+
+
+ RUN  v4.1.8 /Users/kim-young-gwang/Desktop/projects/threads-uploader
+
+ ❯ src/lib/viral-analysis.test.ts (3 tests | 3 failed) 21ms
+     × detects self-classification mechanics distinctly 14ms
+     × detects saveable tools distinctly 3ms
+     × recommends participatory mechanics from learned examples 3ms
+ ❯ src/lib/quality-gate.test.ts (8 tests | 2 failed) 21ms
+     × fails reply-burden CTA for career decision content 8ms
+     × fails overclaiming fortune promises 6ms
+ ❯ src/types/brand.test.ts (9 tests | 2 failed) 21ms
+     × normalizes legacy comment diagnosis formulas into low-touch self classification 9ms
+     × defaults CosmicPath campaign formulas to self classification and saveable tools 3ms
+ ❯ src/app/api/generate/route.test.ts (7 tests | 2 failed) 49ms
+     × includes viral mode and success metric in generation prompt 23ms
+     × bans reply-dependent CTA in every generation prompt 13ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/quality-gate.test.ts > checkQuality > fails reply-burden CTA for career decision content
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/lib/quality-gate.test.ts:57:25
+     55|     );
+     56|
+     57|     expect(result.pass).toBe(false);
+       |                         ^
+     58|     expect(result.reasons.join(" ")).toContain("reply-burden");
+     59|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  src/lib/quality-gate.test.ts > checkQuality > fails overclaiming fortune promises
+AssertionError: expected '사주 전문 용어 없음 — generic 콘텐츠 의심 훅 없는 첫 줄…' to contain 'overclaim'
+
+Expected: "overclaim"
+Received: "사주 전문 용어 없음 — generic 콘텐츠 의심 훅 없는 첫 줄: "지금 연락하면 상대 마음 100% 알려준다""
+
+ ❯ src/lib/quality-gate.test.ts:68:38
+     66|
+     67|     expect(result.pass).toBe(false);
+     68|     expect(result.reasons.join(" ")).toContain("overclaim");
+       |                                      ^
+     69|   });
+     70|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  src/lib/viral-analysis.test.ts > analyzeViralText > detects self-classification mechanics distinctly
+AssertionError: expected '짧은 선언' to be '자기분류' // Object.is equality
+
+Expected: "자기분류"
+Received: "짧은 선언"
+
+ ❯ src/lib/viral-analysis.test.ts:13:36
+     11|     );
+     12|
+     13|     expect(analysis.structureType).toBe("자기분류");
+       |                                    ^
+     14|     expect(analysis.ctaType).toBe("자기분류 댓글");
+     15|     expect(analysis.keyTakeaway).toContain("자기분류");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  src/lib/viral-analysis.test.ts > analyzeViralText > detects saveable tools distinctly
+AssertionError: expected '리스트' to be '저장형 도구' // Object.is equality
+
+Expected: "저장형 도구"
+Received: "리스트"
+
+ ❯ src/lib/viral-analysis.test.ts:23:36
+     21|     );
+     22|
+     23|     expect(analysis.structureType).toBe("저장형 도구");
+       |                                    ^
+     24|     expect(analysis.ctaType).toBe("저장 유도");
+     25|     expect(analysis.keyTakeaway).toContain("저장형 도구");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  src/lib/viral-analysis.test.ts > buildViralMemory > recommends participatory mechanics from learned examples
+AssertionError: expected '다음 배치에서 첫 문장 \'질문형 훅\' 패턴을 새 주장으로 변주해…' to contain '자기분류'
+
+Expected: "자기분류"
+Received: "다음 배치에서 첫 문장 '질문형 훅' 패턴을 새 주장으로 변주해 테스트하세요."
+
+ ❯ src/lib/viral-analysis.test.ts:45:51
+     43|     ]);
+     44|
+     45|     expect(memory.topPatterns[0]?.recommendation).toContain("자기분류");
+       |                                                   ^
+     46|     expect(memory.recommendations.join(" ")).toContain("자기분류");
+     47|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  src/types/brand.test.ts > parseBrandConfig > normalizes legacy comment diagnosis formulas into low-touch self classification
+AssertionError: expected 'comment_diagnosis' to be 'self_classification' // Object.is equality
+
+Expected: "self_classification"
+Received: "comment_diagnosis"
+
+ ❯ src/types/brand.test.ts:109:50
+    107|     }));
+    108|
+    109|     expect(config.campaigns[0]?.formulas[0]?.id).toBe("self_classifica…
+       |                                                  ^
+    110|     expect(config.campaigns[0]?.formulas[0]?.instruction).toContain("A…
+    111|     expect(config.campaigns[0]?.formulas[0]?.instruction).not.toMatch(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  src/types/brand.test.ts > parseBrandConfig > defaults CosmicPath campaign formulas to self classification and saveable tools
+AssertionError: expected [ 'comment_diagnosis', …(2) ] to include 'self_classification'
+ ❯ src/types/brand.test.ts:118:24
+    116|     const formulaText = CAREER_TIMING_WEDGE_399.formulas.map((formula)…
+    117|
+    118|     expect(formulaIds).toContain("self_classification");
+       |                        ^
+    119|     expect(formulaIds).toContain("saveable_tool");
+    120|     expect(formulaText).toContain("A/B/C");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  src/app/api/generate/route.test.ts > buildGenerationPrompt > includes viral mode and success metric in generation prompt
+AssertionError: expected '[공식: 댓글 진단형]\n댓글에 현재 상황을 쓰면 버팀형/이동형/준…' to contain '[바이럴 의도 모드]'
+
+- Expected
++ Received
+
+- [바이럴 의도 모드]
++ [공식: 댓글 진단형]
++ 댓글에 현재 상황을 쓰면 버팀형/이동형/준비형 중 어디에 가까운지 분류해준다는 구조로 작성한다.
++
++ [제품 프로필]
++ 제품명: Untitled Product
++ 한 줄 설명: 미설정
++ 타깃 고객: 미설정
++ 오퍼 약속: 미설정
++ 랜딩 URL: 미설정
++ 주요 채널: threads
++ 핵심 지표: views
++ 전환 지표: conversions
++ 포지셔닝 메모: 미설정
++ [현재 실험]
++ 실험명: Baseline growth loop
++ 가설: Generate owned-product content and learn which message earns qualified attention.
++ 단계: content
++ 기간: 7일
++ 핵심 지표: views
++ 가드레일: quality_pass_rate
++ 상태: active
++
++ [캠페인]
++ 커리어 타이밍 불안 wedge (career_timing_wedge_399)
++ [품질 프로필]
++ career_decision
++ [중요: 캠페인 예외]
++ - 브랜드 기본 프롬프트의 '댓글로 남겨줘 금지'는 일반 사주 글 기준이다.
++ - 이 캠페인은 댓글 자기분류 실험이므로 본문 안에 선택형 댓글 CTA가 있어야 한다.
++ - 개인 질문 접수, 답글 약속, 무료 풀이 약속처럼 보이는 문장 금지.
++ - 댓글은 A/B/C, 버팀형/이동형/준비형, 연락/대기/축소/보류처럼 사용자가 스스로 고르는 구조로 쓴다.
++ [커리어 wedge 필수 조건]
++ - 첫 줄은 반드시 이직/퇴사/버틸지/옮길지/번아웃/월급 현타/동기보다 뒤처짐 중 하나의 커리어 불안으로 시작
++ - 댓글에는 장문 사연이 아니라 자기 상태에 가까운 선택지만 남기게 만들기
++ - 본문 후반에 버팀형/이동형/준비형 또는 A/B/C 분류 프레임을 명확히 넣기
++ - '좋은 일이 올 거예요' 같은 generic 자기계발 문장 금지
++ - 사주 전문용어를 억지로 넣지 말고, 타이밍/흐름/성향/결정 패턴 정도로 CosmicPath 결을 유지
++ - 마지막 2줄 안에 댓글 CTA 또는 친구 공유 CTA를 넣기
++ [링크 정책]
++ 이번 글은 링크 없이 댓글/프로필 방문만 유도
++
++ [Threads 길이 제한]
++ - 본문은 공백과 줄바꿈을 포함해 반드시 500자 이하로 작성한다.
++ - 권장 본문 길이는 460자 이하이며, 길면 예시와 수식어를 줄인다.
++ - 500자를 넘으면 품질 실패로 처리되어 업로드할 수 없다.
++ - 첫 댓글은 구분자 아래에 별도로 짧게 작성한다.
++ [주제]
++ 연락 타이밍
++ [타겟 독자]
++ 연락을 고민하는 사람
++ [상황/맥락]
++ 답장을 보낼지 망설이는 상황
++ [훅 유형]
++ 질문형 훅
++ [CTA 유형]
++ 댓글 자기분류
++ [이번 글 변주]
++ 각도: A/B/C 분류
++ 구조: 체크박스형
++ [성과 학습 메모리]
++ growth memory
++ [바이럴 레퍼런스 학습 메모리]
++ viral memory
++ [최근 생성 글 회피]
++ 최근 생성 글 없음. 같은 첫 문장/같은 구조/같은 결론 반복은 피한다.
++
++ 위 실험 조건을 조합해서 500자 이하 Threads 포스트 1개를 작성해줘. 작성 후 ===FIRST_COMMENT=== 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.
++ 본문과 첫 댓글에 실제 URL은 쓰지 마. 시스템이 저장 후 필요한 경우 UTM 링크를 붙인다.
+
+ ❯ src/app/api/generate/route.test.ts:152:20
+    150|     const prompt = buildGenerationPrompt(experiment, config, "growth m…
+    151|
+    152|     expect(prompt).toContain("[바이럴 의도 모드]");
+       |                    ^
+    153|     expect(prompt).toContain("self_classification");
+    154|     expect(prompt).toContain("성공 지표: replies");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  src/app/api/generate/route.test.ts > buildGenerationPrompt > bans reply-dependent CTA in every generation prompt
+AssertionError: expected '[공식: 댓글 진단형]\n댓글에 현재 상황을 쓰면 버팀형/이동형/준…' to contain '개인 질문 접수, 답글 약속, 무료 풀이 약속 금지'
+
+- Expected
++ Received
+
+- 개인 질문 접수, 답글 약속, 무료 풀이 약속 금지
++ [공식: 댓글 진단형]
++ 댓글에 현재 상황을 쓰면 버팀형/이동형/준비형 중 어디에 가까운지 분류해준다는 구조로 작성한다.
++
++ [제품 프로필]
++ 제품명: Untitled Product
++ 한 줄 설명: 미설정
++ 타깃 고객: 미설정
++ 오퍼 약속: 미설정
++ 랜딩 URL: 미설정
++ 주요 채널: threads
++ 핵심 지표: views
++ 전환 지표: conversions
++ 포지셔닝 메모: 미설정
++ [현재 실험]
++ 실험명: Baseline growth loop
++ 가설: Generate owned-product content and learn which message earns qualified attention.
++ 단계: content
++ 기간: 7일
++ 핵심 지표: views
++ 가드레일: quality_pass_rate
++ 상태: active
++
++ [캠페인]
++ 커리어 타이밍 불안 wedge (career_timing_wedge_399)
++ [품질 프로필]
++ career_decision
++ [중요: 캠페인 예외]
++ - 브랜드 기본 프롬프트의 '댓글로 남겨줘 금지'는 일반 사주 글 기준이다.
++ - 이 캠페인은 댓글 자기분류 실험이므로 본문 안에 선택형 댓글 CTA가 있어야 한다.
++ - 개인 질문 접수, 답글 약속, 무료 풀이 약속처럼 보이는 문장 금지.
++ - 댓글은 A/B/C, 버팀형/이동형/준비형, 연락/대기/축소/보류처럼 사용자가 스스로 고르는 구조로 쓴다.
++ [커리어 wedge 필수 조건]
++ - 첫 줄은 반드시 이직/퇴사/버틸지/옮길지/번아웃/월급 현타/동기보다 뒤처짐 중 하나의 커리어 불안으로 시작
++ - 댓글에는 장문 사연이 아니라 자기 상태에 가까운 선택지만 남기게 만들기
++ - 본문 후반에 버팀형/이동형/준비형 또는 A/B/C 분류 프레임을 명확히 넣기
++ - '좋은 일이 올 거예요' 같은 generic 자기계발 문장 금지
++ - 사주 전문용어를 억지로 넣지 말고, 타이밍/흐름/성향/결정 패턴 정도로 CosmicPath 결을 유지
++ - 마지막 2줄 안에 댓글 CTA 또는 친구 공유 CTA를 넣기
++ [링크 정책]
++ 이번 글은 링크 없이 댓글/프로필 방문만 유도
++
++ [Threads 길이 제한]
++ - 본문은 공백과 줄바꿈을 포함해 반드시 500자 이하로 작성한다.
++ - 권장 본문 길이는 460자 이하이며, 길면 예시와 수식어를 줄인다.
++ - 500자를 넘으면 품질 실패로 처리되어 업로드할 수 없다.
++ - 첫 댓글은 구분자 아래에 별도로 짧게 작성한다.
++ [주제]
++ 이직 타이밍
++ [타겟 독자]
++ 이직을 고민하는 사람
++ [상황/맥락]
++ 퇴사와 이직 사이에서 흔들리는 상황
++ [훅 유형]
++ 체크리스트형 훅
++ [CTA 유형]
++ 댓글 자기분류
++ [이번 글 변주]
++ 각도: A/B/C 분류
++ 구조: 번호 3개
++ [성과 학습 메모리]
++ growth memory
++ [바이럴 레퍼런스 학습 메모리]
++ viral memory
++ [최근 생성 글 회피]
++ 최근 생성 글 없음. 같은 첫 문장/같은 구조/같은 결론 반복은 피한다.
++
++ 위 실험 조건을 조합해서 500자 이하 Threads 포스트 1개를 작성해줘. 작성 후 ===FIRST_COMMENT=== 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.
++ 본문과 첫 댓글에 실제 URL은 쓰지 마. 시스템이 저장 후 필요한 경우 UTM 링크를 붙인다.
+
+ ❯ src/app/api/generate/route.test.ts:184:20
+    182|     const prompt = buildGenerationPrompt(experiment, config, "growth m…
+    183|
+    184|     expect(prompt).toContain("개인 질문 접수, 답글 약속, 무료 풀이 약속 금지");
+       |                    ^
+    185|     expect(prompt).toContain("장문 사연 요청 금지");
+    186|     expect(prompt).not.toContain("상황을 쓰면 분류해준다");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  4 failed (4)
+      Tests  9 failed | 18 passed (27)
+   Start at  17:34:59
+   Duration  719ms (transform 847ms, setup 0ms, import 1.13s, tests 113ms, environment 0ms)
+
+exit=1

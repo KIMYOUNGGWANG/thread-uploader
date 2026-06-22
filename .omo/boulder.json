@@ -1,0 +1,43 @@
+{
+  "task": "cosmicpath-viral-upgrade",
+  "status": "reviewer_ready_after_dashboard_memory_label_fix",
+  "finalBrandId": "cmq1rxs47000127ar76tbkjtl",
+  "finalCampaignId": "career_timing_wedge_399",
+  "evidence": {
+    "tests": ".omo/evidence/final-targeted-tests-cosmicpath-viral-upgrade.txt",
+    "typecheck": ".omo/evidence/typecheck-cosmicpath-viral-upgrade.txt",
+    "build": ".omo/evidence/build-cosmicpath-viral-upgrade.txt",
+    "generateHttp": ".omo/evidence/task-7-generate-sprint.http",
+    "sprintAudit": ".omo/evidence/task-7-sprint-audit.txt",
+    "summaryHttp": ".omo/evidence/task-7-summary.http",
+    "manualQa": ".omo/evidence/f3-manual-qa.md",
+    "scopeFidelity": ".omo/evidence/f4-scope-fidelity.txt",
+    "docPromptContract": ".omo/evidence/reviewer-9-doc-prompt-contract.txt",
+    "routeFixTests": ".omo/evidence/reviewer-9-fix-generate-route-tests.txt",
+    "tiktokContract": ".omo/evidence/reviewer-9-tiktok-contract.txt",
+    "tiktokFixTests": ".omo/evidence/reviewer-9-tiktok-fix-tests.txt",
+    "dashboardMemoryContract": ".omo/evidence/reviewer-9-dashboard-memory-contract.txt"
+  },
+  "finalAudit": {
+    "newestCount": 28,
+    "modeBuckets": {
+      "self_classification": 7,
+      "saveable_tool": 7,
+      "quiet_contrarian": 7,
+      "friend_share": 7
+    },
+    "passEligibleBuckets": {
+      "self_classification": 7,
+      "saveable_tool": 7,
+      "quiet_contrarian": 7,
+      "friend_share": 7
+    },
+    "lengthFailedCount": 0,
+    "qualityFailedCount": 0,
+    "replyBurdenQualityPassCount": 0,
+    "generatedMetaQualityPassCount": 0,
+    "overclaimQualityPassCount": 0,
+    "duplicateFirstLineCount": 0,
+    "result": "PASS"
+  }
+}

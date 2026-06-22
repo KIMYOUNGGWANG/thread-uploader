@@ -1,0 +1,10 @@
+clean_brand_id=cmq1p1xpk0001q3cijsa9urhx
+newest_count=4
+{"id":"cmq1p3e3a0009q3cicyyxzkca","length":325,"qualityPass":true,"campaignFormulaId":"self_classification","replyBurden":false,"preview":"번아웃이 와도 \"지금 버텨야 하나, 나가야 하나\"가 동시에 드는 사람 있지 않나요.\n\n둘 다 맞을 수 있어요. 근데 타이밍이 다를 뿐.\n\n지금 어느 쪽에 더 가까운지 한 번 봐요.\n\n**A. 버팀형**\n— 지치긴 했는데 아직 여기서 뭔가 건질 게 있다는 감각이 남아있다\n\n**B. 이동형"}
+{"id":"cmq1p3e150007q3cigo9vhz7c","length":352,"qualityPass":false,"campaignFormulaId":"self_classification","replyBurden":false,"preview":"**[본문]**\n\n이직 고민이 6개월째라면, 이미 패턴이 생긴 거다.\n\n월요일 아침마다 \"이번 주는 버텨보자\" → 금요일 저녁엔 \"이제 진짜 나가야 해\" → 주말 지나면 다시 원점.\n\n이 루프가 반복된다면 결정 문제가 아니라 **타이밍 감각의 문제**일 수 있다.\n\n지금 자기 상태가 어"}
+{"id":"cmq1p3dz10005q3cio0zr9g4d","length":378,"qualityPass":true,"campaignFormulaId":"self_classification","replyBurden":false,"preview":"이직 타이밍은 \"좋은 회사가 나타날 때\"가 아니라는 말, 동의해?\n\n대부분은 불만이 쌓일 때 움직인다.\n근데 불만이 정점일 때 이직하면 판단이 흐려진다.\n지쳐서 고른 선택지는 나중에 또 다른 지침이 된다.\n\n반대로 너무 버티면 — 시장 감각이 무뎌지고,\n'이 정도면 됐지' 기준이 낮아진"}
+{"id":"cmq1p3dqg0003q3cip52viji6","length":292,"qualityPass":true,"campaignFormulaId":"self_classification","replyBurden":false,"preview":"번아웃인데 퇴사는 겁나고, 버티자니 한계인 느낌 알아?\n\n\"이건 그냥 내가 약한 거 아닐까\" 싶지.\n근데 이 느낌, 의지력 문제가 아닌 경우가 꽤 있어.\n\n문제는 지금 내가 어느 상태냐는 거.\n\n**A. 버팀형** — 힘들지만 아직 떠날 타이밍이 아니다 싶다\n**B. 이동형** — 이미"}
+quality_failed_count=1
+reply_burden_quality_pass_count=0
+curl_exit=0
+audit_exit=0

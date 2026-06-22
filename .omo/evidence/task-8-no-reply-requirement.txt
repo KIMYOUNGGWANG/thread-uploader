@@ -1,0 +1,2 @@
+no mandatory reply rule found
+exit=0

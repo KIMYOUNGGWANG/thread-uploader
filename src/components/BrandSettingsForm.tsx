@@ -14,9 +14,9 @@ import { ProductSettingsTab } from "@/components/ProductSettingsTab";
 
 interface InitialData {
   name: string;
-  accessToken: string;
-  threadsUserId: string;
-  tokenExpiry: string;
+  accessToken: string | null;
+  threadsUserId: string | null;
+  tokenExpiry: string | null;
   config: BrandConfig;
 }
 
@@ -36,9 +36,9 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
 
   // 기본 정보
   const [name, setName] = useState(initialData.name);
-  const [accessToken, setAccessToken] = useState(initialData.accessToken);
-  const [threadsUserId, setThreadsUserId] = useState(initialData.threadsUserId);
-  const [tokenExpiry, setTokenExpiry] = useState(initialData.tokenExpiry);
+  const [accessToken, setAccessToken] = useState(initialData.accessToken ?? "");
+  const [threadsUserId, setThreadsUserId] = useState(initialData.threadsUserId ?? "");
+  const [tokenExpiry, setTokenExpiry] = useState(initialData.tokenExpiry ?? "");
 
   // AI 설정
   const [systemPrompt, setSystemPrompt] = useState(initialData.config.systemPrompt);

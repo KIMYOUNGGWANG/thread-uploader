@@ -85,6 +85,7 @@ async function refreshRecentMetrics(brand: Brand, windowStart: Date): Promise<Me
   });
 
   const result = { attempted: posts.length, updated: 0, failed: 0 };
+  if (!brand.accessToken) return result;
   for (const post of posts) {
     try {
       const insights = await fetchPostInsightsForBrand(post.threadsId!, brand.accessToken);

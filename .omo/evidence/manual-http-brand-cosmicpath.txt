@@ -1,0 +1,11 @@
+slug=cosmicpath-qa-1780706886
+HTTP/1.1 500 Internal Server Error
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+Date: Sat, 06 Jun 2026 00:48:06 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"error":"제품 생성 실패"}
+brand_exit=0

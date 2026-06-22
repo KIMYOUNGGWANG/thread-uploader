@@ -1,0 +1,13 @@
+
+> threads-uploader@0.1.0 test
+> vitest run --run src/lib/tiktok-video-service.test.ts src/lib/tiktok-video-quality.test.ts
+
+
+ RUN  v4.1.8 /Users/kim-young-gwang/Desktop/projects/threads-uploader
+
+
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+   Start at  20:18:11
+   Duration  652ms (transform 446ms, setup 0ms, import 601ms, tests 16ms, environment 0ms)
+

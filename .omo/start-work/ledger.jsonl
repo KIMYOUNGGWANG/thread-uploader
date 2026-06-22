@@ -1,0 +1,30 @@
+{"event":"red","status":"failed-as-expected","evidence":".omo/evidence/red-cosmicpath-viral-upgrade.txt"}
+{"event":"green","status":"passed","evidence":".omo/evidence/green-wave-code-cosmicpath-viral-upgrade.txt"}
+{"event":"final-tests","status":"passed","evidence":".omo/evidence/final-targeted-tests-cosmicpath-viral-upgrade.txt"}
+{"event":"typecheck","status":"passed","evidence":".omo/evidence/typecheck-cosmicpath-viral-upgrade.txt"}
+{"event":"build","status":"passed","evidence":".omo/evidence/build-cosmicpath-viral-upgrade.txt"}
+{"event":"manual-http-generate","status":"passed","evidence":".omo/evidence/manual-http-generate-cosmicpath.txt"}
+{"event":"manual-post-audit","status":"passed","evidence":".omo/evidence/manual-http-posts-audit-cosmicpath.txt"}
+{"event":"manual-summary","status":"passed","evidence":".omo/evidence/manual-http-campaign-summary-cosmicpath.txt"}
+{"event":"reviewer-fix","status":"implemented","evidence":"src/app/api/generate/route.ts + src/app/api/campaigns/summary/route.ts"}
+{"event":"reviewer-fix-tests","status":"passed","evidence":".omo/evidence/final-targeted-tests-cosmicpath-viral-upgrade.txt"}
+{"event":"reviewer-fix-manual-http","status":"passed","evidence":".omo/evidence/manual-http-posts-audit-cosmicpath.txt"}
+{"event":"reviewer-fix-2","status":"implemented","evidence":"summary unknown null + POST matrix + TikTok contract"}
+{"event":"reviewer-fix-2-tests","status":"passed","evidence":".omo/evidence/final-targeted-tests-cosmicpath-viral-upgrade.txt"}
+{"event":"reviewer-fix-2-contract","status":"passed","evidence":".omo/evidence/docs-api-formula-contract-cosmicpath.txt"}
+{"event":"reviewer-fix-3","status":"implemented","evidence":"TikTok prompt/quality low-touch guardrails"}
+{"event":"reviewer-fix-3-tests","status":"passed","evidence":".omo/evidence/final-targeted-tests-cosmicpath-viral-upgrade.txt"}
+{"event":"reviewer-fix-3-contract","status":"passed","evidence":".omo/evidence/tiktok-no-reply-burden-contract.txt"}
+{"event":"reviewer-fix-4","status":"implemented","evidence":"primary Threads situation-review reply-burden gate"}
+{"event":"reviewer-fix-4-manual-clean-brand","status":"passed","evidence":".omo/evidence/manual-http-posts-audit-cosmicpath.txt"}
+{"event":"reviewer-fix-5","status":"implemented","evidence":"publish-time safety guard for manual and cron publish"}
+{"event":"reviewer-fix-5-tests","status":"passed","evidence":".omo/evidence/publish-safety-route-tests.txt"}
+{"event":"reviewer-fix-5-http-blocker","status":"external-db-unreachable","evidence":".omo/evidence/manual-http-create-stale-publish-guard-post.txt"}
+{"event":"reviewer-fix-6","status":"implemented","evidence":"real HTTP count=28 sprint + cron quality_blocked docs"}
+{"event":"reviewer-fix-6-http-28","status":"passed","evidence":".omo/evidence/task-7-generate-sprint.http"}
+{"event":"reviewer-fix-6-sprint-audit","status":"passed","evidence":".omo/evidence/task-7-sprint-audit.txt"}
+{"event":"reviewer-fix-6-cron-contract","status":"passed","evidence":".omo/evidence/cron-quality-blocked-contract.txt"}
+{"event":"final_http_sprint_pass","task":"cosmicpath-viral-upgrade","brandId":"cmq1raek50001fxgrm8z885zr","count":28,"qualityFailedCount":0,"replyBurdenQualityPassCount":0,"generatedMetaQualityPassCount":0,"duplicateFirstLineCount":0,"modeBuckets":{"self_classification":7,"saveable_tool":7,"quiet_contrarian":7,"friend_share":7}}
+{"event":"reviewer_9_fixes_final_http_sprint_pass","task":"cosmicpath-viral-upgrade","brandId":"cmq1rxs47000127ar76tbkjtl","count":28,"qualityFailedCount":0,"replyBurdenQualityPassCount":0,"generatedMetaQualityPassCount":0,"duplicateFirstLineCount":0,"modeBuckets":{"self_classification":7,"saveable_tool":7,"quiet_contrarian":7,"friend_share":7}}
+{"event":"reviewer_9_tiktok_question_intake_fix","task":"cosmicpath-viral-upgrade","tests":"12 files / 47 tests passed","tiktokContract":"no question-intake/reply-burden matches"}
+{"event":"reviewer_9_dashboard_memory_label_fix","task":"cosmicpath-viral-upgrade","tests":"12 files / 47 tests passed","dashboardMemoryContract":"stale labels absent; new labels present"}

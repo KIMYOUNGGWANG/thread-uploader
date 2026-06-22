@@ -291,6 +291,10 @@ export async function refreshBrandAccessToken(brandId: string): Promise<{
         throw new Error(`Brand not found: ${brandId}`);
     }
 
+    if (!brand.accessToken) {
+        throw new Error(`Threads access token is missing for brand: ${brand.name}`);
+    }
+
     const response = await fetch(
         `https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=${brand.accessToken}`
     );
@@ -339,6 +343,10 @@ export async function getFreshBrandCredentials(brandId: string): Promise<Threads
 
     if (!brand) {
         throw new Error(`Brand not found: ${brandId}`);
+    }
+
+    if (!brand.accessToken || !brand.threadsUserId || !brand.tokenExpiry) {
+        throw new Error(`Threads credentials are not configured for this brand.`);
     }
 
     if (!isTokenRefreshDue(brand.tokenExpiry)) {

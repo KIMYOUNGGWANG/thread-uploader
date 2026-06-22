@@ -340,17 +340,17 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             )}
           </div>
 
-          <Field label="Threads Access Token" required>
+          <Field label="Threads Access Token">
             <input
-              type="password" required placeholder="THQAA..."
+              type="password" placeholder="THQAA..."
               value={form.accessToken} onChange={(e) => updateForm({ accessToken: e.target.value }, false)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </Field>
 
-          <Field label="Threads User ID" required>
+          <Field label="Threads User ID">
             <input
-              type="text" required placeholder="123456789"
+              type="text" placeholder="123456789"
               value={form.threadsUserId} onChange={(e) => updateForm({ threadsUserId: e.target.value }, false)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />

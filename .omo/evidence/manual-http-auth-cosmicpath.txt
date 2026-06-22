@@ -1,0 +1,23 @@
+email=cosmicpath-qa-1780706800@example.com
+HTTP/1.1 200 OK
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+Date: Sat, 06 Jun 2026 00:46:41 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"success":true,"userId":"cmq1mupmr000010lofi5cwjdc"}
+register_exit=0
+email=cosmicpath-qa-1780706800@example.com
+HTTP/1.1 200 OK
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+set-cookie: auth_session=cmq1mupmr000010lofi5cwjdc; Path=/; Expires=Sat, 13 Jun 2026 00:47:16 GMT; Max-Age=604800; HttpOnly; SameSite=lax
+Date: Sat, 06 Jun 2026 00:47:16 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"success":true,"user":{"id":"cmq1mupmr000010lofi5cwjdc","email":"cosmicpath-qa-1780706800@example.com","name":"CosmicPath QA"}}
+login_exit=0

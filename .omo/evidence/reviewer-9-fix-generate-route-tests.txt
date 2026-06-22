@@ -1,0 +1,13 @@
+
+> threads-uploader@0.1.0 test
+> vitest run --run src/app/api/generate/route.test.ts
+
+
+ RUN  v4.1.8 /Users/kim-young-gwang/Desktop/projects/threads-uploader
+
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  20:07:25
+   Duration  672ms (transform 256ms, setup 0ms, import 428ms, tests 19ms, environment 0ms)
+

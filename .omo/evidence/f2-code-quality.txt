@@ -1,0 +1,61 @@
+typecheck:
+
+> threads-uploader@0.1.0 typecheck
+> tsc --noEmit
+
+exit=0
+
+targeted tests:
+
+> threads-uploader@0.1.0 test
+> vitest run --run src/types/brand.test.ts src/app/api/generate/route.test.ts src/app/api/generate/post-route-matrix.test.ts src/app/api/campaigns/summary/route.test.ts src/app/api/posts/[id]/publish/route.test.ts src/app/api/cron/publish/route.test.ts src/lib/quality-gate.test.ts src/lib/publish-safety-gate.test.ts src/lib/viral-analysis.test.ts src/lib/viral-intent-modes.test.ts src/lib/tiktok-video-quality.test.ts src/lib/tiktok-video-service.test.ts
+
+
+ RUN  v4.1.8 /Users/kim-young-gwang/Desktop/projects/threads-uploader
+
+
+ Test Files  12 passed (12)
+      Tests  38 passed (38)
+   Start at  18:57:42
+   Duration  5.31s (transform 2.52s, setup 0ms, import 3.38s, tests 5.24s, environment 1ms)
+
+exit=0
+
+task suite:
+
+> threads-uploader@0.1.0 test
+> vitest run --run src/types/brand.test.ts src/app/api/generate/route.test.ts src/app/api/generate/post-route-matrix.test.ts src/app/api/campaigns/summary/route.test.ts src/app/api/posts/[id]/publish/route.test.ts src/app/api/cron/publish/route.test.ts src/lib/quality-gate.test.ts src/lib/publish-safety-gate.test.ts src/lib/viral-analysis.test.ts src/lib/viral-intent-modes.test.ts src/lib/tiktok-video-quality.test.ts src/lib/tiktok-video-service.test.ts
+
+
+ RUN  v4.1.8 /Users/kim-young-gwang/Desktop/projects/threads-uploader
+
+
+ Test Files  12 passed (12)
+      Tests  38 passed (38)
+   Start at  18:59:21
+   Duration  5.37s (transform 2.99s, setup 0ms, import 4.06s, tests 5.47s, environment 1ms)
+
+exit=0
+
+build:
+├ ƒ /api/tiktok/summary
+├ ƒ /api/tiktok/videos
+├ ƒ /api/tiktok/videos/[id]
+├ ƒ /api/tiktok/videos/[id]/metrics
+├ ƒ /api/tiktok/videos/generate
+├ ƒ /api/viral
+├ ƒ /api/viral/discover
+├ ƒ /api/viral/learn
+├ ○ /brands
+├ ƒ /brands/[slug]
+├ ƒ /brands/[slug]/settings
+└ ○ /login
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+exit=0
+exit=0

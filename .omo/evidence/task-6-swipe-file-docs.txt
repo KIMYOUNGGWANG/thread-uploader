@@ -1,0 +1,25 @@
+docs/superpowers/specs/2026-04-05-viral-engine-design.md:- **통계적 A/B 테스트 자동화** — viral-retro에서 수동 분석으로 충분 (현 단계)
+.agent/memory/learnings.md:- Recurring bug: missing publish boundary guard — quality gate fail 글이 생성 큐에 남아도 발행 경계에서 막지 않으면 수동/cron 업로드로 실제 발행될 수 있음 — Prevention: `qualityPass === false`는 모든 publisher 경로와 UI 업로드 버튼에서 차단하기
+docs/superpowers/specs/2026-05-06-viral-content-upgrade-design.md:운영 방식: 매주 1회 수동 업데이트. 자동화 불필요.
+docs/superpowers/specs/2026-05-06-viral-content-upgrade-design.md:- 자동 트렌딩 토픽 수집 (수동 운영으로 충분)
+.agent/memory/brand-voice.md:- `saveable_tool`: 저장해두고 다시 볼 수 있는 체크리스트, 판정표, 순서표. 댓글 없이도 가치가 끝나야 한다.
+docs/cosmicpath-viral-playbook.md:- `self-classification`: A/B/C, 연락/대기/축소/보류, 버팀형/이동형/준비형 중 하나를 고르게 한다.
+docs/cosmicpath-viral-playbook.md:- `saveable`: 저장 가능한 checklist, decision tool, 판정표, 순서표를 만든다.
+docs/cosmicpath-viral-playbook.md:- `quiet contrarian`: 예언형 운세 대신 행동선 정리라는 관점을 차분하게 뒤집는다.
+docs/cosmicpath-viral-playbook.md:수동 레퍼런스는 30-50개를 모아 시작한다.
+docs/cosmicpath-viral-playbook.md:- saveable decision tool posts
+docs/cosmicpath-viral-playbook.md:- quiet contrarian posts about overthinking, timing, and choice
+docs/cosmicpath-viral-playbook.md:- 7 `self-classification` posts
+docs/cosmicpath-viral-playbook.md:- 7 `saveable` posts
+docs/cosmicpath-viral-playbook.md:- 7 `quiet contrarian` posts
+docs/cosmicpath-viral-playbook.md:- replies for self-classification
+docs/cosmicpath-viral-playbook.md:- saves for saveable tools
+docs/cosmicpath-viral-playbook.md:- profile visits or report starts for quiet contrarian
+docs/superpowers/plans/2026-05-06-viral-content-upgrade.md:**Architecture:** `BrandConfig` 타입에 `trendingTopics` 필드를 추가하고, Generate API에서 기존 topics + trendingTopics를 합산해 풀을 구성한다. 모델을 Haiku에서 Sonnet으로 교체하고, DB 마이그레이션 스크립트로 3개 바이럴 공식을 CosmicPath에 추가한다. 브랜드 설정 UI에 트렌딩 토픽 탭을 추가해 주 1회 수동 운영을 지원한다.
+docs/api-spec.md:  → 댓글 대응 플레이북으로 수동 답글
+docs/api-spec.md:  → UTM/성과/수동 전환 입력
+docs/api-spec.md:| `PATCH` | `/api/tiktok/videos/[id]/metrics` | 수동 TikTok 성과 입력 |
+docs/api-spec.md:| `POST` | `/api/viral/discover` | 저장된 소스, 요청 override, 수동 입력에서 바이럴 후보 저장 |
+docs/api-spec.md:| `POST` | `/api/account-intelligence/run` | 현재 브랜드 계정 분석 수동 실행 |
+docs/superpowers/plans/2026-04-05-viral-engine.md:Claude Code에서 실행 가능한지 수동 확인:
+exit=0

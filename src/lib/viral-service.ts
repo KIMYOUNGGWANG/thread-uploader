@@ -134,21 +134,23 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
     }
   }
 
-  for (const keyword of runConfig.keywords.slice(0, 5)) {
-    try {
-      const posts = await searchThreadsByKeyword(brand.accessToken, keyword, runConfig.limit);
-      candidates.push(...posts.map((post) => buildThreadsCandidate(post, "threads_keyword", "threads_keyword", { keyword })));
-    } catch (error) {
-      errors.push({ adapter: "threads_keyword", source: keyword, message: formatError(error) });
+  if (brand.accessToken) {
+    for (const keyword of runConfig.keywords.slice(0, 5)) {
+      try {
+        const posts = await searchThreadsByKeyword(brand.accessToken, keyword, runConfig.limit);
+        candidates.push(...posts.map((post) => buildThreadsCandidate(post, "threads_keyword", "threads_keyword", { keyword })));
+      } catch (error) {
+        errors.push({ adapter: "threads_keyword", source: keyword, message: formatError(error) });
+      }
     }
-  }
 
-  for (const handle of runConfig.handles.slice(0, 5)) {
-    try {
-      const posts = await fetchPublicProfilePosts(brand.accessToken, handle, runConfig.limit);
-      candidates.push(...posts.map((post) => buildThreadsCandidate(post, "threads_profile", "threads_profile", { handle })));
-    } catch (error) {
-      errors.push({ adapter: "threads_profile", source: handle, message: formatError(error) });
+    for (const handle of runConfig.handles.slice(0, 5)) {
+      try {
+        const posts = await fetchPublicProfilePosts(brand.accessToken, handle, runConfig.limit);
+        candidates.push(...posts.map((post) => buildThreadsCandidate(post, "threads_profile", "threads_profile", { handle })));
+      } catch (error) {
+        errors.push({ adapter: "threads_profile", source: handle, message: formatError(error) });
+      }
     }
   }
 

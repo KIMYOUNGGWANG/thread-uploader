@@ -1,0 +1,21 @@
+CosmicPath viral upgrade scope fidelity
+
+Implemented scope:
+- Repositioned CosmicPath generation from reply-dependent self-classification to no-reply self-check, saveable tool, quiet contrarian, and friend-share viral modes.
+- Preserved deterministic 28-post sprint distribution: self_classification=7, saveable_tool=7, quiet_contrarian=7, friend_share=7.
+- Added generated-surface safety so both post body and first comment block reply-burden, soft 같이 봐요 phrasing, answer-asking first comments, overclaim, and generated meta text before saved drafts can be marked qualityPass=true.
+- Added deterministic fallback that creates under-500, unique-first-line, no-reply, no-meta drafts when model retries fail.
+- Added publish-time safety gates for manual publish and cron publish so stale qualityPass=true drafts are blocked before Threads API calls.
+- Updated campaign defaults, TikTok labels/prompts, Dashboard labels, revenue memory, viral-analysis labels, API spec, brand voice memory, and operational docs away from 댓글-centric naming.
+
+Final evidence:
+- `.omo/evidence/final-targeted-tests-cosmicpath-viral-upgrade.txt`: 12 files, 47 tests passed.
+- `.omo/evidence/typecheck-cosmicpath-viral-upgrade.txt`: `tsc --noEmit` passed.
+- `.omo/evidence/build-cosmicpath-viral-upgrade.txt`: `next build` passed.
+- `.omo/evidence/task-7-sprint-audit.txt`: final real HTTP count=28 sprint passed strict audit.
+- `.omo/evidence/task-7-summary.http`: summary API shows 28 total, 28 quality passed, 7/7/7/7 viral mode buckets.
+- `.omo/evidence/reviewer-9-doc-prompt-contract.txt`: stale positive comment-intake doc/prompt search returned no matches.
+- `.omo/evidence/reviewer-9-fix-generate-route-tests.txt`: generation prompt/surface safety tests passed.
+- `.omo/evidence/reviewer-9-tiktok-contract.txt`: TikTok question-intake/reply-burden contract search returned no matches.
+- `.omo/evidence/reviewer-9-tiktok-fix-tests.txt`: TikTok default prompt/quality tests passed.
+- `.omo/evidence/reviewer-9-dashboard-memory-contract.txt`: Dashboard and revenue memory stale label contract passed; Dashboard maps new and legacy IDs to non-comment labels.

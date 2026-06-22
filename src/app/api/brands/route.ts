@@ -70,7 +70,7 @@ export async function GET() {
         name: b.name,
         slug: b.slug,
         threadsUserId: b.threadsUserId,
-        tokenExpiry: b.tokenExpiry.toISOString(),
+        tokenExpiry: b.tokenExpiry ? b.tokenExpiry.toISOString() : null,
         brandConfig: parseBrandConfig(b.brandConfig),
         formulaWeights: JSON.parse(b.formulaWeights) as Record<string, number>,
         createdAt: b.createdAt.toISOString(),
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     const tokenExpiry = typeof body.tokenExpiry === "string" ? body.tokenExpiry : null;
     const brandConfig = body.brandConfig;
 
-    if (!name || !slug || !accessToken || !threadsUserId || !tokenExpiry) {
+    if (!name || !slug) {
       return NextResponse.json({ error: "필수 필드가 누락되었습니다" }, { status: 400 });
     }
     if (!/^[a-z0-9-]+$/.test(slug)) {
@@ -115,9 +115,9 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         slug,
-        accessToken,
-        threadsUserId,
-        tokenExpiry: new Date(tokenExpiry),
+        accessToken: accessToken || null,
+        threadsUserId: threadsUserId || null,
+        tokenExpiry: tokenExpiry ? new Date(tokenExpiry) : null,
         brandConfig: JSON.stringify(buildCreateProductConfig(brandConfig, name, slug)),
         ownerId: user.id,
       },
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       name: brand.name,
       slug: brand.slug,
       threadsUserId: brand.threadsUserId,
-      tokenExpiry: brand.tokenExpiry.toISOString(),
+      tokenExpiry: brand.tokenExpiry ? brand.tokenExpiry.toISOString() : null,
       brandConfig: parseBrandConfig(brand.brandConfig),
       formulaWeights: JSON.parse(brand.formulaWeights) as Record<string, number>,
       createdAt: brand.createdAt.toISOString(),

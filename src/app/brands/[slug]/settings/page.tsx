@@ -30,7 +30,7 @@ export default async function BrandSettingsPage({ params }: PageProps) {
         name: brand.name,
         accessToken: brand.accessToken,
         threadsUserId: brand.threadsUserId,
-        tokenExpiry: brand.tokenExpiry.toISOString().split("T")[0],
+        tokenExpiry: brand.tokenExpiry ? brand.tokenExpiry.toISOString().split("T")[0] : null,
         config,
       }}
     />

@@ -1,0 +1,70 @@
+
+> threads-uploader@0.1.0 build
+> next build
+
+▲ Next.js 16.1.3 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 4.5s
+  Running TypeScript ...
+  Collecting page data using 17 workers ...
+  Generating static pages using 17 workers (0/37) ...
+  Generating static pages using 17 workers (9/37) 
+  Generating static pages using 17 workers (18/37) 
+  Generating static pages using 17 workers (27/37) 
+✓ Generating static pages using 17 workers (37/37) in 279.6ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/account-intelligence
+├ ƒ /api/account-intelligence/run
+├ ƒ /api/accounts
+├ ƒ /api/accounts/[id]
+├ ƒ /api/accounts/analyze
+├ ƒ /api/accounts/discover
+├ ƒ /api/analytics
+├ ƒ /api/auth/login
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/me
+├ ƒ /api/auth/register
+├ ƒ /api/brands
+├ ƒ /api/brands/[id]
+├ ƒ /api/campaigns/summary
+├ ƒ /api/cron/account-intelligence
+├ ƒ /api/cron/learn
+├ ƒ /api/cron/publish
+├ ƒ /api/cron/refresh-token
+├ ƒ /api/cron/viral
+├ ƒ /api/generate
+├ ƒ /api/generate/optimize
+├ ƒ /api/growth
+├ ƒ /api/growth/learn
+├ ƒ /api/posts
+├ ƒ /api/posts/[id]
+├ ƒ /api/posts/[id]/campaign-metrics
+├ ƒ /api/posts/[id]/publish
+├ ƒ /api/posts/reset
+├ ƒ /api/posts/upload
+├ ƒ /api/products/auto-setup
+├ ƒ /api/tiktok/summary
+├ ƒ /api/tiktok/videos
+├ ƒ /api/tiktok/videos/[id]
+├ ƒ /api/tiktok/videos/[id]/metrics
+├ ƒ /api/tiktok/videos/generate
+├ ƒ /api/viral
+├ ƒ /api/viral/discover
+├ ƒ /api/viral/learn
+├ ○ /brands
+├ ƒ /brands/[slug]
+├ ƒ /brands/[slug]/settings
+└ ○ /login
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

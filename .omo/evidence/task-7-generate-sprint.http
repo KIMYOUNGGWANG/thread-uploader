@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+Date: Sat, 06 Jun 2026 03:13:42 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"success":true,"count":28,"linkedCount":10,"campaignId":"career_timing_wedge_399"}

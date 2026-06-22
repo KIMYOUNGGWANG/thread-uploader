@@ -1,0 +1,14 @@
+
+> threads-uploader@0.1.0 test
+> vitest run --run src/types/brand.test.ts src/app/api/generate/route.test.ts src/lib/quality-gate.test.ts src/lib/viral-analysis.test.ts
+
+
+ RUN  v4.1.8 /Users/kim-young-gwang/Desktop/projects/threads-uploader
+
+
+ Test Files  4 passed (4)
+      Tests  27 passed (27)
+   Start at  17:39:36
+   Duration  799ms (transform 1.08s, setup 0ms, import 1.40s, tests 57ms, environment 0ms)
+
+exit=0

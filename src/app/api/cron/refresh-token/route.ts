@@ -53,6 +53,15 @@ export async function GET(request: NextRequest) {
 
         const refreshResults = [];
         for (const brand of brands) {
+            if (!brand.tokenExpiry || !brand.accessToken) {
+                refreshResults.push({
+                    slug: brand.slug,
+                    success: true,
+                    message: "No Threads token or expiry to refresh",
+                });
+                continue;
+            }
+
             if (isTokenRefreshDue(brand.tokenExpiry, now)) {
                 try {
                     const result = await refreshBrandAccessToken(brand.id);

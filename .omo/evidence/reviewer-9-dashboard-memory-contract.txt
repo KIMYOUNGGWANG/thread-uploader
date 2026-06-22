@@ -1,0 +1,11 @@
+Dashboard/revenue memory stale label contract
+1) No stale Korean comment-diagnosis labels in Dashboard or revenue memory:
+2) No legacy format IDs in revenue operational memory:
+3) Dashboard has labels for new IDs and legacy IDs map to non-comment labels:
+2582:    self_classification: "자기분류 셀프체크",
+2583:    saveable_tool: "저장형 판단 도구",
+2584:    quiet_contrarian: "조용한 반전",
+2585:    friend_share: "친구 공유형",
+2586:    comment_diagnosis: "자기분류 셀프체크",
+2587:    friend_tag: "친구 공유형",
+2588:    self_confession: "조용한 반전",

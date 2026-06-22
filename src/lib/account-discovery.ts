@@ -107,6 +107,7 @@ export async function getDiscoveredAccounts(
 export async function discoverAccounts(brandId: string, options: DiscoverOptions = {}) {
   const brand = await prisma.brand.findUnique({ where: { id: brandId } });
   if (!brand) throw new Error(`Brand not found: ${brandId}`);
+  if (!brand.accessToken) throw new Error(`Threads access token is missing for brand: ${brand.name}`);
 
   const config = parseBrandConfig(brand.brandConfig);
   const keywords = buildSeedKeywords(config, options.keywords);
@@ -228,6 +229,7 @@ export async function updateDiscoveredAccountStatus(
 export async function analyzeWatchedAccounts(brandId: string, options: AnalyzeOptions = {}) {
   const brand = await prisma.brand.findUnique({ where: { id: brandId } });
   if (!brand) throw new Error(`Brand not found: ${brandId}`);
+  if (!brand.accessToken) throw new Error(`Threads access token is missing for brand: ${brand.name}`);
 
   const config = parseBrandConfig(brand.brandConfig);
   const brandTopics = buildBrandTopics(config);

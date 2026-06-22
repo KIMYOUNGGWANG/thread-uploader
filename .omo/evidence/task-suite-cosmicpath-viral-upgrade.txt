@@ -1,0 +1,13 @@
+
+> threads-uploader@0.1.0 test
+> vitest run --run src/types/brand.test.ts src/app/api/generate/route.test.ts src/app/api/generate/post-route-matrix.test.ts src/app/api/campaigns/summary/route.test.ts src/app/api/posts/[id]/publish/route.test.ts src/app/api/cron/publish/route.test.ts src/lib/quality-gate.test.ts src/lib/publish-safety-gate.test.ts src/lib/viral-analysis.test.ts src/lib/viral-intent-modes.test.ts src/lib/tiktok-video-quality.test.ts src/lib/tiktok-video-service.test.ts
+
+
+ RUN  v4.1.8 /Users/kim-young-gwang/Desktop/projects/threads-uploader
+
+
+ Test Files  12 passed (12)
+      Tests  47 passed (47)
+   Start at  20:21:45
+   Duration  5.30s (transform 3.14s, setup 0ms, import 3.97s, tests 5.24s, environment 1ms)
+

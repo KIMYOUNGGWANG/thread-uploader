@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Brand" ALTER COLUMN "accessToken" DROP NOT NULL,
+ALTER COLUMN "threadsUserId" DROP NOT NULL,
+ALTER COLUMN "tokenExpiry" DROP NOT NULL;

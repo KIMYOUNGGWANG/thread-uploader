@@ -1,0 +1,36 @@
+# Happy Path QA Scenario
+POST http://localhost:3000/api/demo-assets/jobs
+Request Body:
+{
+  "brandId": "ulw_qa_demo_assets_brand_id",
+  "productUrl": "https://example.com",
+  "style": "clean-product-demo",
+  "videoCount": 3,
+  "imageCount": 6
+}
+
+Response:
+HTTP/1.1 202 Accepted
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+
+{"id":"cmqlwx5bh000126hha15ju029","brandId":"ulw_qa_demo_assets_brand_id","status":"QUEUED","productUrl":"https://example.com/","productContext":null,"style":"clean-product-demo","videoCount":3,"imageCount":6,"lockedBy":null,"lockedAt":null,"heartbeatAt":null,"attemptCount":0,"errorReason":null,"createdAt":"2026-06-20T05:23:54.795Z","updatedAt":"2026-06-20T05:23:54.795Z"}
+
+
+# Failure Path QA Scenario (Private Literal URL Rejection)
+POST http://localhost:3000/api/demo-assets/jobs
+Request Body:
+{
+  "brandId": "ulw_qa_demo_assets_brand_id",
+  "productUrl": "http://127.0.0.1",
+  "style": "clean-product-demo",
+  "videoCount": 3,
+  "imageCount": 6
+}
+
+Response:
+HTTP/1.1 400 Bad Request
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+
+{"error":"Private or local URLs are forbidden"}
