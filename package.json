@@ -12,12 +12,16 @@
     "refresh:tokens": "node scripts/refresh-token-standalone.js",
     "growth:metrics": "node scripts/fetch-metrics-standalone.js",
     "recover:first-comments": "node scripts/retry-first-comments.js",
-    "postinstall": "prisma generate && patch-package"
+    "postinstall": "prisma generate && patch-package",
+    "demo-assets:worker": "npx tsx scripts/demo-assets-worker.mjs",
+    "demo-assets:fixture-server": "node scripts/qa/demo-assets-fixtures.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.81.0",
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-slot": "^1.2.4",
+    "@remotion/bundler": "^4.0.481",
+    "@remotion/renderer": "^4.0.481",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -25,8 +29,10 @@
     "lucide-react": "^0.562.0",
     "next": "16.1.3",
     "next-themes": "^0.4.6",
+    "playwright": "^1.61.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "remotion": "^4.0.481",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "xlsx": "^0.18.5"

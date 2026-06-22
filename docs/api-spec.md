@@ -1369,3 +1369,98 @@ Cron recommendation:
 
 > [!IMPORTANT]
 > 코드와 계약이 어긋나면 ship 게이트에서 먼저 문서를 갱신하거나 구현을 되돌려야 한다.
+
+---
+
+## Demo Asset Generator API
+
+모바일 웹 캡처 및 AI 기반 크리에이티브 광고 기획, Remotion 렌더러 연동으로 9:16 비디오 및 썸네일을 자동 생성하는 기능의 API 계약 규격입니다.
+
+### Data Contracts
+
+```typescript
+type DemoAssetJobStatus =
+  | "QUEUED"
+  | "CAPTURING"
+  | "PLANNING"
+  | "RENDERING"
+  | "READY"
+  | "FAILED_CAPTURE"
+  | "FAILED_PLAN"
+  | "FAILED_RENDER"
+  | "FAILED_QUALITY";
+
+type DemoAssetStyle =
+  | "clean-product-demo"
+  | "problem-solution-demo"
+  | "feature-walkthrough"
+  | "social-proof-teaser";
+
+interface DemoCaptureArtifactResponse {
+  id: string;
+  jobId: string;
+  type: "SCREENSHOT_INITIAL" | "SCREENSHOT_FULL" | "SCREENSHOT_ELEMENT" | "TEXT_BLOCKS" | "METADATA";
+  filePath: string;
+  metaData: string | null; // JSON String for data
+  createdAt: string;
+}
+
+interface DemoRenderedAssetResponse {
+  id: string;
+  jobId: string;
+  type: "VIDEO" | "IMAGE";
+  style: DemoAssetStyle;
+  filePath: string;
+  mimeType: string;
+  fileSize: number;
+  sha256: string;
+  metaData: string | null;
+  downloadUrl?: string; // 임시 다운로드 토큰이 포함된 URL
+  createdAt: string;
+}
+
+interface DemoAssetJobResponse {
+  id: string;
+  brandId: string;
+  status: DemoAssetJobStatus;
+  productUrl: string;
+  productContext: string | null;
+  style: DemoAssetStyle;
+  videoCount: number;
+  imageCount: number;
+  lockedBy: string | null;
+  lockedAt: string | null;
+  heartbeatAt: string | null;
+  attemptCount: number;
+  errorReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  captureArtifacts?: DemoCaptureArtifactResponse[];
+  renderedAssets?: DemoRenderedAssetResponse[];
+}
+```
+
+### Endpoints
+
+| Method | Path | Description | Auth |
+|:-------|:-----|:------------|:-----|
+| `POST` | `/api/demo-assets/jobs` | 새로운 데모 생성 작업 추가 | Required + Brand Owner |
+| `GET` | `/api/demo-assets/jobs?brandId=xxx` | 특정 브랜드의 데모 생성 작업 내역 조회 | Required + Brand Owner |
+| `GET` | `/api/demo-assets/jobs/[id]` | 특정 데모 작업 상세 조회 및 결과 반환 | Required + Job Owner |
+| `POST` | `/api/demo-assets/jobs/[id]/regenerate` | 실패하거나 완료된 작업을 대기 상태로 되돌려 재작업 요청 | Required + Job Owner |
+| `GET` | `/api/demo-assets/downloads?token=xxx` | 검증된 토큰을 받아 렌더링된 비디오/이미지 스트리밍 또는 다운로드 | Public (with token validation) |
+
+```typescript
+// POST /api/demo-assets/jobs
+interface CreateDemoAssetJobRequest {
+  brandId: string;
+  productUrl: string;
+  style: DemoAssetStyle;
+  videoCount?: number; // 1-5, default 1
+  imageCount?: number; // 1-12, default 3
+  productContext?: string; // 추가설명 및 소구 포인트 (선택)
+}
+
+// GET /api/demo-assets/downloads?token=xxx&download=true
+// Response: binary file data (video/mp4 or image/png)
+```

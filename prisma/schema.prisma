@@ -39,6 +39,7 @@ model Brand {
   discoveredAccounts DiscoveredAccount[]
   accountPatterns AccountPattern[]
   tiktokVideoDrafts TikTokVideoDraft[]
+  demoAssetJobs     DemoAssetJob[]
 }
 
 model Post {
@@ -282,3 +283,56 @@ model TikTokVideoMetric {
 
   @@index([draftId, measuredAt])
 }
+
+model DemoAssetJob {
+  id               String                @id @default(cuid())
+  brandId          String
+  brand            Brand                 @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  status           String                @default("QUEUED")
+  productUrl       String
+  productContext   String?               // JSON string for overrides
+  style            String                @default("clean-product-demo")
+  videoCount       Int                   @default(3)
+  imageCount       Int                   @default(6)
+  lockedBy         String?
+  lockedAt         DateTime?
+  heartbeatAt      DateTime?
+  attemptCount     Int                   @default(0)
+  errorReason      String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  captureArtifacts DemoCaptureArtifact[]
+  renderedAssets   DemoRenderedAsset[]
+
+  @@index([brandId, status])
+  @@index([brandId, createdAt])
+}
+
+model DemoCaptureArtifact {
+  id        String       @id @default(cuid())
+  jobId     String
+  job       DemoAssetJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  type      String       // SCREENSHOT_INITIAL, SCREENSHOT_FULL, SCREENSHOT_ELEMENT, TEXT_BLOCKS, METADATA
+  filePath  String
+  metaData  String?      // JSON string for extra data
+  createdAt DateTime     @default(now())
+
+  @@index([jobId])
+}
+
+model DemoRenderedAsset {
+  id        String       @id @default(cuid())
+  jobId     String
+  job       DemoAssetJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  type      String       // VIDEO, IMAGE
+  style     String
+  filePath  String
+  mimeType  String
+  fileSize  Int
+  sha256    String
+  metaData  String?      // JSON string for scene info, captions, hashtags
+  createdAt DateTime     @default(now())
+
+  @@index([jobId])
+}
+

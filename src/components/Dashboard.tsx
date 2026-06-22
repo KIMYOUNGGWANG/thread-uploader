@@ -10,6 +10,7 @@ import { generatePostsInChunks } from "@/lib/generate-client";
 import { renderTikTokDraftVideo } from "@/lib/tiktok-video-renderer";
 import { Toaster, toast } from "sonner";
 import Link from "next/link";
+import DemoAssetGeneratorPanel from "./DemoAssetGeneratorPanel";
 import type { AccountInsightSnapshot } from "@/types/account-intelligence";
 import type { TikTokSummaryResponse, TikTokVideoDraftResponse, TikTokVideoDraftStatus } from "@/types/tiktok-video";
 
@@ -421,6 +422,11 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const [isLoadingRelatedAccounts, setIsLoadingRelatedAccounts] = useState(false);
   const [isDiscoveringAccounts, setIsDiscoveringAccounts] = useState(false);
   const [isAnalyzingAccounts, setIsAnalyzingAccounts] = useState(false);
+  const [showDemoAssets, setShowDemoAssets] = useState(false);
+
+  const handleToggleDemoAssets = useCallback(() => {
+    setShowDemoAssets((prev) => !prev);
+  }, []);
 
   const fetchPosts = useCallback(async () => {
     setIsFetching(true);
@@ -1317,6 +1323,23 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   onMetricDraftChange={handleTikTokMetricDraftChange}
                   onSaveMetrics={handleSaveTikTokMetrics}
                 />
+              )}
+            </div>
+
+            {/* Demo Asset Generator Panel */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+              <button onClick={handleToggleDemoAssets} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <Sparkles className="w-4 h-4 text-violet-500" />
+                  제품 데모 에셋 생성기
+                </div>
+                {showDemoAssets ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {showDemoAssets && (
+                <div className="border-t border-slate-100 dark:border-slate-700 p-4">
+                  <DemoAssetGeneratorPanel brandId={brandId} />
+                </div>
               )}
             </div>
 
