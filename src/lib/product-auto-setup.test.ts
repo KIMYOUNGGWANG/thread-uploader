@@ -30,7 +30,7 @@ describe("buildProductAutoSetupDraft", () => {
     expect(draft.config.campaigns[0]?.landingUrl).toBe("https://invoiceflow.app");
     expect(draft.config.activeExperiment.durationDays).toBe(7);
     expect(draft.config.activeExperiment.startedAt).toBe(FIXED_NOW);
-    expect(draft.config.tiktokVideo.enabled).toBe(false);
+    expect(draft.config.tiktokVideo.enabled).toBe(true);
   });
 
   it("keeps campaign start blocked and returns gaps for insufficient context", () => {

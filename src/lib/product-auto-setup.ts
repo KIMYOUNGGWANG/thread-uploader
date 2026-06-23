@@ -72,10 +72,9 @@ export function buildProductAutoSetupDraft(
       qualityProfile: "product_growth",
       tiktokVideo: {
         ...DEFAULT_BRAND_CONFIG.tiktokVideo,
-        enabled: false,
+        enabled: true,
         parentCampaignId: campaign.id,
         landingUrl: normalized.landingUrl,
-        formats: [],
       },
       productProfile: buildProductProfile(normalized),
       activeExperiment: buildActiveExperiment(normalized, options.now),

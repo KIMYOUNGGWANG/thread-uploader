@@ -445,10 +445,9 @@ function buildFallbackProductConfig(form: CreateProductForm): BrandConfig {
     },
     tiktokVideo: {
       ...DEFAULT_BRAND_CONFIG.tiktokVideo,
-      enabled: false,
+      enabled: true,
       parentCampaignId: PRODUCT_GROWTH_BASELINE.id,
       landingUrl,
-      formats: [],
     },
   };
 }

@@ -17,10 +17,9 @@ describe("buildCreateProductConfig", () => {
     expect(config.campaigns[0]?.id).toBe("product_growth_baseline");
     expect(config.campaigns[0]?.qualityProfile).toBe("product_growth");
     expect(config.campaigns[0]?.utmCampaign).toContain("invoice");
-    expect(config.tiktokVideo.enabled).toBe(false);
+    expect(config.tiktokVideo.enabled).toBe(true);
     expect(config.tiktokVideo.parentCampaignId).toBe("product_growth_baseline");
     expect(config.tiktokVideo.landingUrl).toBe("");
-    expect(config.tiktokVideo.formats).toHaveLength(0);
   });
 
   it("preserves explicitly supplied campaigns", () => {
@@ -108,6 +107,6 @@ describe("buildCreateProductConfig", () => {
     expect(config.formulas.length).toBeGreaterThan(0);
     expect(config.activeExperiment.durationDays).toBe(7);
     expect(config.campaigns[0]?.landingUrl).toBe("https://invoiceflow.app");
-    expect(config.tiktokVideo.enabled).toBe(false);
+    expect(config.tiktokVideo.enabled).toBe(true);
   });
 });

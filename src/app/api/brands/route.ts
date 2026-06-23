@@ -46,10 +46,9 @@ export function buildCreateProductConfig(input: unknown, name: string, slug: str
       ? parsed.tiktokVideo
       : {
         ...parsed.tiktokVideo,
-        enabled: false,
+        enabled: true,
         parentCampaignId: productCampaign.id,
         landingUrl: productCampaign.landingUrl,
-        formats: [],
       },
   };
 }
