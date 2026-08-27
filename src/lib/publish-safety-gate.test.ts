@@ -28,4 +28,31 @@ describe("getPublishSafetyBlockReasons", () => {
 
     expect(reasons).toContain("generated meta text 포함");
   });
+
+  it("allows multi-part threads over 500 chars up to 2400 chars", () => {
+    const longPost = "이직 고민과 퇴사 타이밍에 대한 상세한 인사이트입니다.\n\n".repeat(20); // ~700 chars
+    expect(longPost.length).toBeGreaterThan(500);
+    expect(longPost.length).toBeLessThanOrEqual(2400);
+
+    const reasons = getPublishSafetyBlockReasons({
+      content: longPost,
+      firstComment: "프로필에서 확인하세요.",
+    });
+
+    expect(reasons).not.toContain(expect.stringMatching(/업로드 제한 초과/));
+    expect(reasons).toHaveLength(0);
+  });
+
+  it("blocks extremely long posts exceeding 2400 chars", () => {
+    const tooLongPost = "아주 긴 글입니다. ".repeat(250); // ~2500 chars
+    expect(tooLongPost.length).toBeGreaterThan(2400);
+
+    const reasons = getPublishSafetyBlockReasons({
+      content: tooLongPost,
+      firstComment: null,
+    });
+
+    expect(reasons.length).toBeGreaterThan(0);
+    expect(reasons[0]).toMatch(/5단 스레드 최대 허용.*초과/);
+  });
 });

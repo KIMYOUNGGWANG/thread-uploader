@@ -63,4 +63,8 @@ implementation_plan.md
 walkthrough.md
 task.md
 
+.data/
+.playwright-mcp/
+.serena/
+
 /src/generated/prisma

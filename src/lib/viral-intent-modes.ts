@@ -2,7 +2,9 @@ export type ViralIntentModeId =
   | "self_classification"
   | "saveable_tool"
   | "quiet_contrarian"
-  | "friend_share";
+  | "friend_share"
+  | "controversy_stunt"
+  | "common_enemy";
 
 export interface ViralIntentMode {
   readonly id: ViralIntentModeId;
@@ -39,10 +41,9 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
     id: "quiet_contrarian",
     label: "조용한 반전",
     primaryMetric: "profile_visits",
-    instruction: "흔한 운세 믿음을 차분하게 뒤집고 CosmicPath 관점으로 연결한다.",
+    instruction: "흔한 업계 통념이나 잘못된 고정관념을 차분하게 뒤집는다.",
     rules: [
       "불안을 찌르지 않고 잘못된 질문 구조를 짚는다.",
-      "상대 마음 보장이나 100% 예측 표현 금지.",
       "마지막은 저장, 프로필 확인, 또는 행동선 정리로 닫는다.",
     ],
   },
@@ -53,8 +54,27 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
     instruction: "같은 고민을 하는 친구에게 보내주고 싶게 쓴다.",
     rules: [
       "친구 태그/공유가 자연스럽게 생길 만한 상황을 콕 집는다.",
-      "놀림이나 공포 자극 없이 공감 중심으로 쓴다.",
       "공유 후에도 운영자 답글이 필요 없는 구조로 쓴다.",
+    ],
+  },
+  {
+    id: "controversy_stunt",
+    label: "도발적 이슈메이킹 (Roy Lee Stunt)",
+    primaryMetric: "replies",
+    instruction: "산업 내의 금기나 통념을 도발적으로 질타하며 뜨거운 논쟁 반응을 끌어낸다.",
+    rules: [
+      "모두가 의구심을 품었지만 아무도 말하지 못한 업계의 비효율/불합리를 찌른다.",
+      "자극적 훅 이후 솔루션과 메인 메시지 간 확실한 명분(Conversion Alignment)을 제공한다.",
+    ],
+  },
+  {
+    id: "common_enemy",
+    label: "공공의 적 타격형 (Common Enemy)",
+    primaryMetric: "shares",
+    instruction: "타겟 고객군이 공통으로 증오하는 업계 불공정 관행을 정면 저격한다.",
+    rules: [
+      "타겟 고객이 억울해하던 대표적 불이익 사례를 구체적으로 묘사한다.",
+      "대안적인 해결책이나 당당한 대처 자세로 연대감을 형성한다.",
     ],
   },
 ];
@@ -64,10 +84,19 @@ const LEGACY_FORMULA_MAP: Record<string, ViralIntentModeId> = {
   comment_diagnosis: "self_classification",
   friend_tag: "friend_share",
   self_confession: "quiet_contrarian",
+  controversy: "controversy_stunt",
+  enemy_strike: "common_enemy",
 };
 
 export function normalizeViralIntentModeId(input: unknown): ViralIntentModeId | null {
-  if (input === "self_classification" || input === "saveable_tool" || input === "quiet_contrarian" || input === "friend_share") {
+  if (
+    input === "self_classification" ||
+    input === "saveable_tool" ||
+    input === "quiet_contrarian" ||
+    input === "friend_share" ||
+    input === "controversy_stunt" ||
+    input === "common_enemy"
+  ) {
     return input;
   }
   return typeof input === "string" ? LEGACY_FORMULA_MAP[input] ?? null : null;
@@ -96,26 +125,34 @@ export function formatViralIntentModePrompt(mode: ViralIntentMode): string {
 }
 
 export function hasSelfClassificationMechanic(content: string): boolean {
-  return /A\s*[./)]|A\s*\/\s*B|A\.\s*|B\.\s*|C\.\s*/i.test(content)
-    || /(연락|움직임|확장)\s*\/\s*(대기|보수)\s*\/\s*(축소|정리)\s*\/\s*보류/.test(content)
-    || /버팀형[\s\S]*(이동형|준비형)/.test(content)
-    || /(가까운\s*쪽|하나만|어느\s*쪽|중\s*하나).*(골라|체크|표시|기억)/.test(content);
+  return (
+    /A\s*[./)]|A\s*\/\s*B|A\.\s*|B\.\s*|C\.\s*/i.test(content) ||
+    /(연락|움직임|확장)\s*\/\s*(대기|보수)\s*\/\s*(축소|정리)\s*\/\s*보류/.test(content)
+  );
 }
 
 export function hasSaveShareMechanic(content: string): boolean {
-  return /(저장|캡처|체크리스트|판정표|순서표|다시\s*봐|보내줘|공유|친구)/.test(content);
+  return (
+    /저장|공유|보관|체크리스트|순서표|판정표/i.test(content) ||
+    /스스로\s*체크|나중에\s*다시/i.test(content)
+  );
 }
 
 export function hasLowTouchEngagementMechanic(content: string): boolean {
-  return hasSelfClassificationMechanic(content)
-    || hasSaveShareMechanic(content)
-    || /(프로필|링크|랜딩|확인|신청|가입)/.test(content);
+  return hasSelfClassificationMechanic(content) || hasSaveShareMechanic(content);
 }
 
 export function hasReplyBurdenPromise(content: string): boolean {
-  return /(댓글|답글|답장|DM|디엠|달아줘|남겨|남기면|써줘|적어|봐줄게|봐드릴게|알려줄게|진단해줄게|풀이해줄게|사연.*(접수|남겨|써|적어)|질문.*(접수|남겨|써|적어)|상황.*(남겨|남기|써줘|써|적어)|(같이|함께).*(보자|볼게|봐|볼\s*수|봐줄|봐\s*줄|봐드릴|검토|진단)|(A\/B\/C|버팀형|이동형|준비형).*(뭐가|어디였|어디에|고른\s*사람|뭐\s*골랐|어느\s*쪽이야))/.test(content);
+  return (
+    /댓글(을|로|에)?\s*(남겨|주시면|달아|써줘|작성)/i.test(content) ||
+    /사연|풀이|답글|1:1|개인\s*질문|상황/i.test(content) ||
+    /같이\s*(보|봐)/i.test(content)
+  );
 }
 
 export function hasFortuneOverclaim(content: string): boolean {
-  return /(100%\s*맞|100%\s*알|상대\s*마음.*알려|미래.*보장|운명.*예측|무조건\s*(연락|헤어|된다|성공)|확실히\s*(된다|안\s*된다))/.test(content);
+  return (
+    /100%|확실|무조건|반드시|미래가\s*확정/i.test(content) ||
+    /운명이\s*정해진/i.test(content)
+  );
 }

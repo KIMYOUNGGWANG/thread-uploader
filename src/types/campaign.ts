@@ -2,7 +2,13 @@ import { clampNumber, isRecord, normalizeIdentifier, normalizeText } from "@/typ
 import { normalizeViralIntentModeId } from "@/lib/viral-intent-modes";
 
 export type QualityProfileId = "saju_viral" | "career_decision" | "product_growth";
-export type CampaignFormulaId = "self_classification" | "saveable_tool" | "quiet_contrarian" | "friend_share";
+export type CampaignFormulaId =
+  | "self_classification"
+  | "saveable_tool"
+  | "quiet_contrarian"
+  | "friend_share"
+  | "controversy_stunt"
+  | "common_enemy";
 export type CareerDecisionType = "stay" | "move" | "prepare";
 
 export interface CampaignFormula {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getThreadsContentLimitError } from "@/lib/threads-limits";
 import { initializeTokensInDB, publishPost, publishReplyWithRetry } from "@/lib/threads-api";
+import { splitContentIntoThreadParts } from "@/lib/thread-splitter";
 
 /**
  * POST /api/posts/upload
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const lengthError = getThreadsContentLimitError(content);
+        const lengthError = getThreadsContentLimitError(content, { allowMultiPart: true });
         if (lengthError) {
             return NextResponse.json(
                 { error: lengthError },
@@ -30,8 +31,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 1. Publish Main Post
-        const threadsId = await publishPost(content, imageUrls);
+        // 1. Publish Main Post (or thread parts)
+        const parts = splitContentIntoThreadParts(content);
+        const threadsId = await publishPost(parts[0], imageUrls);
+        for (let p = 1; p < parts.length; p++) {
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            try {
+                await publishReplyWithRetry(parts[p], threadsId);
+            } catch (partErr) {
+                console.error(`Failed to publish thread part ${p + 1}:`, partErr);
+            }
+        }
 
         // 2. Publish First Comment (Reply) if exists
         let replyId = null;

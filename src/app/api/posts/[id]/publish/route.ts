@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getFreshBrandCredentials, publishPostWithCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
+import {
+  getFreshBrandCredentials,
+  publishThreadChainWithCredentials,
+} from "@/lib/threads-api";
 import { accessErrorResponse, requirePostForCurrentUser } from "@/lib/brand-access";
 import { getPublishSafetyBlockReasons } from "@/lib/publish-safety-gate";
+
+export const maxDuration = 60;
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -40,19 +45,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const credentials = await getFreshBrandCredentials(brand.id);
     const imageUrls = JSON.parse(post.imageUrls || "[]") as string[];
 
-    const threadsId = await publishPostWithCredentials(post.content, credentials, imageUrls);
+    const { rootThreadsId: threadsId, replyError: replyErrorMessage } = await publishThreadChainWithCredentials(
+      post.content,
+      credentials,
+      imageUrls,
+      post.firstComment
+    );
 
     if (!threadsId || threadsId === "undefined") {
       throw new Error(`Invalid Threads ID received: ${threadsId}`);
-    }
-
-    let replyErrorMessage: string | null = null;
-    if (post.firstComment) {
-      try {
-        await publishReplyWithRetryForBrand(post.firstComment, threadsId, credentials);
-      } catch (replyError) {
-        replyErrorMessage = replyError instanceof Error ? replyError.message : "Failed to publish first comment";
-      }
     }
 
     const updatedPost = await prisma.post.update({

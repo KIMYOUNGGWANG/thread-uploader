@@ -121,6 +121,48 @@ async function publishReplyWithRetry(text, replyToId, credentials, retries = 4, 
     throw lastError || new Error("Failed to publish first comment");
 }
 
+function splitIntoThreadParts(text, maxLength = 480, maxParts = 5) {
+    const trimmed = text.trim();
+    if (trimmed.length <= 500) return [trimmed];
+
+    const paragraphs = trimmed.split(/\n\s*\n/);
+    const chunks = [];
+    for (const p of paragraphs) {
+        const tp = p.trim();
+        if (tp) chunks.push(tp);
+    }
+
+    for (let targetParts = 2; targetParts <= maxParts; targetParts++) {
+        const parts = [];
+        let chunkIndex = 0;
+
+        for (let p = 0; p < targetParts; p++) {
+            const prefix = `${p + 1}/${targetParts}\n\n`;
+            const available = maxLength - prefix.length;
+            let partBody = "";
+
+            while (chunkIndex < chunks.length) {
+                const nextChunk = chunks[chunkIndex];
+                const sep = partBody.length > 0 ? "\n\n" : "";
+                if (partBody.length + sep.length + nextChunk.length <= available) {
+                    partBody = partBody ? `${partBody}\n\n${nextChunk}` : nextChunk;
+                    chunkIndex++;
+                } else {
+                    break;
+                }
+            }
+            if (!partBody && chunkIndex < chunks.length) {
+                partBody = chunks[chunkIndex].slice(0, available);
+                chunks[chunkIndex] = chunks[chunkIndex].slice(available).trim();
+            }
+            parts.push(`${prefix}${partBody}`);
+        }
+        if (chunkIndex >= chunks.length) return parts;
+    }
+
+    return [trimmed.slice(0, 500)];
+}
+
 async function main() {
     console.log("Starting standalone publisher...");
 
@@ -170,7 +212,16 @@ async function main() {
                 userId: post.brand.threadsUserId,
             };
             const imageUrls = JSON.parse(post.imageUrls || "[]");
-            const threadsId = await publishPost(post.content, credentials, imageUrls);
+            const parts = splitIntoThreadParts(post.content);
+            const threadsId = await publishPost(parts[0], credentials, imageUrls);
+            for (let p = 1; p < parts.length; p++) {
+                await sleep(3000);
+                try {
+                    await publishReplyWithRetry(parts[p], threadsId, credentials);
+                } catch (partErr) {
+                    console.error(`Failed to publish thread part ${p + 1}/${parts.length} for ${post.id}:`, partErr);
+                }
+            }
             let replyErrorMessage = null;
 
             if (post.firstComment?.trim()) {

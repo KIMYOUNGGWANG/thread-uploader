@@ -15,9 +15,14 @@ export interface PublishSafetyPost {
   firstComment: string | null;
 }
 
-export function getPublishSafetyBlockReasons(post: PublishSafetyPost): string[] {
+export function getPublishSafetyBlockReasons(
+  post: PublishSafetyPost,
+  options?: { allowMultiPart?: boolean }
+): string[] {
   const reasons: string[] = [];
-  const lengthError = getThreadsContentLimitError(post.content);
+  const lengthError = getThreadsContentLimitError(post.content, {
+    allowMultiPart: options?.allowMultiPart ?? true,
+  });
   if (lengthError) reasons.push(lengthError);
 
   const surface = [post.content, post.firstComment ?? ""].join("\n");

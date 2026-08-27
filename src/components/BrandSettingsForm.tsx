@@ -210,6 +210,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
       <main className="max-w-4xl mx-auto px-4 py-8">
         {activeTab === "basic" && (
           <BasicTab
+            brandId={brandId}
             name={name} setName={setName}
             accessToken={accessToken} setAccessToken={setAccessToken}
             threadsUserId={threadsUserId} setThreadsUserId={setThreadsUserId}
@@ -326,16 +327,25 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
 
 /* ─────────────────────────────── Basic Tab ─────────────────────────────── */
 function BasicTab({
+  brandId,
   name, setName,
   accessToken, setAccessToken,
   threadsUserId, setThreadsUserId,
   tokenExpiry, setTokenExpiry,
 }: {
+  brandId: string;
   name: string; setName: (v: string) => void;
   accessToken: string; setAccessToken: (v: string) => void;
   threadsUserId: string; setThreadsUserId: (v: string) => void;
   tokenExpiry: string; setTokenExpiry: (v: string) => void;
 }) {
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const handleThreadsReconnect = () => {
+    setIsConnecting(true);
+    window.location.assign(`/api/oauth/threads/start?brandId=${encodeURIComponent(brandId)}`);
+  };
+
   return (
     <div className="space-y-6">
       <SectionCard title="제품 채널 정보" description="제품 이름과 Threads API 연결 정보를 관리합니다.">
@@ -366,6 +376,20 @@ function BasicTab({
             className={INPUT_CLASS}
           />
         </Field>
+        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+          <p className="text-sm font-medium text-violet-200">Threads 계정 연결</p>
+          <p className="mt-1 text-xs text-slate-400">Meta 로그인 후 새 장기 토큰과 Threads User ID를 자동으로 저장합니다.</p>
+          <Button
+            type="button"
+            onClick={handleThreadsReconnect}
+            disabled={isConnecting}
+            variant="outline"
+            className="mt-3 border-violet-500/40 text-violet-200 hover:bg-violet-500/10"
+          >
+            {isConnecting ? <RefreshCw className="mr-1.5 h-4 w-4 animate-spin" /> : <Key className="mr-1.5 h-4 w-4" />}
+            {isConnecting ? "Meta로 이동 중..." : "Threads 다시 연결"}
+          </Button>
+        </div>
       </SectionCard>
     </div>
   );

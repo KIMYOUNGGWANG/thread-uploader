@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getFreshBrandCredentials, publishPostWithCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
+import {
+  getFreshBrandCredentials,
+  publishThreadChainWithCredentials,
+} from "@/lib/threads-api";
 import { getPublishSafetyBlockReasons } from "@/lib/publish-safety-gate";
+
+export const maxDuration = 60;
 
 function verifyCronSecret(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
@@ -67,16 +72,12 @@ export async function GET(request: NextRequest) {
       const imageUrls = JSON.parse(post.imageUrls || "[]") as string[];
 
       try {
-        const threadsId = await publishPostWithCredentials(post.content, credentials, imageUrls);
-
-        let replyError: string | null = null;
-        if (post.firstComment) {
-          try {
-            await publishReplyWithRetryForBrand(post.firstComment, threadsId, credentials);
-          } catch (err) {
-            replyError = err instanceof Error ? err.message : "reply failed";
-          }
-        }
+        const { rootThreadsId: threadsId, replyError, partIds } = await publishThreadChainWithCredentials(
+          post.content,
+          credentials,
+          imageUrls,
+          post.firstComment
+        );
 
         await prisma.post.update({
           where: { id: post.id },
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
         });
 
         published.push({ brandId: brand.id, brandName: brand.name, postId: post.id, threadsId });
-        console.log(`[cron/publish] ✅ ${brand.name}: ${post.id} → ${threadsId}`);
+        console.log(`[cron/publish] ✅ ${brand.name}: ${post.id} → ${threadsId} (${partIds.length} parts)`);
       } catch (publishErr) {
         console.error(`[cron/publish] ❌ ${brand.name}: publish failed`, publishErr);
         await prisma.post.update({

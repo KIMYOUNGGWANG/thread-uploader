@@ -12,6 +12,8 @@
  * 3. Publish the carousel container
  */
 
+import { splitContentIntoThreadParts } from "@/lib/thread-splitter";
+
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
 const THREADS_DISCOVERY_API_BASE = "https://graph.threads.net";
 export const TOKEN_REFRESH_WINDOW_DAYS = 14;
@@ -663,6 +665,57 @@ export async function publishReplyWithRetryForBrand(
         }
     }
     throw lastError instanceof Error ? lastError : new Error("Failed to publish reply");
+}
+
+export interface ThreadChainPublishResult {
+    rootThreadsId: string;
+    partIds: string[];
+    replyError?: string | null;
+}
+
+export async function publishThreadChainWithCredentials(
+    text: string,
+    credentials: ThreadsCredentials,
+    imageUrls: string[] = [],
+    firstComment: string | null = null,
+    options?: { delayBetweenPartsMs?: number }
+): Promise<ThreadChainPublishResult> {
+    const parts = splitContentIntoThreadParts(text);
+    const delayMs = options?.delayBetweenPartsMs ?? 3000;
+
+    // Part 1 is published as the root post (with images if any)
+    const rootThreadsId = await publishPostWithCredentials(parts[0], credentials, imageUrls);
+    const partIds: string[] = [rootThreadsId];
+
+    // Part 2..N are published as thread replies under rootThreadsId
+    const partErrors: string[] = [];
+    for (let i = 1; i < parts.length; i++) {
+        await sleep(delayMs);
+        try {
+            const partId = await publishReplyWithRetryForBrand(parts[i], rootThreadsId, credentials);
+            partIds.push(partId);
+        } catch (partError) {
+            const msg = partError instanceof Error ? partError.message : "part failed";
+            console.error(`Failed to publish thread part ${i + 1}/${parts.length}:`, partError);
+            partErrors.push(`Part ${i + 1} failed: ${msg}`);
+        }
+    }
+
+    if (firstComment) {
+        await sleep(delayMs);
+        try {
+            await publishReplyWithRetryForBrand(firstComment, rootThreadsId, credentials);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : "first comment failed";
+            partErrors.push(`First comment failed: ${msg}`);
+        }
+    }
+
+    return {
+        rootThreadsId,
+        partIds,
+        replyError: partErrors.length > 0 ? partErrors.join("; ") : null,
+    };
 }
 
 /**

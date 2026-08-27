@@ -6,6 +6,11 @@ import { formatCreatorPatternContext } from "@/lib/creator-prompt-patterns";
 import { formatGrowthPromptContext, parseStoredGrowthMemory } from "@/lib/growth-learning";
 import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
 import { checkQuality } from "@/lib/quality-gate";
+import {
+  checkAntiRepeatSimilarity,
+  formatAntiRepeatContext,
+  type RecentPostSummary,
+} from "@/lib/anti-repeat-memory";
 import { THREADS_CONTENT_MAX_LENGTH, THREADS_CONTENT_TARGET_LENGTH } from "@/lib/threads-limits";
 import {
   formatViralIntentModePrompt,
@@ -23,6 +28,7 @@ import { parseViralMemory } from "@/types/viral";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const SEPARATOR = "===FIRST_COMMENT===";
 const RETRYABLE_STATUSES = new Set([429, 529]);
+export const maxDuration = 60;
 const RECENT_POST_AVOIDANCE_COUNT = 24;
 const GENERATED_META_PATTERNS = [
   /자수\s*체크/,
@@ -220,7 +226,8 @@ async function generateWithQuality(
   growthContext: string,
   viralContext: string,
   recentPostContext: string,
-  maxRetries = 2
+  maxRetries = 2,
+  recentPosts: RecentPostSummary[] = []
 ): Promise<{
   post: string;
   firstComment: string;
@@ -246,6 +253,17 @@ async function generateWithQuality(
     lastResult
   );
 
+  if (recentPosts.length > 0) {
+    const similarity = checkAntiRepeatSimilarity(lastResult.post, recentPosts);
+    if (similarity.isDuplicate && similarity.reason) {
+      qualityResult = {
+        ...qualityResult,
+        pass: false,
+        reasons: [similarity.reason, ...qualityResult.reasons],
+      };
+    }
+  }
+
   for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
     console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
     lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, qualityResult.reasons);
@@ -253,6 +271,17 @@ async function generateWithQuality(
       checkQuality(lastResult.post, experiment.qualityProfile, qualityContext),
       lastResult
     );
+
+    if (recentPosts.length > 0) {
+      const retrySimilarity = checkAntiRepeatSimilarity(lastResult.post, recentPosts);
+      if (retrySimilarity.isDuplicate && retrySimilarity.reason) {
+        qualityResult = {
+          ...qualityResult,
+          pass: false,
+          reasons: [retrySimilarity.reason, ...qualityResult.reasons],
+        };
+      }
+    }
   }
 
   if (!qualityResult.pass) {
@@ -364,16 +393,7 @@ export function buildGenerationPrompt(
 }
 
 function formatRecentPostContext(posts: RecentPostForPrompt[]): string {
-  if (posts.length === 0) {
-    return "최근 생성 글 없음. 단, 같은 첫 문장/같은 구조/같은 결론 반복은 피한다.";
-  }
-  return [
-    "아래 최근 글과 첫 문장, 전개 구조, 예시, 결론 문장을 반복하지 않는다.",
-    "같은 주제를 쓰더라도 다른 각도와 다른 문장 리듬으로 작성한다.",
-    ...posts.map((post, index) => (
-      `${index + 1}. ${post.content.slice(0, 120).replace(/\s+/g, " ")}`
-    )),
-  ].join("\n");
+  return formatAntiRepeatContext(posts, 5);
 }
 
 function formatProductPrompt(config: BrandConfig): string[] {
@@ -629,7 +649,19 @@ export async function POST(request: NextRequest) {
           : pickRandom(formulaPool);
         const topic = topics[i + j];
         const experiment = buildExperiment(formula, topic, config, activeCampaign, i + j, viralIntentMode);
-        return generateWithQuality(experiment, config, growthContext, viralContext, recentPostContext);
+        const inBatchPosts: RecentPostSummary[] = [
+          ...results.map((r) => ({ content: r.post, topic: r.topic, hookType: r.hookType })),
+          ...recentPosts,
+        ];
+        return generateWithQuality(
+          experiment,
+          config,
+          growthContext,
+          viralContext,
+          recentPostContext,
+          2,
+          inBatchPosts
+        );
       });
       results.push(...await Promise.all(batch));
       if (i + BATCH < count) {
