@@ -32,7 +32,7 @@ import { parseViralMemory } from "@/types/viral";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
-  timeout: 8000,
+  timeout: 20000,
 });
 const SEPARATOR = "===FIRST_COMMENT===";
 const RETRYABLE_STATUSES = new Set([429, 529]);
@@ -196,8 +196,9 @@ async function generateOne(
 ): Promise<{ post: string; firstComment: string }> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
+      const model = process.env.ANTHROPIC_GENERATION_MODEL ?? "claude-haiku-4-5-20251001";
       const message = await client.messages.create({
-        model: "claude-sonnet-4-6",
+        model,
         max_tokens: 900,
         temperature: 0.95,
         system: config.systemPrompt,
@@ -217,8 +218,9 @@ async function generateOne(
       };
     } catch (err: unknown) {
       const status = typeof err === "object" && err !== null ? (err as { status?: number }).status : undefined;
-      if (status !== undefined && RETRYABLE_STATUSES.has(status) && attempt < retries) {
-        console.warn(`API ${status} (attempt ${attempt}/${retries}). Retrying in ${delayMs * attempt}ms…`);
+      const isTimeout = err instanceof Error && (err.name === "APIConnectionTimeoutError" || err.message.toLowerCase().includes("timeout"));
+      if (((status !== undefined && RETRYABLE_STATUSES.has(status)) || isTimeout) && attempt < retries) {
+        console.warn(`API ${isTimeout ? "Timeout" : status} (attempt ${attempt}/${retries}). Retrying in ${delayMs * attempt}ms…`);
         await new Promise((res) => setTimeout(res, delayMs * attempt));
       } else {
         throw err;
@@ -771,7 +773,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const response = accessErrorResponse(error);
     if (response) return response;
-    console.error("Generate error:", error);
-    return NextResponse.json({ error: "생성 실패" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "생성 실패";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
