@@ -21,6 +21,11 @@ import {
   type ViralIntentMode,
 } from "@/lib/viral-intent-modes";
 import { formatViralPromptContext } from "@/lib/viral-analysis";
+import {
+  formatMarketingSkillsPrompt,
+  type HookArchetype,
+  type ContentPillar,
+} from "@/lib/marketing-skills";
 import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
@@ -363,6 +368,10 @@ export function buildGenerationPrompt(
   const creatorPatternContext = formatCreatorPatternContext(experiment.hookType, experiment.ctaType);
   const viralIntentMode = experiment.viralIntentMode
     ?? resolveViralIntentMode(experiment.campaignFormulaId ?? experiment.formula.id, 0);
+  const marketingSkillsContext = formatMarketingSkillsPrompt({
+    hookArchetype: mapToHookArchetype(experiment.hookType, experiment.sequenceIndex ?? 0),
+    pillar: selectPillarForIndex(experiment.sequenceIndex ?? 0),
+  });
 
   return [
     `[공식: ${experiment.formula.name}]`,
@@ -371,6 +380,7 @@ export function buildGenerationPrompt(
     ...formatProductPrompt(config),
     ...formatCampaignPrompt(experiment),
     formatViralIntentModePrompt(viralIntentMode),
+    marketingSkillsContext,
     "[Threads 길이 제한]",
     `- 본문은 공백과 줄바꿈을 포함해 반드시 ${THREADS_CONTENT_MAX_LENGTH}자 이하로 작성한다.`,
     `- 권장 본문 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 이하이며, 길면 예시와 수식어를 줄인다.`,
@@ -393,6 +403,21 @@ export function buildGenerationPrompt(
     `위 실험 조건을 조합해서 ${THREADS_CONTENT_MAX_LENGTH}자 이하 Threads 포스트 1개를 작성해줘. 작성 후 ${SEPARATOR} 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.`,
     "본문과 첫 댓글에 실제 URL은 쓰지 마. 시스템이 저장 후 필요한 경우 UTM 링크를 붙인다.",
   ].join("\n");
+}
+
+function mapToHookArchetype(hookType: string, sequenceIndex: number): HookArchetype {
+  const lower = hookType.toLowerCase();
+  if (lower.includes("호기심") || lower.includes("curiosity")) return "curiosity";
+  if (lower.includes("스토리") || lower.includes("경험") || lower.includes("story")) return "story";
+  if (lower.includes("가치") || lower.includes("체크리스트") || lower.includes("숫자") || lower.includes("value")) return "value";
+  if (lower.includes("반전") || lower.includes("상식") || lower.includes("역발상") || lower.includes("contrarian")) return "contrarian";
+  const archetypes: HookArchetype[] = ["curiosity", "value", "contrarian", "story"];
+  return archetypes[sequenceIndex % archetypes.length];
+}
+
+function selectPillarForIndex(sequenceIndex: number): ContentPillar {
+  const pillars: ContentPillar[] = ["insight", "education", "story", "opinion", "promotion"];
+  return pillars[sequenceIndex % pillars.length];
 }
 
 function formatRecentPostContext(posts: RecentPostForPrompt[]): string {

@@ -9,6 +9,7 @@ import {
   hasLowTouchEngagementMechanic,
   hasReplyBurdenPromise,
 } from "@/lib/viral-intent-modes";
+import { validateAntiSlop } from "@/lib/marketing-skills";
 
 /**
  * Quality Gate — CosmicPath 바이럴 공식 준수 검사기
@@ -184,6 +185,12 @@ function enforceSafetyRules(post: string, result: QualityResult): QualityResult 
   if (hasReplyBurdenPromise(post)) reasons.unshift("reply-burden CTA 포함");
   if (hasFortuneOverclaim(post)) reasons.unshift("overclaim 운세/상대 마음 보장 표현 포함");
   if (GENERATED_META_PATTERNS.some((pattern) => pattern.test(post))) reasons.unshift("generated meta text 포함");
+
+  const antiSlop = validateAntiSlop(post);
+  if (!antiSlop.pass) {
+    reasons.unshift(...antiSlop.issues);
+  }
+
   return reasons.length === result.reasons.length ? result : { ...result, pass: false, reasons };
 }
 

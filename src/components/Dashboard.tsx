@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Users, Eye, EyeOff, Video, Copy } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Users, Eye, EyeOff, Video, Copy, LayoutList, Newspaper, MessageSquare, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
@@ -11,6 +11,8 @@ import { renderTikTokDraftVideo } from "@/lib/tiktok-video-renderer";
 import { Toaster, toast } from "sonner";
 import Link from "next/link";
 import DemoAssetGeneratorPanel from "./DemoAssetGeneratorPanel";
+import { NewsTrendingTab } from "@/components/NewsTrendingTab";
+import { InteractionsTab } from "@/components/InteractionsTab";
 import type { AccountInsightSnapshot } from "@/types/account-intelligence";
 import type { TikTokSummaryResponse, TikTokVideoDraftResponse, TikTokVideoDraftStatus } from "@/types/tiktok-video";
 
@@ -416,6 +418,8 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const [showManualReference, setShowManualReference] = useState(false);
   const [manualReference, setManualReference] = useState<ManualReferenceFormState>(EMPTY_MANUAL_REFERENCE);
   const [isSavingManualReference, setIsSavingManualReference] = useState(false);
+  const [activeTab, setActiveTab] = useState<"feed" | "news" | "interactions">("feed");
+  const [showLegacyLabs, setShowLegacyLabs] = useState(false);
   const [showRelatedAccounts, setShowRelatedAccounts] = useState(false);
   const [relatedAccounts, setRelatedAccounts] = useState<RelatedAccountsData | null>(null);
   const [relatedHandleInput, setRelatedHandleInput] = useState("");
@@ -551,21 +555,26 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     }
   }, [brandId, generateCount, insertAtFront, fetchPosts, loadAccountIntelligence, loadCampaignSummary, showAccountIntelligence, showCampaign]);
 
-  const handleCreatePost = useCallback(async () => {
+  const handleCreatePost = useCallback(async (initialContent = "") => {
     try {
       const response = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId, posts: [{ content: "", images: [], scheduledAt: null }] }),
+        body: JSON.stringify({ brandId, posts: [{ content: initialContent, images: [], scheduledAt: null }] }),
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error ?? "Failed to create post");
-      toast.success("새 글 작성 칸이 생성되었습니다");
+      toast.success(initialContent ? "뉴스 기반 포스트 초안이 생성되었습니다" : "새 글 작성 칸이 생성되었습니다");
       await fetchPosts();
     } catch {
       toast.error("글 작성 생성 실패");
     }
   }, [brandId, fetchPosts]);
+
+  const handleUseNewsForDraft = useCallback(async (prompt: string) => {
+    await handleCreatePost(prompt);
+    setActiveTab("feed");
+  }, [handleCreatePost]);
 
   const handleFileSelect = useCallback(async (file: File) => {
     setIsLoading(true);
@@ -1159,10 +1168,77 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
-        {campaignSummary && (
-          <PortfolioOverview summary={campaignSummary} />
+        {/* Modern 3-Tab Bar */}
+        <div className="flex items-center gap-2 mb-8 border-b border-slate-200 dark:border-slate-700 pb-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab("feed")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              activeTab === "feed"
+                ? "bg-violet-600 text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <LayoutList className="w-4 h-4" />
+            스레드 피드 & 발행
+            {posts.length > 0 && (
+              <span className={`text-xs px-2 py-0.5 rounded-full font-normal ${activeTab === "feed" ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500"}`}>
+                {posts.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("news")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              activeTab === "news"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Newspaper className="w-4 h-4" />
+            실시간 트렌드 뉴스
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold">
+              autoTHREADS
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("interactions")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              activeTab === "interactions"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            독자 댓글 & 소통
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold">
+              AI 루프
+            </span>
+          </button>
+        </div>
+
+        {activeTab === "news" && (
+          <NewsTrendingTab brandId={brandId} onUseNewsForDraft={handleUseNewsForDraft} />
         )}
-        <div className="space-y-6 mb-6">
+
+        {activeTab === "interactions" && (
+          <InteractionsTab brandId={brandId} />
+        )}
+
+        {activeTab === "feed" && (
+          <>
+            {showLegacyLabs && (
+              <div className="space-y-6 mb-8 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🧪 고급 실험실 도구 (Labs)</span>
+                  <Button variant="ghost" size="sm" onClick={() => setShowLegacyLabs(false)} className="text-xs text-slate-400 hover:text-slate-600">접기</Button>
+                </div>
+                {campaignSummary && (
+                  <PortfolioOverview summary={campaignSummary} />
+                )}
+                <div className="space-y-6 mb-6">
         {/* Account Intelligence Panel */}
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
           <button onClick={handleToggleAccountIntelligence} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
@@ -1534,6 +1610,8 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         </div>
 
         </div>
+      </div>
+    )}
         {isFetching && posts.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <RefreshCw className="w-8 h-8 animate-spin text-violet-500" />
@@ -1610,7 +1688,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                     {isGenerating ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1.5" />}
                     {isGenerating ? "생성 중..." : `AI ${generateCount}개 생성`}
                   </Button>
-                  <Button variant="default" size="sm" onClick={handleCreatePost} className="bg-slate-600 hover:bg-slate-700 text-white flex-1 sm:flex-none">
+                  <Button variant="default" size="sm" onClick={() => void handleCreatePost()} className="bg-slate-600 hover:bg-slate-700 text-white flex-1 sm:flex-none">
                     <Pencil className="w-4 h-4 mr-1.5" />글 작성
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()} className="flex-1 sm:flex-none">
@@ -1660,7 +1738,22 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             </div>
           </div>
         )}
-      </main>
+
+        {/* Labs Toggle Button at bottom of feed */}
+          <div className="mt-16 pt-8 border-t border-slate-200 dark:border-slate-800 text-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLegacyLabs((v) => !v)}
+              className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 gap-1.5"
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              {showLegacyLabs ? "고급 실험실 도구 (Labs) 숨기기" : "고급 실험실 도구 (Labs) 보기"}
+            </Button>
+          </div>
+        </>
+      )}
+    </main>
     </div>
   );
 }
