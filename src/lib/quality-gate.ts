@@ -174,7 +174,7 @@ export function checkQuality(
 }
 
 function enforceThreadsContentLimit(post: string, result: QualityResult): QualityResult {
-  const lengthError = getThreadsContentLimitError(post, { allowMultiPart: true });
+  const lengthError = getThreadsContentLimitError(post);
   if (!lengthError) return result;
   return {
     ...result,

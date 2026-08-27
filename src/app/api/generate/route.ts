@@ -5,7 +5,7 @@ import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-acc
 import { formatCreatorPatternContext } from "@/lib/creator-prompt-patterns";
 import { formatGrowthPromptContext, parseStoredGrowthMemory } from "@/lib/growth-learning";
 import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
-import { checkQuality } from "@/lib/quality-gate";
+import { checkQuality, type QualityResult } from "@/lib/quality-gate";
 import {
   checkAntiRepeatSimilarity,
   formatAntiRepeatContext,
@@ -164,12 +164,15 @@ function hasGeneratedMetaText(content: string): boolean {
   return GENERATED_META_PATTERNS.some((pattern) => pattern.test(content));
 }
 
-export function enforceGeneratedSurfaceSafety<T extends { pass: boolean; reasons: string[] }>(
+export function enforceGeneratedSurfaceSafety<T extends QualityResult>(
   qualityResult: T,
   result: { post: string; firstComment: string }
 ): T {
   const reasons = [...qualityResult.reasons];
   const surface = [result.post, result.firstComment].join("\n");
+  if (result.post.length > THREADS_CONTENT_MAX_LENGTH && !reasons.some((r) => r.includes("500자"))) {
+    reasons.unshift(`본문 ${result.post.length}자 - 500자 제한 초과`);
+  }
   if (hasReplyBurdenPromise(surface) && !reasons.includes("reply-burden CTA 포함")) {
     reasons.unshift("reply-burden CTA 포함");
   }
@@ -182,6 +185,33 @@ export function enforceGeneratedSurfaceSafety<T extends { pass: boolean; reasons
   return reasons.length === qualityResult.reasons.length
     ? qualityResult
     : { ...qualityResult, pass: false, reasons };
+}
+
+export function ensureMaxThreadsLength(content: string): string {
+  if (content.length <= THREADS_CONTENT_MAX_LENGTH) return content;
+  const lines = content.trim().split("\n");
+  const lastLine = lines[lines.length - 1];
+  const isHashtag = lastLine.startsWith("#");
+  const hashtagSuffix = isHashtag ? "\n\n" + lastLine : "";
+  const bodyText = isHashtag ? lines.slice(0, -1).join("\n") : content;
+  const maxBodyLen = THREADS_CONTENT_MAX_LENGTH - hashtagSuffix.length;
+
+  if (bodyText.length > maxBodyLen) {
+    const truncated = bodyText.slice(0, maxBodyLen);
+    const lastSentenceEnd = Math.max(
+      truncated.lastIndexOf(". "),
+      truncated.lastIndexOf(".\n"),
+      truncated.lastIndexOf("? "),
+      truncated.lastIndexOf("?\n"),
+      truncated.lastIndexOf("! "),
+      truncated.lastIndexOf("!\n")
+    );
+    if (lastSentenceEnd > 250) {
+      return truncated.slice(0, lastSentenceEnd + 1).trim() + hashtagSuffix;
+    }
+    return truncated.trim() + hashtagSuffix;
+  }
+  return content;
 }
 
 async function generateOne(
@@ -725,7 +755,7 @@ export async function POST(request: NextRequest) {
       const post = await prisma.post.create({
         data: {
           brandId,
-          content: result.post,
+          content: ensureMaxThreadsLength(result.post),
           firstComment: result.firstComment || null,
           imageUrls: "[]",
           scheduledAt: new Date(baseTime + index * 1000),
