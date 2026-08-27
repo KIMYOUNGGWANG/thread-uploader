@@ -1,4 +1,4 @@
-export const GENERATE_POSTS_REQUEST_CHUNK_SIZE = 7;
+export const GENERATE_POSTS_REQUEST_CHUNK_SIZE = 2;
 
 export type ApiErrorPayload = {
   readonly error?: string;
@@ -12,6 +12,7 @@ export type GeneratePostsInChunksInput = {
   readonly approvedCampaignStart?: boolean;
   readonly fallbackMessage: string;
   readonly chunkSize?: number;
+  readonly onProgress?: (completed: number, total: number) => void;
 };
 
 export type GeneratePostsInChunksResult = {
@@ -83,6 +84,7 @@ export async function generatePostsInChunks(
     linkedCount += data.linkedCount ?? 0;
     campaignId = data.campaignId ?? campaignId;
     remaining -= currentCount;
+    input.onProgress?.(count, totalRequested);
   }
 
   return { count, linkedCount, campaignId };

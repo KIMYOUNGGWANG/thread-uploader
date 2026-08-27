@@ -25,7 +25,10 @@ import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  timeout: 8000,
+});
 const SEPARATOR = "===FIRST_COMMENT===";
 const RETRYABLE_STATUSES = new Set([429, 529]);
 export const maxDuration = 60;
@@ -659,7 +662,7 @@ export async function POST(request: NextRequest) {
           growthContext,
           viralContext,
           recentPostContext,
-          2,
+          1,
           inBatchPosts
         );
       });

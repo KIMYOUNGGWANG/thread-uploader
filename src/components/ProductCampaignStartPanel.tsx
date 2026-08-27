@@ -60,9 +60,14 @@ export function ProductCampaignStartPanel({
         campaignId: activeCampaign?.id,
         approvedCampaignStart: true,
         fallbackMessage: "캠페인 시작 실패",
+        onProgress: (completed, total) => {
+          toast.loading(`캠페인 포스트 생성 중... (${completed}/${total})`, { id: "campaign-start-progress" });
+        },
       });
+      toast.dismiss("campaign-start-progress");
       toast.success(`${data.count}개 포스트가 생성되었습니다`);
     } catch (error) {
+      toast.dismiss("campaign-start-progress");
       toast.error(error instanceof Error ? error.message : "캠페인 시작 실패");
     } finally {
       setIsStarting(false);

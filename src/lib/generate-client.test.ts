@@ -53,6 +53,7 @@ describe("generatePostsInChunks", () => {
     const result = await generatePostsInChunks({
       brandId: "brand_1",
       count: 21,
+      chunkSize: 7,
       approvedCampaignStart: true,
       fallbackMessage: "생성 실패",
     });
@@ -63,5 +64,28 @@ describe("generatePostsInChunks", () => {
       linkedCount: 3,
       campaignId: "campaign_1",
     });
+  });
+
+  it("calls onProgress callback after each chunk", async () => {
+    const fetchMock = vi.fn(async () => (
+      new Response(JSON.stringify({ count: 2, linkedCount: 0, campaignId: null }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const progressSpy = vi.fn();
+    await generatePostsInChunks({
+      brandId: "brand_1",
+      count: 4,
+      approvedCampaignStart: true,
+      fallbackMessage: "생성 실패",
+      onProgress: progressSpy,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(progressSpy).toHaveBeenCalledTimes(2);
+    expect(progressSpy).toHaveBeenLastCalledWith(4, 4);
   });
 });

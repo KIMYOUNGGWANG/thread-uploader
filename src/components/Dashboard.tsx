@@ -533,13 +533,18 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         insertAtFront,
         approvedCampaignStart: true,
         fallbackMessage: "생성 실패",
+        onProgress: (completed, total) => {
+          toast.loading(`포스트 생성 중... (${completed}/${total})`, { id: "generate-progress" });
+        },
       });
+      toast.dismiss("generate-progress");
       const linkText = data.linkedCount !== undefined ? ` · 링크 ${data.linkedCount}개` : "";
       toast.success(`${data.count}개 포스트 생성 완료${linkText}`);
       await fetchPosts();
       if (showCampaign) await loadCampaignSummary();
       if (showAccountIntelligence) await loadAccountIntelligence();
     } catch (err) {
+      toast.dismiss("generate-progress");
       toast.error(err instanceof Error ? err.message : "AI 생성 실패");
     } finally {
       setIsGenerating(false);
