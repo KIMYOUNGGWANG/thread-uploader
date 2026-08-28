@@ -271,9 +271,9 @@ export function validatePost(post: ParsedPost): { valid: boolean; errors: string
         errors.push("Content is required");
     }
 
-    // Threads has a 500 character limit
-    if (post.content && post.content.length > 500) {
-        errors.push(`Content exceeds 500 characters (${post.content.length})`);
+    // Threads single post limit is 500 chars, but supports multi-part thread chains (1/n) up to 2,400 chars
+    if (post.content && post.content.length > 2400) {
+        errors.push(`Content exceeds 2,400 characters (${post.content.length})`);
     }
 
     // Validate image URLs

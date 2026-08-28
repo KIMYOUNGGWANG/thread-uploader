@@ -145,7 +145,9 @@ export function PostCard({
 
     const validation = validatePost(post);
     const charCount = post.content.length;
-    const isOverLimit = charCount > 500;
+    const isMultiPart = charCount > 500 && charCount <= 2400;
+    const isOverLimit = charCount > 2400;
+    const partCount = Math.min(5, Math.ceil(charCount / 460));
 
     const handleSave = () => {
         onUpdate(index, {
@@ -272,16 +274,18 @@ export function PostCard({
                                 </div>
                             )}
 
-                            {/* Character count */}
+                            {/* Character count / Thread chain indicator */}
                             <div
                                 className={cn(
                                     "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
                                     isOverLimit
                                         ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                        : isMultiPart
+                                        ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
                                         : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                                 )}
                             >
-                                {charCount}/500
+                                {isMultiPart ? `🧵 ${partCount}단 스레드 체인 (${charCount}자)` : `${charCount}/500`}
                             </div>
 
                             {formulaId && (

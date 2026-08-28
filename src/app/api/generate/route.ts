@@ -11,7 +11,11 @@ import {
   formatAntiRepeatContext,
   type RecentPostSummary,
 } from "@/lib/anti-repeat-memory";
-import { THREADS_CONTENT_MAX_LENGTH, THREADS_CONTENT_TARGET_LENGTH } from "@/lib/threads-limits";
+import {
+  THREADS_CONTENT_MAX_LENGTH,
+  THREADS_CONTENT_TARGET_LENGTH,
+  THREADS_MULTI_PART_MAX_LENGTH,
+} from "@/lib/threads-limits";
 import {
   formatViralIntentModePrompt,
   hasFortuneOverclaim,
@@ -170,8 +174,8 @@ export function enforceGeneratedSurfaceSafety<T extends QualityResult>(
 ): T {
   const reasons = [...qualityResult.reasons];
   const surface = [result.post, result.firstComment].join("\n");
-  if (result.post.length > THREADS_CONTENT_MAX_LENGTH && !reasons.some((r) => r.includes("500자"))) {
-    reasons.unshift(`본문 ${result.post.length}자 - 500자 제한 초과`);
+  if (result.post.length > THREADS_MULTI_PART_MAX_LENGTH && !reasons.some((r) => r.includes("2400자") || r.includes("제한 초과"))) {
+    reasons.unshift(`본문 ${result.post.length}자 - 5단 스레드 최대 허용(2,400자) 초과`);
   }
   if (hasReplyBurdenPromise(surface) && !reasons.includes("reply-burden CTA 포함")) {
     reasons.unshift("reply-burden CTA 포함");
@@ -188,13 +192,13 @@ export function enforceGeneratedSurfaceSafety<T extends QualityResult>(
 }
 
 export function ensureMaxThreadsLength(content: string): string {
-  if (content.length <= THREADS_CONTENT_MAX_LENGTH) return content;
+  if (content.length <= THREADS_MULTI_PART_MAX_LENGTH) return content;
   const lines = content.trim().split("\n");
   const lastLine = lines[lines.length - 1];
   const isHashtag = lastLine.startsWith("#");
   const hashtagSuffix = isHashtag ? "\n\n" + lastLine : "";
   const bodyText = isHashtag ? lines.slice(0, -1).join("\n") : content;
-  const maxBodyLen = THREADS_CONTENT_MAX_LENGTH - hashtagSuffix.length;
+  const maxBodyLen = THREADS_MULTI_PART_MAX_LENGTH - hashtagSuffix.length;
 
   if (bodyText.length > maxBodyLen) {
     const truncated = bodyText.slice(0, maxBodyLen);
