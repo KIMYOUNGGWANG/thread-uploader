@@ -61,7 +61,7 @@ export async function renderVideo(
   const composition = await selectComposition({
     serveUrl: bundleLocation,
     id: renderProps.inputProps.style,
-    inputProps: renderProps.inputProps as Record<string, any>,
+    inputProps: renderProps.inputProps as unknown as Record<string, unknown>,
   });
 
   // Render to MP4
@@ -70,7 +70,7 @@ export async function renderVideo(
     serveUrl: bundleLocation,
     codec: "h264",
     outputLocation: outputPath,
-    inputProps: renderProps.inputProps as Record<string, any>,
+    inputProps: renderProps.inputProps as unknown as Record<string, unknown>,
     chromiumOptions: {
       disableWebSecurity: true,
     },
@@ -108,7 +108,7 @@ export async function renderImage(
   const composition = await selectComposition({
     serveUrl: bundleLocation,
     id: renderProps.inputProps.style,
-    inputProps: renderProps.inputProps as Record<string, any>,
+    inputProps: renderProps.inputProps as unknown as Record<string, unknown>,
   });
 
   // Render the first frame as still PNG image
@@ -117,7 +117,7 @@ export async function renderImage(
     serveUrl: bundleLocation,
     output: outputPath,
     frame: 0,
-    inputProps: renderProps.inputProps as Record<string, any>,
+    inputProps: renderProps.inputProps as unknown as Record<string, unknown>,
     chromiumOptions: {
       disableWebSecurity: true,
     },

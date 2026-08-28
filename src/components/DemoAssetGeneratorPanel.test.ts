@@ -8,11 +8,10 @@ vi.stubGlobal("fetch", vi.fn());
 
 describe("DemoAssetGeneratorPanel", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
-    (fetch as any).mockResolvedValue({
+    vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: async () => [],
-    });
+    } as Response);
   });
 
   it("renders the URL input and form labels", () => {

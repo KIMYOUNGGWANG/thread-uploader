@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import crypto from "crypto";
 import path from "path";
+import type { PrismaClient } from "@prisma/client";
 import type { DemoAssetStyle, DemoRenderedAssetType } from "../../types/demo-asset";
 
 // ---------------------------------------------------------------------------
@@ -23,7 +24,7 @@ interface SaveRenderedAssetInput {
  * The file is already written to disk by the renderer.
  */
 export async function saveRenderedAsset(
-  prisma: any,
+  prisma: PrismaClient,
   input: SaveRenderedAssetInput,
 ): Promise<string> {
   const record = await prisma.demoRenderedAsset.create({

@@ -1,0 +1,54 @@
+{
+  "slug": "five_engine_vip_dossier",
+  "updatedAt": "2026-08-27",
+  "mode": [
+    "viral-content",
+    "landing-test"
+  ],
+  "product": "CosmicPath",
+  "targetCustomer": "25-42세 이직, 퇴사, 창업, 투자, 결혼의 중대 갈림길에 선 결정장애 직장인 및 창업가",
+  "wedge": "타로 전면 폐기 및 진태양시 30분 왜곡 폭로 스턴트를 통한 VIP 5대 엔진 의사결정 도시에 전환",
+  "offer": {
+    "landingUrl": "https://www.cosmicpath.app/start?entry=decision_timing_rebuild_v1",
+    "promise": "위로 대신 5대 엔진 교차 검증으로 이직·창업·계약의 골든타임과 리스크 방어 판정(Verdict) 제공",
+    "price": "VIP Decision Dossier Tier"
+  },
+  "channel": "Threads",
+  "campaign": {
+    "id": "five_engine_decision_dossier_launch",
+    "utmSource": "threads",
+    "utmCampaign": "decision_timing_rebuild_v1",
+    "utmContent": "{{postId}}",
+    "dailyPostTarget": 3,
+    "linkCadenceEvery": 3
+  },
+  "contentFormulas": [
+    "controversy_stunt",
+    "common_enemy",
+    "saveable_tool",
+    "self_classification",
+    "quiet_contrarian"
+  ],
+  "stunts": [
+    "Scandal Flip: 결제율 1위 타로 전면 폐기",
+    "Industry Secret: 진태양시 30분 왜곡 폭로",
+    "Common Enemy: 이직할 때 좋은 기운 온다는 가짜 위로 거르기"
+  ],
+  "manualMetricsPlan": [
+    "daily generated posts",
+    "quality pass/fail",
+    "replies",
+    "reposts",
+    "views",
+    "clicks",
+    "dossier conversions"
+  ],
+  "successCriteria": [
+    "런칭 스턴트 3종 Threads 발행 완료",
+    "Roy Scale 4.0 이상 평가 및 댓글 논쟁 유발",
+    "스레드 500자 및 해시태그 1개 규칙 준수",
+    "랜딩 링크 https://www.cosmicpath.app/start?entry=decision_timing_rebuild_v1 통일"
+  ],
+  "status": "active",
+  "evidence": []
+}

@@ -1,14 +1,23 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const DOC_FILES = [
   "README.md",
   "docs/api-spec.md",
   "docs/screen-flow.md",
-  ".agent/memory/task_board.md",
+  ".agents/memory/task_board.md",
 ];
 
 function readProjectFile(path: string): string {
+  if (existsSync(path)) {
+    return readFileSync(path, "utf-8");
+  }
+  const fallbackPath = path.startsWith(".agents/")
+    ? path.replace(".agents/", ".agent/")
+    : path.replace(".agent/", ".agents/");
+  if (existsSync(fallbackPath)) {
+    return readFileSync(fallbackPath, "utf-8");
+  }
   return readFileSync(path, "utf-8");
 }
 

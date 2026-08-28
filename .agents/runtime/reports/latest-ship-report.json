@@ -1,0 +1,101 @@
+{
+  "workflow": "ship",
+  "workflowLabel": "SHIP",
+  "reportMode": "plan",
+  "generatedAt": "2026-06-05T20:38:07",
+  "targetPath": "/Users/kim-young-gwang/Desktop/projects/threads-uploader",
+  "targetType": "hub",
+  "contractRequired": false,
+  "packageManager": "npm",
+  "task": {
+    "done": 0,
+    "total": 0,
+    "percent": 0
+  },
+  "apiSpec": "present",
+  "audit": {
+    "statusCode": 0,
+    "issueCount": 1,
+    "signals": {
+      "recentErrorLogs": false,
+      "gitDirty": true,
+      "missingApiSpec": false,
+      "externalChanges": true,
+      "releaseFrozen": false,
+      "policyFailed": false,
+      "policyWarnings": false
+    },
+    "policy": {
+      "state": "pass",
+      "failureCount": 0,
+      "warningCount": 0
+    },
+    "snapshot": "\n\ud83d\udd0d Audit Status \u2014 One-Shot Environment Scan\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u2705 No recent error logs\n\u26a0\ufe0f  53 uncommitted file(s) in Git\n   \ud83d\udca1 Consider committing before starting new work\n\u2705 docs/api-spec.md exists (Contract ready)\n\ud83e\udde0 learnings.md: 14 accumulated entries\nRevenue OS: tiktok_video_experiment_engine \u2014 56/100 (revise_offer)\nAction: Return to /plan and sharpen the offer, customer, price, or channel.\nMetrics: views=0, clicks=0, replies=0, calls=0, waitlist=0, preorders=0, paid=0\n\u2139\ufe0f  No release freeze state recorded\n\ud83e\udded Policy check: PASS (0 failure(s), 0 warning(s))\n\ud83d\udd75\ufe0f  Changed project files outside local state:\n   \u2022 .omo/boulder.json\n   \u2022 .omo/evidence/build-cosmicpath-viral-upgrade.txt\n   \u2022 .omo/evidence/cron-quality-blocked-contract.txt\n   \u2022 .omo/evidence/docs-api-formula-contract-cosmicpath.txt\n   \u2022 .omo/evidence/docs-no-reply-burden-cosmicpath.txt\n   \u2022 .omo/evidence/f1-plan-compliance.txt\n   \u2022 .omo/evidence/f2-code-quality.txt\n   \u2022 .omo/evidence/f3-manual-qa.md\n   \u2022 .omo/evidence/f4-scope-fidelity.txt\n   \u2022 .omo/evidence/final-targeted-tests-cosmicpath-viral-upgrade.txt\n   \u2022 .omo/evidence/green-wave-code-cosmicpath-viral-upgrade.txt\n   \u2022 .omo/evidence/manual-http-admin-auth-cosmicpath.txt\n   \u2022 .omo/evidence/manual-http-admin-brands-cosmicpath.txt\n   \u2022 .omo/evidence/manual-http-auth-cosmicpath.txt\n   \u2022 .omo/evidence/manual-http-brand-cosmicpath.txt\n   \u2022 .omo/evidence/manual-http-brands-list-cosmicpath.txt\n   \u2022 .omo/evidence/manual-http-campaign-summary-cosmicpath.txt\n   \u2022 .omo/evidence/manual-http-clean-brand-cosmicpath.txt\n   \u2022 .omo/evidence/manual-http-create-stale-publish-guard-post.txt\n   \u2022 .omo/evidence/manual-http-generate-cosmicpath.txt\n   \u2022 .omo/evidence/manual-http-posts-audit-cosmicpath.txt\n   \u2022 .omo/evidence/manual-http-sprint-brand-cosmicpath.txt\n   \u2022 .omo/evidence/plan-checklist-complete.txt\n   \u2022 .omo/evidence/publish-safety-route-tests.txt\n   \u2022 .omo/evidence/red-cosmicpath-viral-upgrade.txt\n   \u2022 .omo/evidence/reviewer-9-dashboard-memory-contract.txt\n   \u2022 .omo/evidence/reviewer-9-doc-prompt-contract.txt\n   \u2022 .omo/evidence/reviewer-9-fix-generate-route-tests.txt\n   \u2022 .omo/evidence/reviewer-9-tiktok-contract.txt\n   \u2022 .omo/evidence/reviewer-9-tiktok-fix-tests.txt\n   \u2022 .omo/evidence/task-1-campaign-formulas.txt\n   \u2022 .omo/evidence/task-1-no-reply-promise.txt\n   \u2022 .omo/evidence/task-2-brand-memory.txt\n   \u2022 .omo/evidence/task-2-no-reply-burden.txt\n   \u2022 .omo/evidence/task-3-generate-prompt.txt\n   \u2022 .omo/evidence/task-3-reply-ban.txt\n   \u2022 .omo/evidence/task-4-reply-burden-gate.txt\n   \u2022 .omo/evidence/task-4-self-classification-gate.txt\n   \u2022 .omo/evidence/task-5-saveable-analysis.txt\n   \u2022 .omo/evidence/task-5-self-classification-analysis.txt\n   \u2022 .omo/evidence/task-6-manual-viral-tests.txt\n   \u2022 .omo/evidence/task-6-swipe-file-docs.txt\n   \u2022 .omo/evidence/task-7-generate-sprint.http\n   \u2022 .omo/evidence/task-7-sprint-audit.txt\n   \u2022 .omo/evidence/task-7-summary.http\n   \u2022 .omo/evidence/task-7-viral-mode-matrix.txt\n   \u2022 .omo/evidence/task-8-no-reply-requirement.txt\n   \u2022 .omo/evidence/task-8-playbook-rules.txt\n   \u2022 .omo/evidence/task-suite-cosmicpath-viral-upgrade.txt\n   \u2022 .omo/evidence/tiktok-no-reply-burden-contract.txt\n   \u2022 .omo/evidence/typecheck-cosmicpath-viral-upgrade.txt\n   \u2022 .omo/plans/cosmicpath-viral-upgrade.md\n   \u2022 .omo/start-work/ledger.jsonl\n   \u2022 .omo/start-work/notepad-cosmicpath-viral-upgrade.md\n   \ud83d\udca1 Action: Verify these files before proceeding.\n\ud83d\udccb task_board.md: 0 / 0 tasks completed\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\ud83d\udfe1 1 issue(s) detected. Review above before proceeding.\n"
+  },
+  "summary": "Blocking issues detected: Git working tree is not clean.",
+  "recommendation": "/fix before ship",
+  "gateStatus": "fail",
+  "qa": {
+    "statusCode": 0,
+    "snapshot": "QA runner target: /Users/kim-young-gwang/Desktop/projects/threads-uploader\nMode: plan\nProfile: qa\nPackage manager: npm\n\nSelected scripts:\n  - test\n  - typecheck\n  - lint\n  - build\n"
+  },
+  "freeze": {
+    "statusCode": 0,
+    "state": "unfrozen",
+    "snapshot": "unfrozen\n"
+  },
+  "review": {
+    "securityAudit": "absent",
+    "findings": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    }
+  },
+  "relatedReports": {
+    "qa": null,
+    "review": null
+  },
+  "blockers": {
+    "hardCount": 1,
+    "manualCount": 2,
+    "softCount": 1,
+    "primary": {
+      "severity": "hard",
+      "code": "git_dirty",
+      "message": "Git working tree is not clean."
+    },
+    "hard": [
+      {
+        "severity": "hard",
+        "code": "git_dirty",
+        "message": "Git working tree is not clean."
+      }
+    ],
+    "manual": [
+      {
+        "severity": "manual",
+        "code": "qa_report_missing",
+        "message": "No QA JSON report exists yet. Run qa-gate first."
+      },
+      {
+        "severity": "manual",
+        "code": "review_report_missing",
+        "message": "No review JSON report exists yet. Run review-gate first."
+      }
+    ],
+    "soft": [
+      {
+        "severity": "soft",
+        "code": "external_changes",
+        "message": "audit-status detected changed project files outside local state."
+      }
+    ]
+  },
+  "snapshots": {
+    "taskBoard": "# Task Board\n\n> Updated: 2026-06-04\n\n---\n\n## Mission\n\n**Portfolio Growth OS.**\n\n`threads-uploader` is being repositioned from a CosmicPath-only Threads/TikTok tool into an internal workspace for promoting owned products. CosmicPath remains one product profile; future products should be added as separate product cards with their own positioning, active experiment, metrics, and channel loop.\n\nOperating loop:\n\n`Product Profile -> Active Experiment -> Generate channel content -> Review/publish -> Manual metrics -> Growth learning -> Next action`\n\n**Revenue OS mode:** `viral-content` + `landing-test`\n\n**Active experiment:** `portfolio_growth_os`\n\n**Default cadence:** 7-day evidence sprint\n\n---\n\n## Scope\n\n### Now\n\n1. Add product profile and active experiment fields to the existing Brand config.\n2. Preserve legacy `Brand` API and DB naming while changing the user-facing surface to products.\n3. Add `product_growth` quality profile for non-CosmicPath products.\n4. Inject product and experiment context into AI generation.\n5. Add a Portfolio Overview to the dashboard with primary metric, conversion metric, evidence state, and next action.\n6. Seed fixed QA products for stable manual/browser validation.\n7. Update README, API spec, screen flow, and task board to match the internal product portfolio direction.\n\n### Later\n\n- Split large dashboard/settings components into smaller feature modules.\n- Add a product preset library for each owned product.\n- Add cross-channel comparison across Threads, TikTok, email, and manual launches.\n- Add richer experiment decision records after each 7-day sprint.\n- Add automatic conversion attribution only after landing/product analytics are ready.\n\n### Out of Scope\n\n- External team onboarding.\n- Payment, pricing, tenant management, or customer workspaces.\n- Automatic comments, DMs, follows, likes, or engagement automation.\n- TikTok cookie/session automation.\n- Cosmetic redesign unrelated to the product growth workflow.\n\n---\n\n## Implementation Steps\n\n| # | Work | Status | Contract Surface |\n|---|------|--------|------------------|\n| 1 | Add Vitest and baseline tests | Done | Test Infrastructure |\n| 2 | Add product profile and active experiment contracts | Done | Brand Config |\n| 3 | Add fixed QA seed harness | Done | QA Data |\n| 4 | Add `product_growth` quality profile | Done | Quality Gate |\n| 5 | Add Product Settings tab | Done | Settings UI |\n| 6 | Rebrand app shell from brand-only to product portfolio | Done | UI Copy |\n| 7 | Make generation product-aware | Done | Generate API |\n| 8 | Add Portfolio Overview | Done | Dashboard |\n| 9 | Add summary metrics and next action | Done | Campaign Summary API |\n| 10 | Create product defaults on new product creation | Done | Product Create Flow |\n| 11 | Refresh operator docs and final QA | Done | Docs + Validation |\n\n---\n\n## Validation\n\n```bash\nnpm run test\nnpm run typecheck\nnpm run lint\nnpm run build\n```\n",
+    "git": "?? .omo/boulder.json\n?? .omo/evidence/build-cosmicpath-viral-upgrade.txt\n?? .omo/evidence/cron-quality-blocked-contract.txt\n?? .omo/evidence/docs-api-formula-contract-cosmicpath.txt\n?? .omo/evidence/docs-no-reply-burden-cosmicpath.txt\n?? .omo/evidence/f1-plan-compliance.txt\n?? .omo/evidence/f2-code-quality.txt\n?? .omo/evidence/f3-manual-qa.md\n?? .omo/evidence/f4-scope-fidelity.txt\n?? .omo/evidence/final-targeted-tests-cosmicpath-viral-upgrade.txt\n?? .omo/evidence/green-wave-code-cosmicpath-viral-upgrade.txt\n?? .omo/evidence/manual-http-admin-auth-cosmicpath.txt\n?? .omo/evidence/manual-http-admin-brands-cosmicpath.txt\n?? .omo/evidence/manual-http-auth-cosmicpath.txt\n?? .omo/evidence/manual-http-brand-cosmicpath.txt\n?? .omo/evidence/manual-http-brands-list-cosmicpath.txt\n?? .omo/evidence/manual-http-campaign-summary-cosmicpath.txt\n?? .omo/evidence/manual-http-clean-brand-cosmicpath.txt\n?? .omo/evidence/manual-http-create-stale-publish-guard-post.txt\n?? .omo/evidence/manual-http-generate-cosmicpath.txt\n?? .omo/evidence/manual-http-posts-audit-cosmicpath.txt\n?? .omo/evidence/manual-http-sprint-brand-cosmicpath.txt\n?? .omo/evidence/plan-checklist-complete.txt\n?? .omo/evidence/publish-safety-route-tests.txt\n?? .omo/evidence/red-cosmicpath-viral-upgrade.txt\n?? .omo/evidence/reviewer-9-dashboard-memory-contract.txt\n?? .omo/evidence/reviewer-9-doc-prompt-contract.txt\n?? .omo/evidence/reviewer-9-fix-generate-route-tests.txt\n?? .omo/evidence/reviewer-9-tiktok-contract.txt\n?? .omo/evidence/reviewer-9-tiktok-fix-tests.txt\n?? .omo/evidence/task-1-campaign-formulas.txt\n?? .omo/evidence/task-1-no-reply-promise.txt\n?? .omo/evidence/task-2-brand-memory.txt\n?? .omo/evidence/task-2-no-reply-burden.txt\n?? .omo/evidence/task-3-generate-prompt.txt\n?? .omo/evidence/task-3-reply-ban.txt\n?? .omo/evidence/task-4-reply-burden-gate.txt\n?? .omo/evidence/task-4-self-classification-gate.txt\n?? .omo/evidence/task-5-saveable-analysis.txt\n?? .omo/evidence/task-5-self-classification-analysis.txt\n?? .omo/evidence/task-6-manual-viral-tests.txt\n?? .omo/evidence/task-6-swipe-file-docs.txt\n?? .omo/evidence/task-7-generate-sprint.http\n?? .omo/evidence/task-7-sprint-audit.txt\n?? .omo/evidence/task-7-summary.http\n?? .omo/evidence/task-7-viral-mode-matrix.txt\n?? .omo/evidence/task-8-no-reply-requirement.txt\n?? .omo/evidence/task-8-playbook-rules.txt\n?? .omo/evidence/task-suite-cosmicpath-viral-upgrade.txt\n?? .omo/evidence/tiktok-no-reply-burden-contract.txt\n?? .omo/evidence/typecheck-cosmicpath-viral-upgrade.txt\n?? .omo/plans/cosmicpath-viral-upgrade.md\n?? .omo/start-work/\n",
+    "learnings": "- Recurring bug: opaque external-source failure \u2014 Meta permission errors were collapsed into \u201c\uc77c\ubd80 \uc18c\uc2a4 \uc2e4\ud328\u201d so the operator could not tell whether discovery failed because of no data or blocked API permission \u2014 Prevention: surface source error classes directly and provide a manual seed-handle fallback for permission-limited discovery.\n\n## [2026-05-21] Cycle Learnings\n- Recurring bug: cron implementation without deployment registration \u2014 \ud1a0\ud070 \uac31\uc2e0 route\uac00 \uc788\uc5b4\ub3c4 `vercel.json` cron\uc5d0 \uc5c6\uc73c\uba74 production\uc5d0\uc11c\ub294 \uc790\ub3d9 \uac31\uc2e0\uc774 \ub3cc\uc9c0 \uc54a\uc74c \u2014 Prevention: \uc0c8 cron endpoint\ub97c \ub9cc\ub4e4 \ub54c \uac19\uc740 \ubcc0\uacbd\uc5d0\uc11c \ubc30\ud3ec \uc2a4\ucf00\uc904\uacfc README\ub97c \ud568\uaed8 \uac31\uc2e0\ud558\uae30\n- Recurring bug: fallback setup blocks primary workflow \u2014 legacy env-token \ucd08\uae30\ud654 \uc2e4\ud328\uac00 multi-brand refresh \uc804\uccb4\ub97c \ub9c9\uc744 \uc218 \uc788\uc74c \u2014 Prevention: fallback refresh\ub294 non-blocking\uc73c\ub85c \ucc98\ub9ac\ud558\uace0 \ube0c\ub79c\ub4dc\ubcc4 \uc791\uc5c5\uc740 \ub3c5\ub9bd\uc801\uc73c\ub85c \uacc4\uc18d \uc2e4\ud589\ud558\uae30\n\n## [2026-06-01] Cycle Learnings\n- Recurring bug: missing token refresh at publish boundary \u2014 refresh cron\uc774 \uc2e4\ud328\ud558\uac70\ub098 \ubc30\ud3ec\ub418\uc9c0 \uc54a\uc73c\uba74 \uc571 \ubc1c\ud589 \uacbd\ub85c\uac00 \ub9cc\ub8cc \uc784\ubc15 \ud1a0\ud070\uc744 \uadf8\ub300\ub85c \uc0ac\uc6a9\ud568 \u2014 Prevention: \ubaa8\ub4e0 publisher \uacbd\ub85c\ub294 \uc800\uc7a5 \ud1a0\ud070\uc744 \uc9c1\uc811 \uc4f0\uc9c0 \ub9d0\uace0 \ubc1c\ud589 \uc9c1\uc804 fresh credentials \ud5ec\ud37c\ub97c \ud1b5\uacfc\ud558\uae30\n"
+  }
+}

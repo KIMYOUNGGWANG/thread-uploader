@@ -23,7 +23,13 @@ if (fs.existsSync(envPath)) {
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const EXPERT_PANEL_REF = path.resolve(root, ".agent/skills/threads-engine/references/expert-panel.md");
+function resolveAgentFile(...subPaths) {
+  const p1 = path.resolve(root, ".agents", ...subPaths);
+  if (fs.existsSync(p1)) return p1;
+  return path.resolve(root, ".agent", ...subPaths);
+}
+
+const EXPERT_PANEL_REF = resolveAgentFile("skills/threads-engine/references/expert-panel.md");
 const expertPanelGuide = fs.readFileSync(EXPERT_PANEL_REF, "utf-8");
 
 async function verifyPost(postContent, firstComment) {

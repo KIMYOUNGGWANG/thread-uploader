@@ -1,0 +1,1 @@
+../../../.agents/workflows/hub-upgrade.md

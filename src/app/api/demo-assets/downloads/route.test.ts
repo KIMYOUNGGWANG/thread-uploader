@@ -22,8 +22,8 @@ vi.mock("@/lib/demo-assets/storage", () => ({
   readRenderedAsset: storageMocks.readRenderedAsset,
 }));
 
-function mockRequest(url: string): any {
-  return new Request(url) as any;
+function mockRequest(url: string): Request {
+  return new Request(url);
 }
 
 describe("Demo Asset Download API Endpoint", () => {

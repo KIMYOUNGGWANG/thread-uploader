@@ -1,0 +1,412 @@
+[
+  {
+    "id": "brand-engine",
+    "path": ".agent/skills/brand-engine/SKILL.md",
+    "description": "범용 브랜드 전략 스킬. /brand-engine 하나로 포지셔닝 검증 → 바이럴 포지셔닝 → 채널 전략까지 한 사이클 완성. 어떤 제품에도 적용 가능."
+  },
+  {
+    "id": "analytics",
+    "path": ".agent/skills/business/analytics.md",
+    "description": "Core PM skill pack for product analytics. Covers defining North Star metrics, input metrics, designing dashboards, funnel/cohort analysis, and A/B testing strategy."
+  },
+  {
+    "id": "deep-research",
+    "path": ".agent/skills/business/deep-research.md",
+    "description": "다중 소스 심층 리서치. 웹 검색, 결과 합성, 출처 명시 보고서 제공. 특정 주제에 대한 철저한 리서치, 경쟁사 분석, 기술 평가, 시장 분석 시 사용."
+  },
+  {
+    "id": "discovery",
+    "path": ".agent/skills/business/discovery.md",
+    "description": "Core PM skill pack for product discovery. Covers brainstorming (ideas/experiments, existing/new), assumption mapping, risk identification, and Opportunity Solution Tree (OST) building."
+  },
+  {
+    "id": "execution",
+    "path": ".agent/skills/business/execution.md",
+    "description": "Core PM skill pack for product execution. Covers writing PRDs, slicing user stories, feature prioritization frameworks (RICE, Kano), and managing feedback."
+  },
+  {
+    "id": "market-research",
+    "path": ".agent/skills/business/market-research.md",
+    "description": "시장 조사, 경쟁사 분석, 투자자 심사, 산업 인텔리전스 수행 시 사용. 출처 명시와 의사결정 지향 요약 포함. TAM/SAM/SOM, 경쟁사 비교, 기술 스캔, 비즈니스 결정 지원 리서치."
+  },
+  {
+    "id": "startup-business-analyst-market-opportunity",
+    "path": ".agent/skills/business/startup-business-analyst-market-opportunity.md",
+    "description": "Generate comprehensive market opportunity analysis with TAM/SAM/SOM"
+  },
+  {
+    "id": "strategy",
+    "path": ".agent/skills/business/strategy.md",
+    "description": "Core PM skill pack for product strategy. Covers Product Strategy Canvas, Startup Canvas, Lean Canvas, Value Proposition Design (JTBD), and monetization/pricing strategies."
+  },
+  {
+    "id": "design-dna",
+    "path": ".agent/skills/design/design-dna.md",
+    "description": "Intentional UI rules loaded by /develop, /uiux, and /design-review workflows. Keeps surfaces specific, coherent, and non-generic."
+  },
+  {
+    "id": "stitch-ui-design",
+    "path": ".agent/skills/design/stitch-ui-design.md",
+    "description": "Expert guide for creating effective prompts for Google Stitch AI UI design tool. Use when user wants to design UI/UX in Stitch, create app interfaces, generate mobile/web designs, or needs help crafting Stitch prompts. Covers prompt structure, specificity techniques, iteration strategies, and design-to-code workflows for Stitch by Google."
+  },
+  {
+    "id": "ui-ux-pro-max",
+    "path": ".agent/skills/design/ui-ux-pro-max/SKILL.md",
+    "description": "UI/UX design intelligence. 50 styles, 21 palettes, 50 font pairings, 20 charts, 9 stacks (React, Next.js, Vue, Svelte, SwiftUI, React Native, Flutter, Tailwind, shadcn/ui). Actions: plan, build, create, design, implement, review, fix, improve, optimize, enhance, refactor, check UI/UX code. Projects: website, landing page, dashboard, admin panel, e-commerce, SaaS, portfolio, blog, mobile app, .html, .tsx, .vue, .svelte. Elements: button, modal, navbar, sidebar, card, table, form, chart. Styles: glassmorphism, claymorphism, minimalism, brutalism, neumorphism, bento grid, dark mode, responsive, skeuomorphism, flat design. Topics: color palette, accessibility, animation, layout, typography, font pairing, spacing, hover, shadow, gradient. Integrations: shadcn/ui MCP for component search and examples."
+  },
+  {
+    "id": "ui-visual-validator",
+    "path": ".agent/skills/design/ui-visual-validator.md",
+    "description": "Rigorous visual validation expert specializing in UI testing,"
+  },
+  {
+    "id": "ab-test-setup",
+    "path": ".agent/skills/engineering/ab-test-setup/SKILL.md",
+    "description": "Structured guide for setting up A/B tests with mandatory gates for hypothesis, metrics, and execution readiness."
+  },
+  {
+    "id": "agent-memory-systems",
+    "path": ".agent/skills/engineering/agent-memory-systems/SKILL.md",
+    "description": "Memory is the cornerstone of intelligent agents. Without it, every interaction starts from zero. This skill covers the architecture of agent memory: short-term (context window), long-term (vector stores), and the cognitive architectures that organize them.  Key insight: Memory isn't just storage - it's retrieval. A million stored facts mean nothing if you can't find the right one. Chunking, embedding, and retrieval strategies determine whether your agent remembers or forgets.  The field is fragm"
+  },
+  {
+    "id": "ai-app-integration",
+    "path": ".agent/skills/engineering/ai-app-integration.md",
+    "description": "LLM / Claude API / OpenAI 통합 패턴 — Prompt Engineering, RAG, Tool Use, Agent Loop"
+  },
+  {
+    "id": "analytics-tracking",
+    "path": ".agent/skills/engineering/analytics-tracking/SKILL.md",
+    "description": ">"
+  },
+  {
+    "id": "api-design-principles",
+    "path": ".agent/skills/engineering/api-design-principles.md",
+    "description": "Master REST and GraphQL API design principles to build intuitive, scalable, and maintainable APIs that delight developers. Use when designing new APIs, reviewing API specifications, or establishing API design standards."
+  },
+  {
+    "id": "api-spec-template",
+    "path": ".agent/skills/engineering/api-spec-template.md",
+    "description": "REST API 명세서 생성 템플릿. 엔드포인트, TypeScript 인터페이스, 인증, 에러코드, DB 스키마 정의. /plan 워크플로우에서 docs/api-spec.md 생성 시 사용. Contract-First 개발의 핵심 산출물."
+  },
+  {
+    "id": "architecture-decision-records",
+    "path": ".agent/skills/engineering/architecture-decision-records/SKILL.md",
+    "description": "Write and maintain Architecture Decision Records (ADRs) following best practices for technical decision documentation. Use when documenting significant technical decisions, reviewing past architect..."
+  },
+  {
+    "id": "autonomous-agents",
+    "path": ".agent/skills/engineering/autonomous-agents/SKILL.md",
+    "description": "Autonomous agent design patterns: ReAct loops, goal decomposition, self-correction, and production reliability. Key insight: 95% per-step success = 60% by step 10."
+  },
+  {
+    "id": "changelog-automation",
+    "path": ".agent/skills/engineering/changelog-automation/SKILL.md",
+    "description": "Automate changelog generation from commits, PRs, and releases following Keep a Changelog format. Use when setting up release workflows, generating release notes, or standardizing commit conventions."
+  },
+  {
+    "id": "implementation-playbook",
+    "path": ".agent/skills/engineering/changelog-automation/resources/implementation-playbook.md",
+    "description": "Changelog Automation Implementation Playbook"
+  },
+  {
+    "id": "claude-token-optimization",
+    "path": ".agent/skills/engineering/claude-token-optimization.md",
+    "description": "Claude Code CLI 토큰 효율 최적화 전략. CLAUDE.md 레이어링, Bridge 계층 분리, on-demand 스킬 로딩, 세션 내 작업 패턴."
+  },
+  {
+    "id": "clean-code",
+    "path": ".agent/skills/engineering/clean-code/SKILL.md",
+    "description": "Use when writing, reviewing, or refactoring code. Applies Clean Code principles: naming, functions, error handling. Includes Golden Stack (Next.js/Supabase/Zustand) specific patterns and AI-common mistakes."
+  },
+  {
+    "id": "ai-common-mistakes",
+    "path": ".agent/skills/engineering/clean-code/gotchas/ai-common-mistakes.md",
+    "description": "AI Common Mistakes — Gotchas"
+  },
+  {
+    "id": "golden-stack-patterns",
+    "path": ".agent/skills/engineering/clean-code/references/golden-stack-patterns.md",
+    "description": "Golden Stack Patterns — Next.js + Supabase + Zustand"
+  },
+  {
+    "id": "code-review-checklist",
+    "path": ".agent/skills/engineering/code-review-checklist/SKILL.md",
+    "description": "Comprehensive checklist for conducting thorough code reviews covering functionality, security, performance, and maintainability"
+  },
+  {
+    "id": "coding-standards",
+    "path": ".agent/skills/engineering/coding-standards.md",
+    "description": "Mandatory coding standards loaded by /develop and /fix workflows. Extracted from GEMINI.md Section 7 to reduce base token load."
+  },
+  {
+    "id": "concise-planning",
+    "path": ".agent/skills/engineering/concise-planning/SKILL.md",
+    "description": "Use when a user asks for a plan for a coding task, to generate a clear, actionable, and atomic checklist."
+  },
+  {
+    "id": "context-window-management",
+    "path": ".agent/skills/engineering/context-window-management/SKILL.md",
+    "description": "Strategies for managing LLM context windows: summarization, trimming, routing, serial position optimization. Essential for multi-agent token efficiency."
+  },
+  {
+    "id": "create-pr",
+    "path": ".agent/skills/engineering/create-pr.md",
+    "description": "PR 생성 및 문서화 기준. What/Why 구조, 스크린샷 첨부, breaking change 기록, 체크리스트, gh CLI 명령어. PR 작성, 코드 리뷰 준비, 브랜치 작업 완료 후 사용."
+  },
+  {
+    "id": "critic-gate",
+    "path": ".agent/skills/engineering/critic-gate.md",
+    "description": "Reusable Critic gate with WTF-likelihood self-regulation and auto-retry loop. Embeds into any workflow to enforce quality standards with max 2 retries before escalating to user."
+  },
+  {
+    "id": "debugging-strategies",
+    "path": ".agent/skills/engineering/debugging-strategies.md",
+    "description": "Root-cause-first debugging patterns including 5-Why, binary search isolation, compare-good-vs-bad, and safe hypothesis testing."
+  },
+  {
+    "id": "e2e-testing-patterns",
+    "path": ".agent/skills/engineering/e2e-testing-patterns.md",
+    "description": "Playwright E2E 테스트 패턴, Page Object Model, CI/CD 통합, Flaky 테스트 전략, 아티팩트 관리. E2E 테스트 작성, 안정화, 배포 파이프라인 연동 시 사용."
+  },
+  {
+    "id": "error-boundary-patterns",
+    "path": ".agent/skills/engineering/error-boundary-patterns.md",
+    "description": "React Error Boundary + Suspense 실전 패턴. Next.js App Router의 error.tsx/loading.tsx/not-found.tsx 활용, 에러 복구 전략."
+  },
+  {
+    "id": "error-handling",
+    "path": ".agent/skills/engineering/error-handling.md",
+    "description": "풀스택 에러 핸들링 표준 패턴. Backend API 에러 응답, React Error Boundary, Toast/전체화면 에러 구분, 재시도 정책. 에러 처리 코드 작성 및 리뷰 시 사용."
+  },
+  {
+    "id": "form-cro",
+    "path": ".agent/skills/engineering/form-cro/SKILL.md",
+    "description": ">"
+  },
+  {
+    "id": "fsd-lite",
+    "path": ".agent/skills/engineering/fsd-lite.md",
+    "description": "Feature-Sliced Design Lite — AI-driven 프로젝트를 위한 간소화된 폴더 구조 설계. src/features, src/components, src/hooks, src/lib 패턴. 새 기능 추가, 폴더 구조 설계, 리팩터링 시 사용."
+  },
+  {
+    "id": "github-actions-templates",
+    "path": ".agent/skills/engineering/github-actions-templates.md",
+    "description": "Create production-ready GitHub Actions workflows for automated testing, building, and deploying applications. Use when setting up CI/CD with GitHub Actions, automating development workflows, or creating reusable workflow templates."
+  },
+  {
+    "id": "kaizen",
+    "path": ".agent/skills/engineering/kaizen/SKILL.md",
+    "description": "Guide for continuous improvement, error proofing, and standardization. Use this skill when the user wants to improve code quality, refactor, or discuss process improvements."
+  },
+  {
+    "id": "lint-and-validate",
+    "path": ".agent/skills/engineering/lint-and-validate/SKILL.md",
+    "description": "Automatic quality control, linting, and static analysis procedures. Use after every code modification to ensure syntax correctness and project standards. Triggers onKeywords: lint, format, check, v..."
+  },
+  {
+    "id": "micro-saas-launcher",
+    "path": ".agent/skills/engineering/micro-saas-launcher.md",
+    "description": "Expert in launching small, focused SaaS products fast - the indie hacker approach to building profitable software. Covers idea validation, MVP development, pricing, launch strategies, and growing to sustainable revenue. Ship in weeks, not months. Use when: micro saas, indie hacker, small saas, side project, saas mvp."
+  },
+  {
+    "id": "microservices-design",
+    "path": ".agent/skills/engineering/microservices-design.md",
+    "description": "마이크로서비스 설계 원칙 — 서비스 분리 기준, 통신 패턴, Docker 기반 로컬 운용"
+  },
+  {
+    "id": "multi-agent-patterns",
+    "path": ".agent/skills/engineering/multi-agent-patterns/SKILL.md",
+    "description": "Master orchestrator, peer-to-peer, and hierarchical multi-agent architectures"
+  },
+  {
+    "id": "nextjs-best-practices",
+    "path": ".agent/skills/engineering/nextjs-best-practices.md",
+    "description": "Next.js App Router principles. Server Components, data fetching, routing patterns."
+  },
+  {
+    "id": "nextjs-supabase-auth",
+    "path": ".agent/skills/engineering/nextjs-supabase-auth.md",
+    "description": "Next.js 14+ App Router + Supabase Auth 구현 가이드. @supabase/ssr 기반 Server Component, Route Handler, Middleware 패턴. 인증 구현, 세션 관리, RLS 보호 라우트 작업 시 사용."
+  },
+  {
+    "id": "performance-optimizer",
+    "path": ".agent/skills/engineering/performance-optimizer.md",
+    "description": "Next.js/Supabase 애플리케이션 성능 최적화 가이드. DB 인덱스 및 쿼리 최적화, Server Components 활용, 번들 최적화, 이미지 최적화, 캐싱 전략. 성능 이슈 진단, 느린 쿼리 분석, Core Web Vitals 개선 시 사용."
+  },
+  {
+    "id": "prd-template",
+    "path": ".agent/skills/engineering/prd-template.md",
+    "description": "PRD+ (Product Requirements Document) 생성 템플릿. JTBD, Lean Canvas, Assumption Mapping, MoSCoW Scope 포함. /plan 워크플로우에서 docs/prd.md 생성 시 사용."
+  },
+  {
+    "id": "project-spec-template",
+    "path": ".agent/skills/engineering/project-spec-template.md",
+    "description": "프로젝트 시작 시 기술 스택 및 아키텍처 명세 템플릿. Next.js/Supabase 기본 스택과 Neon/Clerk 대안 스택 정의, FSD Lite 패턴, 핵심 기능 및 DB 스키마 초안. 새 프로젝트 설정, 스택 결정, 아키텍처 문서화 시 사용."
+  },
+  {
+    "id": "python-data-pipeline",
+    "path": ".agent/skills/engineering/python-data-pipeline.md",
+    "description": "Python 데이터 분석 파이프라인 — EDA, 전처리, 시각화, 통계 분석"
+  },
+  {
+    "id": "react-best-practices",
+    "path": ".agent/skills/engineering/react-best-practices.md",
+    "description": "React/Next.js 컴포넌트 패턴, 상태 관리, 성능 최적화, 폼 처리, 접근성. 컴포넌트 설계, 훅 작성, 가상화 목록, 애니메이션 구현 시 사용."
+  },
+  {
+    "id": "safety-guardrails",
+    "path": ".agent/skills/engineering/safety-guardrails.md",
+    "description": "Destructive command detection, scope freezing, and investigation-first debugging. Inspired by gstack's /careful, /freeze, /guard patterns."
+  },
+  {
+    "id": "screen-flow-template",
+    "path": ".agent/skills/engineering/screen-flow-template.md",
+    "description": "화면 흐름도 + Interaction State Matrix 생성 템플릿. User Flow, Screen Inventory, 상태 매트릭스 포함. /plan 워크플로우에서 docs/screen-flow.md 생성 시 사용."
+  },
+  {
+    "id": "seo-optimization",
+    "path": ".agent/skills/engineering/seo-optimization.md",
+    "description": "Next.js App Router SEO 최적화 패턴. generateMetadata API, JSON-LD 구조화 데이터, sitemap.ts, robots.ts, Open Graph, Core Web Vitals. SEO 구현, metadata 설정, 검색 순위 개선, 소셜 공유 최적화 시 사용."
+  },
+  {
+    "id": "stripe-integration",
+    "path": ".agent/skills/engineering/stripe-integration/SKILL.md",
+    "description": "Implement Stripe payment processing for robust, PCI-compliant payment flows including checkout, subscriptions, and webhooks. Use when integrating Stripe payments, building subscription systems, or ..."
+  },
+  {
+    "id": "supabase-automation",
+    "path": ".agent/skills/engineering/supabase-automation.md",
+    "description": "Automate Supabase database queries, table management, project administration, storage, edge functions, and SQL execution via Rube MCP (Composio). Always search tools first for current schemas."
+  },
+  {
+    "id": "systematic-debugging",
+    "path": ".agent/skills/engineering/systematic-debugging/SKILL.md",
+    "description": "Use when debugging errors, investigating bugs, or fixing failures. 4-phase root cause protocol: Reproduce → Pattern → Hypothesis → Implement. Prevents recurring bugs through systematic analysis instead of quick patches."
+  },
+  {
+    "id": "common-traps",
+    "path": ".agent/skills/engineering/systematic-debugging/gotchas/common-traps.md",
+    "description": "Debugging Gotchas — AI-Specific Traps"
+  },
+  {
+    "id": "pattern-library",
+    "path": ".agent/skills/engineering/systematic-debugging/references/pattern-library.md",
+    "description": "Bug Pattern Library"
+  },
+  {
+    "id": "tdd-orchestrator",
+    "path": ".agent/skills/engineering/tdd-orchestrator.md",
+    "description": "새 기능 구현 또는 버그 수정 시 구현 코드 작성 전에 사용. Red-Green-Refactor 사이클 강제. 테스트 먼저 실패 확인 후 최소 코드 작성. 프로덕션 코드는 반드시 실패하는 테스트가 먼저 있어야 한다."
+  },
+  {
+    "id": "trd-template",
+    "path": ".agent/skills/engineering/trd-template.md",
+    "description": "TRD (Technical Requirements Document) 생성 템플릿. 아키텍처 다이어그램, 비기능 요구사항, 기술 결정, Error/Rescue Map 포함. /plan 워크플로우에서 docs/trd.md 생성 시 사용."
+  },
+  {
+    "id": "typescript-expert",
+    "path": ".agent/skills/engineering/typescript-expert.md",
+    "description": "TypeScript/JavaScript 전문가. 복잡한 타입 체조, 빌드 성능, 모노레포, 마이그레이션, 디버깅. any 타입 제거, 타입 에러 해결, tsconfig 최적화 시 사용."
+  },
+  {
+    "id": "vercel-deployment",
+    "path": ".agent/skills/engineering/vercel-deployment.md",
+    "description": "CI/CD 파이프라인, Docker 컨테이너화, 배포 전략 (블루-그린, 카나리, 롤링), 헬스체크, 롤백, 프로덕션 준비 체크리스트. 배포 설정, 파이프라인 구축, 프로덕션 릴리즈 준비 시 사용."
+  },
+  {
+    "id": "hacker-news-launch",
+    "path": ".agent/skills/marketing/hacker-news-launch.md",
+    "description": "Evaluate whether a product should launch on Hacker News, then prepare the post, comment strategy, and launch-day operating plan for a credible Show HN or Ask HN launch."
+  },
+  {
+    "id": "marketing-psychology",
+    "path": ".agent/skills/marketing/marketing-psychology.md",
+    "description": "Apply behavioral science and mental models to marketing decisions, prioritized using a psychological leverage and feasibility scoring system."
+  },
+  {
+    "id": "programmatic-seo",
+    "path": ".agent/skills/marketing/programmatic-seo.md",
+    "description": ">"
+  },
+  {
+    "id": "tiktok-automation",
+    "path": ".agent/skills/marketing/tiktok-automation.md",
+    "description": "Automate TikTok tasks via Rube MCP (Composio): upload/publish videos, post photos, manage content, and view user profiles/stats. Always search tools first for current schemas."
+  },
+  {
+    "id": "youtube-automation",
+    "path": ".agent/skills/marketing/youtube-automation.md",
+    "description": "Automate YouTube tasks via Rube MCP (Composio): upload videos, manage playlists, search content, get analytics, and handle comments. Always search tools first for current schemas."
+  },
+  {
+    "id": "code-quality-reviewer",
+    "path": ".agent/skills/quality/code-quality-reviewer.md",
+    "description": "태스크 완료, 주요 기능 구현, main 브랜치 병합 전 코드 리뷰 요청 시 사용. Git SHAs 기반 코드리뷰어 서브에이전트 디스패치. Critical 이슈 즉시 수정, Important 이슈 진행 전 수정."
+  },
+  {
+    "id": "testing-strategy",
+    "path": ".agent/skills/quality/testing-strategy/SKILL.md",
+    "description": "Use when writing tests, setting up test infrastructure, or reviewing test coverage. Vitest + Playwright patterns for Golden Stack (Next.js/Supabase). Unit, Integration, and E2E test templates."
+  },
+  {
+    "id": "test-patterns",
+    "path": ".agent/skills/quality/testing-strategy/references/test-patterns.md",
+    "description": "Test Patterns — Code Templates"
+  },
+  {
+    "id": "uat-checklist",
+    "path": ".agent/skills/quality/uat-checklist.md",
+    "description": "User-acceptance checklist for WCAG 2.2 AA basics, responsive states, i18n, auth, forms, and destructive flows."
+  },
+  {
+    "id": "supabase-rls-patterns",
+    "path": ".agent/skills/security/supabase-rls-patterns.md",
+    "description": "Supabase Row Level Security(RLS) 실전 패턴. 정책 설계, 유저 격리, 역할 기반 접근, 일반적 실수 방지."
+  },
+  {
+    "id": "vulnerability-scanner",
+    "path": ".agent/skills/security/vulnerability-scanner.md",
+    "description": "인증/인가 구현, 사용자 입력 처리, API 엔드포인트 생성, 결제 기능 구현 시 사용. OWASP Top 10 기반 보안 체크리스트. Secrets, XSS, CSRF, SQL Injection, Rate Limiting 코드 패턴 제공."
+  },
+  {
+    "id": "Cross-Site Scripting and HTML Injection Testing",
+    "path": ".agent/skills/security/xss-html-injection.md",
+    "description": "This skill should be used when the user asks to \"test for XSS vulnerabilities\", \"perform cross-site scripting attacks\", \"identify HTML injection flaws\", \"exploit client-side injection vulnerabilities\", \"steal cookies via XSS\", or \"bypass content security policies\". It provides comprehensive techniques for detecting, exploiting, and understanding XSS and HTML injection attack vectors in web applications."
+  },
+  {
+    "id": "threads-engine",
+    "path": ".agent/skills/threads-engine/SKILL.md",
+    "description": "Threads 바이럴 마케팅 스킬. /threads-engine 하나로 setup/generate/retro 모두 실행. 처음이면 브랜드 설정, 이후엔 포스트 배치 생성 또는 성과 분석."
+  },
+  {
+    "id": "expert-panel",
+    "path": ".agent/skills/threads-engine/references/expert-panel.md",
+    "description": "Expert Panel — 포스트 품질 게이트"
+  },
+  {
+    "id": "post-formulas",
+    "path": ".agent/skills/threads-engine/references/post-formulas.md",
+    "description": "9가지 포스트 공식"
+  },
+  {
+    "id": "viral-principles",
+    "path": ".agent/skills/threads-engine/references/viral-principles.md",
+    "description": "Viral Marketing Principles (Roy Lee / go-viral-or-die)"
+  },
+  {
+    "id": "viral-engine",
+    "path": ".agent/skills/threads-engine/viral-engine.md",
+    "description": "Generate viral Threads posts. Reads brand-voice.md, selects stunt strategy, runs generate-batch.mjs (draft generation), applies Expert Panel quality gate (90+ score), outputs threads-uploader ready MD file."
+  },
+  {
+    "id": "viral-retro",
+    "path": ".agent/skills/threads-engine/viral-retro.md",
+    "description": "Analyze Threads post performance and update brand-voice.md. Run every 2 weeks after publishing a batch. Accepts any format of performance data (numbers, screenshots, vibes)."
+  },
+  {
+    "id": "viral-setup",
+    "path": ".agent/skills/threads-engine/viral-setup.md",
+    "description": "Brand voice setup for viral-engine. Run ONCE per brand. Asks 5 questions one at a time and creates .agent/memory/brand-voice.md — the foundation for all /viral-engine runs."
+  }
+]

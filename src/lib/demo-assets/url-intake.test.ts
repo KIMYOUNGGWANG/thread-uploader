@@ -19,8 +19,7 @@ vi.mock("dns/promises", () => ({
 describe("url-intake service", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    // Default environment variables
-    (process.env as any).NODE_ENV = "test";
+    process.env.NODE_ENV = "test";
     process.env.DEMO_ASSETS_ALLOW_LOCAL_FIXTURES = "0";
   });
 
@@ -102,7 +101,7 @@ describe("url-intake service", () => {
       vi.mocked(dns.resolve).mockRejectedValue(new Error("No resolve"));
       vi.mocked(dns.lookup).mockResolvedValue([
         { address: "192.168.1.1", family: 4 }
-      ] as any);
+      ] as unknown as Awaited<ReturnType<typeof dns.lookup>>);
       expect(await isPrivateHost("local.router")).toBe(true);
     });
   });
@@ -116,7 +115,7 @@ describe("url-intake service", () => {
         status: 200,
         text: () => Promise.resolve("<html>Example Page</html>"),
       };
-      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(mockResponse as any);
+      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(mockResponse as unknown as Response);
 
       const html = await fetchWithRedirectSafety("https://example.com");
       expect(html).toBe("<html>Example Page</html>");
@@ -151,7 +150,7 @@ describe("url-intake service", () => {
         },
       };
       
-      vi.spyOn(global, "fetch").mockResolvedValueOnce(mock302Response as any);
+      vi.spyOn(global, "fetch").mockResolvedValueOnce(mock302Response as unknown as Response);
 
       await expect(fetchWithRedirectSafety("https://example.com")).rejects.toThrow("FORBIDDEN_HOST");
     });
@@ -166,7 +165,7 @@ describe("url-intake service", () => {
         },
       };
 
-      vi.spyOn(global, "fetch").mockResolvedValue(mock302Response as any);
+      vi.spyOn(global, "fetch").mockResolvedValue(mock302Response as unknown as Response);
 
       await expect(fetchWithRedirectSafety("https://example.com")).rejects.toThrow("MAX_REDIRECTS_EXCEEDED");
     });
@@ -179,7 +178,7 @@ describe("url-intake service", () => {
         status: 200,
         text: () => Promise.resolve("<html>Local Fixture</html>"),
       };
-      vi.spyOn(global, "fetch").mockResolvedValue(mockResponse as any);
+      vi.spyOn(global, "fetch").mockResolvedValue(mockResponse as unknown as Response);
 
       // Localhost with non-standard port should pass
       const html = await fetchWithRedirectSafety("http://localhost:8080/fixture");

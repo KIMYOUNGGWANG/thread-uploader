@@ -1,0 +1,1 @@
+../../../.agents/workflows/investigate.md

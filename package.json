@@ -12,6 +12,8 @@
     "refresh:tokens": "node scripts/refresh-token-standalone.js",
     "growth:metrics": "node scripts/fetch-metrics-standalone.js",
     "recover:first-comments": "node scripts/retry-first-comments.js",
+    "cron:run": "node scripts/cron-daemon.mjs --once",
+    "cron:daemon": "node scripts/cron-daemon.mjs --daemon",
     "postinstall": "prisma generate && patch-package",
     "demo-assets:worker": "npx tsx scripts/demo-assets-worker.mjs",
     "demo-assets:fixture-server": "node scripts/qa/demo-assets-fixtures.mjs"

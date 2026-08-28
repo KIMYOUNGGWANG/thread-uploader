@@ -9,6 +9,54 @@
             "command": "if echo \"$TOOL_INPUT\" | grep -qE 'rm\\s+-rf\\s+/|DROP\\s+TABLE|--force\\s+push|git\\s+push.*--force'; then echo '{\"decision\": \"block\", \"reason\": \"⛔ 위험한 명령어 차단됨. 프로덕션 안전을 위해 차단되었습니다.\"}'; else echo '{\"decision\": \"approve\"}'; fi"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "name": "oma-hook-PreToolUse",
+            "type": "command",
+            "command": "'.codex/hooks/oma-hook.sh' --vendor 'codex' --event 'PreToolUse' --matcher 'Bash'",
+            "timeout": 13
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "name": "oma-hook-UserPromptSubmit",
+            "type": "command",
+            "command": "'.codex/hooks/oma-hook.sh' --vendor 'codex' --event 'UserPromptSubmit'",
+            "timeout": 21
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "name": "oma-hook-PostToolUse",
+            "type": "command",
+            "command": "'.codex/hooks/oma-hook.sh' --vendor 'codex' --event 'PostToolUse' --matcher 'apply_patch|Edit|Write'",
+            "timeout": 10
+          }
+        ],
+        "matcher": "apply_patch|Edit|Write"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "name": "oma-hook-Stop",
+            "type": "command",
+            "command": "'.codex/hooks/oma-hook.sh' --vendor 'codex' --event 'Stop'",
+            "timeout": 15
+          }
+        ]
       }
     ]
   }

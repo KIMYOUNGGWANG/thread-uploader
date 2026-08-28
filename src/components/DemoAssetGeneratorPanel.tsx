@@ -3,12 +3,34 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { 
   RefreshCw, Sparkles, Sliders, Globe, AlertCircle, CheckCircle, 
-  Download, Copy, Play, Image, FileText, Check, Cpu, Loader2
+  Download, Copy, Play, Image as ImageIcon, FileText, Check, Cpu, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import type { 
   DemoAssetJobResponse, DemoAssetStyle
 } from "../types/demo-asset";
+interface PlanSceneElement {
+  type: string;
+  text: string;
+}
+
+interface PlanScene {
+  type: string;
+  durationFrames: number;
+  visualDirection: string;
+  elements: PlanSceneElement[];
+}
+
+interface UIPlan {
+  style: string;
+  fps: number;
+  totalDurationFrames: number;
+  keywords?: string[];
+  targetAudience?: string;
+  caption?: string;
+  hashtags?: string[];
+  scenes: PlanScene[];
+}
 
 interface DemoAssetGeneratorPanelProps {
   brandId: string;
@@ -201,14 +223,14 @@ export default function DemoAssetGeneratorPanel({ brandId }: DemoAssetGeneratorP
     return "bg-violet-500/10 text-violet-400 border border-violet-500/20";
   };
 
-  const getCreativePlan = (job: DemoAssetJobResponse) => {
+  const getCreativePlan = (job: DemoAssetJobResponse): UIPlan | null => {
     const planArtifact = job.captureArtifacts?.find(
       art => art.type === "METADATA" && art.metaData?.includes("creative_plan")
     );
     if (!planArtifact?.metaData) return null;
     try {
       const parsed = JSON.parse(planArtifact.metaData);
-      return parsed.plan;
+      return (parsed.plan || null) as UIPlan | null;
     } catch {
       return null;
     }
@@ -480,7 +502,7 @@ export default function DemoAssetGeneratorPanel({ brandId }: DemoAssetGeneratorP
                                   : "border-transparent text-slate-400 hover:text-slate-200"
                               }`}
                             >
-                              <Image className="w-3.5 h-3.5" />
+                              <ImageIcon className="w-3.5 h-3.5" />
                               이미지 ({job.renderedAssets?.filter(a => a.type === "IMAGE").length || 0})
                             </button>
                             {plan && (
@@ -582,7 +604,7 @@ export default function DemoAssetGeneratorPanel({ brandId }: DemoAssetGeneratorP
                                           <div className="aspect-[9/16] bg-slate-950 rounded border border-slate-900 p-2 flex flex-col justify-between text-[10px] text-slate-500 font-mono select-none">
                                             <div>
                                               <div className="flex items-center gap-1 text-cyan-500 font-sans font-semibold mb-1">
-                                                <Image className="w-3 h-3" />
+                                                <ImageIcon className="w-3 h-3" />
                                                 <span>Placeholder</span>
                                               </div>
                                               <p className="break-all opacity-85 text-[8px]">SHA: {asset.sha256.slice(0, 10)}</p>
@@ -627,7 +649,7 @@ export default function DemoAssetGeneratorPanel({ brandId }: DemoAssetGeneratorP
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const text = `[광고 시나리오 기획서]\n제품 URL: ${job.productUrl}\n스타일: ${plan.style}\n\n[주요 씬 리스트]\n${plan.scenes.map((s: any, i: number) => `Scene ${i + 1} (${(s.durationFrames/plan.fps).toFixed(1)}s):\n- 비주얼: ${s.visualDirection}\n- 오디오/자막: ${s.elements.map((e: any) => e.text).join(", ")}`).join("\n\n")}\n\n[소셜 본문]\n본문: ${plan.caption}\n해시태그: ${plan.hashtags?.join(" ")}`;
+                                      const text = `[광고 시나리오 기획서]\n제품 URL: ${job.productUrl}\n스타일: ${plan.style}\n\n[주요 씬 리스트]\n${plan.scenes.map((s: PlanScene, i: number) => `Scene ${i + 1} (${(s.durationFrames/plan.fps).toFixed(1)}s):\n- 비주얼: ${s.visualDirection}\n- 오디오/자막: ${s.elements.map((e: PlanSceneElement) => e.text).join(", ")}`).join("\n\n")}\n\n[소셜 본문]\n본문: ${plan.caption}\n해시태그: ${plan.hashtags?.join(" ")}`;
                                       handleCopyPlan(job.id, text);
                                     }}
                                     className="flex items-center gap-1 bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs px-2.5 py-1 rounded transition-colors"
@@ -650,15 +672,15 @@ export default function DemoAssetGeneratorPanel({ brandId }: DemoAssetGeneratorP
                                   <div className="space-y-3">
                                     <h4 className="font-semibold text-slate-300 text-xs uppercase tracking-wider">비디오 씬 스크립트 구성</h4>
                                     <div className="space-y-2">
-                                      {plan.scenes.map((scene: any, index: number) => (
+                                      {plan.scenes.map((scene: PlanScene, index: number) => (
                                         <div key={index} className="bg-slate-950/60 p-3 rounded-lg border border-slate-850/60 space-y-1.5">
                                           <div className="flex items-center justify-between text-xs text-slate-500">
                                             <span className="font-semibold text-slate-400">Scene {index + 1} ({scene.type})</span>
                                             <span>{(scene.durationFrames / plan.fps).toFixed(1)}초</span>
                                           </div>
                                           <p className="text-xs text-slate-300 leading-normal"><span className="text-slate-500 font-medium">비주얼:</span> {scene.visualDirection}</p>
-                                          {scene.elements.filter((e: any) => e.type === "SUBTITLE").map((el: any, i: number) => (
-                                            <p key={i} className="text-xs text-violet-400 font-medium leading-normal"><span className="text-slate-500 font-medium">자막:</span> "{el.text}"</p>
+                                          {scene.elements.filter((e: PlanSceneElement) => e.type === "SUBTITLE").map((el: PlanSceneElement, i: number) => (
+                                            <p key={i} className="text-xs text-violet-400 font-medium leading-normal"><span className="text-slate-500 font-medium">자막:</span> &ldquo;{el.text}&rdquo;</p>
                                           ))}
                                         </div>
                                       ))}

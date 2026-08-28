@@ -1,0 +1,94 @@
+{
+  "workflow": "ship",
+  "workflowLabel": "SHIP",
+  "reportMode": "plan",
+  "generatedAt": "2026-04-08T08:56:48",
+  "targetPath": "/Users/kim-young-gwang/Desktop/projects/threads-uploader",
+  "targetType": "linked-client",
+  "contractRequired": true,
+  "packageManager": "npm",
+  "task": {
+    "done": 0,
+    "total": 0,
+    "percent": 0
+  },
+  "apiSpec": "present",
+  "audit": {
+    "statusCode": 0,
+    "issueCount": 1,
+    "signals": {
+      "recentErrorLogs": false,
+      "gitDirty": true,
+      "missingApiSpec": false,
+      "externalChanges": true,
+      "releaseFrozen": false
+    },
+    "snapshot": "\n\ud83d\udd0d Audit Status \u2014 One-Shot Environment Scan\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u2705 No recent error logs\n\u26a0\ufe0f  19 uncommitted file(s) in Git\n   \ud83d\udca1 Consider committing before starting new work\n\u2705 docs/api-spec.md exists (Contract ready)\n\ud83e\udde0 learnings.md: 7 accumulated entries\n\u2139\ufe0f  No release freeze state recorded\n\ud83d\udd75\ufe0f  Changed project files outside local state:\n   \u2022 debug_audit.log\n   \u2022 eslint.config.mjs\n   \u2022 output/batch-viral-verified-final.md\n   \u2022 output/batch-viral-verified.md\n   \u2022 package.json\n   \u2022 repro_parser.js\n   \u2022 scripts/generate-batch.mjs\n   \u2022 scripts/recover-comments.js\n   \u2022 scripts/retry-first-comments.js\n   \u2022 scripts/verify-batch.mjs\n   \u2022 src/app/api/cron/publish/route.ts\n   \u2022 src/app/api/posts/[id]/publish/route.ts\n   \u2022 src/app/api/posts/upload/route.ts\n   \u2022 src/components/Dashboard.tsx\n   \u2022 src/components/FileDropzone.tsx\n   \u2022 src/components/PostCard.tsx\n   \u2022 src/lib/parser.ts\n   \u2022 src/lib/threads-api.ts\n   \ud83d\udca1 Action: Verify these files before proceeding.\n\ud83d\udccb task_board.md: 0 / 0 tasks completed\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\ud83d\udfe1 1 issue(s) detected. Review above before proceeding.\n"
+  },
+  "summary": "Blocking issues detected: Git working tree is not clean.",
+  "recommendation": "/fix before ship",
+  "gateStatus": "fail",
+  "qa": {
+    "statusCode": 0,
+    "snapshot": "QA runner target: /Users/kim-young-gwang/Desktop/projects/threads-uploader\nMode: plan\nProfile: qa\nPackage manager: npm\n\nSelected scripts:\n  - lint\n  - build\n"
+  },
+  "freeze": {
+    "statusCode": 0,
+    "state": "unfrozen",
+    "snapshot": "unfrozen\n"
+  },
+  "review": {
+    "securityAudit": "absent",
+    "findings": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    }
+  },
+  "relatedReports": {
+    "qa": null,
+    "review": null
+  },
+  "blockers": {
+    "hardCount": 1,
+    "manualCount": 2,
+    "softCount": 1,
+    "primary": {
+      "severity": "hard",
+      "code": "git_dirty",
+      "message": "Git working tree is not clean."
+    },
+    "hard": [
+      {
+        "severity": "hard",
+        "code": "git_dirty",
+        "message": "Git working tree is not clean."
+      }
+    ],
+    "manual": [
+      {
+        "severity": "manual",
+        "code": "qa_report_missing",
+        "message": "No QA JSON report exists yet. Run qa-gate first."
+      },
+      {
+        "severity": "manual",
+        "code": "review_report_missing",
+        "message": "No review JSON report exists yet. Run review-gate first."
+      }
+    ],
+    "soft": [
+      {
+        "severity": "soft",
+        "code": "external_changes",
+        "message": "audit-status detected changed project files outside local state."
+      }
+    ]
+  },
+  "snapshots": {
+    "taskBoard": "",
+    "git": " M docs/api-spec.md\n M eslint.config.mjs\n M package.json\n M scripts/generate-batch.mjs\n M src/app/api/cron/publish/route.ts\n M src/app/api/posts/[id]/publish/route.ts\n M src/app/api/posts/upload/route.ts\n M src/components/Dashboard.tsx\n M src/components/FileDropzone.tsx\n M src/components/PostCard.tsx\n M src/lib/parser.ts\n M src/lib/threads-api.ts\n?? debug_audit.log\n?? output/batch-viral-verified-final.md\n?? output/batch-viral-verified.md\n?? repro_parser.js\n?? scripts/recover-comments.js\n?? scripts/retry-first-comments.js\n?? scripts/verify-batch.mjs\n",
+    "learnings": "\n---\n<!-- New learnings are appended below -->\n\n## [2026-04-08] Cycle Learnings\n- Recurring error: contract drift \u2014 `docs/api-spec.md`\uc758 HTTP method\uc640 payload\uac00 \uc2e4\uc81c route \uad6c\ud604\uacfc \uc5b4\uae0b\ub098 ship \uc810\uac80\uc5d0\uc11c \ud63c\uc120\uc774 \uc0dd\uae40 \u2014 Prevention: API route\ub97c \ubc14\uafbc \uac19\uc740 \uc0ac\uc774\ud074\uc5d0 \uacc4\uc57d \ubb38\uc11c\ub3c4 \ud568\uaed8 \uac31\uc2e0\ud558\uae30\n- What worked well: `qa-runner`\uac00 \uc2e4\uc81c \uc2e4\ud589 \uac00\ub2a5\ud55c \uac80\uc99d \uc2a4\ud06c\ub9bd\ud2b8\ub97c `lint`, `build`\ub85c \uc815\ud655\ud788 \uc881\ud600\uc918\uc11c ship \ud655\uc778\uc774 \ube68\ub790\uc74c\n- Next cycle: ship \uc804 `audit-status`\uc5d0\uc11c dirty worktree\ub97c \uba3c\uc800 \uc815\ub9ac\ud558\uac70\ub098 \ubc94\uc704\ub97c \uace0\uc815\ud55c \ub4a4 \uac80\uc99d \uc2dc\uc791\ud558\uae30\n"
+  }
+}

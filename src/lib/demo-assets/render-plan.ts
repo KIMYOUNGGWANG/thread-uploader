@@ -14,7 +14,7 @@ export interface RemotionRenderProps {
   inputProps: RemotionInputProps;
 }
 
-export interface RemotionInputProps {
+export interface RemotionInputProps extends Record<string, unknown> {
   jobId: string;
   style: string;
   colorTheme: {

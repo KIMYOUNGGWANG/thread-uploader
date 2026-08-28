@@ -1,7 +1,7 @@
-import { chromium, devices } from "playwright";
+import { chromium, devices, type BrowserContextOptions } from "playwright";
 import fs from "fs/promises";
 import path from "path";
-import { isPrivateHost, shouldBypassLocalhost } from "./url-intake";
+import { isPrivateHost } from "./url-intake";
 
 export interface CaptureResult {
   screenshotInitialPath: string;
@@ -12,6 +12,13 @@ export interface CaptureResult {
   title: string;
   description: string;
   actionLog: string[];
+}
+
+interface ExtractedPageData {
+  textBlocks: string[];
+  ctas: Array<{ text: string; selector: string }>;
+  title: string;
+  description: string;
 }
 
 export async function runPlaywrightCapture(
@@ -33,7 +40,7 @@ export async function runPlaywrightCapture(
 
   const iphone14 = devices["iPhone 14 Pro"];
   const isAppStore = url.includes("apps.apple.com");
-  const contextOptions: any = {
+  const contextOptions: BrowserContextOptions = {
     ...iphone14,
     locale: "ko-KR",
     timezoneId: "America/Vancouver",
@@ -150,28 +157,16 @@ export async function runPlaywrightCapture(
       }
 
       const ctas = [];
-      const elements = Array.from(document.querySelectorAll("a, button"));
-      const ctaKeywords = [
-        "시작", "가입", "구매", "다운로드", "체험", "로그인", "등록", "받기", "구독",
-        "start", "try", "buy", "join", "sign up", "download", "free", "get", "subscribe", "login"
-      ];
-
-      for (const el of elements) {
-        const text = el.textContent?.trim() || "";
-        const cleanText = text.replace(/\\s+/g, " ");
-        if (cleanText.length >= 2 && cleanText.length <= 25) {
-          const lower = cleanText.toLowerCase();
-          const isCta = ctaKeywords.some((kw) => lower.includes(kw));
-          if (isCta) {
-            const selector =
-              el.tagName.toLowerCase() +
-              (el.id ? "#" + el.id : el.className ? "." + el.className.split(" ").filter(Boolean).slice(0, 2).join(".") : "");
-            if (!ctas.some((c) => c.text === cleanText)) {
-              ctas.push({ text: cleanText, selector });
-            }
-          }
+      const candidates = document.querySelectorAll("button, a, input[type='submit'], [role='button']");
+      candidates.forEach((el) => {
+        const text = el.textContent ? el.textContent.trim() : "";
+        if (text.length > 0 && text.length < 50) {
+          ctas.push({
+            text,
+            selector: el.tagName.toLowerCase() + (el.id ? "#" + el.id : el.className ? "." + el.className.split(" ")[0] : ""),
+          });
         }
-      }
+      });
 
       const title = document.title || "";
       const descriptionMeta = document.querySelector("meta[name='description']");
@@ -183,7 +178,7 @@ export async function runPlaywrightCapture(
         title,
         description,
       };
-    })()`)) as any;
+    })()`)) as ExtractedPageData;
 
     logAction("Evidence extraction completed");
 

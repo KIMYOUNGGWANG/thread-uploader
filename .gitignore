@@ -57,6 +57,7 @@ migrate_*.js
 !README.md
 
 # agent internal data
+.agent
 .agent/
 brain/
 implementation_plan.md
@@ -68,3 +69,16 @@ task.md
 .serena/
 
 /src/generated/prisma
+
+# oh-my-agent runtime (local artifacts — do not commit)
+.antigravitycli/
+.agents/results/
+.agents/state/
+.agents/backup/
+.agents/commands
+.agents/scripts
+.agents/skills
+.agents/workflows
+docs/plans/
+.migration-backup/
+.qwen/tmp/

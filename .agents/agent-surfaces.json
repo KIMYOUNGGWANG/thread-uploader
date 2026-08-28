@@ -1,0 +1,75 @@
+{
+  "version": 2,
+  "source": ".agents",
+  "primaryMode": "codex",
+  "commandSurface": {
+    "defaultProfile": "lean",
+    "profiles": {
+      "lean": {
+        "discoveryCommands": ["brainstorm", "office-hours"],
+        "primaryCommands": ["status", "plan", "develop", "qa", "ship", "fix"],
+        "codexVisibleCommandAliases": ".agents/skills/commands/*/SKILL.md",
+        "internalCommands": [
+          "pm",
+          "uiux",
+          "test",
+          "review",
+          "guard",
+          "freeze",
+          "unfreeze",
+          "investigate",
+          "hub-upgrade",
+          "ultraplan"
+        ],
+        "archivedGlobs": [
+          ".agents/commands/archived/*",
+          ".agents/skills/source-command-*"
+        ]
+      },
+      "agency": {
+        "baseProfile": "lean",
+        "templatePacks": ["automation-agency"]
+      },
+      "revenue": {
+        "baseProfile": "lean",
+        "templatePacks": ["revenue-os", "automation-agency"],
+        "stateRoots": [
+          ".agent/memory/revenue/experiments",
+          ".agent/memory/revenue/latest-score.json"
+        ]
+      }
+    }
+  },
+  "automation": {
+    "ultraplan": {
+      "enabled": true,
+      "defaultDryRun": true,
+      "defaultNoShip": true
+    }
+  },
+  "enabledVendors": ["claude", "codex", "gemini"],
+  "surfaces": {
+    "claude": {
+      "commands": ".claude/commands",
+      "skills": ".claude/skills"
+    },
+    "codex": {
+      "constitution": "AGENTS.md",
+      "agents": ".codex/agents"
+    },
+    "gemini": {
+      "constitution": "GEMINI.md",
+      "agents": ".gemini/agents"
+    }
+  },
+  "experimentalAdapters": {
+    "ohMyAgent": {
+      "enabled": false,
+      "reason": "External oma runtime is intentionally not a default dependency."
+    },
+    "ohMyOpenAgent": {
+      "enabled": false,
+      "reason": "OpenAgent ultrawork-style automation is sandbox-only for now."
+    }
+  }
+}

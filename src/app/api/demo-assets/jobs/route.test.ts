@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 
 const prismaMocks = vi.hoisted(() => ({
   createJob: vi.fn(),
@@ -40,12 +41,12 @@ vi.mock("@/lib/demo-assets/url-intake", () => ({
   shouldBypassLocalhost: () => false,
 }));
 
-function jsonRequest(url: string, method: string, body?: unknown): any {
-  return new Request(url, {
+function jsonRequest(url: string, method: string, body?: unknown): NextRequest {
+  return new NextRequest(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
-  }) as any;
+  });
 }
 
 describe("Demo Asset Jobs API Endpoints", () => {
@@ -169,7 +170,7 @@ describe("Demo Asset Jobs API Endpoints", () => {
       ]);
 
       const response = await GET(
-        new Request("http://localhost/api/demo-assets/jobs?brandId=brand_123") as any
+        new NextRequest("http://localhost/api/demo-assets/jobs?brandId=brand_123")
       );
 
       expect(response.status).toBe(200);
@@ -181,7 +182,7 @@ describe("Demo Asset Jobs API Endpoints", () => {
     it("rejects if brandId query param is missing", async () => {
       const { GET } = await import("./route");
 
-      const response = await GET(new Request("http://localhost/api/demo-assets/jobs") as any);
+      const response = await GET(new NextRequest("http://localhost/api/demo-assets/jobs"));
       expect(response.status).toBe(400);
     });
   });
@@ -203,7 +204,7 @@ describe("Demo Asset Jobs API Endpoints", () => {
       });
 
       const response = await GET(
-        new Request("http://localhost/api/demo-assets/jobs/job_123") as any,
+        new NextRequest("http://localhost/api/demo-assets/jobs/job_123"),
         { params: Promise.resolve({ id: "job_123" }) }
       );
 

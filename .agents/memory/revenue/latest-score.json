@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-05-17T09:30:29",
+  "experimentPath": "/Users/kim-young-gwang/Desktop/projects/threads-uploader/.agent/memory/revenue/experiments/tiktok_video_experiment_engine.json",
+  "experimentSlug": "tiktok_video_experiment_engine",
+  "mode": "viral-content landing-test",
+  "stage": "idea-validation",
+  "score": 56,
+  "recommendation": "revise_offer",
+  "action": "Return to /plan and sharpen the offer, customer, price, or channel.",
+  "hardBlockers": [],
+  "metrics": {
+    "views": 0.0,
+    "clicks": 0.0,
+    "replies": 0.0,
+    "calls": 0.0,
+    "waitlist": 0.0,
+    "preorders": 0.0,
+    "paid": 0.0
+  },
+  "scores": {
+    "weights": {
+      "problem_strength": 20,
+      "willingness_to_pay": 20,
+      "reachability": 15,
+      "competition_gap": 10,
+      "delivery_feasibility": 10,
+      "evidence": 15,
+      "monthly_revenue_potential": 10
+    },
+    "inputs": {
+      "problem_strength": 4.0,
+      "willingness_to_pay": 2.0,
+      "reachability": 4.0,
+      "competition_gap": 3.0,
+      "delivery_feasibility": 4.0,
+      "evidence": 0.0,
+      "monthly_revenue_potential": 3.0
+    },
+    "breakdown": {
+      "problem_strength": {
+        "raw": 4.0,
+        "weight": 20,
+        "weighted": 16
+      },
+      "willingness_to_pay": {
+        "raw": 2.0,
+        "weight": 20,
+        "weighted": 8
+      },
+      "reachability": {
+        "raw": 4.0,
+        "weight": 15,
+        "weighted": 12
+      },
+      "competition_gap": {
+        "raw": 3.0,
+        "weight": 10,
+        "weighted": 6
+      },
+      "delivery_feasibility": {
+        "raw": 4.0,
+        "weight": 10,
+        "weighted": 8
+      },
+      "evidence": {
+        "raw": 0.0,
+        "weight": 15,
+        "weighted": 0
+      },
+      "monthly_revenue_potential": {
+        "raw": 3.0,
+        "weight": 10,
+        "weighted": 6
+      }
+    }
+  }
+}

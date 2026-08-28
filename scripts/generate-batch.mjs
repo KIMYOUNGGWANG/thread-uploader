@@ -20,7 +20,13 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
-const EXPERT_PANEL_REF = path.resolve(root, ".agent/skills/threads-engine/references/expert-panel.md");
+function resolveAgentFile(...subPaths) {
+  const p1 = path.resolve(root, ".agents", ...subPaths);
+  if (fs.existsSync(p1)) return p1;
+  return path.resolve(root, ".agent", ...subPaths);
+}
+
+const EXPERT_PANEL_REF = resolveAgentFile("skills/threads-engine/references/expert-panel.md");
 const expertPanelGuide = fs.readFileSync(EXPERT_PANEL_REF, "utf-8");
 
 // ── env 로드 ──────────────────────────────────────────────────────────────
@@ -61,9 +67,21 @@ function parseArgs(args) {
 
 const args = parseArgs(process.argv.slice(2));
 
-const BRAND_FILE = path.resolve(root, args["--brand"] ?? ".agent/memory/brand-voice.md");
+const defaultBrandFile = resolveAgentFile("memory/brand-voice.md");
+const BRAND_FILE = path.resolve(root, args["--brand"] ?? defaultBrandFile);
 const COUNT = parseInt(args["--count"] ?? "60", 10);
-const STUNT = args["--stunt"] ?? null;
+const rawStunt = args["--stunt"] ?? null;
+
+const STUNT_PRESETS = {
+  scandal_flip: `스캔들 플립 + 투명성 핵폭탄 (Scandal Flip & Transparency Nuke):
+가장 결제 전환율이 높았던 '타로' 기능을 서비스에서 영구 삭제하고 5대 계산 엔진으로 전면 갈아엎은 창업자 비하인드 스토리. "돈보다 데이터와 신뢰를 택했다"는 서사로 극적인 신뢰 확보.`,
+  industry_secret: `불가능한 주장 + 업계 비밀 폭로 (Impossible Claim & Industry Secret):
+"한국인 70%는 태어난 시간(시주)을 잘못 알고 있다"는 진태양시(동경 135도 오차 30분) 팩트 폭격. 시주 오차가 의사결정 골든타임을 망친다는 천문역학적 진실.`,
+  common_enemy: `공공의 적 선언 (Common Enemy Manifesto):
+"위로가 필요하면 정신과나 상담실을 가라. 여기는 당신이 실수하지 않도록 리스크를 헷징하는 인텔리전스 룸이다"라는 단호한 선언으로 가짜 위로를 파는 양산형 운세 배제.`,
+};
+
+const STUNT = rawStunt ? (STUNT_PRESETS[rawStunt] ?? rawStunt) : null;
 const dateStr = new Date().toISOString().slice(0, 10);
 const OUTPUT = path.resolve(
   root,
@@ -84,7 +102,7 @@ const brandNameMatch = brandVoice.match(/^#\s+Brand Voice\s+[—-]\s+(.+)$/m);
 const brandName = brandNameMatch ? brandNameMatch[1].trim() : "브랜드";
 
 const stuntContext = STUNT
-  ? `\n【이번 배치 스턴트 전략】\n${STUNT} 템플릿을 중심으로 포스트를 작성해. 이 스턴트의 구조와 원칙을 자연스럽게 반영해.`
+  ? `\n【이번 배치 스턴트 전략】\n${STUNT}\n위 스턴트의 구조와 원칙을 자연스럽게 반영해.`
   : "";
 
 // ── 상수 ──────────────────────────────────────────────────────────────────
