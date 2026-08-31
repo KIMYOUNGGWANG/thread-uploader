@@ -11,11 +11,10 @@ import {
   formatAntiRepeatContext,
   type RecentPostSummary,
 } from "@/lib/anti-repeat-memory";
-import {
-  THREADS_CONTENT_MAX_LENGTH,
-  THREADS_CONTENT_TARGET_LENGTH,
-  THREADS_MULTI_PART_MAX_LENGTH,
-} from "@/lib/threads-limits";
+import { getThreadsContentLimitError, THREADS_CONTENT_MAX_LENGTH, THREADS_CONTENT_TARGET_LENGTH, THREADS_MULTI_PART_MAX_LENGTH } from "@/lib/threads-limits";
+import { buildAdmissionFirstComment } from "@/lib/charlie-viral-skills";
+import { buildMultiFormatContentBundle } from "@/lib/multi-format-content-bridge";
+import { svgToDataUri } from "@/lib/carousel-cards/renderer";
 import {
   formatViralIntentModePrompt,
   hasFortuneOverclaim,
@@ -246,10 +245,15 @@ async function generateOne(
 
       const raw = (message.content[0] as { text: string }).text.trim();
       const parts = raw.split(SEPARATOR);
-      return {
-        post: cleanGeneratedContentLabels(parts[0]),
-        firstComment: cleanGeneratedContentLabels(parts[1] ?? ""),
-      };
+      const post = cleanGeneratedContentLabels(parts[0]);
+      let firstComment = cleanGeneratedContentLabels(parts[1] ?? "");
+      if (!firstComment || firstComment.length < 15) {
+        firstComment = buildAdmissionFirstComment(post, {
+          topic: experiment.topic,
+          voiceProfile: config.voiceProfile,
+        });
+      }
+      return { post, firstComment };
     } catch (err: unknown) {
       const status = typeof err === "object" && err !== null ? (err as { status?: number }).status : undefined;
       const isTimeout = err instanceof Error && (err.name === "APIConnectionTimeoutError" || err.message.toLowerCase().includes("timeout"));
@@ -417,13 +421,20 @@ export function buildGenerationPrompt(
     ...formatCampaignPrompt(experiment),
     formatViralIntentModePrompt(viralIntentMode),
     marketingSkillsContext,
-    "[Threads 길이 제한]",
+    "[Threads 길이 제한 및 Charlie Hills 바이럴 구조]",
     `- 본문은 공백과 줄바꿈을 포함해 반드시 ${THREADS_CONTENT_MAX_LENGTH}자 이하로 작성한다.`,
     `- 권장 본문 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 이하이며, 길면 예시와 수식어를 줄인다.`,
     `- ${THREADS_CONTENT_MAX_LENGTH}자를 넘으면 품질 실패로 처리되어 업로드할 수 없다.`,
-    "- 첫 댓글은 구분자 아래에 별도로 짧게 작성한다.",
-    "- 첫 댓글은 질문형으로 끝내지 말고 저장, 프로필 확인, 공유 안내로만 쓴다.",
+    "- [Charlie Hills 2-Line Contrast Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내의 반전/대립각(Contrast)으로 상식을 뒤집는다.",
+    "- 첫 댓글은 구분자 아래에 별도로 솔직 고백형(4-line admission: 고백 + 셀프디스 + 작은 가치안내 + 수용)으로 작성한다.",
     "- 글자 수 확인, 자수 체크, 초안, Threads 본문 같은 메타 텍스트를 절대 출력하지 않는다.",
+    ...(config.voiceProfile ? [
+      `[브랜드 고유 보이스 (Voice Profile)]`,
+      `- 톤: ${config.voiceProfile.tone}`,
+      `- 화자 관점: ${config.voiceProfile.perspective}`,
+      `- 문장 길이/호흡: ${config.voiceProfile.sentenceLength} / ${config.voiceProfile.paragraphStyle}`,
+      ...(config.voiceProfile.forbiddenPhrases.length ? [`- 금지 어조: ${config.voiceProfile.forbiddenPhrases.join(", ")}`] : []),
+    ] : []),
     `[주제]\n${experiment.topic}`,
     `[타겟 독자]\n${experiment.targetAudience}`,
     `[상황/맥락]\n${experiment.situation}`,
@@ -756,12 +767,22 @@ export async function POST(request: NextRequest) {
     let linkedCount = 0;
     const createdPosts = [];
     for (const [index, result] of results.entries()) {
+      // Build 4 carousel card slides using multi-format bundle
+      const bundle = buildMultiFormatContentBundle({
+        postText: result.post,
+        topic: result.topic,
+        hookType: result.hookType,
+        ctaType: result.ctaType,
+        targetAudience: result.targetAudience,
+      });
+      const carouselDataUrls = bundle.carouselSvgs.map(svgToDataUri);
+
       const post = await prisma.post.create({
         data: {
           brandId,
           content: ensureMaxThreadsLength(result.post),
           firstComment: result.firstComment || null,
-          imageUrls: "[]",
+          imageUrls: JSON.stringify(carouselDataUrls),
           scheduledAt: new Date(baseTime + index * 1000),
           status: "PENDING",
           formulaId: result.formulaId,

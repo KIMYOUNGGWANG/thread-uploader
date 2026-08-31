@@ -87,6 +87,15 @@ export interface ViralDiscoveryConfig {
   }>;
 }
 
+export interface VoiceProfile {
+  tone: "assertive" | "conversational" | "provocative" | "analytical";
+  perspective: string;
+  sentenceLength: "short_punchy" | "balanced" | "detailed";
+  paragraphStyle: "single_line_breath" | "compact_blocks";
+  admissionStyle: string;
+  forbiddenPhrases: string[];
+}
+
 export interface BrandConfig {
   systemPrompt: string;
   topics: string[];
@@ -105,6 +114,7 @@ export interface BrandConfig {
   tiktokVideo: TikTokVideoConfig;
   productProfile: ProductProfile;
   activeExperiment: ActiveExperiment;
+  voiceProfile?: VoiceProfile;
 }
 
 export interface BrandResponse {
@@ -193,10 +203,32 @@ export function parseBrandConfig(raw: string): BrandConfig {
       tiktokVideo: normalizeTikTokVideoConfig(parsed.tiktokVideo, activeCampaignId),
       productProfile: normalizeProductProfile(parsed.productProfile),
       activeExperiment: normalizeActiveExperiment(parsed.activeExperiment),
+      voiceProfile: normalizeVoiceProfile(parsed.voiceProfile),
     };
   } catch {
     return DEFAULT_BRAND_CONFIG;
   }
+}
+
+function normalizeVoiceProfile(input: unknown): VoiceProfile | undefined {
+  if (!isRecord(input)) return undefined;
+  const tone = input.tone === "assertive" || input.tone === "conversational" || input.tone === "provocative" || input.tone === "analytical"
+    ? input.tone
+    : "conversational";
+  const sentenceLength = input.sentenceLength === "short_punchy" || input.sentenceLength === "balanced" || input.sentenceLength === "detailed"
+    ? input.sentenceLength
+    : "short_punchy";
+  const paragraphStyle = input.paragraphStyle === "single_line_breath" || input.paragraphStyle === "compact_blocks"
+    ? input.paragraphStyle
+    : "single_line_breath";
+  return {
+    tone,
+    perspective: typeof input.perspective === "string" ? input.perspective : "",
+    sentenceLength,
+    paragraphStyle,
+    admissionStyle: typeof input.admissionStyle === "string" ? input.admissionStyle : "",
+    forbiddenPhrases: normalizeStringList(input.forbiddenPhrases),
+  };
 }
 
 export function getActiveCampaign(config: BrandConfig, campaignId?: string | null): CampaignConfig | null {

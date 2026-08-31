@@ -17,13 +17,15 @@ const storageMocks = vi.hoisted(() => ({
   readRenderedAsset: vi.fn(),
 }));
 
+import { NextRequest } from "next/server";
+
 vi.mock("@/lib/demo-assets/storage", () => ({
   verifyDownloadToken: storageMocks.verifyDownloadToken,
   readRenderedAsset: storageMocks.readRenderedAsset,
 }));
 
-function mockRequest(url: string): Request {
-  return new Request(url);
+function mockRequest(url: string): NextRequest {
+  return new NextRequest(url);
 }
 
 describe("Demo Asset Download API Endpoint", () => {

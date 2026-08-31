@@ -5,8 +5,15 @@ import {
   calculatePerformanceScore,
   getPerformanceTier,
 } from "@/lib/growth-learning";
+import { computeAdaptiveFormulaWeights } from "@/lib/growth-feedback-loop";
+import { parseBrandConfig } from "@/types/brand";
 
 export async function learnBrandGrowth(brandId: string) {
+  const brand = await prisma.brand.findUnique({
+    where: { id: brandId },
+    select: { id: brandId ? true : undefined, formulaWeights: true, brandConfig: true },
+  });
+
   const posts = await prisma.post.findMany({
     where: {
       brandId,
@@ -19,9 +26,35 @@ export async function learnBrandGrowth(brandId: string) {
   });
 
   const memory = buildGrowthMemory(posts);
+
+  let updatedWeights: Record<string, number> | undefined;
+  let promotedFormulas: string[] = [];
+  let demotedFormulas: string[] = [];
+
+  if (brand) {
+    const config = parseBrandConfig(brand.brandConfig);
+    const knownFormulaIds = config.formulas.map((f) => f.id);
+    let currentWeights: Record<string, number> = {};
+    try {
+      currentWeights = brand.formulaWeights && brand.formulaWeights !== "{}"
+        ? JSON.parse(brand.formulaWeights)
+        : {};
+    } catch {
+      currentWeights = {};
+    }
+
+    const weightResult = computeAdaptiveFormulaWeights(currentWeights, posts, knownFormulaIds);
+    updatedWeights = weightResult.updatedWeights;
+    promotedFormulas = weightResult.promotedFormulas;
+    demotedFormulas = weightResult.demotedFormulas;
+  }
+
   await prisma.brand.update({
     where: { id: brandId },
-    data: { growthMemory: JSON.stringify(memory) },
+    data: {
+      growthMemory: JSON.stringify(memory),
+      ...(updatedWeights && { formulaWeights: JSON.stringify(updatedWeights) }),
+    },
   });
 
   const now = new Date();
@@ -55,6 +88,9 @@ export async function learnBrandGrowth(brandId: string) {
     learnedPosts: posts.length,
     scoredPosts,
     scoreWriteFailures,
+    updatedWeights,
+    promotedFormulas,
+    demotedFormulas,
     ...buildGrowthReport(posts, memory),
   };
 }

@@ -8,6 +8,7 @@ import {
   calculateViralScore,
 } from "@/lib/viral-analysis";
 import { fetchPublicProfilePosts, searchThreadsByKeyword, type ThreadsPublicPost } from "@/lib/threads-api";
+import { harvestFromThreadsSources } from "@/lib/viral-harvester";
 import { parseBrandConfig } from "@/types/brand";
 import {
   parseViralMemory,
@@ -135,22 +136,34 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
   }
 
   if (brand.accessToken) {
-    for (const keyword of runConfig.keywords.slice(0, 5)) {
-      try {
-        const posts = await searchThreadsByKeyword(brand.accessToken, keyword, runConfig.limit);
-        candidates.push(...posts.map((post) => buildThreadsCandidate(post, "threads_keyword", "threads_keyword", { keyword })));
-      } catch (error) {
-        errors.push({ adapter: "threads_keyword", source: keyword, message: formatError(error) });
-      }
-    }
+    const harvestResult = await harvestFromThreadsSources({
+      accessToken: brand.accessToken,
+      keywords: runConfig.keywords,
+      handles: runConfig.handles,
+      excludedTerms: runConfig.excludedTerms,
+      maxPerSource: runConfig.limit,
+      requestDelayMs: 300,
+    });
 
-    for (const handle of runConfig.handles.slice(0, 5)) {
-      try {
-        const posts = await fetchPublicProfilePosts(brand.accessToken, handle, runConfig.limit);
-        candidates.push(...posts.map((post) => buildThreadsCandidate(post, "threads_profile", "threads_profile", { handle })));
-      } catch (error) {
-        errors.push({ adapter: "threads_profile", source: handle, message: formatError(error) });
-      }
+    errors.push(...harvestResult.errors);
+
+    for (const harvested of harvestResult.candidates) {
+      candidates.push({
+        adapter: harvested.adapter,
+        source: harvested.source,
+        sourceKey: harvested.sourceKey,
+        authorUsername: harvested.authorUsername,
+        permalink: harvested.permalink,
+        content: harvested.content,
+        publishedAt: harvested.publishedAt,
+        views: harvested.views,
+        likes: harvested.likes,
+        replies: harvested.replies,
+        reposts: harvested.reposts,
+        quotes: harvested.quotes,
+        shares: harvested.shares,
+        rawMetrics: harvested.rawMetrics,
+      });
     }
   }
 

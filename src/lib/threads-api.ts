@@ -588,16 +588,17 @@ export async function publishPostWithCredentials(
     const { accessToken, userId } = credentials;
     const topicTag = process.env.THREADS_DEFAULT_TOPIC;
     let containerId: string;
+    const validHttpImageUrls = imageUrls.filter((url) => /^https?:\/\//i.test(url));
 
-    if (imageUrls.length === 0) {
+    if (validHttpImageUrls.length === 0) {
         const params = new URLSearchParams({ media_type: "TEXT", text, access_token: accessToken });
         if (topicTag) params.append("topic_tag", topicTag);
         const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
         const data = await res.json() as ThreadsContainerResponse | ThreadsError;
         if (!res.ok) throw new Error(`[Container] ${ (data as ThreadsError).error?.message }`);
         containerId = (data as ThreadsContainerResponse).id;
-    } else if (imageUrls.length === 1) {
-        const params = new URLSearchParams({ media_type: "IMAGE", image_url: imageUrls[0], text, access_token: accessToken });
+    } else if (validHttpImageUrls.length === 1) {
+        const params = new URLSearchParams({ media_type: "IMAGE", image_url: validHttpImageUrls[0], text, access_token: accessToken });
         if (topicTag) params.append("topic_tag", topicTag);
         const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
         const data = await res.json() as ThreadsContainerResponse | ThreadsError;
@@ -605,7 +606,7 @@ export async function publishPostWithCredentials(
         containerId = (data as ThreadsContainerResponse).id;
     } else {
         const itemIds: string[] = [];
-        for (const imageUrl of imageUrls) {
+        for (const imageUrl of validHttpImageUrls) {
             const params = new URLSearchParams({ media_type: "IMAGE", image_url: imageUrl, is_carousel_item: "true", access_token: accessToken });
             const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
             const data = await res.json() as ThreadsContainerResponse | ThreadsError;

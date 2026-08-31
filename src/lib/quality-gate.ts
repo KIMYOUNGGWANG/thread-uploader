@@ -10,6 +10,7 @@ import {
   hasReplyBurdenPromise,
 } from "@/lib/viral-intent-modes";
 import { validateAntiSlop } from "@/lib/marketing-skills";
+import { evaluateContentWithExpertPanel } from "@/lib/expert-panel-evaluator";
 
 /**
  * Quality Gate — CosmicPath 바이럴 공식 준수 검사기
@@ -190,6 +191,11 @@ function enforceSafetyRules(post: string, result: QualityResult): QualityResult 
   const antiSlop = validateAntiSlop(post);
   if (!antiSlop.pass) {
     reasons.unshift(...antiSlop.issues);
+  }
+
+  const expertEvaluation = evaluateContentWithExpertPanel(post);
+  if (!expertEvaluation.pass && expertEvaluation.blockingReasons.length > 0) {
+    reasons.unshift(...expertEvaluation.blockingReasons);
   }
 
   return reasons.length === result.reasons.length ? result : { ...result, pass: false, reasons };

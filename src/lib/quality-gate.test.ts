@@ -3,7 +3,7 @@ import { checkQuality } from "@/lib/quality-gate";
 
 describe("checkQuality", () => {
   it("preserves saju viral pass and fail behavior", () => {
-    const passing = checkQuality("혹시 도화살 있는 사람?\nA. 화개살 B. 도화살 C. 역마살 중 가까운 쪽 체크해봐", "saju_viral");
+    const passing = checkQuality("혹시 도화살 있는 사람? 솔직히 남들보다 감정 소모가 심한 편이야.\nA. 화개살 B. 도화살 C. 역마살 중 가까운 쪽 체크해봐. 저장해두고 기준 삼아봐.", "saju_viral");
     const failing = checkQuality("좋은 일이 올 거예요. 스스로를 믿으세요.", "saju_viral");
 
     expect(passing.pass).toBe(true);

@@ -21,7 +21,13 @@ export async function GET(request: NextRequest) {
   for (const brand of brands) {
     try {
       const result = await learnBrandGrowth(brand.id);
-      results.push({ slug: brand.slug, success: true, learnedPosts: result.learnedPosts });
+      results.push({
+        slug: brand.slug,
+        success: true,
+        learnedPosts: result.learnedPosts,
+        promotedFormulas: result.promotedFormulas,
+        demotedFormulas: result.demotedFormulas,
+      });
     } catch (error) {
       results.push({
         slug: brand.slug,

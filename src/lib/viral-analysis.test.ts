@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeViralText,
   buildViralMemory,
+  calculateConfidence,
 } from "@/lib/viral-analysis";
 
 describe("analyzeViralText", () => {
@@ -44,5 +45,15 @@ describe("buildViralMemory", () => {
 
     expect(memory.topPatterns[0]?.recommendation).toContain("자기분류");
     expect(memory.recommendations.join(" ")).toContain("자기분류");
+  });
+
+  it("applies Laplace smoothing to calculateConfidence reliably", () => {
+    // 1 sample with 100 score should not dominate 10 samples with 80 score
+    const oneSampleConfidence = calculateConfidence(1, 100);
+    const tenSamplesConfidence = calculateConfidence(10, 80);
+
+    expect(oneSampleConfidence).toBeLessThan(tenSamplesConfidence);
+    expect(oneSampleConfidence).toBeGreaterThan(0);
+    expect(tenSamplesConfidence).toBeLessThanOrEqual(100);
   });
 });

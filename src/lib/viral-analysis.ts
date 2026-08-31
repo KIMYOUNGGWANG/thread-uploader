@@ -302,8 +302,12 @@ function buildSourceMix(examples: ViralExampleInput[]): Record<string, number> {
   }, {});
 }
 
-function calculateConfidence(count: number, avgViralScore: number): number {
-  return Math.min(100, Math.round(count * 14 + avgViralScore / 25));
+export function calculateConfidence(count: number, avgViralScore: number): number {
+  if (count <= 0) return 0;
+  // Laplace/Bayesian smoothing: as sample count increases, confidence asymptotically approaches 100
+  const sampleWeight = count / (count + 3);
+  const normalizedScore = Math.min(100, Math.max(0, avgViralScore)) / 100;
+  return Math.min(100, Math.max(1, Math.round((sampleWeight * 0.65 + normalizedScore * 0.35) * 100)));
 }
 
 function labelPattern(pattern: ViralPatternSummary): string {
