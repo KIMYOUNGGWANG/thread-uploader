@@ -241,8 +241,13 @@ async function main() {
 
             let replyErrorMessage = null;
             if (post.firstComment?.trim()) {
+                let commentText = post.firstComment.trim();
+                if (commentText.length > 500) {
+                    console.warn(`  ⚠️ First comment exceeded 500 chars (${commentText.length}). Auto-trimming to 500 chars.`);
+                    commentText = commentText.slice(0, 500);
+                }
                 try {
-                    const replyId = await publishReplyWithRetry(post.firstComment.trim(), threadsId, credentials);
+                    const replyId = await publishReplyWithRetry(commentText, threadsId, credentials);
                     console.log(`  💬 First comment published for ${post.id}. Reply ID: ${replyId}`);
                 } catch (replyError) {
                     replyErrorMessage =
