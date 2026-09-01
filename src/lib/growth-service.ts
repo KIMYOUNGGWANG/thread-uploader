@@ -25,7 +25,12 @@ export async function learnBrandGrowth(brandId: string) {
     take: 300,
   });
 
-  const memory = buildGrowthMemory(posts);
+  // Filter out promotional / subsidized campaigns from organic formula weights to prevent data poisoning
+  const organicPosts = posts.filter(
+    (post) => !post.campaignId || !post.campaignId.toLowerCase().includes("promo")
+  );
+
+  const memory = buildGrowthMemory(organicPosts.length > 0 ? organicPosts : posts);
 
   let updatedWeights: Record<string, number> | undefined;
   let promotedFormulas: string[] = [];
@@ -43,7 +48,7 @@ export async function learnBrandGrowth(brandId: string) {
       currentWeights = {};
     }
 
-    const weightResult = computeAdaptiveFormulaWeights(currentWeights, posts, knownFormulaIds);
+    const weightResult = computeAdaptiveFormulaWeights(currentWeights, organicPosts.length > 0 ? organicPosts : posts, knownFormulaIds);
     updatedWeights = weightResult.updatedWeights;
     promotedFormulas = weightResult.promotedFormulas;
     demotedFormulas = weightResult.demotedFormulas;
