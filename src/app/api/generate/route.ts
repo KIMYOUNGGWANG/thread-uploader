@@ -13,6 +13,8 @@ import {
 } from "@/lib/anti-repeat-memory";
 import { getThreadsContentLimitError, THREADS_CONTENT_MAX_LENGTH, THREADS_CONTENT_TARGET_LENGTH, THREADS_MULTI_PART_MAX_LENGTH } from "@/lib/threads-limits";
 import { buildAdmissionFirstComment } from "@/lib/charlie-viral-skills";
+import { buildTrackedUrl } from "@/lib/tracking-url";
+import { selectFormulaWithQuota } from "@/lib/quota-bandit-router";
 import { buildMultiFormatContentBundle } from "@/lib/multi-format-content-bridge";
 import { svgToDataUri } from "@/lib/carousel-cards/renderer";
 import {
@@ -718,12 +720,22 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < count; i += BATCH) {
       const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
-        const viralIntentMode = selectViralIntentMode(i + j);
-        const formula = activeCampaign
-          ? selectCampaignFormulaForViralMode(sourceFormulas, viralIntentMode)
-          : pickRandom(formulaPool);
-        const topic = topics[i + j];
-        const experiment = buildExperiment(formula, topic, config, activeCampaign, i + j, viralIntentMode);
+        const batchIndex = i + j;
+        const viralIntentMode = selectViralIntentMode(batchIndex);
+        const quotaSelection = selectFormulaWithQuota(batchIndex, {
+          customWeights: dbWeights,
+          recentFormulaIds: results.map((r) => r.formulaId),
+        });
+
+        const matchedFormula = sourceFormulas.find((f) => f.id === quotaSelection.formulaId);
+        const formula = matchedFormula ?? (
+          activeCampaign
+            ? selectCampaignFormulaForViralMode(sourceFormulas, viralIntentMode)
+            : pickRandom(formulaPool)
+        );
+
+        const topic = topics[batchIndex % topics.length];
+        const experiment = buildExperiment(formula, topic, config, activeCampaign, batchIndex, viralIntentMode);
         const inBatchPosts: RecentPostSummary[] = [
           ...results.map((r) => ({ content: r.post, topic: r.topic, hookType: r.hookType })),
           ...recentPosts,
@@ -801,16 +813,35 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      if (result.shouldLink && activeCampaign) {
-        const utm = buildCampaignUtmLink(config.websiteUrl, activeCampaign, post.id);
-        if (utm) {
+      if (result.shouldLink) {
+        let finalLinkUrl: string | null = null;
+        let finalUtmContent: string | null = post.id;
+
+        if (activeCampaign) {
+          const utm = buildCampaignUtmLink(config.websiteUrl, activeCampaign, post.id);
+          if (utm) {
+            finalLinkUrl = utm.url;
+            finalUtmContent = utm.utmContent;
+          }
+        } else {
+          const targetLanding = config.productProfile?.landingUrl || (config.websiteUrl ? `${config.websiteUrl}/start` : null);
+          if (targetLanding) {
+            finalLinkUrl = buildTrackedUrl(targetLanding, {
+              postId: post.id,
+              formulaId: post.formulaId ?? undefined,
+              track: post.formulaId?.includes("offer") ? "track_c" : "track_b",
+            });
+          }
+        }
+
+        if (finalLinkUrl) {
           linkedCount++;
           createdPosts.push(await prisma.post.update({
             where: { id: post.id },
             data: {
-              firstComment: appendFirstCommentLink(result.firstComment, utm.url),
-              linkUrl: utm.url,
-              utmContent: utm.utmContent,
+              firstComment: appendFirstCommentLink(result.firstComment, finalLinkUrl),
+              linkUrl: finalLinkUrl,
+              utmContent: finalUtmContent,
             },
           }));
           continue;

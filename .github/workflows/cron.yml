@@ -39,4 +39,5 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
           THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          PUBLISH_BRAND_SLUGS: ${{ secrets.PUBLISH_BRAND_SLUGS || 'cosmicpath,cosmicpath-global' }}
         run: node scripts/publish-standalone.js

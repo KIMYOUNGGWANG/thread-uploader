@@ -1,4 +1,5 @@
 import type { VoiceProfile } from "@/types/brand";
+import { buildTrackedUrl, type TrackingParams } from "@/lib/tracking-url";
 
 /**
  * Charlie Hills 바이럴 스킬 모듈 (charlie-viral-skills.ts)
@@ -54,6 +55,7 @@ export function buildTwoLineContrastHook(
 export interface AdmissionCommentContext {
   topic?: string;
   linkUrl?: string;
+  trackingParams?: TrackingParams;
   voiceProfile?: VoiceProfile;
 }
 
@@ -61,7 +63,7 @@ export function buildAdmissionFirstComment(
   postContent: string,
   context: AdmissionCommentContext = {}
 ): string {
-  const { topic = "이 내용", linkUrl, voiceProfile } = context;
+  const { topic = "이 내용", linkUrl, trackingParams, voiceProfile } = context;
 
   // 1. Admission (솔직한 고백)
   let admission = voiceProfile?.admissionStyle || "📌 솔직히 말하면 나도 매번 이 함정에 빠진다.";
@@ -80,10 +82,11 @@ export function buildAdmissionFirstComment(
   // 3. Smallest possible win / sad flex (작은 성과 및 가치 제공)
   const win = `${topic} 관련해서 바로 써먹을 수 있는 체크리스트만 따로 추려둠.`;
 
-  // 4. Resigned acceptance + soft link
+  // 4. Resigned acceptance + soft link (with tracked URL if params provided)
   let closing = "필요하면 기준표 삼아서 한 번 확인해봐.";
   if (linkUrl) {
-    closing = `정리해둔 전체 진단표 링크는 여기 걸어둘게: ${linkUrl}`;
+    const finalUrl = trackingParams ? buildTrackedUrl(linkUrl, trackingParams) : linkUrl;
+    closing = `정리해둔 전체 진단표 링크는 여기 걸어둘게: ${finalUrl}`;
   }
 
   return [admission, flip, win, closing].join("\n");

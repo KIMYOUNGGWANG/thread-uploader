@@ -4,7 +4,8 @@
 ## 1. 브랜드 기본 정보
 - **브랜드명:** CosmicPath (코스믹패스)
 - **한 줄 설명:** 사주·서양 점성술·자미두수·태국 왕실 점성술·수비학의 5대 결정론적 계산 엔진과 진태양시(True Solar Time) 정밀 보정을 교차 검증하여, 중대한 선택(이직·퇴사·창업·투자·결혼)을 명쾌하게 판정하는 VIP 인생 의사결정 도시에(Executive Decision Dossier).
-- **랜딩 URL:** `https://www.cosmicpath.app/start?entry=decision_timing_rebuild_v1`
+- **랜딩 URL:** `https://www.etsy.com/ca/listing/4564666801/custom-20-page-birth-chart-reading-in`
+- **Etsy 리스팅명:** Custom 20-Page Birth Chart Reading & Korean Saju Dossier
 - **핵심 슬로건:** 
   1. "위로받으려면 타로를 보고, 결정을 내리려면 CosmicPath를 보라."
   2. "동경시 30분 오차도 안 잡는 사주를 믿으십니까?"
@@ -76,4 +77,6 @@
 
 | 날짜 | 배치 | 공식 우승 | 스턴트 우승 | 비고 |
 |------|------|----------|-----------|------|
-| 2026-08-27 | Batch-01 | (대기중) | 타로 폐기 선언 / 진태양시 폭로 | 5-Engine 리뉴얼 기념 첫 론칭 배치 준비 |
+| 2026-08-27 | Batch-01 | controversy_stunt | 진태양시 30분 폭로 | 론칭 스턴트 준비 |
+| 2026-08-31 | Live-01 | controversy_stunt (점수 6,980점) | 진태양시 30분 왜곡 폭로 (조회 28,024 / 댓글 25 / 리포스트 15 / 좋아요 72) | **Breakout 달성**: 팩트 폭격 + 손실 불안 + 즉시 뇌내 시뮬레이션 공식 검증 완료 |
+

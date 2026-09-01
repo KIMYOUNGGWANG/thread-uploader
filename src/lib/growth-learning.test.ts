@@ -15,6 +15,7 @@ describe("calculatePerformanceScore", () => {
 
     const score = calculatePerformanceScore(metrics);
 
-    expect(score).toBe(725);
+    // 200 (views) + 80 (replies) + 25 (reposts) + 150 (clicks) + 300 (conversions) + 2500 (paid) = 3255
+    expect(score).toBe(3255);
   });
 });

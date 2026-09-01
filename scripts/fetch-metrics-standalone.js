@@ -67,22 +67,19 @@ async function fetchInsights(threadsId, accessToken) {
 
 async function main() {
   const now = Date.now();
-  const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
-  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+  const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
 
-  // 게시 후 2일~7일 사이 && 아직 메트릭 수집 안 된 게시물
+  // 최근 14일 이내 발행된 게시물 (지표 갱신 대상)
   const posts = await prisma.post.findMany({
     where: {
       status: "PUBLISHED",
       threadsId: { not: null },
-      metricsAt: null,
-      createdAt: {
-        gte: new Date(now - SEVEN_DAYS),
-        lte: new Date(now - TWO_DAYS),
+      publishedAt: {
+        gte: new Date(now - FOURTEEN_DAYS),
       },
     },
     include: { brand: true },
-    orderBy: { createdAt: "asc" },
+    orderBy: { metricsAt: "asc" }, // 가장 오래 갱신 안 된 것부터
     take: BATCH_SIZE,
   });
 

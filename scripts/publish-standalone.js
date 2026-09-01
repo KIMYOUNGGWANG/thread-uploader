@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
 const FIRST_COMMENT_FAILURE_PREFIX = "First comment failed:";
-const DEFAULT_PUBLISH_BRAND_SLUGS = "cosmicpath";
+const DEFAULT_PUBLISH_BRAND_SLUGS = "cosmicpath,cosmicpath-global";
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -15,6 +15,9 @@ function sleep(ms) {
 
 function getPublishBrandSlugs() {
     const rawSlugs = process.env.PUBLISH_BRAND_SLUGS || DEFAULT_PUBLISH_BRAND_SLUGS;
+    if (rawSlugs.trim() === "*" || rawSlugs.trim().toLowerCase() === "all") {
+        return [];
+    }
     return rawSlugs
         .split(",")
         .map((slug) => slug.trim())
@@ -170,70 +173,83 @@ async function main() {
 
     const publishBrandSlugs = getPublishBrandSlugs();
     const brandFilter = publishBrandSlugs.length > 0
-        ? { brand: { slug: { in: publishBrandSlugs } } }
+        ? { slug: { in: publishBrandSlugs } }
         : {};
 
-    if (publishBrandSlugs.length > 0) {
-        console.log(`Publishing only brand slugs: ${publishBrandSlugs.join(", ")}`);
-    }
-
-    const pendingPosts = await prisma.post.findMany({
-        where: {
-            status: "PENDING",
-            OR: [
-                { qualityPass: true },
-                { qualityPass: null },
-            ],
-            ...brandFilter,
-        },
-        include: { brand: true },
-        orderBy: { scheduledAt: "asc" },
-        take: 1
+    const targetBrands = await prisma.brand.findMany({
+        where: brandFilter,
+        orderBy: { slug: "asc" }
     });
 
-    if (pendingPosts.length === 0) {
-        const blockedCount = await prisma.post.count({
-            where: { status: "PENDING", qualityPass: false, ...brandFilter },
-        });
-        if (blockedCount > 0) {
-            console.log(`No publishable posts found. ${blockedCount} quality-failed posts are blocked.`);
-        }
-        console.log("No publishable pending posts found.");
+    if (targetBrands.length === 0) {
+        console.log("No matching brands found for slugs:", publishBrandSlugs);
         return;
     }
 
-    console.log(`Found ${pendingPosts.length} posts to process.`);
+    console.log(`Processing ${targetBrands.length} brands: ${targetBrands.map(b => b.slug).join(", ")}`);
 
-    for (const post of pendingPosts) {
+    for (const brand of targetBrands) {
+        console.log(`\n▶ [Brand: ${brand.name} (${brand.slug})]`);
+
+        if (!brand.accessToken || !brand.threadsUserId) {
+            console.log(`  ⚠️ Skipping ${brand.slug}: Missing Threads credentials (accessToken or threadsUserId).`);
+            continue;
+        }
+
+        const post = await prisma.post.findFirst({
+            where: {
+                brandId: brand.id,
+                status: "PENDING",
+                OR: [
+                    { qualityPass: true },
+                    { qualityPass: null },
+                ],
+            },
+            orderBy: { scheduledAt: "asc" },
+        });
+
+        if (!post) {
+            const blockedCount = await prisma.post.count({
+                where: { brandId: brand.id, status: "PENDING", qualityPass: false },
+            });
+            if (blockedCount > 0) {
+                console.log(`  ℹ️ No publishable posts for ${brand.slug}. (${blockedCount} quality-failed posts are blocked)`);
+            } else {
+                console.log(`  ℹ️ No pending posts found for ${brand.slug}.`);
+            }
+            continue;
+        }
+
         try {
-            console.log(`Publishing post ${post.id}...`);
+            console.log(`  🚀 Publishing post ${post.id} for ${brand.slug}...`);
             const credentials = {
-                accessToken: post.brand.accessToken,
-                userId: post.brand.threadsUserId,
+                accessToken: brand.accessToken,
+                userId: brand.threadsUserId,
             };
             const imageUrls = JSON.parse(post.imageUrls || "[]");
             const parts = splitIntoThreadParts(post.content);
             const threadsId = await publishPost(parts[0], credentials, imageUrls);
+
             for (let p = 1; p < parts.length; p++) {
                 await sleep(3000);
                 try {
                     await publishReplyWithRetry(parts[p], threadsId, credentials);
                 } catch (partErr) {
-                    console.error(`Failed to publish thread part ${p + 1}/${parts.length} for ${post.id}:`, partErr);
+                    console.error(`  ❌ Failed to publish thread part ${p + 1}/${parts.length} for ${post.id}:`, partErr);
                 }
             }
-            let replyErrorMessage = null;
 
+            let replyErrorMessage = null;
             if (post.firstComment?.trim()) {
                 try {
                     const replyId = await publishReplyWithRetry(post.firstComment.trim(), threadsId, credentials);
-                    console.log(`First comment published for ${post.id}. Reply ID: ${replyId}`);
+                    console.log(`  💬 First comment published for ${post.id}. Reply ID: ${replyId}`);
                 } catch (replyError) {
                     replyErrorMessage =
                         replyError instanceof Error
                             ? replyError.message
                             : "Failed to publish first comment";
-                    console.error(`Failed to publish first comment for ${post.id}:`, replyErrorMessage);
+                    console.error(`  ⚠️ Failed to publish first comment for ${post.id}:`, replyErrorMessage);
                 }
             }
 
@@ -248,12 +264,12 @@ async function main() {
                         : null
                 }
             });
-            console.log(`Successfully published ${post.id}. Threads ID: ${threadsId}`);
+            console.log(`  ✅ Successfully published ${post.id} (${brand.slug}). Threads ID: ${threadsId}`);
 
-            // Gap between posts
-            await sleep(5000);
+            // Gap between brands to avoid rate limiting
+            await sleep(4000);
         } catch (error) {
-            console.error(`Failed to publish ${post.id}:`, error.message);
+            console.error(`  ❌ Failed to publish ${post.id} for ${brand.slug}:`, error.message);
             await prisma.post.update({
                 where: { id: post.id },
                 data: {

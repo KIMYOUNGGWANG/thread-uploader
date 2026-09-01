@@ -2,12 +2,28 @@
   "framework": "nextjs",
   "crons": [
     {
+      "path": "/api/cron/publish",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/refresh-token",
       "schedule": "0 15 * * *"
     },
     {
       "path": "/api/cron/account-intelligence",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/fetch-metrics",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/learn",
+      "schedule": "30 18 * * *"
+    },
+    {
+      "path": "/api/cron/viral",
+      "schedule": "0 19 * * *"
     }
   ]
 }

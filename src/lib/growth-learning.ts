@@ -34,8 +34,13 @@ export function calculatePerformanceScore(metrics: PerformanceMetrics): number {
   const clicks = metrics.clicks ?? 0;
   const conversions = metrics.conversions ?? 0;
   const manualPaidConversions = metrics.manualPaidConversions ?? 0;
-  const conversionSignal = clicks + conversions * 5 + manualPaidConversions * 20;
-  return Math.round(views * 0.2 + replies * 40 + reposts * 25 + conversionSignal * 15);
+
+  // Revenue-weighted closed-loop formula:
+  // Paid conversion (2,500 pts) > Test Start (300 pts) > Click (50 pts) > Social engagement
+  const socialScore = views * 0.2 + replies * 40 + reposts * 25;
+  const revenueScore = clicks * 50 + conversions * 300 + manualPaidConversions * 2500;
+
+  return Math.round(socialScore + revenueScore);
 }
 
 export function getPerformanceTier(score: number): string {
