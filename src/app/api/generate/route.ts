@@ -11,9 +11,9 @@ import {
   formatAntiRepeatContext,
   type RecentPostSummary,
 } from "@/lib/anti-repeat-memory";
-import { getThreadsContentLimitError, THREADS_CONTENT_MAX_LENGTH, THREADS_CONTENT_TARGET_LENGTH, THREADS_MULTI_PART_MAX_LENGTH } from "@/lib/threads-limits";
+import { THREADS_CONTENT_MAX_LENGTH, THREADS_CONTENT_TARGET_LENGTH, THREADS_MULTI_PART_MAX_LENGTH } from "@/lib/threads-limits";
 import { buildAdmissionFirstComment } from "@/lib/charlie-viral-skills";
-import { buildTrackedUrl } from "@/lib/tracking-url";
+import { buildShortRedirectUrl, buildTrackedUrl } from "@/lib/tracking-url";
 import { selectFormulaWithQuota } from "@/lib/quota-bandit-router";
 import { buildMultiFormatContentBundle } from "@/lib/multi-format-content-bridge";
 import { svgToDataUri } from "@/lib/carousel-cards/renderer";
@@ -836,10 +836,12 @@ export async function POST(request: NextRequest) {
 
         if (finalLinkUrl) {
           linkedCount++;
+          const appBaseUrl = process.env.APP_URL || "https://thread-uploader.vercel.app";
+          const shortRedirectUrl = buildShortRedirectUrl(appBaseUrl, post.id);
           createdPosts.push(await prisma.post.update({
             where: { id: post.id },
             data: {
-              firstComment: appendFirstCommentLink(result.firstComment, finalLinkUrl),
+              firstComment: appendFirstCommentLink(result.firstComment, shortRedirectUrl),
               linkUrl: finalLinkUrl,
               utmContent: finalUtmContent,
             },

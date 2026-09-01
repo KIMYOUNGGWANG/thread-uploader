@@ -114,30 +114,75 @@ export const CONTENT_PILLARS: Record<ContentPillar, PillarDefinition> = {
 };
 
 /**
- * Banned generic AI buzzwords (AI Slop).
- * Corey Haines Copywriting standard: Avoid vague filler words.
+ * Banned generic AI buzzwords (AI Slop - 100 Words).
+ * Expanded across Korean promotional cliches, generic transitions, abstract jargon, and English AI markers.
  */
 export const BANNED_AI_SLOP_WORDS = [
-  "혁신적인",
-  "혁신적",
-  "궁극의",
-  "놀라운",
-  "패러다임",
-  "최적화된",
-  "최적화",
-  "올인원",
-  "게임체인저",
-  "차세대",
-  "마법 같은",
-  "비약적인",
-  "선구적인",
-  "획기적인",
+  // 1. 과장된 수식어 (Korean Buzzwords)
+  "혁신적인", "혁신적", "궁극의", "놀라운", "패러다임", "최적화된", "최적화",
+  "올인원", "게임체인저", "차세대", "마법 같은", "마법같은", "비약적인",
+  "선구적인", "획기적인", "독보적인", "경이로운", "압도적인", "전례 없는",
+  "전례없는", "무한한", "기적 같은", "기적같은", "완벽한", "절대적인",
+
+  // 2. 진부한 AI 전개어 및 상투구 (Generic Transitions & Clichés)
+  "살펴보겠습니다", "알아보겠습니다", "함께 알아보죠", "놀라운 여정", "새로운 지평",
+  "초석", "마침내", "주목해야 할", "주목해야할", "흥미진진한", "눈부신",
+  "숨겨진 비밀", "비밀의 열쇠", "비밀을 공개", "놓치지 마세요", "놓치지마세요",
+  "지금 바로 확인", "성공의 지름길", "성공의 열쇠", "필수적인", "반드시 알아야",
+
+  // 3. 공허한 추상 명사 및 과장 어휘 (Abstract Jargon)
+  "시너지", "시너지 효과", "생태계", "디지털 트랜스포메이션", "포괄적인",
+  "다면적인", "심도 있는", "심도있는", "역동적인", "총체적인", "가치 창출",
+  "극대화", "잠재력", "잠재력을 발휘", "가능성을 열어", "새로운 차원",
+  "탁월한", "눈부시게", "경쟁력을 강화", "차별화된",
+
+  // 4. English AI Slop & Buzzword Markers
+  "delve", "delving", "tapestry", "leverage", "leveraging",
+  "game-changer", "game changer", "revolutionize", "revolutionizing",
+  "unleash", "unleashing", "testament", "pivotal", "beacon",
+  "cutting-edge", "state-of-the-art", "groundbreaking", "seamless",
+  "seamlessly", "holistic", "empower", "empowering", "foster",
+  "fostering", "elevate", "elevating", "embark", "embarking",
+  "realm", "bustling", "vibrant", "treasure trove", "dive deep",
+  "in conclusion", "furthermore", "moreover", "unlocking", "transformative",
+  "bespoke",
 ];
 
 export interface AntiSlopValidationResult {
   pass: boolean;
   score: number; // 0 to 10
   issues: string[];
+  burstinessStdDev?: number;
+}
+
+/**
+ * Measures sentence length variation (Burstiness) to detect robotic, uniform AI text.
+ */
+export function validateBurstiness(text: string): { pass: boolean; stdDev: number; issue?: string } {
+  const sentences = text
+    .split(/[\n.?!]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 3 && !s.startsWith("http"));
+
+  if (sentences.length < 4) {
+    return { pass: true, stdDev: 0 };
+  }
+
+  const lengths = sentences.map((s) => s.length);
+  const mean = lengths.reduce((acc, val) => acc + val, 0) / lengths.length;
+  const variance = lengths.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / lengths.length;
+  const stdDev = Math.sqrt(variance);
+
+  // If standard deviation is less than 4.5 on 4+ sentences, it's artificially uniform
+  if (stdDev < 4.5) {
+    return {
+      pass: false,
+      stdDev: Math.round(stdDev * 10) / 10,
+      issue: `문장 길이가 너무 균일합니다 (표준편차 ${Math.round(stdDev * 10) / 10}자). 단문(10자 내외)과 장문(40자 이상)을 교차하여 인간적인 리듬(Burstiness)을 만드십시오.`,
+    };
+  }
+
+  return { pass: true, stdDev: Math.round(stdDev * 10) / 10 };
 }
 
 /**
@@ -154,9 +199,11 @@ export function validateAntiSlop(text: string): AntiSlopValidationResult {
     issues.push(`느낌표(!)가 ${exclamationMatches.length}회 사용되었습니다. 차분하고 신뢰성 있는 어조를 위해 배제하십시오.`);
   }
 
-  // 2. Banned generic buzzwords
+  // 2. Banned generic buzzwords (AI Slop 100 words check)
+  const lower = text.toLowerCase();
   for (const word of BANNED_AI_SLOP_WORDS) {
-    if (text.includes(word)) {
+    const target = word.toLowerCase();
+    if (lower.includes(target)) {
       deduction += 2;
       issues.push(`진부한 AI 상투어 "${word}" 사용 감지: 구체적인 수치나 행동으로 대체하십시오.`);
     }
@@ -174,11 +221,19 @@ export function validateAntiSlop(text: string): AntiSlopValidationResult {
     issues.push(`자신감 없는 수식어(어쩌면, 아마도 등)를 지양하십시오.`);
   }
 
+  // 5. Burstiness Check
+  const burstiness = validateBurstiness(text);
+  if (!burstiness.pass && burstiness.issue) {
+    deduction += 2;
+    issues.push(burstiness.issue);
+  }
+
   const score = Math.max(0, 10 - deduction);
   return {
     pass: score >= 7,
     score,
     issues,
+    burstinessStdDev: burstiness.stdDev,
   };
 }
 

@@ -52,6 +52,24 @@ describe("marketing-skills", () => {
     expect(result.issues.some((i) => i.includes("혁신적인"))).toBe(true);
   });
 
+  it("fails Anti-Slop check for English AI buzzwords and generic clichés", () => {
+    const englishSlop = "Let's delve into this game-changer tool to unlock your potential. In conclusion, it will revolutionize your workflow.";
+    const result = validateAntiSlop(englishSlop);
+
+    expect(result.pass).toBe(false);
+    expect(result.issues.some((i) => i.includes("delve"))).toBe(true);
+    expect(result.issues.some((i) => i.includes("game-changer"))).toBe(true);
+    expect(result.issues.some((i) => i.includes("revolutionize"))).toBe(true);
+  });
+
+  it("detects robotic uniform sentence length (low burstiness)", () => {
+    // 4 sentences all exactly ~23-24 characters
+    const uniformText = "오늘 하루도 참 고생 많으셨습니다.\n내일은 더 좋은 일들이 가득할거에요.\n작은 습관 하나가 큰 차이를 만들죠.\n우리는 언제나 성장할 수 있습니다.";
+    const result = validateAntiSlop(uniformText);
+
+    expect(result.issues.some((i) => i.includes("균일합니다"))).toBe(true);
+  });
+
   it("passes Anti-Slop check for clear, specific, grounded copy", () => {
     const goodCopy = "견적서 작성 시간을 주 4시간에서 5분으로 줄였습니다. 복잡한 툴 대신 3개 항목만 남겼습니다.";
     const result = validateAntiSlop(goodCopy);

@@ -54,3 +54,9 @@ export function parseTrackingParams(urlOrQuery: string): TrackingParams {
     return {};
   }
 }
+
+export function buildShortRedirectUrl(appUrl: string, postId: string): string {
+  const normalizedBase = appUrl.replace(/\/+$/, "");
+  return `${normalizedBase}/r/${postId}`;
+}
+
