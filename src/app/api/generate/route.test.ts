@@ -191,10 +191,8 @@ describe("buildGenerationPrompt", () => {
 
     const prompt = buildGenerationPrompt(experiment, config, "growth memory", "viral memory");
 
-    expect(prompt).toContain("개인 질문 접수, 답글 약속, 무료 풀이 약속 금지");
-    expect(prompt).toContain("장문 사연 요청 금지");
-    expect(prompt).toContain("개인별 검토를 암시하는 CTA 금지");
-    expect(prompt).toContain("'댓글', '남겨', '답글', '상황 써줘', '같이 보자', '같이 봐요', '뭐가 걸렸어', '어디였어' 표현 금지");
+    expect(prompt).toContain("설명충 같은 훈계조나 사주 이론 강의");
+    expect(prompt).toContain("친구나 본인의 실제 관찰 썰");
     expect(prompt).toContain("글자 수 확인, 자수 체크, 초안, Threads 본문 같은 메타 텍스트를 절대 출력하지 않는다");
     expect(prompt).not.toContain("상황을 쓰면 분류해준다");
   });

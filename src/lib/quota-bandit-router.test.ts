@@ -17,28 +17,28 @@ describe("4:4:2 Quota & MAB Router", () => {
     const result = selectFormulaWithQuota(1, { // Index 1 is Track B
       epsilon: 0, // Force 100% exploitation
       customWeights: {
-        fact_bomb_incumbent_attack: 10,
-        controversy_stunt: 5,
+        timing_inflection_signs: 10,
+        relationship_cutoff_truth: 5,
         reveal: 2,
       },
     });
 
     expect(result.track).toBe("track_b");
-    expect(result.formulaId).toBe("fact_bomb_incumbent_attack");
+    expect(result.formulaId).toBe("timing_inflection_signs");
     expect(result.isExploration).toBe(false);
   });
 
   it("avoids recent formulas to prevent repetition (anti-monoculture cooldown)", () => {
     const result = selectFormulaWithQuota(1, { // Index 1 is Track B
       epsilon: 0,
-      recentFormulaIds: ["fact_bomb_incumbent_attack"],
+      recentFormulaIds: ["timing_inflection_signs"],
       customWeights: {
-        fact_bomb_incumbent_attack: 10,
-        controversy_stunt: 5,
+        timing_inflection_signs: 10,
+        relationship_cutoff_truth: 5,
       },
     });
 
-    expect(result.formulaId).toBe("controversy_stunt");
+    expect(result.formulaId).toBe("relationship_cutoff_truth");
   });
 
   it("selects exploration pattern when MAB is triggered", () => {
