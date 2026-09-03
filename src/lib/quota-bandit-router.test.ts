@@ -17,28 +17,28 @@ describe("4:4:2 Quota & MAB Router", () => {
     const result = selectFormulaWithQuota(1, { // Index 1 is Track B
       epsilon: 0, // Force 100% exploitation
       customWeights: {
-        timing_inflection_signs: 10,
-        relationship_cutoff_truth: 5,
+        talent_reality_check: 10,
+        wealth_vault_unlock: 5,
         reveal: 2,
       },
     });
 
     expect(result.track).toBe("track_b");
-    expect(result.formulaId).toBe("timing_inflection_signs");
+    expect(result.formulaId).toBe("talent_reality_check");
     expect(result.isExploration).toBe(false);
   });
 
   it("avoids recent formulas to prevent repetition (anti-monoculture cooldown)", () => {
     const result = selectFormulaWithQuota(1, { // Index 1 is Track B
       epsilon: 0,
-      recentFormulaIds: ["timing_inflection_signs"],
+      recentFormulaIds: ["talent_reality_check"],
       customWeights: {
-        timing_inflection_signs: 10,
-        relationship_cutoff_truth: 5,
+        talent_reality_check: 10,
+        wealth_vault_unlock: 5,
       },
     });
 
-    expect(result.formulaId).toBe("relationship_cutoff_truth");
+    expect(result.formulaId).toBe("wealth_vault_unlock");
   });
 
   it("selects exploration pattern when MAB is triggered", () => {
