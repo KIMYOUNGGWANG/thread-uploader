@@ -7,7 +7,7 @@ import {
 } from "@/types/brand";
 
 describe("parseBrandConfig", () => {
-  it("preserves existing campaign quality profile and TikTok defaults", () => {
+  it("preserves existing campaign quality profile defaults", () => {
     const rawConfig = "{}";
 
     const config = parseBrandConfig(rawConfig);
@@ -16,8 +16,6 @@ describe("parseBrandConfig", () => {
     expect(config.campaigns.at(0)?.id).toBe(CAREER_TIMING_WEDGE_399.id);
     expect(config.activeCampaignId).toBe(CAREER_TIMING_WEDGE_399.id);
     expect(config.qualityProfile).toBe("career_decision");
-    expect(config.tiktokVideo.parentCampaignId).toBe(CAREER_TIMING_WEDGE_399.id);
-    expect(config.tiktokVideo.qualityProfile).toBe("tiktok_career_timing");
   });
 
   it("normalizes empty config to product profile and active experiment", () => {
@@ -62,22 +60,6 @@ describe("parseBrandConfig", () => {
     expect(getActiveCampaign(config)?.id).toBe(CAREER_TIMING_WEDGE_399.id);
   });
 
-  it("preserves disabled TikTok config without career defaults", () => {
-    const config = parseBrandConfig(JSON.stringify({
-      tiktokVideo: {
-        enabled: false,
-        parentCampaignId: "product_growth_baseline",
-        landingUrl: "",
-        formats: [],
-      },
-    }));
-
-    expect(config.tiktokVideo.enabled).toBe(false);
-    expect(config.tiktokVideo.parentCampaignId).toBe("product_growth_baseline");
-    expect(config.tiktokVideo.landingUrl).toBe("");
-    expect(config.tiktokVideo.formats).toHaveLength(0);
-  });
-
   it("uses the active campaign quality profile when top-level quality profile is missing", () => {
     const config = parseBrandConfig(JSON.stringify({
       campaigns: [{
@@ -120,26 +102,5 @@ describe("parseBrandConfig", () => {
     expect(formulaText).toContain("A/B/C");
     expect(formulaText).toContain("저장");
     expect(formulaText).not.toMatch(/분류해준|상황을 쓰면|답글|진단해준/);
-  });
-
-  it("ignores legacy TikTok formats when TikTok is disabled", () => {
-    const config = parseBrandConfig(JSON.stringify({
-      tiktokVideo: {
-        enabled: false,
-        parentCampaignId: "product_growth_baseline",
-        landingUrl: "",
-        formats: [{
-          id: "career_timing_diagnosis",
-          name: "커리어 타이밍 진단형",
-          weight: 3,
-          instruction: "legacy career format",
-        }],
-      },
-    }));
-
-    expect(config.tiktokVideo.enabled).toBe(false);
-    expect(config.tiktokVideo.parentCampaignId).toBe("product_growth_baseline");
-    expect(config.tiktokVideo.landingUrl).toBe("");
-    expect(config.tiktokVideo.formats).toHaveLength(0);
   });
 });

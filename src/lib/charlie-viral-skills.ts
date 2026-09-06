@@ -57,13 +57,51 @@ export interface AdmissionCommentContext {
   linkUrl?: string;
   trackingParams?: TrackingParams;
   voiceProfile?: VoiceProfile;
+  linkPlacement?: "bio" | "firstComment";
 }
 
 export function buildAdmissionFirstComment(
   postContent: string,
   context: AdmissionCommentContext = {}
 ): string {
-  const { topic = "이 내용", linkUrl, trackingParams, voiceProfile } = context;
+  const { topic = "이 내용", linkUrl, trackingParams, voiceProfile, linkPlacement = "bio" } = context;
+
+  const isEnglish = voiceProfile?.language === "en" ||
+    Boolean(linkUrl && linkUrl.includes("etsy.com")) ||
+    (!/[가-힣]/.test(postContent) && /[a-zA-Z]{4,}/.test(postContent));
+
+  if (isEnglish) {
+    const isRelationship = /synastry|relationship|dating|couple|partner|venus|love|marriage|avoidant/i.test(postContent + " " + topic);
+    const targetUrl = linkUrl || "";
+    const finalUrl = targetUrl && trackingParams ? buildTrackedUrl(targetUrl, trackingParams) : targetUrl;
+
+    const enAdmissions = [
+      voiceProfile?.admissionStyle || "📌 Honestly, I used to fall for this exact pattern every single time.",
+      "📌 To be completely honest, I ignored these exact signs for three years.",
+      "📌 Not trying to act superior here. I learned this the expensive way.",
+      "📌 Real talk: I wrote this after making this exact mistake twice.",
+    ];
+    const admission = enAdmissions[Math.floor(Math.random() * enAdmissions.length)] ?? enAdmissions[0];
+
+    const enFlips = [
+      "Not claiming to have it all figured out—I just learned this the hard way after burning out twice.",
+      "Not trying to preach here. I just cataloged this after watching the same dynamic implode for the third time.",
+      "I only know this because I spent years falling into the exact same trap myself.",
+      "Just sharing the raw notes I wish someone handed me before I signed up for this.",
+      "No guru nonsense—just patterns that kept repeating until I actually mapped them out.",
+    ];
+    const enFlip = enFlips[Math.floor(Math.random() * enFlips.length)] ?? enFlips[0];
+    const enWin = isRelationship
+      ? "Pulled the complete decision framework together so you don't have to guess."
+      : "Mapped out the full decision blueprint so you can see your own blind spots.";
+
+    const allowDirectLink = linkPlacement === "firstComment" && Boolean(finalUrl);
+    const enClosing = allowDirectLink
+      ? `If you want the raw breakdown without the generic sugar-coating: ${finalUrl}`
+      : "The full decision framework is linked at the top of my profile.";
+
+    return [admission, enFlip, enWin, enClosing].join("\n");
+  }
 
   // 1. Admission (솔직한 고백)
   let admission = voiceProfile?.admissionStyle || "📌 솔직히 말하면 나도 매번 이 함정에 빠진다.";
@@ -82,9 +120,9 @@ export function buildAdmissionFirstComment(
   // 3. Smallest possible win / sad flex (작은 성과 및 가치 제공)
   const win = `${topic} 관련해서 바로 써먹을 수 있는 체크리스트만 따로 추려둠.`;
 
-  // 4. Resigned acceptance + soft link (with tracked URL if params provided)
-  let closing = "필요하면 기준표 삼아서 한 번 확인해봐.";
-  if (linkUrl) {
+  // 4. Resigned acceptance + soft bio guide (or direct link if explicitly configured as firstComment)
+  let closing = "전체 판단 기준표와 리포트는 프로필 상단 링크에 남겨둠.";
+  if (linkPlacement === "firstComment" && linkUrl) {
     const finalUrl = trackingParams ? buildTrackedUrl(linkUrl, trackingParams) : linkUrl;
     closing = `정리해둔 전체 진단표 링크는 여기 걸어둘게: ${finalUrl}`;
   }

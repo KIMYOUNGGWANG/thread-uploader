@@ -39,20 +39,42 @@ async function main() {
     const targetUrl = isRelationship ? COUPLE_SYNASTRY_URL : BIRTH_CHART_URL;
     const productName = isRelationship ? "25-Page Couple Synastry & Compatibility Blueprint" : "20-Page Custom Birth Chart & Saju Blueprint";
 
+    const brandConfig = JSON.parse(brand.brandConfig || "{}");
+    const linkPlacement = brandConfig.linkPlacement || "bio";
+
     let firstComment = "";
-    if (i % 3 === 0) {
-      firstComment = `✨ Want your custom ${productName}? (50% Launch Special) → ${targetUrl}`;
-    } else if (i % 3 === 1) {
-      if (isRelationship) {
-        firstComment = `What are your and your partner's Sun/Moon signs? Drop them below to see your core dynamic.\n\n(✨ Full Couple Synastry Blueprint: ${COUPLE_SYNASTRY_URL})`;
+    if (linkPlacement === "firstComment") {
+      if (i % 3 === 0) {
+        firstComment = `✨ Want your custom ${productName}? (50% Launch Special) → ${targetUrl}`;
+      } else if (i % 3 === 1) {
+        if (isRelationship) {
+          firstComment = `What are your and your partner's Sun/Moon signs? Drop them below to see your core dynamic.\n\n(✨ Full Couple Synastry Blueprint: ${COUPLE_SYNASTRY_URL})`;
+        } else {
+          firstComment = `What Sun sign and birth year are you? Drop it below if you want to know what season of your 10-year luck pillar you are in.\n\n(✨ 20-Page Custom Reading: ${BIRTH_CHART_URL})`;
+        }
       } else {
-        firstComment = `What Sun sign and birth year are you? Drop it below if you want to know what season of your 10-year luck pillar you are in.\n\n(✨ 20-Page Custom Reading: ${BIRTH_CHART_URL})`;
+        if (isRelationship) {
+          firstComment = `Save this breakdown before having your next relationship conversation.\n\n(✨ Deep compatibility reading: ${COUPLE_SYNASTRY_URL})`;
+        } else {
+          firstComment = `Bookmark this breakdown before making your next big career pivot or signing a major contract.\n\n(✨ 20-Page Decision Blueprint: ${BIRTH_CHART_URL})`;
+        }
       }
     } else {
-      if (isRelationship) {
-        firstComment = `Save this breakdown before having your next relationship conversation.\n\n(✨ Deep compatibility reading: ${COUPLE_SYNASTRY_URL})`;
+      // Bio-first placement (No raw URLs in comment to avoid spam penalty)
+      if (i % 3 === 0) {
+        firstComment = `✨ Custom ${productName} is linked at the top of my bio.`;
+      } else if (i % 3 === 1) {
+        if (isRelationship) {
+          firstComment = `What are your and your partner's Sun/Moon signs? Drop them below to see your core dynamic.\n\n(✨ Full Couple Synastry Blueprint is in my bio)`;
+        } else {
+          firstComment = `What Sun sign and birth year are you? Drop it below if you want to know what season of your luck pillar you are in.\n\n(✨ 20-Page Custom Reading is in my bio)`;
+        }
       } else {
-        firstComment = `Bookmark this breakdown before making your next big career pivot or signing a major contract.\n\n(✨ 20-Page Decision Blueprint: ${BIRTH_CHART_URL})`;
+        if (isRelationship) {
+          firstComment = `Save this breakdown before having your next relationship conversation.\n\n(✨ Deep compatibility reading is linked in bio)`;
+        } else {
+          firstComment = `Bookmark this breakdown before making your next big career pivot or signing a major contract.\n\n(✨ 20-Page Decision Blueprint is linked in bio)`;
+        }
       }
     }
 

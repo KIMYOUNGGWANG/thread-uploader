@@ -5,16 +5,9 @@ import {
   publishThreadChainWithCredentials,
 } from "@/lib/threads-api";
 import { getPublishSafetyBlockReasons } from "@/lib/publish-safety-gate";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 export const maxDuration = 60;
-
-function verifyCronSecret(request: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return true;
-  const authHeader = request.headers.get("authorization");
-  if (authHeader === `Bearer ${cronSecret}`) return true;
-  return request.nextUrl.searchParams.get("secret") === cronSecret;
-}
 
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
@@ -31,10 +24,12 @@ export async function GET(request: NextRequest) {
 
   for (const brand of brands) {
     try {
+      const now = new Date();
       const post = await prisma.post.findFirst({
         where: {
           brandId: brand.id,
           status: "PENDING",
+          scheduledAt: { lte: now },
           OR: [
             { qualityPass: true },
             { qualityPass: null },

@@ -23,9 +23,5 @@ Save & follow for more growth strategies.`;
     expect(bundle.carouselSlides).toHaveLength(4);
     expect(bundle.carouselSvgs).toHaveLength(4);
     expect(bundle.carouselSvgs[0]).toContain("Stop wasting 80% of your marketing budget");
-
-    expect(bundle.shortFormVideoPlan.title).toContain("Stop wasting 80%");
-    expect(bundle.shortFormVideoPlan.durationSeconds).toBe(15);
-    expect(bundle.shortFormVideoPlan.hashtags).toContain("#Growth");
   });
 });

@@ -65,16 +65,7 @@ function getRepliedCommentIds() {
   } catch {
     // ignore
   }
-  // Initialize with the 6 replied IDs from earlier
-  const initial = [
-    '17917963506434197',
-    '18089639762388257',
-    '18091302203638630',
-    '18120023002920194',
-    '17956680237232119',
-    '17904496686482068',
-  ];
-  return new Set(initial);
+  return new Set();
 }
 
 function saveRepliedCommentId(id) {
@@ -86,7 +77,7 @@ function saveRepliedCommentId(id) {
 }
 
 // 1. Fetch user's recent posts
-async function fetchRecentUserPosts(limit = 10) {
+async function fetchRecentUserPosts(limit = 40) {
   const fields = 'id,text,timestamp,permalink,has_replies';
   const url = `${THREADS_API_BASE}/${USER_ID}/threads?fields=${fields}&limit=${limit}&access_token=${encodeURIComponent(ACCESS_TOKEN)}`;
   
@@ -182,50 +173,91 @@ function getSajuBranch(hours, minutes) {
   };
 }
 
-// 3. Domain Expert Saju Reply Engine
-function generateDomainSajuReply(commentItem) {
+// 3. Domain Expert Reply Engine
+function generateDomainReply(commentItem, parentPostText = '') {
   const text = (commentItem.text || '').trim();
   const username = commentItem.username || '독자';
 
-  // 1. 균시차 / 천문 관련 질문
-  if (/균시차|태양시|공전|이심률/i.test(text)) {
+  // 1. 공격적이거나 냉소적인 댓글 대응 ("가르칠 수 있는 수준", "오래 살았나 보네요")
+  if (/가르칠|수준|오래\s*살았|잘난/i.test(text)) {
+    return `오랜 연륜과 경험을 존중합니다 :) 다만 표준시와 균시차에 따른 30분 편차는 천문 역법의 수학적 기준이라, 처음 접하시는 분들께 정보 차원에서 전달드린 점 너그럽게 양해 부탁드립니다!`;
+  }
+
+  // 1-1. 커리어/퇴사/버티기 고민 및 감정 토로 ("퇴사일지 버틸지..힘들어요")
+  if (/퇴사.*버틸|버틸.*퇴사|이직.*버틸|힘들/i.test(text)) {
+    return `힘든 감정에 휩쓸려 충동적으로 결정하면 공백기에 더 큰 리스크를 맞습니다. 지금 필요한 건 막연한 위로가 아니라, '현재 에너지 잔량'과 '이동 타이밍'을 데이터로 분리해 객관적으로 보는 것입니다. 프로필 링크에서 현재 상태부터 냉정하게 진단해보세요 👍`;
+  }
+
+  // 2. CTA / 참여형 짧은 댓글 ("나도!", "저요", "저도요!", "나도 확인하고싶어!!", "궁금해요!", "나궁금해")
+  if (/^(나도!*|저요!*|저도!*|저도요!*|저두요!*|나~*|궁금해요!*|나\s*궁금해!*|나도\s*확인.*|확인하고.*|부탁드립니다!*)$/i.test(text) || (text.length <= 15 && /나도|저요|저도|저두|궁금|확인|부탁/i.test(text))) {
+    const dmVariations = [
+      `DM(메시지 요청함)으로 진단 링크와 쿠폰 전달드렸습니다! 확인해보세요 🚀`,
+      `DM으로 링크 보내드렸습니다! (안 보이시면 메시지 요청함 확인해주세요 👍)`,
+      `DM으로 바로 확인해보실 수 있는 링크 보내드렸습니다! 메시지함 확인 부탁드려요 ✨`,
+      `DM으로 안내 링크 전달드렸습니다! 편하게 확인해보세요 :)`,
+      `DM(메시지 요청함)으로 진단 링크 보내드렸습니다! 확인 부탁드립니다 🚀`,
+      `DM으로 링크 전달드렸습니다! 혹시 요청함에도 안 보이면 말씀해주세요 👍`,
+      `DM으로 바로 확인 링크 보내드렸습니다! 메시지함 확인해보세요 ✨`,
+      `DM으로 진단 링크 발송해드렸습니다! 확인 후 편하게 피드백 남겨주세요 :)`,
+      `DM(메시지 요청함)으로 링크 전달드렸습니다! 확인 부탁드립니다 🚀`
+    ];
+    // Pick deterministic variation by hash of comment id or username
+    let hash = 0;
+    for (let i = 0; i < commentItem.id.length; i++) hash += commentItem.id.charCodeAt(i);
+    return dmVariations[hash % dmVariations.length];
+  }
+
+  // 3. 균시차 / 천문 관련 질문
+  if (/균시차|태양시|공전|이심률/i.test(text) && !/살아온|되짚어/i.test(text)) {
     return `맞습니다! 지구 공전 궤도 이심률에 따른 균시차(±15분)까지 보면 더 정밀해지죠 👍 다만 가장 큰 왜곡은 일본 표준시 차용(-30분)에서 오기 때문에 이것부터 맞추는 게 1순위입니다. 사주에 관심 많으신가 봐요!`;
   }
 
-  // 2. 썸머타임 관련 질문 및 임상
+  // 4. 임상 경험 / 살아온 역사 피드백 ("살아온 역사 되짚어보면 표준시 사주가 더 잘맞더라구요")
+  if (/살아온|되짚|임상.*맞|경험/i.test(text)) {
+    return `자시(23:30~01:30)는 날짜 변경선과 맞물려 야자시/조자시 논쟁까지 얽히는 가장 민감한 구간입니다! 명리학에서도 본인의 실제 인생 궤적(임상)과 일치하는 기준을 삼는 것이 정답입니다 👍 귀한 경험 공유 감사해요!`;
+  }
+
+  // 5. 헷갈려요 / 혼란 불평 ("이 말이 더 헷갈려요 ㅡㅡ;;;")
+  if (/더\s*헷갈|더\s*혼란|어려워/i.test(text)) {
+    return `쉽게 요약해드릴게요! 본인 태어난 병원 기록 시간에서 '그냥 30분만 빼고' 만세력에 입력하시면 됩니다. 헷갈리시는 본인 출생시각(시/분)을 남겨주시면 딱 계산해드릴게요 :)`;
+  }
+
+  // 6. "네바뀌엇네용" / 바뀜 확인 재대댓글
+  if (/바뀌|바꼇|바꼈|달라/i.test(text) && !/똑같|안\s*바/i.test(text)) {
+    return `글자가 바뀌셨군요! 👶 사주 시주(時柱)는 말년운과 성향의 디테일을 좌우해서, 바뀐 글자 기준으로 다시 해석해보시면 기존과 성향 풀이가 완전히 다르게 느껴지실 겁니다!`;
+  }
+
+  // 7. 썸머타임 관련 질문 및 임상
   if (/썸머|서머|일광절약/i.test(text)) {
     return `썸머타임 적용 연도(한국 87~88년 등)는 인위적으로 1시간을 당긴 거라 -1시간 30분을 빼는 게 표준 학설입니다! 다만 본인 임상에서 다르게 느껴지셨다면 실제 출생 분(分)이나 지역 경도 편차를 대조해보시는 걸 추천드려요!`;
   }
 
-  // 3. 비판/반론 (만세력 어플에 다 적용되어 있다 / 혼란 가중 등)
+  // 8. 비판/반론 (만세력 어플에 다 적용되어 있다 / 혼란 가중 등)
   if (/만세력|어플|혼란|다\s*알고/i.test(text)) {
     return `맞습니다! 최신 만세력 앱들은 표준시 보정 옵션이 기본 탑재되어 있죠 👍 다만 본인 출생시각을 앱에 넣을 때 '이미 보정된 시간'인지 모르고 두 번 빼거나, 병원 기록 그대로 헷갈려하시는 분들이 여전히 많아 짚어드린 내용입니다 :)`;
   }
 
-  // 4. 야자시 / 조자시 관련 질문
+  // 9. 야자시 / 조자시 관련 질문
   if (/야자시|조자시/i.test(text)) {
     return `야자시/조자시는 역학계에서도 수백 년간 갈리는 최대 난제죠 😅 30분 보정(23:30 기준)을 먼저 적용해보시면 어느 쪽 해석이 본인 실제 인생 궤적과 맞는지 훨씬 명확해집니다!`;
   }
 
-  // 5. 외국 / 해외 출생자
+  // 10. 외국 / 해외 출생자
   if (/외국|해외|미국|유럽|일본|중국|캐나다|호주|이민|출생국/i.test(text)) {
     return `외국 태생은 30분 빼시면 안 됩니다! ❌ 한국만 일본 표준시(동경 135도)를 쓰고 있어서 -30분 보정하는 거라, 외국은 '출생 국가 현지 시간 + 해당 도시 경도' 기준으로 봐야 합니다. 태어나신 국가/도시가 어디신가요?`;
   }
 
-  // 6. 구체적 시간 언급 파싱:
-  // 지원 포맷: "21:31", "23:55", "00:33", "오전 5시35분", "오후 1시 5분", "4시반", "11시10분" 등
+  // 11. 구체적 시간 언급 파싱:
   let hour = null;
   let minute = 0;
   let rawTimeStr = '';
 
-  // Case A: 디지털 시각 (21:31, 00:33, 23:55 등)
   const digitalMatch = text.match(/(\d{1,2})\s*:\s*(\d{2})/);
   if (digitalMatch) {
     hour = parseInt(digitalMatch[1], 10);
     minute = parseInt(digitalMatch[2], 10);
     rawTimeStr = digitalMatch[0];
   } else {
-    // Case B: 한글 시각 ("오전 5시35분", "4시반", "오후 1시 5분")
     const koreanMatch = text.match(/(오전|오후|새벽|밤|낮)?\s*(\d{1,2})\s*시\s*(반|\d{1,2}\s*분?)?/i);
     if (koreanMatch) {
       const period = koreanMatch[1] || '';
@@ -248,9 +280,24 @@ function generateDomainSajuReply(commentItem) {
   if (hour !== null && hour >= 0 && hour <= 24 && minute >= 0 && minute < 60) {
     const saju = getSajuBranch(hour, minute);
 
-    // 특별 시간대 대응 (23:55, 23:59 -> 자시가 아니라 해시!)
+    // 특별 시간대 대응 (23:00 ~ 23:29 -> 30분 빼면 22시 후반 해시!)
+    if (hour === 23 && minute < 30) {
+      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 자시(23:30~)가 아니라 '해시(亥時, 21:30~23:30)'가 됩니다! 23시 넘었다고 자시로 착각하기 쉬운데, 날짜와 시주 모두 전날로 유지되는 케이스입니다 👍`;
+    }
+
+    // 특별 시간대 대응 (23:30 ~ 23:59 -> 30분 빼면 23시 초반 해시!)
     if (hour === 23 && minute >= 30 && minute <= 59 && saju.adjustedTotal < 23 * 60 + 30) {
       return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 자시(23:30~) 직전인 '해시(亥時, 21:30~23:30)'가 됩니다! 날짜(일진)까지 안 넘어가는 초특급 반전 케이스네요 😮`;
+    }
+
+    // 09:10 ~ 09:20 진시 질문 ("9시10분은 진시맞지?")
+    if (hour === 9 && minute <= 20) {
+      return `네 맞습니다! ${rawTimeStr}에서 30분 빼면 약 ${saju.adjustedTimeStr}이라 '${saju.branchName}(${saju.range})' 구간 딱 정중앙입니다 👍 100% ${saju.branchName.slice(0, 2)} 맞으세요!`;
+    }
+
+    // 09:45 사시 -> 진시 반전 케이스
+    if (hour === 9 && minute >= 30 && minute <= 50) {
+      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 사시(09:30~)가 아니라 '${saju.branchName}(${saju.range})'가 100% 맞습니다! 사시생이 아니라 진시생으로 보셔야 합니다 🎯`;
     }
 
     // 아기/가족 언급
@@ -263,37 +310,37 @@ function generateDomainSajuReply(commentItem) {
       return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 '${saju.branchName}(${saju.range})'가 100% 맞습니다! 30분 보정을 안 하고 단순히 13시 넘었다고 뒤 글자로 본 분들이 잘못 본 케이스입니다 👍`;
     }
 
-    // 05:35 케이스 (인시인지 묘시인지 묻는 질문)
-    if (/인시|묘시/i.test(text) && hour === 5) {
-      return `정확하게 보셨습니다! ${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 묘시(05:30~)가 아니라 '${saju.branchName}(${saju.range})'가 맞습니다 🎯 글자가 완전히 바뀌는 대표적인 케이스네요!`;
-    }
-
     // 일반 시간 질문
     return `네! ${rawTimeStr}에서 30분 빼면 약 ${saju.adjustedTimeStr}이라 '${saju.branchName}(${saju.range})' 구간에 해당합니다 👍 30분 경계선만 아니면 글자 변동 없습니다!`;
   }
 
-  // 7. 사시생 / 특정 시주 언급 ("헐 나 여태 사시생으로 알고 있었는데")
+  // 12. 사시생 / 특정 시주 언급 ("헐 나 여태 사시생으로 알고 있었는데")
   if (/사시생|묘시생|진시생|자시생|축시생|인시생|오시생|미시생|신시생|유시생|술시생|해시생/i.test(text)) {
     return `태어나신 정확한 시간(시/분)이 어떻게 되시나요? 30분 뺐을 때 앞뒤 글자로 넘어갔는지 바로 계산해드릴게요!`;
   }
 
-  // 8. "30분 빼도 똑같아 / 안 바뀌어 / 그대로"
+  // 13. "알고 있었어 / 알고있었"
+  if (/알고\s*있었/i.test(text)) {
+    return `오 역시 이미 알고 계셨군요! 한국인 10명 중 7명이 틀리게 보는데, 제대로 알고 계신 상위 30%이십니다 👏`;
+  }
+
+  // 14. "30분 빼도 똑같아 / 안 바뀌어 / 그대로"
   if (/똑같|그대로|안\s*바[뀌꾀]|변함\s*없/i.test(text)) {
     return `시(時)의 정중앙에 걸쳐 계시면 30분 빼도 안 바뀝니다! 원래 알고 계시던 사주가 100% 진짜 본인 사주 맞네요 🎯 혹시 몇 시 태생이신가요?`;
   }
 
-  // 9. 서울 출생 / 지역 감안 재대댓글
+  // 15. 서울 출생 / 지역 감안 재대댓글
   if (/서울|태어난거/i.test(text)) {
     return `서울 출생이시면 딱 -32분 편차라 가장 정확하게 보신 게 맞습니다 👍 제대로 알고 계셨네요!`;
   }
 
-  // 10. 사주 조금 알아요 등 가벼운 소통
+  // 16. 사주 조금 알아요 등 가벼운 소통
   if (/관심|조금\s*알/i.test(text)) {
     return `조금 아시는 수준이 아니라 균시차까지 언급하실 정도면 상당한 내공이십니다 👏`;
   }
 
-  // 11. 기본 참여형 답글
-  return `댓글 감사합니다! 태어나신 시각에서 30분 뺐을 때 시주가 어떻게 나오셨나요? 궁금한 시간대 남겨주시면 계산해드릴게요 👍`;
+  // 17. 기본 참여형 답글
+  return `댓글 감사합니다! 궁금하신 출생 시간대나 현재 고민 상황 남겨주시면 계산해드릴게요 👍`;
 }
 
 // 4. Publish reply to Threads
@@ -357,113 +404,117 @@ async function main() {
   const repliedSet = getRepliedCommentIds();
 
   console.log('🔮 ========================================');
-  console.log('   Threads AI Reply Assistant (Saju Domain)');
+  console.log('   Threads AI Reply Assistant (Multi-Post)');
   console.log('========================================\n');
 
   console.log(`⚙️ Mode: ${isDryRun ? '🔍 DRY RUN (Preview only)' : isInteractive ? '✍️ INTERACTIVE (1-by-1 confirmation)' : '🚀 AUTO POST'}`);
   console.log(`💾 Already replied count in cache: ${repliedSet.size}`);
 
-  let targetPost = null;
+  let postsToProcess = [];
 
   if (postIdArg) {
     console.log(`📌 Fetching details for Post ID: ${postIdArg}...`);
-    targetPost = await fetchPostDetails(postIdArg);
-    console.log(`🎯 Post Content: "${targetPost.text?.slice(0, 70)}..."`);
+    const targetPost = await fetchPostDetails(postIdArg);
+    postsToProcess.push(targetPost);
   } else {
     console.log('📡 Fetching recent posts from Threads API...');
-    const recentPosts = await fetchRecentUserPosts(10);
+    const recentPosts = await fetchRecentUserPosts(15);
 
     if (recentPosts.length === 0) {
       console.log('⚠️ No published posts found for this user.');
       return;
     }
 
-    console.log(`\n📋 Recent Posts (${recentPosts.length} found):`);
-    recentPosts.forEach((post, i) => {
-      const preview = (post.text || '').replace(/\n/g, ' ').slice(0, 60);
-      console.log(`  [${i + 1}] ID: ${post.id} | ${preview}...`);
-    });
-
-    const sajuPost = recentPosts.find((p) => p.text && (p.text.includes('10명 중 7명') || p.text.includes('시주') || p.text.includes('30분')));
-    targetPost = sajuPost || recentPosts[0];
-
-    console.log(`\n🎯 Selected Post: [${targetPost.id}] "${targetPost.text?.slice(0, 50)}..."`);
+    postsToProcess = recentPosts;
   }
 
-  console.log('\n💬 Fetching comments/replies for this post...');
-  const allComments = await fetchPostReplies(targetPost.id);
+  let totalPendingAcrossPosts = 0;
+  const tasks = [];
 
-  // Filter out self-replies
-  const audienceComments = allComments.filter(c => c.username !== 'cosmicpath.app' && c.username !== targetPost.username);
+  for (const post of postsToProcess) {
+    const allComments = await fetchPostReplies(post.id);
+    const audienceComments = allComments.filter(c => c.username !== 'cosmicpath.app' && c.username !== post.username);
+    const unreplied = audienceComments.filter(c => !repliedSet.has(c.id));
 
-  // Filter out already replied comments (unless in dry run where we inspect unreplied)
-  const unrepliedComments = audienceComments.filter(c => !repliedSet.has(c.id));
+    if (unreplied.length > 0) {
+      totalPendingAcrossPosts += unreplied.length;
+      tasks.push({
+        post,
+        unreplied,
+      });
+    }
+  }
 
-  console.log(`📊 Total Audience Comments: ${audienceComments.length} | Pending New Replies: ${unrepliedComments.length}`);
+  console.log(`\n📊 Total Active Posts with Pending Comments: ${tasks.length} | Total Pending: ${totalPendingAcrossPosts}\n`);
 
-  if (unrepliedComments.length === 0) {
-    console.log('✨ All audience comments have already been answered! No new comments pending.');
+  if (tasks.length === 0) {
+    console.log('✨ All audience comments across all posts have already been answered! No pending comments.');
     return;
   }
 
-  console.log(`\n✨ Found ${unrepliedComments.length} pending comment(s). Generating domain expert replies...\n`);
+  let commentCounter = 0;
 
-  for (let i = 0; i < unrepliedComments.length; i++) {
-    const comment = unrepliedComments[i];
-    console.log('====================================================');
-    console.log(`[신규 댓글 #${i + 1}] 작성자: @${comment.username || '알 수 없음'} (ID: ${comment.id})`);
-    console.log(`💬 원문: "${comment.text}"`);
+  for (const task of tasks) {
+    console.log(`\n====================================================`);
+    console.log(`📌 [포스트 ID: ${task.post.id}] "${(task.post.text || '').replace(/\n/g, ' ').slice(0, 50)}..."`);
+    console.log(`   대기 댓글 수: ${task.unreplied.length}건`);
+    console.log(`====================================================`);
 
-    const draftReply = generateDomainSajuReply(comment);
-    console.log(`\n🤖 [AI/도메인 추천 답글]`);
-    console.log(`"${draftReply}"\n`);
+    for (const comment of task.unreplied) {
+      commentCounter++;
+      console.log(`\n[댓글 #${commentCounter}] 작성자: @${comment.username || '알 수 없음'} (ID: ${comment.id})`);
+      console.log(`💬 원문: "${comment.text}"`);
 
-    if (isDryRun) {
-      continue;
-    }
+      const draftReply = generateDomainReply(comment, task.post.text || '');
+      console.log(`🤖 [추천 답글]`);
+      console.log(`"${draftReply}"\n`);
 
-    if (isInteractive) {
-      const choice = await askQuestion('👉 전송하시겠습니까? [y: 전송 / e: 수정후 전송 / s: 스킵 / q: 종료]: ');
-      if (choice.toLowerCase() === 'q') {
-        console.log('🛑 Aborted by user.');
-        break;
-      }
-      if (choice.toLowerCase() === 's' || choice === '') {
-        console.log('⏭️ Skipped.');
+      if (isDryRun) {
         continue;
       }
 
-      let finalReply = draftReply;
-      if (choice.toLowerCase() === 'e') {
-        finalReply = await askQuestion('✏️ 답글 내용을 입력하세요: ');
-        if (!finalReply.trim()) {
-          console.log('⚠️ Blank input, skipped.');
+      if (isInteractive) {
+        const choice = await askQuestion('👉 전송하시겠습니까? [y: 전송 / e: 수정후 전송 / s: 스킵 / q: 종료]: ');
+        if (choice.toLowerCase() === 'q') {
+          console.log('🛑 Aborted by user.');
+          return;
+        }
+        if (choice.toLowerCase() === 's' || choice === '') {
+          console.log('⏭️ Skipped.');
           continue;
         }
-      }
 
-      try {
-        console.log(`🚀 Publishing reply to @${comment.username}...`);
-        const publishedId = await publishReplyToComment(comment.id, finalReply);
-        console.log(`✅ Published successfully! (Reply ID: ${publishedId})`);
-        await sleep(3000);
-      } catch (err) {
-        console.error(`❌ Publish error: ${err.message}`);
-      }
-    } else if (isAutoPost) {
-      try {
-        console.log(`🚀 Auto-publishing reply to @${comment.username}...`);
-        const publishedId = await publishReplyToComment(comment.id, draftReply);
-        console.log(`✅ Published! (Reply ID: ${publishedId})`);
-        await sleep(5000);
-      } catch (err) {
-        console.error(`❌ Auto-publish error: ${err.message}`);
+        let finalReply = draftReply;
+        if (choice.toLowerCase() === 'e') {
+          finalReply = await askQuestion('✏️ 답글 내용을 입력하세요: ');
+          if (!finalReply.trim()) {
+            console.log('⚠️ Blank input, skipped.');
+            continue;
+          }
+        }
+
+        try {
+          console.log(`🚀 Publishing reply to @${comment.username}...`);
+          const publishedId = await publishReplyToComment(comment.id, finalReply);
+          console.log(`✅ Published successfully! (Reply ID: ${publishedId})`);
+          await sleep(3000);
+        } catch (err) {
+          console.error(`❌ Publish error: ${err.message}`);
+        }
+      } else if (isAutoPost) {
+        try {
+          console.log(`🚀 Auto-publishing reply to @${comment.username}...`);
+          const publishedId = await publishReplyToComment(comment.id, draftReply);
+          console.log(`✅ Published! (Reply ID: ${publishedId})`);
+          await sleep(5000);
+        } catch (err) {
+          console.error(`❌ Auto-publish error: ${err.message}`);
+        }
       }
     }
   }
 
-  console.log('====================================================');
-  console.log('\n🏁 Process completed.');
+  console.log('\n🏁 Multi-post process completed.');
 }
 
 main().catch((err) => {

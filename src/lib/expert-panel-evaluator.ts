@@ -170,7 +170,7 @@ export function evaluateManagingEditor(content: string): PersonaScore {
     persona: "managing_editor",
     name: "편집장 (AI Slop & 구어체 리듬 검수관)",
     score,
-    pass: score >= 80 && flags.length === 0,
+    pass: score >= 80,
     critique: flags.length === 0
       ? "AI 티가 나지 않고 자연스러운 호흡과 구어체로 완결됨."
       : `AI 상투어 및 문체 결함 감지: ${flags.join(", ")}`,
@@ -193,10 +193,10 @@ export function evaluateContentWithExpertPanel(
   for (const p of personaScores) {
     if (!p.pass) {
       blockingReasons.push(`${p.name}: ${p.critique}`);
-    }
-    for (const flag of p.flags) {
-      if (!blockingReasons.includes(flag)) {
-        blockingReasons.push(flag);
+      for (const flag of p.flags) {
+        if (!blockingReasons.includes(flag)) {
+          blockingReasons.push(flag);
+        }
       }
     }
   }

@@ -34,6 +34,8 @@ import {
 import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
+import { getDomainPreset } from "@/lib/domain-registry";
+import { resolveDynamicContext } from "@/lib/context-matrix-engine";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -41,7 +43,7 @@ const client = new Anthropic({
 });
 const SEPARATOR = "===FIRST_COMMENT===";
 const RETRYABLE_STATUSES = new Set([429, 529]);
-export const maxDuration = 60;
+export const maxDuration = 300;
 const RECENT_POST_AVOIDANCE_COUNT = 24;
 const GENERATED_META_PATTERNS = [
   /자수\s*체크/,
@@ -110,7 +112,7 @@ function buildFormulaPool(
   return pool;
 }
 
-export function selectCampaignFormulaForViralMode(
+function selectCampaignFormulaForViralMode(
   formulas: GenerationFormula[],
   viralIntentMode: ViralIntentMode
 ): GenerationFormula {
@@ -127,49 +129,19 @@ export function selectCampaignFormulaForViralMode(
   };
 }
 
-export function cleanGeneratedContentLabels(content: string): string {
+function cleanGeneratedContentLabels(content: string): string {
   return content
     .replace(/^\s*(?:\*\*)?(?:\[)?본문(?:\s*[-:：][^\]\n]*)?(?:\])?(?:\*\*)?\s*/i, "")
     .replace(/^\s*(?:\*\*)?본문(?:\*\*)?\s*[:：]?\s*/i, "")
     .trim();
 }
 
-function buildQualityFallback(experiment: GrowthExperiment): { post: string; firstComment: string } {
-  const modeId = experiment.viralIntentMode?.id ?? "self_classification";
-  const sequenceLabel = `이직/퇴사 판단 ${experiment.topic} #${(experiment.sequenceIndex ?? 0) + 1}`;
-  const hookByMode: Record<string, string> = {
-    self_classification: `${sequenceLabel}: 이직할지 버틸지 모르겠다면, 지금 상태부터 나눠봐.`,
-    saveable_tool: `${sequenceLabel}: 저장해둘 3칸 체크가 필요하다면 이 기준부터 봐.`,
-    quiet_contrarian: `${sequenceLabel}: 타이밍은 느낌보다 반복 신호에 더 가깝다.`,
-    friend_share: `${sequenceLabel}: 같은 고민 중인 친구에게 보낼 기준이 필요하다면.`,
-  };
-  const closingByMode: Record<string, string> = {
-    self_classification: "A/B/C 중 가까운 쪽 하나만 마음속으로 표시해도 선택지가 좁아져.",
-    saveable_tool: "저장해두고 다음 선택 전에 다시 봐.",
-    quiet_contrarian: "정답을 맞히는 게 아니라 선택지를 좁히는 게 먼저야.",
-    friend_share: "비슷한 고민 중인 친구에게 보내줘도 좋아.",
-  };
-  const hook = hookByMode[modeId] ?? hookByMode.self_classification;
-  const closing = closingByMode[modeId] ?? closingByMode.self_classification;
-  return {
-    post: [
-      hook,
-      "",
-      "A. 버팀형 - 지치긴 했지만 아직 조건을 정리할 게 남아있다.",
-      "B. 이동형 - 같은 문제가 반복되고 마음은 이미 밖으로 가 있다.",
-      "C. 준비형 - 당장 결론보다 2주 안에 확인할 조건이 먼저다.",
-      "",
-      closing,
-    ].join("\n"),
-    firstComment: "저장해두고 다음 선택 전에 다시 봐.",
-  };
-}
 
 function hasGeneratedMetaText(content: string): boolean {
   return GENERATED_META_PATTERNS.some((pattern) => pattern.test(content));
 }
 
-export function enforceGeneratedSurfaceSafety<T extends QualityResult>(
+function enforceGeneratedSurfaceSafety<T extends QualityResult>(
   qualityResult: T,
   result: { post: string; firstComment: string }
 ): T {
@@ -192,7 +164,7 @@ export function enforceGeneratedSurfaceSafety<T extends QualityResult>(
     : { ...qualityResult, pass: false, reasons };
 }
 
-export function ensureMaxThreadsLength(content: string): string {
+function ensureMaxThreadsLength(content: string): string {
   if (content.length <= THREADS_MULTI_PART_MAX_LENGTH) return content;
   const lines = content.trim().split("\n");
   const lastLine = lines[lines.length - 1];
@@ -335,16 +307,7 @@ async function generateWithQuality(
   }
 
   if (!qualityResult.pass) {
-    console.warn(`Quality FALLBACK: 최대 재시도 초과. profile=${qualityResult.profile}, score=${qualityResult.score}. deterministic fallback 사용.`);
-    lastResult = buildQualityFallback(experiment);
-    qualityResult = enforceGeneratedSurfaceSafety(
-      checkQuality(lastResult.post, experiment.qualityProfile, qualityContext),
-      lastResult
-    );
-  }
-
-  if (!qualityResult.pass) {
-    throw new Error(`Quality generation failed: ${qualityResult.reasons.join(", ")}`);
+    throw new Error(`Quality generation failed (${qualityResult.profile}, score ${qualityResult.score}): ${qualityResult.reasons.join(", ")}`);
   }
 
   return {
@@ -383,11 +346,21 @@ function buildExperiment(
   const ctaTypeCandidates = (config.ctaTypes?.length ? config.ctaTypes : defaultCtaTypes)
     .filter((ctaType) => !hasReplyBurdenPromise(ctaType));
   const ctaTypes = ctaTypeCandidates.length ? ctaTypeCandidates : defaultCtaTypes;
+
+  const dynamicContext = resolveDynamicContext({
+    domainId: qualityProfile,
+    index,
+    baseTopic: topic,
+    userTarget: config.targets?.length ? pickRandom(config.targets) : undefined,
+    userSituation: config.situations?.length ? pickRandom(config.situations) : undefined,
+    contextWeights: config.contextWeights,
+  });
+
   return {
     formula,
-    topic,
-    targetAudience: pickRandom(config.targets.length ? config.targets : ["일반 독자"]),
-    situation: pickRandom(config.situations.length ? config.situations : ["일상적인 상황"]),
+    topic: dynamicContext.dynamicTopic,
+    targetAudience: dynamicContext.targetAudience,
+    situation: dynamicContext.situation,
     hookType: pickRandom(config.hookTypes?.length ? config.hookTypes : ["공감형 훅"]),
     ctaType: pickRandom(ctaTypes),
     viralIntentMode,
@@ -399,7 +372,7 @@ function buildExperiment(
   };
 }
 
-export function buildGenerationPrompt(
+function buildGenerationPrompt(
   experiment: GrowthExperiment,
   config: BrandConfig,
   growthContext: string,
@@ -410,10 +383,21 @@ export function buildGenerationPrompt(
   const creatorPatternContext = formatCreatorPatternContext(experiment.hookType, experiment.ctaType);
   const viralIntentMode = experiment.viralIntentMode
     ?? resolveViralIntentMode(experiment.campaignFormulaId ?? experiment.formula.id, 0);
-  const marketingSkillsContext = formatMarketingSkillsPrompt({
-    hookArchetype: mapToHookArchetype(experiment.hookType, experiment.sequenceIndex ?? 0),
-    pillar: selectPillarForIndex(experiment.sequenceIndex ?? 0),
-  });
+  const marketingSkillsContext = experiment.qualityProfile === "product_growth"
+    ? formatMarketingSkillsPrompt({
+        hookArchetype: mapToHookArchetype(experiment.hookType, experiment.sequenceIndex ?? 0),
+        pillar: selectPillarForIndex(experiment.sequenceIndex ?? 0),
+      })
+    : null;
+
+  const domainPreset = getDomainPreset(experiment.qualityProfile);
+  const crossDomainGuardrails = domainPreset.forbiddenCrossDomainTerms.length > 0
+    ? [
+        "[금지된 도메인 교차 용어 (Cross-Domain Safety Guardrail)]",
+        `- 다음 단어/개념은 다른 도메인 용어이므로 본문과 댓글에 절대 포함해서는 안 됩니다: ${domainPreset.forbiddenCrossDomainTerms.join(", ")}`,
+        "",
+      ]
+    : [];
 
   return [
     `[공식: ${experiment.formula.name}]`,
@@ -422,12 +406,16 @@ export function buildGenerationPrompt(
     ...formatProductPrompt(config),
     ...formatCampaignPrompt(experiment),
     formatViralIntentModePrompt(viralIntentMode),
-    marketingSkillsContext,
+    ...(marketingSkillsContext ? [marketingSkillsContext] : []),
+    ...crossDomainGuardrails,
     "[Threads 길이 제한 및 Charlie Hills 바이럴 구조]",
     `- 본문은 공백과 줄바꿈을 포함해 반드시 ${THREADS_CONTENT_MAX_LENGTH}자 이하로 작성한다.`,
     `- 권장 본문 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 이하이며, 길면 예시와 수식어를 줄인다.`,
     `- ${THREADS_CONTENT_MAX_LENGTH}자를 넘으면 품질 실패로 처리되어 업로드할 수 없다.`,
     "- [Charlie Hills 2-Line Contrast Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내의 반전/대립각(Contrast)으로 상식을 뒤집는다.",
+    "- [Single-Point Razor]: 원문이나 여러 주제를 요약/나열하지 말고, 상식을 뒤집는 단 하나의 반직관적 주장(Contrarian Insight)에만 모든 문장을 집중할 것.",
+    "- [Focused Conflict]: 타겟과 상황에 제시된 페르소나의 실전 마찰 1개만 깊게 파고들고, 여러 갈등이나 딜레마를 백화점식으로 나열하지 말 것.",
+    "- [No Factual Hallucination]: 프롬프트에 제공되지 않은 가짜 개인 일화나 날조된 매출/사례 숫자를 지어내지 말고, 구조적 관찰과 냉철한 논리로 설득할 것.",
     "- 첫 댓글은 구분자 아래에 별도로 솔직 고백형(4-line admission: 고백 + 셀프디스 + 작은 가치안내 + 수용)으로 작성한다.",
     "- 글자 수 확인, 자수 체크, 초안, Threads 본문 같은 메타 텍스트를 절대 출력하지 않는다.",
     ...(config.voiceProfile ? [
@@ -532,14 +520,15 @@ function formatCareerCampaignPrompt(experiment: CampaignGrowthExperiment): strin
     `[캠페인]\n${experiment.campaign.name} (${experiment.campaign.id})`,
     `[품질 프로필]\n${experiment.qualityProfile}`,
     "[작성 가이드: 날것의 스토리텔링과 자연스러운 참여 유도]",
-    "- 설명충 같은 훈계조나 사주 이론 강의(표준시 30분 왜곡, 5대 엔진 등)를 절대 반복하지 않는다.",
+    "- 설명충 같은 훈계조나 사주 이론 강의(표준시 30분 왜곡, 타로 폐기 등)를 절대 반복하지 않는다.",
+    "- 기질-조직 미스매치(식상 vs 관성), 10년 대운 교운기 번아웃 리스크, 단일 사주 맹점 등 실전 의사결정 팩트를 날것의 독백체로 쓴다.",
     "- 친구나 본인의 실제 관찰 썰, 직장인들의 소름 돋는 현실 딜레마를 100% 반말/독백체(~임, ~했음, ~있냐)로 쓴다.",
     "- 절대 금지 어휘: '심리적 자유', '타이밍 손실 리스크', '리스크', '손익', '시나리오', '골든타임', '의사결정', '데이터상' 등 기획서/보고서용 단어 절대 사용 금지.",
     "- 상황 표현: '통장 잔고', '카드값', '화병', '멘탈', '속 시원함', '존버' 같은 날것의 일상 구어로만 쓸 것. (예: '심리적 자유' ➔ '당장 속은 시원함', '손실 리스크' ➔ '3달 뒤 카드값 보고 오열')",
-    "- '궁금한 사람 댓글 달아봐', '필요한 사람 댓글 달면 쿠폰 줌'처럼 가벼운 댓글 인터랙션을 자연스럽게 유도한다.",
+    "- 댓글 강요 대신, 독자가 A/B/C 중 어디에 가까운지 스스로 점검하거나 저장·공유할 수 있는 가벼운 셀프체크/행동선으로 마무리한다.",
     "- 첫 줄은 진로/이직/퇴사/인간관계/돈에 대한 솔직한 관찰이나 반전으로 시작한다.",
     "- '좋은 일이 올 거예요' 같은 뻔한 위로 문장을 쓰지 않는다.",
-    `[링크 정책]\n${experiment.shouldLink ? "이번 글은 첫 댓글에 링크가 붙을 예정이므로 자연스럽게 연결" : "이번 글은 링크 없이 저장/댓글/공유 유도"}`,
+    `[링크 정책]\n${experiment.shouldLink ? "이번 글은 첫 댓글에 링크가 붙을 예정이므로 자연스럽게 연결" : "이번 글은 링크 없이 저장/공유/프로필 확인 유도"}`,
     "",
   ];
 }
@@ -577,7 +566,7 @@ function buildLegacyFormula(formula: { id: string; name: string; weight: number;
   return formula;
 }
 
-export function validateGenerationReadiness(
+function validateGenerationReadiness(
   config: BrandConfig,
   activeCampaign: CampaignConfig | null,
   dbWeights: Record<string, number> = {},
@@ -627,7 +616,7 @@ function validateProductGrowthCampaignReadiness(
   return null;
 }
 
-export function buildCampaignUtmLink(websiteUrl: string, campaign: CampaignConfig, postId: string): { url: string; utmContent: string } | null {
+function buildCampaignUtmLink(websiteUrl: string, campaign: CampaignConfig, postId: string): { url: string; utmContent: string } | null {
   const utmContent = campaign.utmContentTemplate === "{{postId}}" ? postId : postId;
   const landingUrl = campaign.landingUrl.trim();
   if (!landingUrl) return null;
@@ -749,15 +738,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const POST_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours between posts
     const now = Date.now();
-    let baseTime = now;
+    let baseTime = now + POST_INTERVAL_MS;
     if (insertAtFront) {
       const earliest = await prisma.post.findFirst({
         where: { status: "PENDING", brandId },
         orderBy: { scheduledAt: "asc" },
       });
       if (earliest && earliest.scheduledAt.getTime() > now) {
-        baseTime = Math.max(now, earliest.scheduledAt.getTime() - count * 1000);
+        baseTime = Math.max(now + 10 * 60 * 1000, earliest.scheduledAt.getTime() - count * POST_INTERVAL_MS);
       }
     } else {
       const latest = await prisma.post.findFirst({
@@ -765,7 +755,7 @@ export async function POST(request: NextRequest) {
         orderBy: { scheduledAt: "desc" },
       });
       if (latest && latest.scheduledAt.getTime() > now) {
-        baseTime = latest.scheduledAt.getTime() + 1000;
+        baseTime = latest.scheduledAt.getTime() + POST_INTERVAL_MS;
       }
     }
 
@@ -781,6 +771,8 @@ export async function POST(request: NextRequest) {
         targetAudience: result.targetAudience,
       });
       const carouselDataUrls = bundle.carouselSvgs.map(svgToDataUri);
+      const jitterMs = (Math.floor(Math.random() * 31) - 15) * 60 * 1000;
+      const scheduledTime = Math.max(now + 5 * 60 * 1000, baseTime + index * POST_INTERVAL_MS + jitterMs);
 
       const post = await prisma.post.create({
         data: {
@@ -788,7 +780,7 @@ export async function POST(request: NextRequest) {
           content: ensureMaxThreadsLength(result.post),
           firstComment: result.firstComment || null,
           imageUrls: JSON.stringify(carouselDataUrls),
-          scheduledAt: new Date(baseTime + index * 1000),
+          scheduledAt: new Date(scheduledTime),
           status: "PENDING",
           formulaId: result.formulaId,
           topic: result.topic,
@@ -831,13 +823,23 @@ export async function POST(request: NextRequest) {
           linkedCount++;
           const appBaseUrl = process.env.APP_URL || "https://thread-uploader.vercel.app";
           const shortRedirectUrl = buildShortRedirectUrl(appBaseUrl, post.id);
+          const updateData: {
+            linkUrl: string;
+            utmContent: string | null;
+            firstComment?: string;
+          } = {
+            linkUrl: finalLinkUrl,
+            utmContent: finalUtmContent,
+          };
+
+          // Bio-first: Only append URL if explicitly configured with legacy "firstComment" placement
+          if (activeCampaign?.linkPlacement === "firstComment") {
+            updateData.firstComment = appendFirstCommentLink(result.firstComment, shortRedirectUrl);
+          }
+
           createdPosts.push(await prisma.post.update({
             where: { id: post.id },
-            data: {
-              firstComment: appendFirstCommentLink(result.firstComment, shortRedirectUrl),
-              linkUrl: finalLinkUrl,
-              utmContent: finalUtmContent,
-            },
+            data: updateData,
           }));
           continue;
         }

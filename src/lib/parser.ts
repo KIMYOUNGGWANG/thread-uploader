@@ -1,5 +1,4 @@
 import * as XLSX from "xlsx";
-import matter from "gray-matter";
 
 export interface ParsedPost {
     content: string;
@@ -123,19 +122,15 @@ export function parseMarkdownFile(content: string): ParsedPost[] {
         }
     }
 
-    // If absolutely no posts found yet, try legacy single-post matter parsing
+    // If absolutely no posts found yet, try legacy single-post frontmatter parsing
     if (posts.length === 0) {
-        try {
-            const parsed = matter(content);
-            const data = parsed.data as { images?: string[]; scheduledAt?: string };
-            if (parsed.content.trim()) {
-                posts.push({
-                    content: parsed.content.trim(),
-                    images: data.images || [],
-                    scheduledAt: data.scheduledAt ? parseScheduleDate(data.scheduledAt) : null,
-                });
+        const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+        if (match) {
+            const parsed = parseFrontmatter(match[1], match[2]);
+            if (parsed) {
+                posts.push(parsed);
             }
-        } catch { }
+        }
     }
 
     return posts;

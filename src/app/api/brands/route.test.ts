@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCreateProductConfig } from "@/app/api/brands/route";
-import { buildAccountDiscoverySignals } from "@/lib/account-discovery";
+import { buildCreateProductConfig } from "@/lib/brand-config-builder";
 import { buildProductAutoSetupDraft } from "@/lib/product-auto-setup";
 import { PRODUCT_GROWTH_BASELINE } from "@/types/brand";
 
@@ -17,9 +16,6 @@ describe("buildCreateProductConfig", () => {
     expect(config.campaigns[0]?.id).toBe("product_growth_baseline");
     expect(config.campaigns[0]?.qualityProfile).toBe("product_growth");
     expect(config.campaigns[0]?.utmCampaign).toContain("invoice");
-    expect(config.tiktokVideo.enabled).toBe(true);
-    expect(config.tiktokVideo.parentCampaignId).toBe("product_growth_baseline");
-    expect(config.tiktokVideo.landingUrl).toBe("");
   });
 
   it("preserves explicitly supplied campaigns", () => {
@@ -81,11 +77,6 @@ describe("buildCreateProductConfig", () => {
     expect(config.qualityProfile).toBe("product_growth");
     expect(config.campaigns[0]?.name).toBe("제품 성장 baseline");
     expect(config.campaigns[0]?.landingUrl).not.toBe("/career/uncertainty");
-
-    const discoverySignals = buildAccountDiscoverySignals(config);
-    expect(discoverySignals.mode).toBe("product");
-    expect(discoverySignals.seedKeywords.join(" ")).not.toContain("이직 고민");
-    expect(discoverySignals.seedKeywords.join(" ")).not.toContain("직업운");
   });
 
   it("preserves an approved auto-setup draft when creating a product", () => {
@@ -107,6 +98,5 @@ describe("buildCreateProductConfig", () => {
     expect(config.formulas.length).toBeGreaterThan(0);
     expect(config.activeExperiment.durationDays).toBe(7);
     expect(config.campaigns[0]?.landingUrl).toBe("https://invoiceflow.app");
-    expect(config.tiktokVideo.enabled).toBe(true);
   });
 });

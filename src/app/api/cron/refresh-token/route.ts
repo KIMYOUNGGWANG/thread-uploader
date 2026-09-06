@@ -8,6 +8,7 @@ import {
     refreshBrandAccessToken,
     TOKEN_REFRESH_WINDOW_DAYS,
 } from "@/lib/threads-api";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 /**
  * Cron endpoint for refreshing Threads API access token
@@ -18,13 +19,7 @@ import {
  * Security: Requires CRON_SECRET header or query param
  */
 export async function GET(request: NextRequest) {
-    // Verify cron secret
-    const cronSecret = process.env.CRON_SECRET;
-    const providedSecret =
-        request.headers.get("authorization")?.replace("Bearer ", "") ||
-        request.nextUrl.searchParams.get("secret");
-
-    if (cronSecret && providedSecret !== cronSecret) {
+    if (!verifyCronSecret(request)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

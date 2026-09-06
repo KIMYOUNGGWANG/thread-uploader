@@ -74,6 +74,31 @@ export function determineNextTrack(batchIndex: number): ContentTrack {
   return "track_b"; // 40%
 }
 
+export const MAX_SINGLE_FORMULA_WEIGHT_RATIO = 0.35;
+
+/**
+ * Normalizes and clamps weights so no single formula exceeds maxRatio of the pool.
+ */
+export function applyHardWeightCap(
+  formulas: string[],
+  weights: Record<string, number>,
+  maxRatio = MAX_SINGLE_FORMULA_WEIGHT_RATIO
+): Record<string, number> {
+  if (formulas.length <= 1) return { ...weights };
+  const rawWeights: Record<string, number> = {};
+  for (const f of formulas) {
+    rawWeights[f] = Math.max(1, weights[f] ?? 1);
+  }
+  const total = Object.values(rawWeights).reduce((a, b) => a + b, 0);
+  const maxAllowed = Math.max(1, total * maxRatio);
+
+  const capped: Record<string, number> = {};
+  for (const f of formulas) {
+    capped[f] = Math.min(rawWeights[f], maxAllowed);
+  }
+  return capped;
+}
+
 /**
  * Select the optimal formula for a post with 4:4:2 Quota and MAB exploration
  */
@@ -82,7 +107,11 @@ export function selectFormulaWithQuota(
   options: RouterOptions = {}
 ): QuotaSelectionResult {
   const epsilon = options.epsilon ?? 0.2;
-  const recentFormulas = new Set(options.recentFormulaIds ?? []);
+  const rawRecent = options.recentFormulaIds ?? [];
+  // Use last 2-3 formulas for cooldown window
+  const recentFormulas = new Set(rawRecent.slice(-3));
+  const immediatelyPrevious = rawRecent[rawRecent.length - 1];
+
   const track = options.forceTrack ?? determineNextTrack(batchIndex);
   const trackConfig = QUOTA_TRACKS[track];
   const domainPreset = getDomainPreset(options.domainProfile);
@@ -106,20 +135,26 @@ export function selectFormulaWithQuota(
       : options.explorationPool[Math.floor(Math.random() * options.explorationPool.length)];
     reason = `MAB Exploration (ε=${epsilon}) for ${domainPreset.name}: Selected novelty pattern (${formulaId})`;
   } else {
-    // 80% Exploitation: Pick top-weighted formula within track
-    const weights = options.customWeights ?? {};
+    // 80% Exploitation: Pick top-weighted formula with 30% hard cap & anti-monoculture
+    const rawWeights = options.customWeights ?? {};
+    const cappedWeights = applyHardWeightCap(defaultFormulas, rawWeights);
+
+    // Filter out recently used formulas
     const availableFormulas = defaultFormulas.filter(
       (id) => !recentFormulas.has(id)
     );
 
+    // If all formulas are in recent window, at minimum exclude the immediately previous one
     const candidates = availableFormulas.length > 0
       ? availableFormulas
+      : (immediatelyPrevious && defaultFormulas.length > 1)
+      ? defaultFormulas.filter((id) => id !== immediatelyPrevious)
       : defaultFormulas;
 
-    // Sort by adaptive weight descending
-    const sorted = [...candidates].sort((a, b) => (weights[b] ?? 1) - (weights[a] ?? 1));
+    // Sort by capped adaptive weight descending
+    const sorted = [...candidates].sort((a, b) => (cappedWeights[b] ?? 1) - (cappedWeights[a] ?? 1));
     formulaId = sorted[0] ?? defaultFormulas[0];
-    reason = `80% Exploitation for ${domainPreset.name}: Selected top-performing formula (${formulaId}) for ${trackConfig.name}`;
+    reason = `80% Exploitation for ${domainPreset.name}: Selected top-performing formula (${formulaId}) for ${trackConfig.name} with anti-monoculture cap`;
   }
 
   return {

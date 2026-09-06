@@ -56,9 +56,26 @@ describe("Revenue-Weighted Attribution Scoring", () => {
 });
 
 describe("Conversion Webhook Route Handler", () => {
+  const mockConversionEvents = new Map<string, any>();
+
   beforeEach(() => {
     vi.restoreAllMocks();
     delete process.env.CONVERSION_WEBHOOK_SECRET;
+    delete process.env.CRON_SECRET;
+    mockConversionEvents.clear();
+
+    (vi.spyOn(prisma.conversionEvent, "findUnique") as any).mockImplementation(async ({ where }: any) => {
+      return mockConversionEvents.get(where.idempotencyKey) || null;
+    });
+    (vi.spyOn(prisma.conversionEvent, "create") as any).mockImplementation(async ({ data }: any) => {
+      if (mockConversionEvents.has(data.idempotencyKey)) {
+        const err: any = new Error("Unique constraint failed");
+        err.code = "P2002";
+        throw err;
+      }
+      mockConversionEvents.set(data.idempotencyKey, data);
+      return data;
+    });
   });
 
   it("rejects unauthorized webhook calls when secret is configured", async () => {
@@ -95,7 +112,7 @@ describe("Conversion Webhook Route Handler", () => {
     };
 
     vi.spyOn(prisma.post, "findUnique").mockResolvedValue(mockPost as unknown as Awaited<ReturnType<typeof prisma.post.findUnique>>);
-    vi.spyOn(prisma.post, "update").mockImplementation((args) => {
+    vi.spyOn(prisma.post, "update").mockImplementation(((args: any) => {
       const data = args.data as any;
       return Promise.resolve({
         id: "post_1",
@@ -105,8 +122,8 @@ describe("Conversion Webhook Route Handler", () => {
         manualPaidConversions: data.manualPaidConversions,
         performanceScore: data.performanceScore,
         performanceTier: data.performanceTier,
-      } as unknown as Awaited<ReturnType<typeof prisma.post.update>>);
-    });
+      });
+    }) as any);
 
     const req = new NextRequest("http://localhost:3000/api/webhooks/conversion", {
       method: "POST",
@@ -176,6 +193,63 @@ describe("Conversion Webhook Route Handler", () => {
     expect(secondRes.status).toBe(200);
     const secondData = await secondRes.json();
     expect(secondData.deduped).toBe(true);
+  });
+
+  it("triggers event-driven learnBrandGrowth in background on paid conversion", async () => {
+    const growthService = await import("./growth-service");
+    const learnSpy = vi.spyOn(growthService, "learnBrandGrowth").mockResolvedValue({
+      success: true,
+      brandId: "brand_123",
+      learnedPosts: 1,
+      scoredPosts: 1,
+      scoreWriteFailures: 0,
+      updatedWeights: {},
+      promotedFormulas: [],
+      demotedFormulas: [],
+      sampleSize: 1,
+      memory: {} as any,
+      topPatterns: [],
+      weakPatterns: [],
+      recentPosts: [],
+    } as any);
+
+    const { POST } = await import("@/app/api/webhooks/conversion/route");
+
+    const mockPost = {
+      id: "post_event_trigger",
+      brandId: "brand_123",
+      formulaId: "contrarian",
+      views: 100,
+      clicks: 1,
+      conversions: 0,
+      manualPaidConversions: 0,
+      performanceScore: 50,
+      performanceTier: "learning",
+    };
+
+    vi.spyOn(prisma.post, "findUnique").mockResolvedValue(mockPost as unknown as Awaited<ReturnType<typeof prisma.post.findUnique>>);
+    vi.spyOn(prisma.post, "update").mockResolvedValue({
+      id: "post_event_trigger",
+      formulaId: "contrarian",
+      clicks: 1,
+      conversions: 0,
+      manualPaidConversions: 1,
+      performanceScore: 2550,
+      performanceTier: "breakout",
+    } as any);
+
+    const req = new NextRequest("http://localhost:3000/api/webhooks/conversion", {
+      method: "POST",
+      body: JSON.stringify({
+        secret: "super_secret_123",
+        postId: "post_event_trigger",
+        eventType: "paid_conversion",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(learnSpy).toHaveBeenCalledWith("brand_123");
   });
 });
 

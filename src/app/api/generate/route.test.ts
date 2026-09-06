@@ -6,7 +6,7 @@ import {
   enforceGeneratedSurfaceSafety,
   selectCampaignFormulaForViralMode,
   validateGenerationReadiness,
-} from "@/app/api/generate/route";
+} from "@/lib/generation-engine";
 import { selectViralIntentMode } from "@/lib/viral-intent-modes";
 import {
   CAREER_TIMING_WEDGE_399,
@@ -78,7 +78,10 @@ describe("buildGenerationPrompt", () => {
     expect(prompt).toContain("실험명: Invoice speed test");
     expect(prompt).toContain("가설: 견적서 시간 절약 메시지가 가입을 만든다");
     expect(prompt).toContain("가드레일: quality_pass_rate");
+    expect(prompt).toContain("Single-Point Razor");
+    expect(prompt).toContain("No Factual Hallucination");
   });
+
 
   it("does not inject CosmicPath career wedge guidance for product growth campaigns", () => {
     const config = parseBrandConfig(JSON.stringify({
@@ -192,6 +195,7 @@ describe("buildGenerationPrompt", () => {
     const prompt = buildGenerationPrompt(experiment, config, "growth memory", "viral memory");
 
     expect(prompt).toContain("설명충 같은 훈계조나 사주 이론 강의");
+    expect(prompt).toContain("기질-조직 미스매치(식상 vs 관성)");
     expect(prompt).toContain("친구나 본인의 실제 관찰 썰");
     expect(prompt).toContain("글자 수 확인, 자수 체크, 초안, Threads 본문 같은 메타 텍스트를 절대 출력하지 않는다");
     expect(prompt).not.toContain("상황을 쓰면 분류해준다");

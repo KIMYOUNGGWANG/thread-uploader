@@ -9,6 +9,9 @@
 export interface PostPerformanceRecord {
   id: string;
   formulaId: string | null;
+  topic?: string | null;
+  targetAudience?: string | null;
+  situation?: string | null;
   performanceScore: number | null;
   views: number | null;
   replies: number | null;
@@ -117,5 +120,131 @@ export function computeAdaptiveFormulaWeights(
     promotedFormulas,
     demotedFormulas,
     formulaScores,
+  };
+}
+
+export interface ContextWeightAdjustmentResult {
+  personaWeights: Record<string, number>;
+  frictionWeights: Record<string, number>;
+  promotedPersonas: string[];
+  demotedPersonas: string[];
+  promotedFrictions: string[];
+  demotedFrictions: string[];
+}
+
+/**
+ * Computes factorized marginal weights for personas and frictions.
+ * Decomposes 3D context into 1D marginal distributions to avoid sparse data overfitting.
+ */
+export function computeAdaptiveContextWeights(
+  currentPersonaWeights: Record<string, number> = {},
+  currentFrictionWeights: Record<string, number> = {},
+  posts: PostPerformanceRecord[],
+  knownPersonas: string[],
+  knownFrictions: string[],
+  options: GrowthFeedbackLoopOptions = {}
+): ContextWeightAdjustmentResult {
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const updatedPersonaWeights = { ...currentPersonaWeights };
+  const updatedFrictionWeights = { ...currentFrictionWeights };
+
+  for (const p of knownPersonas) {
+    if (updatedPersonaWeights[p] === undefined) updatedPersonaWeights[p] = 3;
+  }
+  for (const f of knownFrictions) {
+    if (updatedFrictionWeights[f] === undefined) updatedFrictionWeights[f] = 3;
+  }
+
+  const personaStats: Record<string, { totalScore: number; count: number }> = {};
+  const frictionStats: Record<string, { totalScore: number; count: number }> = {};
+
+  for (const post of posts) {
+    if (post.performanceScore === null || post.performanceScore === undefined) continue;
+    const postAudience = post.targetAudience ?? "";
+    const postSituation = post.situation ?? "";
+    const postTopic = post.topic ?? "";
+
+    for (const p of knownPersonas) {
+      if (postAudience.includes(p) || postTopic.includes(p)) {
+        if (!personaStats[p]) personaStats[p] = { totalScore: 0, count: 0 };
+        personaStats[p].totalScore += post.performanceScore;
+        personaStats[p].count += 1;
+      }
+    }
+
+    for (const f of knownFrictions) {
+      if (postSituation.includes(f) || postTopic.includes(f)) {
+        if (!frictionStats[f]) frictionStats[f] = { totalScore: 0, count: 0 };
+        frictionStats[f].totalScore += post.performanceScore;
+        frictionStats[f].count += 1;
+      }
+    }
+  }
+
+  // Adjust persona weights
+  const qualifiedPersonas: Array<{ key: string; avgScore: number; count: number }> = [];
+  for (const [p, stat] of Object.entries(personaStats)) {
+    if (stat.count >= opts.minSamplesPerFormula) {
+      qualifiedPersonas.push({ key: p, avgScore: Math.round(stat.totalScore / stat.count), count: stat.count });
+    }
+  }
+  qualifiedPersonas.sort((a, b) => b.avgScore - a.avgScore);
+
+  const promotedPersonas: string[] = [];
+  const demotedPersonas: string[] = [];
+  if (qualifiedPersonas.length >= 2) {
+    const cutoff = Math.max(1, Math.floor(qualifiedPersonas.length * 0.2));
+    const topTier = qualifiedPersonas.slice(0, cutoff);
+    const bottomTier = qualifiedPersonas.slice(-cutoff);
+
+    for (const top of topTier) {
+      promotedPersonas.push(top.key);
+      const current = updatedPersonaWeights[top.key] ?? 3;
+      updatedPersonaWeights[top.key] = Math.min(opts.maxWeight, current + opts.promotionStep);
+    }
+    for (const bottom of bottomTier) {
+      if (promotedPersonas.includes(bottom.key)) continue;
+      demotedPersonas.push(bottom.key);
+      const current = updatedPersonaWeights[bottom.key] ?? 3;
+      updatedPersonaWeights[bottom.key] = Math.max(opts.minWeight, current - opts.demotionStep);
+    }
+  }
+
+  // Adjust friction weights
+  const qualifiedFrictions: Array<{ key: string; avgScore: number; count: number }> = [];
+  for (const [f, stat] of Object.entries(frictionStats)) {
+    if (stat.count >= opts.minSamplesPerFormula) {
+      qualifiedFrictions.push({ key: f, avgScore: Math.round(stat.totalScore / stat.count), count: stat.count });
+    }
+  }
+  qualifiedFrictions.sort((a, b) => b.avgScore - a.avgScore);
+
+  const promotedFrictions: string[] = [];
+  const demotedFrictions: string[] = [];
+  if (qualifiedFrictions.length >= 2) {
+    const cutoff = Math.max(1, Math.floor(qualifiedFrictions.length * 0.2));
+    const topTier = qualifiedFrictions.slice(0, cutoff);
+    const bottomTier = qualifiedFrictions.slice(-cutoff);
+
+    for (const top of topTier) {
+      promotedFrictions.push(top.key);
+      const current = updatedFrictionWeights[top.key] ?? 3;
+      updatedFrictionWeights[top.key] = Math.min(opts.maxWeight, current + opts.promotionStep);
+    }
+    for (const bottom of bottomTier) {
+      if (promotedFrictions.includes(bottom.key)) continue;
+      demotedFrictions.push(bottom.key);
+      const current = updatedFrictionWeights[bottom.key] ?? 3;
+      updatedFrictionWeights[bottom.key] = Math.max(opts.minWeight, current - opts.demotionStep);
+    }
+  }
+
+  return {
+    personaWeights: updatedPersonaWeights,
+    frictionWeights: updatedFrictionWeights,
+    promotedPersonas,
+    demotedPersonas,
+    promotedFrictions,
+    demotedFrictions,
   };
 }

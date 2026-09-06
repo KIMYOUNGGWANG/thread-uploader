@@ -41,28 +41,6 @@ export async function requirePostForCurrentUser(postId: string) {
   return { user, post, brand: post.brand };
 }
 
-export async function requireTikTokDraftForCurrentUser(draftId: string) {
-  const user = await requireAuth();
-  const draft = await prisma.tikTokVideoDraft.findUnique({
-    where: { id: draftId },
-    include: { brand: true },
-  });
-  if (!draft) throw new ResourceNotFoundError("TikTok draft not found");
-  assertBrandOwner(user, draft.brand.ownerId);
-  return { user, draft, brand: draft.brand };
-}
-
-export async function requireDemoAssetJobForCurrentUser(jobId: string) {
-  const user = await requireAuth();
-  const job = await prisma.demoAssetJob.findUnique({
-    where: { id: jobId },
-    include: { brand: true },
-  });
-  if (!job) throw new ResourceNotFoundError("Demo asset job not found");
-  assertBrandOwner(user, job.brand.ownerId);
-  return { user, job, brand: job.brand };
-}
-
 export function accessErrorResponse(error: unknown) {
   if (error instanceof AuthError) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

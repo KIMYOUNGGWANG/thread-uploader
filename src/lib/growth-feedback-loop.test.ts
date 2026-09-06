@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeAdaptiveFormulaWeights, type PostPerformanceRecord } from "@/lib/growth-feedback-loop";
+import {
+  computeAdaptiveFormulaWeights,
+  computeAdaptiveContextWeights,
+  type PostPerformanceRecord,
+} from "@/lib/growth-feedback-loop";
 
 describe("computeAdaptiveFormulaWeights", () => {
   it("promotes top performing formulas and demotes bottom performing formulas", () => {
@@ -94,5 +98,76 @@ describe("computeAdaptiveFormulaWeights", () => {
     expect(result.promotedFormulas).toHaveLength(0);
     expect(result.demotedFormulas).toHaveLength(0);
     expect(result.updatedWeights["formula_single"]).toBe(3);
+  });
+});
+
+describe("computeAdaptiveContextWeights", () => {
+  it("promotes personas and frictions that generated high conversion scores", () => {
+    const knownPersonas = ["3년차 UI/UX 디자이너", "7년차 백엔드/풀스택 개발자", "1인 창업가/인디메이커"];
+    const knownFrictions = ["보고서 결재만 5단계인 보수 조직", "성과 가로채기와 사내 정치", "창업 런웨이 3개월 남은 외통수"];
+
+    const posts: PostPerformanceRecord[] = [
+      // UI/UX + 사내정치: High score (paid conversion)
+      {
+        id: "p1",
+        formulaId: "f1",
+        targetAudience: "성과 가로채기를 겪는 3년차 UI/UX 디자이너",
+        situation: "성과 가로채기와 사내 정치 상황",
+        performanceScore: 3500,
+        views: 1000,
+        replies: 10,
+        reposts: 5,
+      },
+      {
+        id: "p2",
+        formulaId: "f1",
+        targetAudience: "3년차 UI/UX 디자이너 관점",
+        situation: "성과 가로채기와 사내 정치 극복",
+        performanceScore: 2800,
+        views: 1200,
+        replies: 12,
+        reposts: 4,
+      },
+      // Backend + 결재선: Low score
+      {
+        id: "p3",
+        formulaId: "f2",
+        targetAudience: "7년차 백엔드/풀스택 개발자",
+        situation: "보고서 결재만 5단계인 보수 조직",
+        performanceScore: 80,
+        views: 300,
+        replies: 0,
+        reposts: 0,
+      },
+      {
+        id: "p4",
+        formulaId: "f2",
+        targetAudience: "7년차 백엔드/풀스택 개발자",
+        situation: "보고서 결재만 5단계인 보수 조직",
+        performanceScore: 90,
+        views: 350,
+        replies: 1,
+        reposts: 0,
+      },
+    ];
+
+    const result = computeAdaptiveContextWeights(
+      {},
+      {},
+      posts,
+      knownPersonas,
+      knownFrictions,
+      { minSamplesPerFormula: 2, promotionStep: 1, demotionStep: 1 }
+    );
+
+    expect(result.promotedPersonas).toContain("3년차 UI/UX 디자이너");
+    expect(result.demotedPersonas).toContain("7년차 백엔드/풀스택 개발자");
+    expect(result.personaWeights["3년차 UI/UX 디자이너"]).toBe(4);
+    expect(result.personaWeights["7년차 백엔드/풀스택 개발자"]).toBe(2);
+
+    expect(result.promotedFrictions).toContain("성과 가로채기와 사내 정치");
+    expect(result.demotedFrictions).toContain("보고서 결재만 5단계인 보수 조직");
+    expect(result.frictionWeights["성과 가로채기와 사내 정치"]).toBe(4);
+    expect(result.frictionWeights["보고서 결재만 5단계인 보수 조직"]).toBe(2);
   });
 });

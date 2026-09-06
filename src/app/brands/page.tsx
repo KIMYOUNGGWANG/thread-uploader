@@ -443,12 +443,6 @@ function buildFallbackProductConfig(form: CreateProductForm): BrandConfig {
       durationDays: 7,
       primaryMetric: DEFAULT_BRAND_CONFIG.productProfile.primaryMetric,
     },
-    tiktokVideo: {
-      ...DEFAULT_BRAND_CONFIG.tiktokVideo,
-      enabled: true,
-      parentCampaignId: PRODUCT_GROWTH_BASELINE.id,
-      landingUrl,
-    },
   };
 }
 

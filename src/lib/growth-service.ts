@@ -5,8 +5,13 @@ import {
   calculatePerformanceScore,
   getPerformanceTier,
 } from "@/lib/growth-learning";
-import { computeAdaptiveFormulaWeights } from "@/lib/growth-feedback-loop";
+import {
+  computeAdaptiveFormulaWeights,
+  computeAdaptiveContextWeights,
+  type ContextWeightAdjustmentResult,
+} from "@/lib/growth-feedback-loop";
 import { parseBrandConfig } from "@/types/brand";
+import { DOMAIN_MATRICES } from "@/lib/context-matrix-engine";
 
 export async function learnBrandGrowth(brandId: string) {
   const brand = await prisma.brand.findUnique({
@@ -18,8 +23,12 @@ export async function learnBrandGrowth(brandId: string) {
     where: {
       brandId,
       status: "PUBLISHED",
-      metricsAt: { not: null },
-      views: { not: null },
+      OR: [
+        { views: { not: null } },
+        { metricsAt: { not: null } },
+        { manualPaidConversions: { gt: 0 } },
+        { performanceScore: { not: null } },
+      ],
     },
     orderBy: { metricsAt: "desc" },
     take: 300,
@@ -35,6 +44,8 @@ export async function learnBrandGrowth(brandId: string) {
   let updatedWeights: Record<string, number> | undefined;
   let promotedFormulas: string[] = [];
   let demotedFormulas: string[] = [];
+  let updatedBrandConfig: ReturnType<typeof parseBrandConfig> | undefined;
+  let contextWeightResult: ContextWeightAdjustmentResult | undefined;
 
   if (brand) {
     const config = parseBrandConfig(brand.brandConfig);
@@ -52,6 +63,25 @@ export async function learnBrandGrowth(brandId: string) {
     updatedWeights = weightResult.updatedWeights;
     promotedFormulas = weightResult.promotedFormulas;
     demotedFormulas = weightResult.demotedFormulas;
+
+    const domainKey = DOMAIN_MATRICES[config.qualityProfile] ? config.qualityProfile : "saju_viral";
+    const matrix = DOMAIN_MATRICES[domainKey] ?? DOMAIN_MATRICES.saju_viral;
+
+    contextWeightResult = computeAdaptiveContextWeights(
+      config.contextWeights?.personaWeights ?? {},
+      config.contextWeights?.frictionWeights ?? {},
+      organicPosts.length > 0 ? organicPosts : posts,
+      matrix.personas,
+      matrix.frictions
+    );
+
+    updatedBrandConfig = {
+      ...config,
+      contextWeights: {
+        personaWeights: contextWeightResult.personaWeights,
+        frictionWeights: contextWeightResult.frictionWeights,
+      },
+    };
   }
 
   await prisma.brand.update({
@@ -59,6 +89,7 @@ export async function learnBrandGrowth(brandId: string) {
     data: {
       growthMemory: JSON.stringify(memory),
       ...(updatedWeights && { formulaWeights: JSON.stringify(updatedWeights) }),
+      ...(updatedBrandConfig && { brandConfig: JSON.stringify(updatedBrandConfig) }),
     },
   });
 
@@ -96,6 +127,11 @@ export async function learnBrandGrowth(brandId: string) {
     updatedWeights,
     promotedFormulas,
     demotedFormulas,
+    contextWeights: updatedBrandConfig?.contextWeights,
+    promotedPersonas: contextWeightResult?.promotedPersonas ?? [],
+    demotedPersonas: contextWeightResult?.demotedPersonas ?? [],
+    promotedFrictions: contextWeightResult?.promotedFrictions ?? [],
+    demotedFrictions: contextWeightResult?.demotedFrictions ?? [],
     ...buildGrowthReport(posts, memory),
   };
 }

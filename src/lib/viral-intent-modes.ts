@@ -145,7 +145,9 @@ export function hasLowTouchEngagementMechanic(content: string): boolean {
 export function hasReplyBurdenPromise(content: string): boolean {
   return (
     /댓글(을|로|에)?\s*(남겨|주시면|달아|써줘|작성)/i.test(content) ||
-    /사연|풀이|답글|1:1|개인\s*질문|상황/i.test(content) ||
+    /(사연|질문|상황)\s*(접수|남겨|남기|써줘|써|적어)/i.test(content) ||
+    /(답글|풀이)\s*(약속|해줄|해드릴|달아)/i.test(content) ||
+    /1:1\s*(상담|대화|진단|풀이)/i.test(content) ||
     /같이\s*(보|봐)/i.test(content)
   );
 }

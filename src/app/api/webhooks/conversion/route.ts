@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
-
-// In-memory sliding window cache for idempotency / deduplication
-const seenEvents = new Map<string, number>();
-const DEDUPE_TTL_MS = 60 * 60 * 1000; // 1 hour
-
-function cleanExpiredDedupeEntries(now: number) {
-  if (seenEvents.size > 5000) {
-    for (const [key, timestamp] of seenEvents.entries()) {
-      if (now - timestamp > DEDUPE_TTL_MS) {
-        seenEvents.delete(key);
-      }
-    }
-  }
-}
+import { learnBrandGrowth } from "@/lib/growth-service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -84,16 +71,16 @@ export async function POST(request: NextRequest) {
       paidIncrement = 1;
     }
 
-    // Deduplication check
-    const dedupeIdentifier = sessionId || idempotencyKey;
-    const now = Date.now();
-    cleanExpiredDedupeEntries(now);
+    // Durable DB Idempotency & Deduplication Check
+    const dedupeIdentifier = idempotencyKey || sessionId;
+    const dedupeKey = dedupeIdentifier ? `${dedupeIdentifier}:${normalizedEvent}:${targetPostId}` : null;
 
-    if (dedupeIdentifier) {
-      const dedupeKey = `${dedupeIdentifier}:${normalizedEvent}:${targetPostId}`;
-      const previousTimestamp = seenEvents.get(dedupeKey);
-      if (previousTimestamp && now - previousTimestamp < DEDUPE_TTL_MS) {
-        // Return existing post status without double incrementing
+    if (dedupeKey) {
+      const existingEvent = await prisma.conversionEvent.findUnique({
+        where: { idempotencyKey: dedupeKey },
+      });
+
+      if (existingEvent) {
         return NextResponse.json({
           success: true,
           deduped: true,
@@ -110,7 +97,6 @@ export async function POST(request: NextRequest) {
           },
         });
       }
-      seenEvents.set(dedupeKey, now);
     }
 
     const updatedClicks = (post.clicks ?? 0) + clickIncrement;
@@ -127,26 +113,69 @@ export async function POST(request: NextRequest) {
       manualPaidConversions: updatedPaidConversions,
     });
 
-    const updatedPost = await prisma.post.update({
-      where: { id: targetPostId },
-      data: {
-        clicks: updatedClicks,
-        conversions: updatedConversions,
-        manualPaidConversions: updatedPaidConversions,
-        performanceScore: newScore,
-        performanceTier: getPerformanceTier(newScore),
-        metricsAt: new Date(),
-      },
-      select: {
-        id: true,
-        formulaId: true,
-        clicks: true,
-        conversions: true,
-        manualPaidConversions: true,
-        performanceScore: true,
-        performanceTier: true,
-      },
-    });
+    let updatedPost;
+    try {
+      if (dedupeKey) {
+        await prisma.conversionEvent.create({
+          data: {
+            brandId: post.brandId || "unknown",
+            postId: post.id,
+            idempotencyKey: dedupeKey,
+            eventType: normalizedEvent,
+            amount: typeof amount === "number" ? amount : 0,
+            sessionId: typeof sessionId === "string" ? sessionId : null,
+            metadata: JSON.stringify({ sessionId, rawEvent }),
+          },
+        });
+      }
+
+      updatedPost = await prisma.post.update({
+        where: { id: targetPostId },
+        data: {
+          clicks: updatedClicks,
+          conversions: updatedConversions,
+          manualPaidConversions: updatedPaidConversions,
+          performanceScore: newScore,
+          performanceTier: getPerformanceTier(newScore),
+          metricsAt: new Date(),
+        },
+        select: {
+          id: true,
+          formulaId: true,
+          clicks: true,
+          conversions: true,
+          manualPaidConversions: true,
+          performanceScore: true,
+          performanceTier: true,
+        },
+      });
+    } catch (txError: any) {
+      if (txError?.code === "P2002") {
+        return NextResponse.json({
+          success: true,
+          deduped: true,
+          eventType: normalizedEvent,
+          amount,
+          post: {
+            id: post.id,
+            formulaId: post.formulaId,
+            clicks: post.clicks,
+            conversions: post.conversions,
+            manualPaidConversions: post.manualPaidConversions,
+            performanceScore: post.performanceScore,
+            performanceTier: post.performanceTier,
+          },
+        });
+      }
+      throw txError;
+    }
+
+    // Event-driven immediate learning: trigger adaptive growth update in background for conversions
+    if (post.brandId && (normalizedEvent === "paid_conversion" || normalizedEvent === "conversion")) {
+      void learnBrandGrowth(post.brandId).catch((err) =>
+        console.error("[conversion-webhook] Background learning failed:", err)
+      );
+    }
 
     return NextResponse.json({
       success: true,

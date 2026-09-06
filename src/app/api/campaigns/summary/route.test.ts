@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildViralModeBuckets,
   resolveSummaryViralIntentModeId,
-} from "@/app/api/campaigns/summary/route";
+} from "@/lib/campaign-summary-metrics";
 
 describe("campaign summary viral mode reporting", () => {
   it("normalizes legacy and current formula ids into viral intent mode buckets", () => {

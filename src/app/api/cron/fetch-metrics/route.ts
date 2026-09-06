@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
 const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
-
-function verifyCronSecret(request: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return true;
-  const authHeader = request.headers.get("authorization");
-  if (authHeader === `Bearer ${cronSecret}`) return true;
-  return request.nextUrl.searchParams.get("secret") === cronSecret;
-}
 
 async function fetchInsights(threadsId: string, accessToken: string) {
   const params = new URLSearchParams({

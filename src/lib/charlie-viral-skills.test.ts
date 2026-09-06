@@ -23,7 +23,7 @@ describe("buildTwoLineContrastHook", () => {
 });
 
 describe("buildAdmissionFirstComment", () => {
-  it("generates exactly 4 lines with admission, flip, win, and closing", () => {
+  it("generates exactly 4 lines with bio-first closing by default", () => {
     const comment = buildAdmissionFirstComment("본문 내용", {
       topic: "퇴사 판단표",
       linkUrl: "https://cosmicpath.app/timing",
@@ -33,7 +33,20 @@ describe("buildAdmissionFirstComment", () => {
     expect(lines).toHaveLength(4);
     // Line 1: Admission starting with 📌
     expect(lines[0]).toMatch(/^📌/);
-    // Line 4: Contains linkUrl
+    // Line 4: Bio guide without raw URL
+    expect(lines[3]).toContain("프로필 상단 링크에 남겨둠");
+    expect(lines[3]).not.toContain("https://cosmicpath.app/timing");
+  });
+
+  it("includes raw linkUrl only when linkPlacement is explicitly firstComment", () => {
+    const comment = buildAdmissionFirstComment("본문 내용", {
+      topic: "퇴사 판단표",
+      linkUrl: "https://cosmicpath.app/timing",
+      linkPlacement: "firstComment",
+    });
+
+    const lines = comment.split("\n");
+    expect(lines).toHaveLength(4);
     expect(lines[3]).toContain("https://cosmicpath.app/timing");
   });
 
@@ -52,5 +65,31 @@ describe("buildAdmissionFirstComment", () => {
 
     const lines = comment.split("\n");
     expect(lines[0]).toContain("나도 사주 처음 배울 때 이 공식 때문에 망했다.");
+  });
+
+  it("generates authentic English 4-line admission comment with bio-first default", () => {
+    const comment = buildAdmissionFirstComment("Why you attract avoidant partners with Venus in Gemini", {
+      topic: "Avoidant Attachment",
+      linkUrl: "https://www.etsy.com/shop/ByYoungStudio",
+    });
+
+    const lines = comment.split("\n");
+    expect(lines).toHaveLength(4);
+    expect(lines[0]).toMatch(/^📌/);
+    // Default bio-first: no raw URLs
+    expect(lines[3]).toContain("linked at the top of my profile");
+    expect(lines[3]).not.toContain("etsy.com");
+  });
+
+  it("generates English 4-line admission comment with direct link when linkPlacement is firstComment", () => {
+    const comment = buildAdmissionFirstComment("Why you attract avoidant partners with Venus in Gemini", {
+      topic: "Avoidant Attachment",
+      linkUrl: "https://www.etsy.com/shop/ByYoungStudio",
+      linkPlacement: "firstComment",
+    });
+
+    const lines = comment.split("\n");
+    expect(lines).toHaveLength(4);
+    expect(lines[3]).toContain("etsy.com");
   });
 });

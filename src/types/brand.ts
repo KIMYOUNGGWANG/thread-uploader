@@ -16,7 +16,6 @@ import {
   normalizeActiveExperiment,
   normalizeProductProfile,
 } from "@/types/product-profile";
-import { normalizeTikTokVideoConfig, TIKTOK_VIDEO_EXPERIMENT_DEFAULT } from "@/types/tiktok-config";
 import type {
   ActiveExperiment,
   ProductProfile,
@@ -25,7 +24,6 @@ import type {
   CampaignConfig,
   QualityProfileId,
 } from "@/types/campaign";
-import type { TikTokVideoConfig } from "@/types/tiktok-config";
 
 export type {
   ActiveExperiment,
@@ -46,11 +44,6 @@ export type {
   GrowthMemory,
   GrowthPattern,
 } from "@/types/growth-memory";
-export type {
-  TikTokVideoConfig,
-  TikTokVideoFormatConfig,
-  TikTokVideoFormatId,
-} from "@/types/tiktok-config";
 export {
   CAREER_TIMING_WEDGE_399,
   PRODUCT_GROWTH_BASELINE,
@@ -59,9 +52,6 @@ export {
   EMPTY_GROWTH_MEMORY,
   parseGrowthMemory,
 } from "@/types/growth-memory";
-export {
-  TIKTOK_VIDEO_EXPERIMENT_DEFAULT,
-} from "@/types/tiktok-config";
 
 export interface BrandFormula {
   id: string;
@@ -94,6 +84,7 @@ export interface VoiceProfile {
   paragraphStyle: "single_line_breath" | "compact_blocks";
   admissionStyle: string;
   forbiddenPhrases: string[];
+  language?: "ko" | "en";
 }
 
 export interface BrandConfig {
@@ -111,10 +102,13 @@ export interface BrandConfig {
   campaigns: CampaignConfig[];
   activeCampaignId?: string;
   qualityProfile: QualityProfileId;
-  tiktokVideo: TikTokVideoConfig;
   productProfile: ProductProfile;
   activeExperiment: ActiveExperiment;
   voiceProfile?: VoiceProfile;
+  contextWeights?: {
+    personaWeights?: Record<string, number>;
+    frictionWeights?: Record<string, number>;
+  };
 }
 
 export interface BrandResponse {
@@ -169,7 +163,6 @@ export const DEFAULT_BRAND_CONFIG: BrandConfig = {
   campaigns: [CAREER_TIMING_WEDGE_399],
   activeCampaignId: CAREER_TIMING_WEDGE_399.id,
   qualityProfile: "career_decision",
-  tiktokVideo: TIKTOK_VIDEO_EXPERIMENT_DEFAULT,
   productProfile: normalizeProductProfile({}),
   activeExperiment: normalizeActiveExperiment({}),
 };
@@ -200,14 +193,40 @@ export function parseBrandConfig(raw: string): BrandConfig {
       campaigns,
       activeCampaignId,
       qualityProfile,
-      tiktokVideo: normalizeTikTokVideoConfig(parsed.tiktokVideo, activeCampaignId),
       productProfile: normalizeProductProfile(parsed.productProfile),
       activeExperiment: normalizeActiveExperiment(parsed.activeExperiment),
       voiceProfile: normalizeVoiceProfile(parsed.voiceProfile),
+      contextWeights: normalizeContextWeights(parsed.contextWeights),
     };
   } catch {
     return DEFAULT_BRAND_CONFIG;
   }
+}
+
+function normalizeContextWeights(input: unknown): {
+  personaWeights?: Record<string, number>;
+  frictionWeights?: Record<string, number>;
+} | undefined {
+  if (!isRecord(input)) return undefined;
+  const personaWeights: Record<string, number> = {};
+  if (isRecord(input.personaWeights)) {
+    for (const [k, v] of Object.entries(input.personaWeights)) {
+      if (typeof v === "number") personaWeights[k] = v;
+    }
+  }
+  const frictionWeights: Record<string, number> = {};
+  if (isRecord(input.frictionWeights)) {
+    for (const [k, v] of Object.entries(input.frictionWeights)) {
+      if (typeof v === "number") frictionWeights[k] = v;
+    }
+  }
+  const hasP = Object.keys(personaWeights).length > 0;
+  const hasF = Object.keys(frictionWeights).length > 0;
+  if (!hasP && !hasF) return undefined;
+  return {
+    personaWeights: hasP ? personaWeights : undefined,
+    frictionWeights: hasF ? frictionWeights : undefined,
+  };
 }
 
 function normalizeVoiceProfile(input: unknown): VoiceProfile | undefined {

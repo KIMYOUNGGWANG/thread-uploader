@@ -7,12 +7,16 @@ const PUBLIC_PATHS = [
   "/api/auth/register",
   "/api/products/auto-setup",
   "/api/cron",
+  "/api/webhooks",
+  "/api/oauth",
+  "/r/",
+  "/attribution-tracker.js",
   "/_next",
   "/favicon.ico",
 ];
 
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : `${p}/`));
 }
 
 export function middleware(request: NextRequest) {

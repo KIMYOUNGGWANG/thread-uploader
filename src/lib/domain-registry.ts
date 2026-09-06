@@ -38,23 +38,34 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
     description: "친구 관찰 실화 썰, 대운 전환 신호, 에너지 밸런스 팩폭, 쿨한 쿠폰 나눔",
     defaultTopics: [
       "이직할 때 존버 vs 런 골든타임 판정",
+      "식상(실행력) 80%인데 위계 조직 들어가서 매일 깨지는 이유",
+      "10년 주기 대운 교체기(교운기)에 충동 퇴사하면 100% 물리는 원리",
+      "단일 사주만 믿고 베팅했다가 망하는 이유와 5대 엔진 교차 분석",
       "돈 새어나가는 사주 오행 구멍과 재물선 방어",
       "만나면 속 갉아먹는 파멸적 궁합과 손절 타이밍",
       "착한 척하느라 속 다 곪은 사람들의 대인관계 손절선",
       "번아웃 와서 실행력 0일 때 오행 에너지 회복법",
       "결정 장애 올 때 사주 대운으로 보는 7일 행동 갈림길",
       "창업이나 사이드 프로젝트 시작하기 가장 위험한 시기",
-      "새벽마다 전 애인 생각나는 사람들의 오행 밸런스",
     ],
-    forbiddenCrossDomainTerms: ["MRR", "API", "B2B", "SaaS", "데모 신청", "전환율 10배"],
+    forbiddenCrossDomainTerms: ["MRR", "API", "B2B", "SaaS", "데모 신청", "전환율 10배", "진태양시", "32분", "1961년 표준시", "바넘 효과"],
     trackFormulas: {
       track_a: [
+        {
+          id: "career_mismatch",
+          name: "식상 vs 관성 기질-조직 미스매치 팩폭",
+          track: "track_a",
+          weight: 5,
+          instruction: "실행력/창작욕(식상)이 80%인 사람이 보수적 위계 조직(관성)에서 겪는 갈등을 '자책하지 마라, 성격 문제가 아니라 기질과 조직 설계의 미스매치다'라는 팩트로 진단하고 명쾌한 포지셔닝 판정을 준다.",
+          hookArchetype: "기질 미스매치 훅",
+          forbiddenKeywords: ["진태양시", "32분", "타로", "조상신", "운명론"],
+        },
         {
           id: "imagination_dilemma",
           name: "상상/3지선다 딜레마 (30만 뷰 검증)",
           track: "track_a",
-          weight: 6,
-          instruction: "'자, 상상해봐. 오늘 퇴근길에 ~'로 시작해 극단적 상황을 던지고 3개 선택지를 주어 댓글로 싸우게 만든다. 괄호 안에는 '심리적 자유' 같은 번역투 대신 '속은 시원한데 3달 뒤 카드값 오열' 같은 날것의 일상어만 쓴다.",
+          weight: 4,
+          instruction: "극단적인 현실적 딜레마 상황(로또, 야근, 카드값, 퇴사 고민 등)을 날것의 일상 구어로 던지고 3개 선택지를 주어 댓글로 치열하게 반응하게 만든다. 도입부는 매번 다른 일상 상황으로 시작하며 특정 어구('자, 상상해봐' 등)를 기계적으로 반복하지 않는다. 괄호 안에는 '심리적 자유' 같은 번역투 대신 '속은 시원한데 3달 뒤 카드값 오열' 같은 날것의 일상어만 쓴다.",
           hookArchetype: "상상 딜레마 훅",
           forbiddenKeywords: ["심리적 자유", "타이밍 손실 리스크", "리스크", "손익"],
         },
@@ -78,6 +89,24 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
         },
       ],
       track_b: [
+        {
+          id: "energy_reset_cycle",
+          name: "10년 대운 교운기 번아웃 리스크 판정",
+          track: "track_b",
+          weight: 5,
+          instruction: "10년 주기 대운이 바뀌기 직전 1~2년(교운기)에 기존 판이 흔들리고 무기력증이 오는 현상을 '슬럼프가 아니라 환경 리셋 구간'으로 진단하여 홧김 퇴사나 충동 창업으로 인한 손실 회피를 안내한다.",
+          hookArchetype: "대운 교운기 훅",
+          forbiddenKeywords: ["진태양시", "32분", "타로", "굿", "부적"],
+        },
+        {
+          id: "multi_engine_audit",
+          name: "단일 사주 맹점 vs 5대 엔진 교차 판정",
+          track: "track_b",
+          weight: 4,
+          instruction: "동양 사주 하나만 보고 '올해 대박' 믿고 질렀다가 망하는 이유를 서양 점성술 트랜짓(토성 직업궁 강타 등)과의 교차 검증 필요성으로 폭로하며, 비행기 계기판 1개만 보고 야간 비행하는 위험성을 경고한다.",
+          hookArchetype: "교차 검증 폭로 훅",
+          forbiddenKeywords: ["진태양시", "32분", "무조건 성공"],
+        },
         {
           id: "talent_reality_check",
           name: "현실 재능 판정 팩폭 (2.5만 뷰 검증)",
@@ -105,15 +134,6 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           hookArchetype: "귀인 궁합 훅",
           forbiddenKeywords: ["무조건 결혼"],
         },
-        {
-          id: "solar_distortion_truth",
-          name: "시간 왜곡 팩트 폭로 (4.2만 뷰 검증)",
-          track: "track_b",
-          weight: 3,
-          instruction: "'한국인 10명 중 7명은 자기가 태어난 시간을 잘못 알고 있다'는 팩트로 시작하되, 지루한 역사 강의가 아니라 즉시 자기 시주를 떠올려보게 만든다.",
-          hookArchetype: "시간 왜곡 훅",
-          forbiddenKeywords: ["1961년 표준시 강의"],
-        },
       ],
       track_c: [
         {
@@ -123,7 +143,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           weight: 4,
           instruction: "말장난 뺀 정밀 7일 결정 패킷을 소개하며 댓글 작성자에게 100% 무료 쿠폰을 선착순으로 나눠준다.",
           hookArchetype: "베타 나눔 훅",
-          forbiddenKeywords: ["무료 사주 풀이 접수"],
+          forbiddenKeywords: ["무료 사주 풀이 접수", "진태양시"],
         },
       ],
     },
@@ -227,46 +247,124 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
 
   ecommerce_d2c: {
     domainId: "ecommerce_d2c",
-    name: "D2C / 글로벌 이커머스 (E-Commerce D2C)",
-    description: "양산형 저질 제품 비교, 수제 공정 투명성, 20페이지 맞춤 디지털 파일",
+    name: "CosmicPath Global (Dual-Cosmic Intelligence PRD v4.0)",
+    description: "동양 명리학(BaZi) ✕ 서양 천문 점성술(Astrology) 듀얼 교차 검증 마스터 도시에 ($29.99~$44.99)",
     defaultTopics: [
-      "1줄짜리 양산형 운세 앱 vs 20페이지 맞춤 출생차트의 데이터 격차",
-      "공장에서 찍어낸 기성품이 감추고 있는 마진 구조의 진실",
-      "내 인생 청사진을 단 1페이지 요약으로 끝낼 수 없는 이유",
+      "Why your Moon sign keeps falling for emotionally unavailable partners (Avoidant Trap)",
+      "The real reason you feel like two different people: Sun vs Moon vs Rising internal clash",
+      "Saturn return at 29: why your corporate job feels like a slow existential death",
+      "Why 90% of $15 Etsy astrology readings are copy-pasted ChatGPT prompts lacking dual precision",
+      "The hidden financial leak in your 2nd house of income and capital defense",
+      "How unhealed childhood emotional karma (4th House IC) secretly sabotages your adult dating life",
     ],
-    forbiddenCrossDomainTerms: ["MRR", "API 엔드포인트", "SQL 쿼리", "스프린트 회고"],
+    forbiddenCrossDomainTerms: ["MRR", "API 엔드포인트", "SQL 쿼리", "스프린트 회고", "사주팔자", "대운", "살풀이", "신점", "복채", "부적"],
     trackFormulas: {
       track_a: [
         {
-          id: "d2c_contrast_hook",
-          name: "양산형 vs 맞춤형 대조",
+          id: "synastry_avoidant_trap",
+          name: "Synastry & Avoidant Attachment Trap (Ch 6 & 7)",
           track: "track_a",
           weight: 4,
-          instruction: "흔한 1문단짜리 서비스와 20페이지 심층 제작물의 극단적 퀄리티 대조.",
-          hookArchetype: "퀄리티 대조 훅",
-          forbiddenKeywords: ["B2B", "엔터프라이즈"],
+          instruction: "Expose why someone attracts emotionally unavailable or avoidant partners using harsh astrological reality (e.g. Venus in Gemini vs Moon in Cancer, 7th house descendant clash). 2-line contrast opening: start with a bold calling-out under 40 chars, followed by a reality-check contrast under 40 chars. Do not sugar-coat.",
+          hookArchetype: "Relationship Calling-Out Hook",
+          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
+        },
+        {
+          id: "big3_internal_sabotage",
+          name: "Sun vs Moon Internal Sabotage (Ch 1 & 3)",
+          track: "track_a",
+          weight: 4,
+          instruction: "Call out the daily cognitive dissonance between an ambitious external persona and an exhausted, self-sabotaging inner emotional core (e.g. Capricorn Sun vs Pisces Moon, 4th house IC trauma). 2-line contrast opening under 40 chars each. High relatable dopamine.",
+          hookArchetype: "Internal Dissonance Hook",
+          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
         },
       ],
       track_b: [
         {
-          id: "d2c_craft_transparency",
-          name: "제작 공정 투명성 폭로",
+          id: "saturn_return_burnout",
+          name: "Saturn Return & 29yo Career Collapse (Ch 4, 5, 8)",
           track: "track_b",
-          weight: 5,
-          instruction: "왜 대부분의 업체가 얕은 분석만 제공하는지 구조적 한계와 공정 공개.",
-          hookArchetype: "투명성 공개 훅",
-          forbiddenKeywords: ["위로"],
+          weight: 4,
+          instruction: "Address the 28-32 quarter-life existential crisis and corporate golden handcuffs. Deconstruct why external achievement feels empty when wealth architecture clashes with life timing. Clinical, sharp, forensic tone.",
+          hookArchetype: "Career Reality Check Hook",
+          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
+        },
+        {
+          id: "anti_ai_craft_expose",
+          name: "Anti-AI Slop & Dual Mathematical Precision (Ch 1 & 10)",
+          track: "track_b",
+          weight: 3,
+          instruction: "Deconstruct why $15 Etsy readings and free app notifications fail: they are generic ChatGPT outputs lacking cross-verified mathematical depth. Explain the missing half (Eastern time pillars meeting Western ephemeris natal charts) with zero mysticism.",
+          hookArchetype: "Dual Intelligence Authority Hook",
+          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
         },
       ],
       track_c: [
         {
+          id: "synastry_blueprint_offer",
+          name: "25-Page Couple Synastry Blueprint Offer (Ch 6 & 7)",
+          track: "track_c",
+          weight: 4,
+          instruction: "Present a concrete case study or checklist comparing a surface-level dating dilemma with the deep 25-page couple synastry dossier on Etsy ($44.99). Honest, resigned, zero-hype recommendation.",
+          hookArchetype: "Couple Synastry Offer Hook",
+          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
+        },
+        {
           id: "d2c_etsy_offer",
-          name: "Etsy 맞춤 상품 직결 오퍼",
+          name: "15-20 Page Master Dossier Decision Offer (Ch 2, 4, 5, 8)",
           track: "track_c",
           weight: 3,
-          instruction: "Etsy 상점의 20페이지 맞춤 디지털 리포트 즉시 주문 링크 연결.",
-          hookArchetype: "제품 구매 오퍼 훅",
-          forbiddenKeywords: ["상담 복채"],
+          instruction: "Present a high-stakes life decision dilemma (career pivot, wealth defense, relational timing) solved by the 15-20 page Master Life Intelligence Dossier on Etsy ($29.99). Direct soft CTA.",
+          hookArchetype: "Master Dossier Offer Hook",
+          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
+        },
+      ],
+    },
+  },
+
+  product_growth: {
+    domainId: "product_growth",
+    name: "제품 성장 / 인디 해커 도구 (Product-Led Growth)",
+    description: "업무 병목 제거, 수작업 자동화 전후 비교, 셀프서브 가입 유도",
+    defaultTopics: [
+      "매주 반복되는 데이터 정리로 날아가는 5시간의 숨은 비용",
+      "복잡한 도구 대신 1클릭으로 문제를 끝내는 최소 실행 워크플로우",
+      "수작업으로 처리하다 놓치는 고객 요청과 이탈 방지법",
+      "혼자 일하는 메이커가 겪는 반복 업무 자동화 체크리스트",
+    ],
+    forbiddenCrossDomainTerms: ["사주", "점성술", "도화살", "홍염살", "대운", "신살", "타로", "복채", "부적"],
+    trackFormulas: {
+      track_a: [
+        {
+          id: "workflow_bottleneck_dilemma",
+          name: "반복 업무 병목 딜레마",
+          track: "track_a",
+          weight: 4,
+          instruction: "하루 일과 중 가장 시간 아까운 반복 작업 3가지 중 선택하게 하여 격한 공감 유도.",
+          hookArchetype: "업무 병목 공감 훅",
+          forbiddenKeywords: ["사주", "운명"],
+        },
+      ],
+      track_b: [
+        {
+          id: "before_after_roi",
+          name: "도구 도입 전후 시간 ROI 비교",
+          track: "track_b",
+          weight: 5,
+          instruction: "수작업 30분 걸리던 작업을 10초 만에 끝내는 구체적 화면/절차 전후 비교.",
+          hookArchetype: "전후 비교 훅",
+          forbiddenKeywords: ["기운", "운세"],
+        },
+      ],
+      track_c: [
+        {
+          id: "self_serve_offer",
+          name: "셀프서브 무료 체험 / 스타터 킷 오퍼",
+          track: "track_c",
+          weight: 4,
+          instruction: "카드 등록 없이 즉시 써볼 수 있는 무료 스타터 킷 또는 테스트 링크 안내.",
+          hookArchetype: "셀프서브 오퍼 훅",
+          forbiddenKeywords: ["복채", "부적"],
         },
       ],
     },
@@ -276,7 +374,10 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
 export function getDomainPreset(domainOrQualityProfile?: string): DomainPresetConfig {
   if (!domainOrQualityProfile) return DOMAIN_PRESETS.saju_viral;
   if (DOMAIN_PRESETS[domainOrQualityProfile]) return DOMAIN_PRESETS[domainOrQualityProfile];
-  if (domainOrQualityProfile.includes("saas") || domainOrQualityProfile.includes("product")) {
+  if (domainOrQualityProfile.includes("product")) {
+    return DOMAIN_PRESETS.product_growth;
+  }
+  if (domainOrQualityProfile.includes("saas")) {
     return DOMAIN_PRESETS.saas_b2b;
   }
   if (domainOrQualityProfile.includes("career")) {

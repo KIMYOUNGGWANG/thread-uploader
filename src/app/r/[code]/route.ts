@@ -5,7 +5,7 @@ import { parseBrandConfig } from "@/types/brand";
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ code: string }> | { code: string } }
+  context: { params: Promise<{ code: string }> }
 ) {
   const params = await context.params;
   const code = params.code;

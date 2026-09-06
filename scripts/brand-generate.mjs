@@ -16,6 +16,7 @@ import { getDomainPreset } from "../src/lib/domain-registry.ts";
 import { selectFormulaWithQuota } from "../src/lib/quota-bandit-router.ts";
 import { buildTrackedUrl } from "../src/lib/tracking-url.ts";
 import { buildAdmissionFirstComment } from "../src/lib/charlie-viral-skills.ts";
+import { resolveDynamicContext } from "../src/lib/context-matrix-engine.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,7 +82,16 @@ async function main() {
       recentFormulaIds: results.map((r) => r.formulaId),
     });
 
-    const topic = brandConfig.topics?.[i % (brandConfig.topics?.length || 1)] || domainPreset.defaultTopics[i % domainPreset.defaultTopics.length];
+    const baseTopic = brandConfig.topics?.[i % (brandConfig.topics?.length || 1)] || domainPreset.defaultTopics[i % domainPreset.defaultTopics.length];
+    const dynamicContext = resolveDynamicContext({
+      domainId: brandConfig.qualityProfile || brandSlug,
+      index: i,
+      baseTopic,
+      userTarget: brandConfig.targets?.[i % (brandConfig.targets?.length || 1)],
+      userSituation: brandConfig.situations?.[i % (brandConfig.situations?.length || 1)],
+    });
+
+    const topic = dynamicContext.dynamicTopic;
     const landingUrl = brandConfig.productProfile?.landingUrl || brandConfig.websiteUrl || `https://${brand.slug}.app`;
     const trackedUrl = buildTrackedUrl(landingUrl, {
       formulaId: selection.formulaId,
@@ -89,9 +99,11 @@ async function main() {
       source: `threads_${brand.slug}`,
     });
 
+    const linkPlacement = brandConfig.linkPlacement || "bio";
     const firstComment = buildAdmissionFirstComment(`Topic: ${topic}`, {
       topic,
-      linkUrl: trackedUrl,
+      linkUrl: linkPlacement === "firstComment" ? trackedUrl : undefined,
+      linkPlacement,
       voiceProfile: brandConfig.voiceProfile,
     });
 
@@ -102,12 +114,19 @@ async function main() {
       isExploration: selection.isExploration,
       scheduleTime: selection.scheduleTime,
       topic,
+      persona: dynamicContext.persona,
+      friction: dynamicContext.friction,
+      tension: dynamicContext.tension,
       trackedUrl,
       firstComment,
     });
 
     console.log(`[#${i + 1}] [${selection.track.toUpperCase()}] Formula: ${selection.formulaId} (${selection.isExploration ? "🔥 MAB Exploration" : "⚡ Exploitation"})`);
+    console.log(`     Persona: ${dynamicContext.persona}`);
+    console.log(`     Friction: ${dynamicContext.friction}`);
+    console.log(`     Tension: ${dynamicContext.tension}`);
     console.log(`     Topic: ${topic}`);
+    console.log(`     Target: ${dynamicContext.targetAudience}`);
     console.log(`     Tracked Link: ${trackedUrl}`);
     console.log(`     Comment: ${firstComment.split("\n")[0]}...\n`);
   }

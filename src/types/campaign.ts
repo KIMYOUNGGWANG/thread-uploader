@@ -36,7 +36,7 @@ export interface CampaignConfig {
   utmContentTemplate: "{{postId}}";
   dailyPostTarget: number;
   linkCadenceEvery: number;
-  linkPlacement: "firstComment";
+  linkPlacement: "bio" | "firstComment";
   formulas: CampaignFormula[];
   replyPlaybook: ReplyPlaybook;
 }
@@ -52,7 +52,7 @@ export const CAREER_TIMING_WEDGE_399: CampaignConfig = {
   utmContentTemplate: "{{postId}}",
   dailyPostTarget: 3,
   linkCadenceEvery: 3,
-  linkPlacement: "firstComment",
+  linkPlacement: "bio",
   formulas: [
     {
       id: "self_classification",
@@ -92,7 +92,7 @@ export const PRODUCT_GROWTH_BASELINE: CampaignConfig = {
   utmContentTemplate: "{{postId}}",
   dailyPostTarget: 3,
   linkCadenceEvery: 3,
-  linkPlacement: "firstComment",
+  linkPlacement: "bio",
   formulas: [
     {
       id: "self_classification",
@@ -154,7 +154,7 @@ function normalizeCampaign(input: Record<string, unknown>): CampaignConfig {
     utmContentTemplate: "{{postId}}",
     dailyPostTarget: clampNumber(input.dailyPostTarget, 1, 12, defaults.dailyPostTarget),
     linkCadenceEvery: clampNumber(input.linkCadenceEvery, 1, 12, defaults.linkCadenceEvery),
-    linkPlacement: "firstComment",
+    linkPlacement: input.linkPlacement === "firstComment" ? "firstComment" : "bio",
     formulas: normalizeCampaignFormulas(input.formulas, defaults.formulas),
     replyPlaybook: normalizeReplyPlaybook(input.replyPlaybook, defaults.replyPlaybook),
   };

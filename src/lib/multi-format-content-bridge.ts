@@ -1,6 +1,5 @@
 import type { CarouselSlideData } from "@/lib/carousel-cards/templates";
 import { buildCarouselSlideHtml, buildCarouselSlideSvg } from "@/lib/carousel-cards/renderer";
-import type { TikTokRenderPlan } from "@/lib/tiktok-video-renderer";
 
 export interface MultiFormatContentBundle {
   readonly postText: string;
@@ -9,7 +8,6 @@ export interface MultiFormatContentBundle {
   readonly ctaType: string;
   readonly carouselSlides: readonly CarouselSlideData[];
   readonly carouselSvgs: readonly string[];
-  readonly shortFormVideoPlan: TikTokRenderPlan;
 }
 
 export function buildMultiFormatContentBundle(input: {
@@ -29,48 +27,44 @@ export function buildMultiFormatContentBundle(input: {
 
   const title = rawLines[0] || topic;
   const bodyText = rawLines.slice(1, -1).join(" ") || input.postText;
-  const ctaLine = rawLines[rawLines.length - 1] || "Save this post for later →";
+  const isKorean = /[가-힣]/.test(input.postText);
+  const defaultCta = isKorean ? "저장해두고 다음 선택 전에 다시 확인 →" : "Save this post for later →";
+  const ctaLine = rawLines[rawLines.length - 1] || defaultCta;
 
   // Build 4 carousel slides (Cover, Problem/Insight, Solution, CTA)
   const carouselSlides: CarouselSlideData[] = [
     {
       archetype: "QUESTION_COVER",
       title,
-      subtitle: input.targetAudience ? `For ${input.targetAudience}` : undefined,
-      footerText: "Swipe to learn →",
+      subtitle: input.targetAudience
+        ? (isKorean ? `대상: ${input.targetAudience}` : `For ${input.targetAudience}`)
+        : undefined,
+      footerText: isKorean ? "넘겨서 확인 →" : "Swipe to learn →",
     },
     {
       archetype: "BOLD_STAT",
-      title: "The Core Problem",
+      title: isKorean ? "핵심 딜레마 / 관찰" : "The Core Problem",
       highlightText: topic,
       subtitle: bodyText.slice(0, 120) + (bodyText.length > 120 ? "..." : ""),
     },
     {
       archetype: "TAKEAWAYS",
-      title: "Actionable Key Takeaways",
-      items: rawLines.slice(1, 4).length > 0 ? rawLines.slice(1, 4) : ["Focus on core value", "Measure 7-day retention"],
+      title: isKorean ? "행동 판정 체크포인트" : "Actionable Key Takeaways",
+      items: rawLines.slice(1, 4).length > 0
+        ? rawLines.slice(1, 4)
+        : (isKorean ? ["현재 조건 정리", "선택지 좁히기"] : ["Focus on core value", "Measure 7-day retention"]),
     },
     {
       archetype: "CTA_SLIDE",
-      title: "What is your take?",
+      title: isKorean ? "당신의 선택은 어느 쪽인가요?" : "What is your take?",
       subtitle: ctaLine,
-      footerText: "Follow for more insights",
+      footerText: isKorean ? "프로필에서 판정 리포트 확인" : "Follow for more insights",
     },
   ];
 
   const carouselSvgs = carouselSlides.map((slide, idx) =>
     buildCarouselSlideSvg(slide, idx, carouselSlides.length)
   );
-
-  const shortFormVideoPlan: TikTokRenderPlan = {
-    kicker: hookType,
-    title,
-    captions: [title, ...rawLines.slice(1, 3)],
-    bodyLines: [bodyText.slice(0, 80), bodyText.slice(80, 160)].filter(Boolean),
-    cta: ctaLine,
-    hashtags: ["#Growth", "#SaaS", "#Viral"],
-    durationSeconds: 15,
-  };
 
   return {
     postText: input.postText,
@@ -79,6 +73,5 @@ export function buildMultiFormatContentBundle(input: {
     ctaType,
     carouselSlides,
     carouselSvgs,
-    shortFormVideoPlan,
   };
 }

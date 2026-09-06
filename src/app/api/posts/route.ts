@@ -83,15 +83,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const POST_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours between posts
     const now = Date.now();
-    let baseTime = now;
+    let baseTime = now + POST_INTERVAL_MS;
     if (insertAtFront) {
       const earliest = await prisma.post.findFirst({
         where: { status: "PENDING", brandId },
         orderBy: { scheduledAt: "asc" },
       });
       if (earliest && earliest.scheduledAt.getTime() > now) {
-        baseTime = Math.max(now, earliest.scheduledAt.getTime() - posts.length * 1000);
+        baseTime = Math.max(now + 10 * 60 * 1000, earliest.scheduledAt.getTime() - posts.length * POST_INTERVAL_MS);
       }
     } else {
       const latest = await prisma.post.findFirst({
@@ -99,23 +100,25 @@ export async function POST(request: NextRequest) {
         orderBy: { scheduledAt: "desc" },
       });
       if (latest && latest.scheduledAt.getTime() > now) {
-        baseTime = latest.scheduledAt.getTime() + 1000;
+        baseTime = latest.scheduledAt.getTime() + POST_INTERVAL_MS;
       }
     }
 
     const createdPosts = await Promise.all(
-      posts.map((post, index) =>
-        prisma.post.create({
+      posts.map((post, index) => {
+        const jitterMs = (Math.floor(Math.random() * 31) - 15) * 60 * 1000;
+        const defaultScheduledAt = new Date(Math.max(now + 5 * 60 * 1000, baseTime + index * POST_INTERVAL_MS + jitterMs));
+        return prisma.post.create({
           data: {
             brandId,
             content: post.content,
             imageUrls: JSON.stringify(post.images),
-            scheduledAt: post.scheduledAt ? new Date(post.scheduledAt) : new Date(baseTime + index * 1000),
+            scheduledAt: post.scheduledAt ? new Date(post.scheduledAt) : defaultScheduledAt,
             status: "PENDING",
             firstComment: post.firstComment ?? null,
           },
-        })
-      )
+        });
+      })
     );
 
     return NextResponse.json({
