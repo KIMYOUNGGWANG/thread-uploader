@@ -32,7 +32,7 @@ export async function GET(
     await prisma.post
       .update({
         where: { id: post.id },
-        data: { clicks: { increment: 1 } },
+        data: { clicks: typeof post.clicks === "number" ? { increment: 1 } : 1 },
       })
       .catch((error) => {
         console.error("Failed to increment click count:", error);
