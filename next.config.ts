@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
+  webpack: (config) => {
+    config.cache = false;
+    return config;
+  },
 };
 
 export default nextConfig;
