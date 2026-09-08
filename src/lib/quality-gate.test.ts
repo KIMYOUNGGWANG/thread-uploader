@@ -170,4 +170,34 @@ C. 준비형 (2~4주 리스크 헷징 후 전환)
     expect(r2.pass).toBe(true);
     expect(r3.pass).toBe(true);
   });
+
+  it("passes career decision content using natural synonyms and flexible framing", () => {
+    const postWithSynonyms = `퇴사각 서는데 지금 움직여도 될지 불안하다면
+1. 존버형 (연말까지 성과급 챙기고 관망)
+2. 이직형 (오퍼 수락 후 즉시 런각)
+3. 탐색형 (포트폴리오 다듬으며 물밑 작업)
+
+어느 쪽에 가까운지 체크해. 저장해두고 결정하기 전에 다시 꺼내봐.`;
+
+    const result = checkQuality(postWithSynonyms, "career_decision");
+    expect(result.pass).toBe(true);
+    expect(result.score).toBe(4);
+    expect(result.careerDecisionType).toBe("stay");
+  });
+
+  it("classifies move and prepare types correctly with flexible vocabulary", () => {
+    const movePost = `이직할지 말지 퇴사 타이밍 고민이라면
+지금 당장 이탈해야 할 때 나타나는 신호들.
+이미 이직형으로 마음이 굳어졌다면 퇴사 조건부터 확인하고 움직여. 저장해두고 체크해.`;
+
+    const preparePost = `물경력 걱정되고 퇴사 불안할 때
+아직 탐색형이나 준비하는 쪽에 머물러 있다면 포트폴리오와 이력서부터 정리해. 저장해두고 체크해.`;
+
+    const moveResult = checkQuality(movePost, "career_decision");
+    expect(moveResult.careerDecisionType).toBe("move");
+
+    const prepareResult = checkQuality(preparePost, "career_decision");
+    expect(prepareResult.careerDecisionType).toBe("prepare");
+  });
 });
+

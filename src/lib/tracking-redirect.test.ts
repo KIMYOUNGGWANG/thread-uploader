@@ -45,6 +45,7 @@ describe("Short Redirect and Tracking Attribution", () => {
       formulaId: "contrarian",
       campaignId: "camp_abc",
       linkUrl: "https://www.cosmicpath.app/start?utm_source=threads&pid=post_test123",
+      clicks: 0,
       brand: {
         brandConfig: JSON.stringify({
           websiteUrl: "https://www.cosmicpath.app",

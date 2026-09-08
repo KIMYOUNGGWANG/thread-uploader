@@ -197,6 +197,7 @@ describe("buildGenerationPrompt", () => {
     expect(prompt).toContain("설명충 같은 훈계조나 사주 이론 강의");
     expect(prompt).toContain("기질-조직 미스매치(식상 vs 관성)");
     expect(prompt).toContain("친구나 본인의 실제 관찰 썰");
+    expect(prompt).toContain("3가지 선택 프레임");
     expect(prompt).toContain("글자 수 확인, 자수 체크, 초안, Threads 본문 같은 메타 텍스트를 절대 출력하지 않는다");
     expect(prompt).not.toContain("상황을 쓰면 분류해준다");
   });
