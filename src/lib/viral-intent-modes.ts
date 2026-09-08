@@ -154,7 +154,7 @@ export function hasReplyBurdenPromise(content: string): boolean {
 
 export function hasFortuneOverclaim(content: string): boolean {
   return (
-    /100%|확실|무조건|반드시|미래가\s*확정/i.test(content) ||
-    /운명이\s*정해진/i.test(content)
+    /100%|미래가\s*확정|미래를\s*보장|운명이\s*정해진|(?:사주|운세|미래|대운|운명|결과|마음)(?:가|는|를|도|이)?\s*(?:확실|무조건|반드시|100%)/i.test(content) ||
+    /(?:확실|무조건|반드시)\s*(?:맞|보장|성공|해결|알려|적중|예측|실현|바꿔)/i.test(content)
   );
 }

@@ -155,13 +155,13 @@ export function evaluateManagingEditor(content: string): PersonaScore {
     }
   }
 
-  // Length check
+  // Length check (Threads supports multi-part threads up to 2,400 chars)
   if (content.length < 30) {
     score -= 20;
     flags.push("내용이 너무 짧아 맥락이 부족함");
-  } else if (content.length > 500) {
+  } else if (content.length > 2400) {
     score -= 40;
-    flags.push("Threads 단일 포스트 허용 글자수(500자) 초과");
+    flags.push("Threads 최대 허용 글자수(2,400자) 초과");
   }
 
   score = Math.min(100, Math.max(0, score));
