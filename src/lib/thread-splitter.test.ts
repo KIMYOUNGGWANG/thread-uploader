@@ -57,3 +57,32 @@ describe("thread-splitter", () => {
     }
   });
 });
+
+describe("validatePost", () => {
+  it("allows http, https, and data:image/ URIs without errors", async () => {
+    const { validatePost } = await import("./parser");
+    const result = validatePost({
+      content: "동업 제안 받고 며칠 밤을 새본 적 있냐?",
+      images: [
+        "https://example.com/cover.jpg",
+        "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+      ],
+      scheduledAt: new Date(),
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("flags invalid image paths", async () => {
+    const { validatePost } = await import("./parser");
+    const result = validatePost({
+      content: "테스트 본문",
+      images: ["invalid_path_without_protocol.jpg"],
+      scheduledAt: new Date(),
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain("Invalid image path");
+  });
+});

@@ -102,8 +102,7 @@ export function PostCard({
             return;
         }
         if (isQualityBlocked) {
-            toast.error("Quality FAIL 글은 업로드할 수 없습니다. 수정하거나 다시 생성하세요.");
-            return;
+            toast.info("품질 주의 항목이 포함된 글을 수동 업로드합니다.");
         }
 
         setIsUploading(true);
@@ -149,7 +148,26 @@ export function PostCard({
     const isOverLimit = charCount > 2400;
     const partCount = Math.min(5, Math.ceil(charCount / 460));
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        if (dbPostId) {
+            try {
+                const res = await fetch(`/api/posts/${dbPostId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        content: editedContent,
+                        firstComment: editedComment || "",
+                        scheduledAt: editedDate || undefined,
+                    }),
+                });
+                if (res.ok) {
+                    toast.success("포스트가 수정되었습니다.");
+                    onRefresh?.();
+                }
+            } catch (err) {
+                console.error("Failed to update post:", err);
+            }
+        }
         onUpdate(index, {
             ...post,
             content: editedContent,
@@ -391,22 +409,23 @@ export function PostCard({
                                 size="sm"
                                 className={cn(
                                     "bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white",
+                                    isQualityBlocked && "from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700",
                                     isPosted && "from-green-500 to-green-600"
                                 )}
                                 onClick={handleUpload}
-                                disabled={isUploading || !validation.valid || isPosted || isQualityBlocked}
-                                title={isQualityBlocked ? "Quality FAIL 글은 업로드할 수 없습니다" : undefined}
+                                disabled={isUploading || !validation.valid || isPosted}
+                                title={isQualityBlocked ? "품질 주의 항목이 있으나 수동 업로드 가능합니다" : undefined}
                             >
                                 {isUploading ? (
                                     <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                                ) : isQualityBlocked ? (
-                                    <AlertCircle className="w-3.5 h-3.5 mr-1.5" />
                                 ) : isPosted ? (
                                     <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                                ) : isQualityBlocked ? (
+                                    <AlertCircle className="w-3.5 h-3.5 mr-1.5" />
                                 ) : (
                                     <Upload className="w-3.5 h-3.5 mr-1.5" />
                                 )}
-                                {isUploading ? "업로드 중..." : isQualityBlocked ? "품질 실패" : isPosted ? "업로드됨" : "Threads 업로드"}
+                                {isUploading ? "업로드 중..." : isPosted ? "업로드됨" : isQualityBlocked ? "수동 업로드 (품질주의)" : "Threads 업로드"}
                             </Button>
 
                             {/* Copy Button */}

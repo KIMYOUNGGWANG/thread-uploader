@@ -95,8 +95,9 @@ export function selectCampaignFormulaForViralMode(
 
 export function cleanGeneratedContentLabels(content: string): string {
   return content
-    .replace(/^\s*(?:\*\*)?(?:\[)?본문(?:\s*[-:：][^\]\n]*)?(?:\])?(?:\*\*)?\s*/i, "")
-    .replace(/^\s*(?:\*\*)?본문(?:\*\*)?\s*[:：]?\s*/i, "")
+    .replace(/^\s*(?:#+\s*)?(?:\*\*)?(?:\[)?(?:Threads\s*)?(?:본문|첫\s*댓글)(?:\s*(?:내용|초안|시작|예약됨?))?(?:\s*[-:：][^\]\n]*)?(?:\])?(?:\*\*)?\s*[:：]?\s*/i, "")
+    .replace(/^\s*(?:#+\s*)?(?:\*\*)?(?:Threads\s*)?(?:본문|첫\s*댓글)(?:\s*(?:내용|초안|시작|예약됨?))?(?:\*\*)?\s*[:：]?\s*/i, "")
+    .replace(/^#+\s*(?:본문|Threads\s*본문|첫\s*댓글)[^\n]*\n+/i, "")
     .trim();
 }
 

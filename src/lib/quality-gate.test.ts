@@ -199,5 +199,18 @@ C. 준비형 (2~4주 리스크 헷징 후 전환)
     const prepareResult = checkQuality(preparePost, "career_decision");
     expect(prepareResult.careerDecisionType).toBe("prepare");
   });
+
+  it("recognizes startup, team pivot, and financial anxiety first line hooks", () => {
+    const post1 = `동업 제안 받고 며칠 밤을 새본 적 있냐?
+A. 버팀형 B. 이동형 C. 준비형 중 가까운 쪽만 체크해. 저장해두고 결정해.`;
+    const post2 = `피벗하다 팀이 반 줄어들면, 그게 사주 때문이 아니라 에너지 문제다.
+A. 버팀형 B. 이동형 C. 준비형 중 어디에 해당하는지 체크해. 저장해두고 봐.`;
+    const post3 = `운세 앱에서 '올해 대박'이라 했는데 정작 3달 뒤 카드값 보고 오열하는 현실.
+A. 버팀형 B. 이동형 C. 준비형 중 어느 쪽인지 체크해. 저장해두고 확인해.`;
+
+    expect(checkQuality(post1, "career_decision").pass).toBe(true);
+    expect(checkQuality(post2, "career_decision").pass).toBe(true);
+    expect(checkQuality(post3, "career_decision").pass).toBe(true);
+  });
 });
 

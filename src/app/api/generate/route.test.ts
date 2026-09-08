@@ -21,6 +21,8 @@ describe("buildGenerationPrompt", () => {
   it("removes model output labels from generated content", () => {
     expect(cleanGeneratedContentLabels("**[본문]**\n\n이직할지 버틸지 모르겠다면")).toBe("이직할지 버틸지 모르겠다면");
     expect(cleanGeneratedContentLabels("**본문:**\n퇴사 고민이라면")).toBe("퇴사 고민이라면");
+    expect(cleanGeneratedContentLabels("# 본문\n\n동업 제안 받고 며칠 밤을 새본 적 있냐?")).toBe("동업 제안 받고 며칠 밤을 새본 적 있냐?");
+    expect(cleanGeneratedContentLabels("## Threads 본문\n\n피벗하다 팀이 반 줄어들면")).toBe("피벗하다 팀이 반 줄어들면");
   });
 
   it("includes product profile and active experiment context", () => {

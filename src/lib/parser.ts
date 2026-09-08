@@ -271,9 +271,9 @@ export function validatePost(post: ParsedPost): { valid: boolean; errors: string
         errors.push(`Content exceeds 2,400 characters (${post.content.length})`);
     }
 
-    // Validate image URLs
+    // Validate image URLs (supports http, https, relative paths, and data URIs)
     for (const img of post.images) {
-        if (!img.startsWith("http://") && !img.startsWith("https://") && !img.startsWith("/")) {
+        if (!img.startsWith("http://") && !img.startsWith("https://") && !img.startsWith("/") && !img.startsWith("data:image/")) {
             errors.push(`Invalid image path: ${img}`);
         }
     }
