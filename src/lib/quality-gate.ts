@@ -151,6 +151,8 @@ const CAREER_COMMENT_PATTERNS = [
   /공유/,
   /태그/,
   /보내줘/,
+  /단계/,
+  /엔진/,
 ];
 
 const GENERIC_SELF_HELP_PATTERNS = [
@@ -247,6 +249,7 @@ const CAREER_DECISION_FRAME_PATTERNS = [
   /(버티|존버|잔류)[\s\S]*(이직|퇴사|이동)[\s\S]*(준비|정리|탐색)/,
   /[ABC123①②③]\s*(?:형)?\s*[\.\:\-\)]\s*[\s\S]*[ABC123①②③]\s*(?:형)?\s*[\.\:\-\)]/i,
   /(어디인가|어디야|어디에\s*있|어디\s*가까|어디\s*느껴|어느\s*지점|가장\s*가까운\s*곳|가장\s*가까운\s*쪽)/,
+  /(?:[1-7]단계|[1-7]대\s*엔진|감사\s*체크|7단계)[\s\S]*(?:체크|판정|기준|확인|저장|도출)/,
 ];
 
 export function checkQuality(

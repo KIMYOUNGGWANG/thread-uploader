@@ -98,6 +98,26 @@ describe("checkQuality", () => {
     expect(result.reasons).not.toContain("reply-burden");
   });
 
+  it("passes 7-engine modular audit framework content", () => {
+    const post = [
+      "퇴사 타이밍을 감정으로만 결정하면 3달 뒤 카드값 보고 오열한다.",
+      "진짜 의사결정은 7단계 엔진 감사로 끝내야 함.",
+      "",
+      "1단계: 진태양시 30분 오차 보정",
+      "2단계: 10년 대운 교운기 전환점 확인",
+      "3단계: 조직 내 식상 vs 관성 마찰지수",
+      "4단계: 통장 잔고 런웨이 방어선 체크",
+      "5단계: 의사결정 모드 판정 (A.버팀 / B.이동 / C.준비)",
+      "",
+      "저장해두고 다음 선택 전에 기준 삼아봐.",
+    ].join("\n");
+
+    const result = checkQuality(post, "career_decision");
+    expect(result.pass).toBe(true);
+    expect(result.score).toBe(4);
+    expect(result.reasons).toEqual([]);
+  });
+
   it("fails generated meta text in career decision content", () => {
     const result = checkQuality(
       "이직할지 버틸지 모르겠다면\nA. 버팀형 B. 이동형 C. 준비형 중 가까운 쪽만 체크해.\n\n자수 체크: 공백·줄바꿈 포함 약 430자",

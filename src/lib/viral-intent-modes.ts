@@ -4,7 +4,8 @@ export type ViralIntentModeId =
   | "quiet_contrarian"
   | "friend_share"
   | "controversy_stunt"
-  | "common_enemy";
+  | "common_enemy"
+  | "modular_audit";
 
 export interface ViralIntentMode {
   readonly id: ViralIntentModeId;
@@ -77,6 +78,18 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
       "연대감을 형성하며 공감 댓글을 이끌어낸다.",
     ],
   },
+  {
+    id: "modular_audit",
+    label: "7단계 엔진 감사형 (Modular Audit)",
+    primaryMetric: "saves",
+    instruction: "이직/퇴사/커리어 의사결정을 7단계 모듈러 엔진 분업화 프레임으로 감사(Audit)하여 저장 및 프로필 전환을 유도한다.",
+    rules: [
+      "1~5단계는 완결된 자가진단 기준과 체크리스트로 작성해 저장 가치를 극대화한다.",
+      "6~7단계는 핵심 결론(개인별 탈출 골든타임 및 손절선)으로 남겨두고 첫 댓글 링크 확인을 유도한다(Curiosity Gap).",
+      "댓글에 특정 단어 남기면 DM 발송 등의 Reply-Burden 금지.",
+      "근거 없는 100% 미래 확정 표현 금지.",
+    ],
+  },
 ];
 
 const SPRINT_GROUP_SIZE = 7;
@@ -86,6 +99,8 @@ const LEGACY_FORMULA_MAP: Record<string, ViralIntentModeId> = {
   self_confession: "quiet_contrarian",
   controversy: "controversy_stunt",
   enemy_strike: "common_enemy",
+  modular_audit: "modular_audit",
+  modular_7_engine: "modular_audit",
 };
 
 export function normalizeViralIntentModeId(input: unknown): ViralIntentModeId | null {
@@ -95,7 +110,8 @@ export function normalizeViralIntentModeId(input: unknown): ViralIntentModeId | 
     input === "quiet_contrarian" ||
     input === "friend_share" ||
     input === "controversy_stunt" ||
-    input === "common_enemy"
+    input === "common_enemy" ||
+    input === "modular_audit"
   ) {
     return input;
   }
