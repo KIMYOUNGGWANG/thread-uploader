@@ -1,4 +1,4 @@
 # 🧠 Dynamically Loaded Skills (Auto-generated)
-# Query: "debugging root-cause token refresh publishing"
-# Generated: 2026-06-01T16:37:52
+# Query: "nextjs typescript prisma threads api campaign analytics dashboard"
+# Generated: 2026-09-27T15:24:52
 

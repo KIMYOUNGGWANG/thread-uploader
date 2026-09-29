@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildTrackedUrl } from "@/lib/tracking-url";
 import { parseBrandConfig } from "@/types/brand";
+import { isBotUserAgent } from "@/lib/bot-detector";
 
 export async function GET(
   request: NextRequest,
@@ -28,15 +29,20 @@ export async function GET(
       });
     }
 
-    // Atomically increment clicks without blocking redirect if it fails
-    await prisma.post
-      .update({
-        where: { id: post.id },
-        data: { clicks: typeof post.clicks === "number" ? { increment: 1 } : 1 },
-      })
-      .catch((error) => {
-        console.error("Failed to increment click count:", error);
-      });
+    const userAgent = request.headers.get("user-agent");
+    const isBot = isBotUserAgent(userAgent);
+
+    // Atomically increment clicks without blocking redirect if it fails (human clicks only)
+    if (!isBot) {
+      await prisma.post
+        .update({
+          where: { id: post.id },
+          data: { clicks: typeof post.clicks === "number" ? { increment: 1 } : 1 },
+        })
+        .catch((error) => {
+          console.error("Failed to increment click count:", error);
+        });
+    }
 
     const brandConfig = parseBrandConfig(post.brand.brandConfig);
     const defaultLanding =

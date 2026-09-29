@@ -52,6 +52,15 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
     trackFormulas: {
       track_a: [
         {
+          id: "sal_hierarchy_ego",
+          name: "살 서열화 & 에고 스트로킹 (12만 뷰 검증)",
+          track: "track_a",
+          weight: 8,
+          instruction: "도화/홍염/화개, 백호/괴강 등 기운의 치명적 서열을 비교하고 독자의 특별한 잠재력을 자극하는 압축형(140~200자) 공유 포스트. 첫 줄 절대 서열 제시, 극단적 1줄 앵커('스님도 파계시킴'), 독자 투사, 첫 댓글 결핍 브릿지 배치.",
+          hookArchetype: "개념 서열 훅",
+          forbiddenKeywords: ["사기", "상담비", "반박시 니 말", "AI한테 생년월일"],
+        },
+        {
           id: "career_mismatch",
           name: "식상 vs 관성 기질-조직 미스매치 팩폭",
           track: "track_a",
@@ -71,12 +80,12 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
         },
         {
           id: "concept_hierarchy",
-          name: "개념 서열 비교 훅 (12만 뷰 검증)",
+          name: "개념 서열 비교 & 극단적 앵커 훅 (12만 뷰 검증)",
           track: "track_a",
-          weight: 5,
-          instruction: "대중이 흔히 아는 개념(A)보다 더 센 B, C를 비교하여('도화보다 센 홍염보다 센 게 뭔지 알아? 바로 화개야') 지적 호기심과 상식 파괴를 유발한다.",
+          weight: 7,
+          instruction: "대중이 흔히 아는 개념(A)보다 더 센 B, C를 비교하여('도화보다 센 홍염보다 센 게 뭔지 알아? 바로 화개야') 상식을 깨고, 극단적 1줄 앵커('스님도 파계시킴')와 독자 투사('너한테 그런 치명적 매력이 있을 수도')로 140~200자 내로 압축 작성한다. 본문 링크 절대 금지, 첫 댓글에 분기점 판정 기준표 결핍 브릿지를 배치한다.",
           hookArchetype: "개념 서열 훅",
-          forbiddenKeywords: ["사기", "상담비"],
+          forbiddenKeywords: ["사기", "상담비", "반박시 니 말", "AI한테 생년월일"],
         },
         {
           id: "cost_loss_punch",
@@ -89,6 +98,15 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
         },
       ],
       track_b: [
+        {
+          id: "fact_bomb_incumbent_attack",
+          name: "팩트 폭격 & 기득권 저격 (3만 뷰/유입 400명 검증)",
+          track: "track_b",
+          weight: 6,
+          instruction: "반박 불가능한 역사/천문/법적 팩트를 던져 기존 철학관/점집의 나태함을 저격하고 검증 욕구를 유발하는 전환형 포스트. 1961년 동경시 32분 오차, 서머타임 오차 등 물리적 데이터 제시 후 철학관 바가지 비판.",
+          hookArchetype: "팩트 폭격 훅",
+          forbiddenKeywords: ["부적", "대박"],
+        },
         {
           id: "energy_reset_cycle",
           name: "10년 대운 교운기 번아웃 리스크 판정",

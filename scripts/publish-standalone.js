@@ -1,3 +1,23 @@
+const fs = require('fs');
+const path = require('path');
+
+for (const envFile of ['.env.local', '.env']) {
+    const envPath = path.resolve(__dirname, '..', envFile);
+    if (fs.existsSync(envPath)) {
+        const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const idx = trimmed.indexOf('=');
+            if (idx === -1) continue;
+            const key = trimmed.slice(0, idx).trim();
+            const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+            if (!process.env[key]) process.env[key] = val;
+        }
+        break;
+    }
+}
+
 const { PrismaClient } = require('@prisma/client');
 const { refreshTokens } = require('./refresh-token-standalone');
 const prisma = new PrismaClient();
@@ -26,8 +46,9 @@ function getPublishBrandSlugs() {
 
 async function publishPost(text, credentials, imageUrls = []) {
     let containerId;
+    const validHttpImageUrls = (imageUrls || []).filter((url) => typeof url === "string" && /^https?:\/\//i.test(url));
 
-    if (imageUrls.length === 0) {
+    if (validHttpImageUrls.length === 0) {
         // Text only
         const params = new URLSearchParams({
             media_type: "TEXT",
@@ -43,7 +64,7 @@ async function publishPost(text, credentials, imageUrls = []) {
         // (Full carousel logic can be added if needed, but most are text)
         const params = new URLSearchParams({
             media_type: "IMAGE",
-            image_url: imageUrls[0],
+            image_url: validHttpImageUrls[0],
             text,
             access_token: credentials.accessToken,
         });
@@ -226,7 +247,12 @@ async function main() {
                 accessToken: brand.accessToken,
                 userId: brand.threadsUserId,
             };
-            const imageUrls = JSON.parse(post.imageUrls || "[]");
+            let imageUrls = [];
+            try {
+                imageUrls = JSON.parse(post.imageUrls || "[]");
+            } catch {
+                imageUrls = [];
+            }
             const parts = splitIntoThreadParts(post.content);
             const threadsId = await publishPost(parts[0], credentials, imageUrls);
 

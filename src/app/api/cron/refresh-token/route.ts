@@ -9,6 +9,7 @@ import {
     TOKEN_REFRESH_WINDOW_DAYS,
 } from "@/lib/threads-api";
 import { verifyCronSecret } from "@/lib/cron-auth";
+import { checkTokenExpiryAlert, sendSystemAlert } from "@/lib/alert-service";
 
 /**
  * Cron endpoint for refreshing Threads API access token
@@ -66,14 +67,22 @@ export async function GET(request: NextRequest) {
                         newExpiry: new Date(Date.now() + result.expiresIn * 1000).toISOString(),
                     });
                 } catch (err) {
+                    const errorMsg = err instanceof Error ? err.message : "Unknown error";
                     console.error(`Failed to refresh token for brand ${brand.slug}:`, err);
                     refreshResults.push({
                         slug: brand.slug,
                         success: false,
-                        error: err instanceof Error ? err.message : "Unknown error",
+                        error: errorMsg,
+                    });
+                    await sendSystemAlert({
+                        level: "error",
+                        title: `Token Refresh Failed (${brand.name})`,
+                        message: `Failed to refresh token for brand "${brand.name}": ${errorMsg}`,
+                        brandName: brand.name,
                     });
                 }
             } else {
+                await checkTokenExpiryAlert(brand.name, brand.tokenExpiry, 7);
                 refreshResults.push({
                     slug: brand.slug,
                     success: true,

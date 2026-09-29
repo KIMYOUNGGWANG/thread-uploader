@@ -56,11 +56,15 @@ describe("Short Redirect and Tracking Attribution", () => {
     const findSpy = vi.spyOn(prisma.post, "findUnique").mockResolvedValue(mockPost as unknown as Awaited<ReturnType<typeof prisma.post.findUnique>>);
     const updateSpy = vi.spyOn(prisma.post, "update").mockResolvedValue(mockPost as unknown as Awaited<ReturnType<typeof prisma.post.update>>);
 
-    const request = new NextRequest("https://localhost:3000/r/post_test123");
+    const request = new NextRequest("https://localhost:3000/r/post_test123", {
+      headers: {
+        "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15",
+      },
+    });
     const response = await GET(request, { params: Promise.resolve({ code: "post_test123" }) });
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toContain("https://www.cosmicpath.app/start");
+    expect(response.headers.get("location")).toContain("https://www.cosmicpath.app");
     expect(response.headers.get("location")).toContain("pid=post_test123");
     expect(updateSpy).toHaveBeenCalledWith({
       where: { id: "post_test123" },
@@ -70,5 +74,36 @@ describe("Short Redirect and Tracking Attribution", () => {
     findSpy.mockRestore();
     updateSpy.mockRestore();
   });
-});
 
+  it("filters out automated bot crawlers from incrementing clicks", async () => {
+    const { GET } = await import("@/app/r/[code]/route");
+    const { prisma } = await import("@/lib/prisma");
+    const { NextRequest } = await import("next/server");
+
+    const mockPost = {
+      id: "post_bot123",
+      formulaId: "contrarian",
+      campaignId: "camp_abc",
+      linkUrl: "https://www.cosmicpath.app/start",
+      clicks: 5,
+      brand: { brandConfig: "{}" },
+    };
+
+    const findSpy = vi.spyOn(prisma.post, "findUnique").mockResolvedValue(mockPost as unknown as Awaited<ReturnType<typeof prisma.post.findUnique>>);
+    const updateSpy = vi.spyOn(prisma.post, "update").mockResolvedValue(mockPost as unknown as Awaited<ReturnType<typeof prisma.post.update>>);
+
+    const botRequest = new NextRequest("https://localhost:3000/r/post_bot123", {
+      headers: {
+        "user-agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+      },
+    });
+
+    const response = await GET(botRequest, { params: Promise.resolve({ code: "post_bot123" }) });
+    expect(response.status).toBe(307);
+    // Bot redirected cleanly without incrementing clicks
+    expect(updateSpy).not.toHaveBeenCalled();
+
+    findSpy.mockRestore();
+    updateSpy.mockRestore();
+  });
+});

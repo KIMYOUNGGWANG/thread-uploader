@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  getFreshBrandCredentials,
-  publishThreadChainWithCredentials,
-} from "@/lib/threads-api";
+import { getFreshBrandCredentials } from "@/lib/threads-api";
+import { publishOrResumePost } from "@/lib/threads/thread-resume-engine";
 import { accessErrorResponse, requirePostForCurrentUser } from "@/lib/brand-access";
 import { getPublishSafetyBlockReasons } from "@/lib/publish-safety-gate";
 
@@ -19,7 +17,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   try {
     const { post, brand } = await requirePostForCurrentUser(id);
-    if (post.status === "PUBLISHED" || post.threadsId) {
+    const isFullyPublished = post.status === "PUBLISHED" && post.threadsId && (post.threadPartsPosted === post.threadTotalParts || post.threadTotalParts <= 1);
+    if (isFullyPublished) {
       return NextResponse.json({ error: "Post is already published" }, { status: 400 });
     }
     const safetyReasons = getPublishSafetyBlockReasons(post);
@@ -38,35 +37,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const credentials = await getFreshBrandCredentials(brand.id);
-    const imageUrls = JSON.parse(post.imageUrls || "[]") as string[];
 
-    const { rootThreadsId: threadsId, replyError: replyErrorMessage } = await publishThreadChainWithCredentials(
-      post.content,
-      credentials,
-      imageUrls,
-      post.firstComment
-    );
+    const result = await publishOrResumePost(post.id, credentials);
 
-    if (!threadsId || threadsId === "undefined") {
-      throw new Error(`Invalid Threads ID received: ${threadsId}`);
+    if (!result.success || !result.rootThreadsId) {
+      return NextResponse.json({
+        error: result.error || "Publishing failed",
+        partsPosted: result.partsPosted,
+        totalParts: result.totalParts,
+      }, { status: 500 });
     }
 
-    const updatedPost = await prisma.post.update({
-      where: { id },
-      data: {
-        status: "PUBLISHED",
-        threadsId,
-        publishedAt: new Date(),
-        errorLog: replyErrorMessage ? `First comment failed: ${replyErrorMessage}` : null,
-      },
-    });
+    const updatedPost = await prisma.post.findUnique({ where: { id } });
 
     return NextResponse.json({
       success: true,
-      threadsId,
-      replyError: replyErrorMessage,
+      threadsId: result.rootThreadsId,
+      replyError: result.error,
       post: updatedPost,
-      message: replyErrorMessage ? "본문 업로드 성공, 첫 댓글 실패" : "Posted to Threads successfully!",
+      partsPosted: result.partsPosted,
+      totalParts: result.totalParts,
+      isResumed: result.isResumed,
+      message: result.error ? "본문 업로드 성공, 일부 댓글 실패" : "Posted to Threads successfully!",
     });
   } catch (error) {
     const response = accessErrorResponse(error);

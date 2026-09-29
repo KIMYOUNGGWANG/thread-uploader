@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
+import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Dashboard } from "@/components/Dashboard";
 
@@ -10,10 +10,7 @@ interface PageProps {
 export default async function BrandDashboardPage({ params }: PageProps) {
   const { slug } = await params;
 
-  // session → userId
-  const cookieStore = await cookies();
-  const session = cookieStore.get("auth_session");
-  const userId = session?.value && session.value !== "true" ? session.value : null;
+  const userId = await getSessionUserId();
   if (!userId) notFound();
 
   const brand = await prisma.brand.findUnique({ where: { slug } });

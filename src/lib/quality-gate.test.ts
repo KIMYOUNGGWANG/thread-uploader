@@ -2,6 +2,90 @@ import { describe, expect, it } from "vitest";
 import { checkQuality } from "@/lib/quality-gate";
 
 describe("checkQuality", () => {
+  it("rejects an imagination dilemma without three numbered choices", () => {
+    const result = checkQuality(
+      "대운이 바뀌면 통장부터 지켜야 하는 거 알아?\n지금 판단 기준을 저장해.",
+      "saju_viral",
+      { viralIntentModeId: "imagination_dilemma" }
+    );
+
+    expect(result.pass).toBe(false);
+  });
+
+  it("rejects a concept hierarchy without two comparison steps", () => {
+    const result = checkQuality(
+      "동기 연봉이 오르면 왜 불안한지 알아?\n사주 대운이 흔들릴 때 보는 기준이야. 저장해.",
+      "saju_viral",
+      { viralIntentModeId: "concept_hierarchy" }
+    );
+
+    expect(result.pass).toBe(false);
+  });
+
+  it("rejects an identity profile without a concrete natal marker", () => {
+    const result = checkQuality(
+      "요즘 돈이 안 모여서 불안해?\n사주 대운부터 확인하고 저장해.",
+      "saju_viral",
+      { viralIntentModeId: "identity_profile" }
+    );
+
+    expect(result.pass).toBe(false);
+  });
+
+  it("rejects relationship tension without a relationship contrast", () => {
+    const result = checkQuality(
+      "회사에서 사람 때문에 힘들어?\n사주 대운이 바뀌는 기준을 저장해.",
+      "saju_viral",
+      { viralIntentModeId: "relationship_tension" }
+    );
+
+    expect(result.pass).toBe(false);
+  });
+
+  it("rejects professional honorific tone for CosmicPath viral modes", () => {
+    const result = checkQuality(
+      "사주 원국의 충살을 확인하셨나요?\n관계 흐름을 분석해보시기 바랍니다. 저장하세요.",
+      "saju_viral",
+      { viralIntentModeId: "relationship_tension" }
+    );
+
+    expect(result.pass).toBe(false);
+  });
+
+  it("accepts content that matches each CosmicPath viral mechanism", () => {
+    const fixtures = [
+      {
+        mode: "imagination_dilemma" as const,
+        content: "대운이 뒤집히는 날 통장에 15억 들어왔어. 뭐 할 거야?\n1. 퇴사\n2. 집 산다\n3. 조용히 출근",
+      },
+      {
+        mode: "concept_hierarchy" as const,
+        content: "도화보다 센 홍염보다 센 게 화개인 거 알아?\n화개살의 양면성을 저장해.",
+      },
+      {
+        mode: "identity_profile" as const,
+        content: "사주에 진술축미 깔려있어?\n돈 창고가 열리는 대운 기준을 저장해.",
+      },
+      {
+        mode: "relationship_tension" as const,
+        content: "절대 놓치면 안 되는 궁합이 따로 있는 거 알아?\n천을귀인 만나면 풀리고 원진살 만나면 같이 무너짐. 저장해.",
+      },
+    ];
+
+    for (const fixture of fixtures) {
+      expect(checkQuality(fixture.content, "saju_viral", {
+        viralIntentModeId: fixture.mode,
+      }).pass).toBe(true);
+    }
+  });
+
+  it("accepts viral content even with markdown heading and topic prefixes", () => {
+    const postWithHeader = "# 1일차 포스트\n**주제: 대운 변화 분석**\n사주에 진술축미 깔려있어?\n돈 창고가 열리는 대운 기준을 저장해.";
+    expect(checkQuality(postWithHeader, "saju_viral", {
+      viralIntentModeId: "identity_profile",
+    }).pass).toBe(true);
+  });
+
   it("preserves saju viral pass and fail behavior", () => {
     const passing = checkQuality("혹시 도화살 있는 사람? 솔직히 남들보다 감정 소모가 심한 편이야.\nA. 화개살 B. 도화살 C. 역마살 중 가까운 쪽 체크해봐. 저장해두고 기준 삼아봐.", "saju_viral");
     const failing = checkQuality("좋은 일이 올 거예요. 스스로를 믿으세요.", "saju_viral");
@@ -232,5 +316,26 @@ A. 버팀형 B. 이동형 C. 준비형 중 어느 쪽인지 체크해. 저장해
     expect(checkQuality(post2, "career_decision").pass).toBe(true);
     expect(checkQuality(post3, "career_decision").pass).toBe(true);
   });
-});
 
+  it("passes global English career posts with archetype self-classification", () => {
+    const globalEnglishPost = `you took the senior architect role to *escape* your last burnout. six months in, you're the scapegoat for every post-acquisition integration failure. your saturn return isn't blessing you—it's forcing you to see which version of yourself actually survives pressure.
+
+three career archetypes emerge at this exact junction:
+
+**A. Anchor type** — dig deeper, prove your worth, outlast the chaos (saju: 관성 strong, 10-year cycle favors institutional loyalty)
+
+**B. Exodus type** — exit within 90 days, reset elsewhere before you internalize the blame (saju: 식상 dominance, creative escape route open until Q2)
+
+**C. Reposition type** — stay physically, shift to a different function/team, become untouchable (saju: 편관 + 정관 tension—requires political recalibration, not departure)
+
+most people default to A out of fear. some bolt to B and repeat the same pattern three jobs later. almost nobody successfully pulls off C because it demands you stop being the fixer.
+
+**which one matches your gut right now?** not what sounds responsible—what's already happening in your 2am thoughts? that's your answer.`;
+
+    const result = checkQuality(globalEnglishPost, "career_decision");
+    expect(result.pass).toBe(true);
+    expect(result.score).toBe(4);
+    expect(result.reasons).toHaveLength(0);
+    expect(result.careerDecisionType).toBe("stay");
+  });
+});

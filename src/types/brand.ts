@@ -87,6 +87,30 @@ export interface VoiceProfile {
   language?: "ko" | "en";
 }
 
+export type PostCategory = "GROWTH" | "WARMUP" | "CONVERSION" | "AUTHORITY";
+
+export interface AccountHealthState {
+  status: "HEALTHY" | "WARNING" | "SHADOWBAN_SUSPECTED" | "RECOVERY";
+  trustTier: "newbie" | "warming" | "established" | "authority";
+  publishedTodayCount: number;
+  lastPublishDate: string; // YYYY-MM-DD
+  lastEvaluatedAt: string; // ISO 8601
+  metrics: {
+    recentAverageViews: number;
+    baselineAverageViews: number;
+    dropPercentage: number;
+    consecutiveDepressedCount: number;
+  };
+  reasons: string[];
+  healingDirective: {
+    mode: "NORMAL" | "MONITOR" | "WARMUP_ONLY";
+    freezePolarizingFormulas: boolean;
+    maxDailyPosts: number;
+    forbiddenElements: string[];
+    actionMessage: string;
+  };
+}
+
 export interface BrandConfig {
   systemPrompt: string;
   topics: string[];
@@ -109,6 +133,17 @@ export interface BrandConfig {
     personaWeights?: Record<string, number>;
     frictionWeights?: Record<string, number>;
   };
+  thompsonPriors?: Record<string, { alpha: number; beta: number }>;
+  accountTrustTier?: "newbie" | "warming" | "established" | "authority";
+  accountCreatedAt?: string;
+  jitterEnabled?: boolean;
+  shadowbanStatus?: "HEALTHY" | "WARNING" | "SHADOWBAN_SUSPECTED";
+  accountHealth?: AccountHealthState;
+  sporadicEnabled?: boolean;
+  lastTickSkipped?: boolean;
+  sideMission?: string;
+  minAlgorithmicScore?: number;
+  creatorHandle?: string;
 }
 
 export interface BrandResponse {
@@ -165,6 +200,9 @@ export const DEFAULT_BRAND_CONFIG: BrandConfig = {
   qualityProfile: "career_decision",
   productProfile: normalizeProductProfile({}),
   activeExperiment: normalizeActiveExperiment({}),
+  accountTrustTier: "established",
+  jitterEnabled: true,
+  shadowbanStatus: "HEALTHY",
 };
 
 export function parseBrandConfig(raw: string): BrandConfig {
@@ -197,6 +235,21 @@ export function parseBrandConfig(raw: string): BrandConfig {
       activeExperiment: normalizeActiveExperiment(parsed.activeExperiment),
       voiceProfile: normalizeVoiceProfile(parsed.voiceProfile),
       contextWeights: normalizeContextWeights(parsed.contextWeights),
+      thompsonPriors: isRecord(parsed.thompsonPriors) ? (parsed.thompsonPriors as Record<string, { alpha: number; beta: number }>) : undefined,
+      accountTrustTier: (["newbie", "warming", "established", "authority"].includes(parsed.accountTrustTier as string)
+        ? parsed.accountTrustTier
+        : DEFAULT_BRAND_CONFIG.accountTrustTier) as "newbie" | "warming" | "established" | "authority",
+      accountCreatedAt: typeof parsed.accountCreatedAt === "string" ? parsed.accountCreatedAt : undefined,
+      jitterEnabled: typeof parsed.jitterEnabled === "boolean" ? parsed.jitterEnabled : true,
+      shadowbanStatus: (["HEALTHY", "WARNING", "SHADOWBAN_SUSPECTED"].includes(parsed.shadowbanStatus as string)
+        ? parsed.shadowbanStatus
+        : "HEALTHY") as "HEALTHY" | "WARNING" | "SHADOWBAN_SUSPECTED",
+      accountHealth: isRecord(parsed.accountHealth) ? (parsed.accountHealth as unknown as AccountHealthState) : undefined,
+      sporadicEnabled: typeof parsed.sporadicEnabled === "boolean" ? parsed.sporadicEnabled : false,
+      lastTickSkipped: typeof parsed.lastTickSkipped === "boolean" ? parsed.lastTickSkipped : false,
+      sideMission: typeof parsed.sideMission === "string" ? parsed.sideMission : undefined,
+      minAlgorithmicScore: typeof parsed.minAlgorithmicScore === "number" ? parsed.minAlgorithmicScore : undefined,
+      creatorHandle: typeof parsed.creatorHandle === "string" ? parsed.creatorHandle : undefined,
     };
   } catch {
     return DEFAULT_BRAND_CONFIG;

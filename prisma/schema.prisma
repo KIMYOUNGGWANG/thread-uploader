@@ -37,6 +37,8 @@ model Brand {
   viralPatterns  ViralPattern[]
   accountInsights AccountInsight[]
   conversionEvents ConversionEvent[]
+  threadReplies    ThreadReply[]
+  tikTokDrafts     TikTokVideoDraft[]
 }
 
 model Post {
@@ -79,10 +81,43 @@ model Post {
   performanceTier  String?
   learnedAt    DateTime?
   conversionEvents ConversionEvent[]
+  threadRootId       String?
+  threadPartsPosted  Int       @default(0)
+  threadTotalParts   Int       @default(1)
+  threadPartIds      String    @default("[]")
+  sideMission        String?
+  postCategory       String    @default("GROWTH")
+  algorithmicScore   Int?
+  algorithmicPass    Boolean?
+  algorithmicDimensions String @default("{}")
+  algorithmicFixes   String    @default("[]")
+  rewriteCount       Int       @default(0)
 
   @@index([brandId, campaignId])
   @@index([brandId, scheduledAt])
   @@index([brandId, publishedAt])
+  @@index([brandId, status])
+  @@index([brandId, postCategory, status])
+}
+
+model ThreadReply {
+  id              String   @id @default(cuid())
+  brandId         String
+  brand           Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  postThreadsId   String
+  replyThreadsId  String   @unique
+  authorUsername  String
+  authorText      String
+  replyText       String?
+  status          String   @default("DRAFT")
+  isMention       Boolean  @default(false)
+  isFollowUp      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([brandId, status])
+  @@index([brandId, postThreadsId])
+  @@index([brandId, createdAt])
 }
 
 model Settings {
@@ -180,4 +215,53 @@ model ConversionEvent {
   @@index([brandId, createdAt])
 }
 
+model TikTokVideoDraft {
+  id                String              @id @default(cuid())
+  brandId           String
+  campaignId        String
+  formatId          String
+  status            String              @default("DRAFT")
+  title             String
+  spokenHook        String
+  script            String
+  sceneBeats        String              @default("[]")
+  captionOverlays   String              @default("[]")
+  onScreenText      String              @default("[]")
+  hashtags          String              @default("[]")
+  cta               String
+  landingUrl        String?
+  utmContent        String?
+  qualityProfile    String              @default("tiktok_career_timing")
+  qualityPass       Boolean             @default(false)
+  qualityScore      Int                 @default(0)
+  qualityReasons    String              @default("[]")
+  durationSeconds   Int                 @default(25)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  brand             Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  metrics           TikTokVideoMetric[]
 
+  @@index([brandId, campaignId])
+  @@index([brandId, createdAt])
+  @@index([brandId, status])
+}
+
+model TikTokVideoMetric {
+  id               String           @id @default(cuid())
+  draftId          String
+  measuredAt       DateTime         @default(now())
+  views            Int              @default(0)
+  likes            Int              @default(0)
+  comments         Int              @default(0)
+  shares           Int              @default(0)
+  saves            Int              @default(0)
+  profileClicks    Int              @default(0)
+  landingClicks    Int              @default(0)
+  conversions      Int              @default(0)
+  performanceScore Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  draft            TikTokVideoDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId, measuredAt])
+}

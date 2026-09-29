@@ -17,6 +17,8 @@
     "reply:auto": "node scripts/reply-assistant.mjs --auto-post",
     "cron:run": "node scripts/cron-daemon.mjs --once",
     "cron:daemon": "node scripts/cron-daemon.mjs --daemon",
+    "worker:tiktok": "node scripts/render-tiktok-worker.mjs",
+    "worker:tiktok:once": "node scripts/render-tiktok-worker.mjs --once",
     "postinstall": "prisma generate && patch-package"
   },
   "dependencies": {

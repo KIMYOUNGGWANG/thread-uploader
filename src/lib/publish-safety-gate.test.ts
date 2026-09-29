@@ -55,4 +55,87 @@ describe("getPublishSafetyBlockReasons", () => {
     expect(reasons.length).toBeGreaterThan(0);
     expect(reasons[0]).toMatch(/5단 스레드 최대 허용.*초과/);
   });
+
+  it("blocks publishing when account trust quota is exceeded", () => {
+    const reasons = getPublishSafetyBlockReasons(
+      {
+        content: "정상적인 텍스트 포스트입니다.",
+        firstComment: null,
+      },
+      {
+        accountTrust: {
+          tier: "newbie",
+          publishedTodayCount: 1, // quota is 1 for newbie
+        },
+      }
+    );
+
+    expect(reasons.some((r) => r.includes("일일 발행 한도 초과"))).toBe(true);
+  });
+
+  it("blocks publishing when algorithmic score is below threshold", () => {
+    const slopPost = "혁신적인 새로운 지평을 함께 살펴보겠습니다.";
+    const reasons = getPublishSafetyBlockReasons(
+      {
+        content: slopPost,
+        firstComment: null,
+      },
+      {
+        minAlgorithmicScore: 80,
+      }
+    );
+
+    expect(reasons.some((r) => r.includes("알고리즘 탈출 점수 미달"))).toBe(true);
+  });
+
+  it("blocks non-WARMUP posts when status is SHADOWBAN_SUSPECTED", () => {
+    const reasons = getPublishSafetyBlockReasons(
+      {
+        content: "이직 타이밍 체크\n\n1. 버팀형 2. 이동형",
+        firstComment: null,
+        postCategory: "GROWTH",
+      },
+      {
+        accountHealth: {
+          status: "SHADOWBAN_SUSPECTED",
+        },
+      }
+    );
+
+    expect(reasons).toContain("스텔스 섀도우밴 위험 상태: WARMUP 카테고리 포스트만 발행 가능");
+  });
+
+  it("blocks posts with links during SHADOWBAN_SUSPECTED even if category is WARMUP", () => {
+    const reasons = getPublishSafetyBlockReasons(
+      {
+        content: "따뜻한 공감과 인사이트를 전합니다.",
+        firstComment: "자세한 링크: https://cosmicpath.app",
+        postCategory: "WARMUP",
+      },
+      {
+        accountHealth: {
+          status: "SHADOWBAN_SUSPECTED",
+        },
+      }
+    );
+
+    expect(reasons).toContain("스텔스 섀도우밴 위험 상태: 외부 링크 포함 포스트 발행 금지");
+  });
+
+  it("allows clean WARMUP post without links during SHADOWBAN_SUSPECTED", () => {
+    const reasons = getPublishSafetyBlockReasons(
+      {
+        content: "오늘 하루도 고생 많으셨습니다. 스스로에게 휴식을 주는 저녁 되시길 바랍니다.",
+        firstComment: null,
+        postCategory: "WARMUP",
+      },
+      {
+        accountHealth: {
+          status: "SHADOWBAN_SUSPECTED",
+        },
+      }
+    );
+
+    expect(reasons).toHaveLength(0);
+  });
 });

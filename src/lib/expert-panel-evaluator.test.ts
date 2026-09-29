@@ -47,7 +47,7 @@ describe("Expert Panel Evaluator", () => {
     expect(overall.pass).toBe(false);
   });
 
-  it("has exactly 24 AI slop patterns configured", () => {
-    expect(AI_SLOP_PATTERNS.length).toBe(24);
+  it("has exactly 30 AI slop patterns configured", () => {
+    expect(AI_SLOP_PATTERNS.length).toBe(30);
   });
 });

@@ -1,5 +1,7 @@
 export const THREADS_CONTENT_MAX_LENGTH = 500;
-export const THREADS_CONTENT_TARGET_LENGTH = 460;
+export const THREADS_CONTENT_TARGET_LENGTH = 220; // optimal viral range: 140~240 chars
+export const THREADS_VIRAL_MIN_LENGTH = 80;
+export const THREADS_VIRAL_OPTIMAL_MAX = 260;
 export const THREADS_MULTI_PART_MAX_LENGTH = 2400; // max 5 parts (each up to ~480 chars)
 
 export function getThreadsContentLimitError(

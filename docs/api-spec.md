@@ -632,7 +632,7 @@ Quality gate failures are allowed to remain visible in the queue for review and 
 
 | Method | Path | Description |
 |:-------|:-----|:------------|
-| `GET` | `/api/campaigns/summary?brandId=xxx&campaignId=yyy` | campaign dashboard summary |
+| `GET` | `/api/campaigns/summary?brandId=xxx&campaignId=yyy&scope=today\|campaign` | campaign dashboard summary; `scope` defaults to `today` |
 | `PATCH` | `/api/posts/[id]/campaign-metrics` | clicks/conversions/manual paid conversion 입력 |
 
 ```typescript
@@ -700,6 +700,33 @@ interface CampaignSummaryResponse {
     views: 20;
     clicksConversions: 15;
   };
+  // scope=campaign only. A mature measurement requires metrics captured at least 72h after publish.
+  experimentReadiness?: {
+    status: "empty" | "incomplete" | "ready";
+    totalPosts: number;
+    immaturePosts: number;
+    maturePosts: number;
+    measuredMaturePosts: number;
+    missingMetricsPosts: number;
+    zeroViewMaturePosts: number;
+  };
+  viralModeComparisons?: Array<MatureComparison & {
+    viralIntentModeId: string;
+  }>;
+  linkExposureComparison?: {
+    linked: MatureComparison;
+    control: MatureComparison;
+  };
+}
+
+interface MatureComparison {
+  totalPosts: number;
+  maturePosts: number;
+  measuredPosts: number;
+  missingMetricsPosts: number;
+  medianViews: number | null;
+  replyRate: number;
+  repostRate: number;
 }
 
 interface UpdateCampaignMetricsRequest {

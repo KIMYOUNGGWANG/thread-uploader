@@ -58,13 +58,14 @@ export interface AdmissionCommentContext {
   trackingParams?: TrackingParams;
   voiceProfile?: VoiceProfile;
   linkPlacement?: "bio" | "firstComment";
+  deficiencyBridge?: string;
 }
 
 export function buildAdmissionFirstComment(
   postContent: string,
   context: AdmissionCommentContext = {}
 ): string {
-  const { topic = "이 내용", linkUrl, trackingParams, voiceProfile, linkPlacement = "bio" } = context;
+  const { topic = "이 내용", linkUrl, trackingParams, voiceProfile, linkPlacement = "bio", deficiencyBridge } = context;
 
   const isEnglish = voiceProfile?.language === "en" ||
     Boolean(linkUrl && linkUrl.includes("etsy.com")) ||
@@ -91,9 +92,9 @@ export function buildAdmissionFirstComment(
       "No guru nonsense—just patterns that kept repeating until I actually mapped them out.",
     ];
     const enFlip = enFlips[Math.floor(Math.random() * enFlips.length)] ?? enFlips[0];
-    const enWin = isRelationship
+    const enWin = deficiencyBridge || (isRelationship
       ? "Pulled the complete decision framework together so you don't have to guess."
-      : "Mapped out the full decision blueprint so you can see your own blind spots.";
+      : "Mapped out the full decision blueprint so you can see your own blind spots.");
 
     const allowDirectLink = linkPlacement === "firstComment" && Boolean(finalUrl);
     const enClosing = allowDirectLink
@@ -117,8 +118,12 @@ export function buildAdmissionFirstComment(
   ];
   const flip = flips[Math.floor(Math.random() * flips.length)] ?? flips[0];
 
-  // 3. Smallest possible win / sad flex (작은 성과 및 가치 제공)
-  const win = `${topic} 관련해서 바로 써먹을 수 있는 체크리스트만 따로 추려둠.`;
+  // 3. Smallest possible win / deficiency bridge (작은 성과 및 결핍 브릿지)
+  const win = deficiencyBridge
+    ? deficiencyBridge
+    : (topic.includes("화개") || topic.includes("도화") || topic.includes("홍염") || topic.includes("신살") || topic.includes("살"))
+      ? "이게 '치명적 매력'으로 터지는지 '인간관계 파탄'으로 터지는지는 지지 1개로 갈림. 판정 기준만 따로 정리해둠."
+      : `${topic} 관련해서 바로 써먹을 수 있는 체크리스트만 따로 추려둠.`;
 
   // 4. Resigned acceptance + soft bio guide (or direct link if explicitly configured as firstComment)
   let closing = "전체 판단 기준표와 리포트는 프로필 상단 링크에 남겨둠.";
@@ -128,4 +133,61 @@ export function buildAdmissionFirstComment(
   }
 
   return [admission, flip, win, closing].join("\n");
+}
+
+export interface ConversationIgniterContext {
+  topic?: string;
+  formulaId?: string;
+  voiceProfile?: VoiceProfile;
+  hookType?: string;
+}
+
+/**
+ * 2026 Threads Algorithm Ranking Signal: Reply Depth & Conversation Velocity
+ * Builds a second spark/igniter comment for the creator to drop 15~30 mins after posting,
+ * specifically engineered to stimulate substantive back-and-forth discussion without cheesy bait.
+ */
+export function buildConversationIgniterComment(
+  postContent: string,
+  context: ConversationIgniterContext = {}
+): string {
+  const { topic = "", formulaId = "" } = context;
+
+  // 1. 3-Choice / Dilemma formulas
+  if (formulaId.includes("lotto") || formulaId.includes("choice") || formulaId.includes("dilemma") || /1\.|2\.|3\./.test(postContent)) {
+    const choices = [
+      "솔직히 나는 2번 보고 바로 공감했는데 친구는 무조건 1번이라더라. 너넨 진지하게 몇 번이냐?",
+      "3번 고른 사람 있으면 진짜 이유가 궁금함 ㅋㅋㅋ 다들 현실적으로 어느 쪽 선택함?",
+      "이거 직장 동료들한테 물어보니까 반응 반반으로 갈리더라. 너네 기준엔 몇 번이 정답임?",
+    ];
+    return choices[Math.floor(Math.random() * choices.length)];
+  }
+
+  // 2. Hierarchy / Ego / Identity formulas
+  if (formulaId.includes("hierarchy") || formulaId.includes("ego") || topic.includes("살") || topic.includes("사주")) {
+    const egos = [
+      "주변에 이거 제대로 터진 사람 보면 눈빛부터 다르던데, 너네 주변에도 이런 기운 가진 사람 있음?",
+      "처음엔 안 믿었는데 실제 사례 뜯어보니까 소름 돋게 맞더라. 본인 사주에서 확인해본 사람?",
+      "이거 장점으로 쓰면 대박인데 방치하면 멘탈부터 깨짐. 너넨 이거 어떻게 체감함?",
+    ];
+    return egos[Math.floor(Math.random() * egos.length)];
+  }
+
+  // 3. Fact Bomb / Incumbent Attack
+  if (formulaId.includes("fact") || formulaId.includes("attack") || formulaId.includes("warning") || topic.includes("시간") || topic.includes("오차")) {
+    const facts = [
+      "아직도 30분 오차 계산 안 하고 사주 보러 가는 사람 많더라. 다들 본인 진짜 태어난 시 알고 있었음?",
+      "주변에 물어보면 10명 중 7명은 자기가 태어난 시(時)도 헷갈려함. 확인해본 사람?",
+      "기존에 알고 있던 사주랑 다르게 나와서 당황한 사람 손 들어봐.",
+    ];
+    return facts[Math.floor(Math.random() * facts.length)];
+  }
+
+  // 4. Default Conversation Spark
+  const defaults = [
+    `이거 관련해서 나도 겪어보기 전까진 몰랐는데 다들 어떻게 생각함?`,
+    `이 상황 닥치면 다들 현실적으로 어떻게 대처함? 솔직한 경험담 궁금함.`,
+    `너네 기준에선 이게 맞다고 봄? 다른 관점 있으면 댓글로 편하게 던져줘.`,
+  ];
+  return defaults[Math.floor(Math.random() * defaults.length)];
 }

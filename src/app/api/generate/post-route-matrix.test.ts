@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
-  createdPosts: [] as Array<{ id: string; campaignFormulaId: string | null }>,
+  createdPosts: [] as Array<{
+    id: string;
+    campaignFormulaId: string | null;
+    firstComment?: string | null;
+    linkUrl?: string | null;
+    utmContent?: string | null;
+  }>,
 }));
 
 const DIVERSE_POST_BODIES = [
@@ -55,62 +61,127 @@ vi.mock("@anthropic-ai/sdk", () => ({
 
 vi.mock("@/lib/brand-access", () => ({
   accessErrorResponse: () => null,
-  requireBrandForCurrentUser: vi.fn(async () => ({
-    brand: {
-      id: "brand_1",
-      brandConfig: JSON.stringify({
-        systemPrompt: "Write concise CosmicPath posts.",
-        topics: ["이직 타이밍"],
-        targets: ["이직을 고민하는 사람"],
-        situations: ["퇴사와 이직 사이에서 흔들리는 상황"],
-        websiteUrl: "cosmicpath.app",
-        campaigns: [{
-          id: "career_timing_wedge_399",
-          name: "커리어 타이밍 불안 wedge",
-          mode: "landing-test",
+  requireBrandForCurrentUser: vi.fn(async (brandId?: string) => {
+    if (brandId === "cmqpj5tjf0002eize6v2ui2lg" || brandId === "cosmicpath") {
+      return {
+        brand: {
+          id: "cmqpj5tjf0002eize6v2ui2lg",
+          slug: "cosmicpath",
+          brandConfig: JSON.stringify({
+            systemPrompt: "Write concise CosmicPath posts.",
+            topics: ["식상 vs 관성 기질 미스매치", "10년 대운 교운기 번아웃", "사주와 점성술 교차 판정"],
+            targets: ["이직을 고민하는 2542 직장인"],
+            situations: ["퇴사와 이직 사이에서 흔들리는 상황"],
+            websiteUrl: "cosmicpath.app",
+            productProfile: {
+              productName: "CosmicPath",
+              landingUrl: "https://www.cosmicpath.app/start?entry=decision_timing_rebuild_v1",
+            },
+            campaigns: [{
+              id: "cosmicpath_lean_sprint",
+              name: "CosmicPath Lean 15-Post Sprint",
+              mode: "landing-test",
+              qualityProfile: "saju_viral",
+              landingUrl: "https://www.cosmicpath.app/start?entry=decision_timing_rebuild_v1",
+              utmSource: "threads",
+              utmCampaign: "decision_timing_rebuild_v1",
+              utmContentTemplate: "{{postId}}",
+              dailyPostTarget: 3,
+              linkCadenceEvery: 3,
+              linkPlacement: "firstComment",
+              formulas: [
+                {
+                  id: "imagination_dilemma",
+                  name: "초저마찰 3지선다 딜레마",
+                  weight: 4,
+                  instruction: "로또/현실 3지선다 딜레마",
+                },
+                {
+                  id: "concept_hierarchy",
+                  name: "개념 서열 비교",
+                  weight: 4,
+                  instruction: "도화 vs 홍염 vs 화개 절대 서열 비교",
+                },
+                {
+                  id: "identity_profile",
+                  name: "살/일주 프로파일링",
+                  weight: 4,
+                  instruction: "화개살/문창귀인/신금일주 팩폭",
+                },
+                {
+                  id: "relationship_tension",
+                  name: "궁합/관계 텐션",
+                  weight: 3,
+                  instruction: "궁합/손절/연락 타이밍 팩폭",
+                },
+              ],
+            }],
+            activeCampaignId: "cosmicpath_lean_sprint",
+            qualityProfile: "saju_viral",
+          }),
+          formulaWeights: "{}",
+          growthMemory: "{}",
+          viralMemory: "{}",
+        },
+      };
+    }
+    return {
+      brand: {
+        id: "brand_1",
+        brandConfig: JSON.stringify({
+          systemPrompt: "Write concise CosmicPath posts.",
+          topics: ["이직 타이밍"],
+          targets: ["이직을 고민하는 사람"],
+          situations: ["퇴사와 이직 사이에서 흔들리는 상황"],
+          websiteUrl: "cosmicpath.app",
+          campaigns: [{
+            id: "career_timing_wedge_399",
+            name: "커리어 타이밍 불안 wedge",
+            mode: "landing-test",
+            qualityProfile: "career_decision",
+            landingUrl: "/career/uncertainty",
+            utmSource: "threads",
+            utmCampaign: "career_timing_wedge_399",
+            utmContentTemplate: "{{postId}}",
+            dailyPostTarget: 3,
+            linkCadenceEvery: 1000,
+            linkPlacement: "firstComment",
+            formulas: [
+              {
+                id: "self_classification",
+                name: "자기분류 셀프체크형",
+                weight: 3,
+                instruction: "A/B/C 중 하나를 본문 안에서 체크하게 만든다.",
+              },
+              {
+                id: "saveable_tool",
+                name: "저장형 판단 도구",
+                weight: 2,
+                instruction: "저장 가능한 체크리스트로 만든다.",
+              },
+              {
+                id: "friend_share",
+                name: "친구 공유형",
+                weight: 2,
+                instruction: "친구에게 보내주고 싶게 만든다.",
+              },
+            ],
+            replyPlaybook: {
+              stay: "버팀형",
+              move: "이동형",
+              prepare: "준비형",
+              cta: "프로필 링크 확인",
+            },
+          }],
+          activeCampaignId: "career_timing_wedge_399",
           qualityProfile: "career_decision",
-          landingUrl: "/career/uncertainty",
-          utmSource: "threads",
-          utmCampaign: "career_timing_wedge_399",
-          utmContentTemplate: "{{postId}}",
-          dailyPostTarget: 3,
-          linkCadenceEvery: 1000,
-          linkPlacement: "firstComment",
-          formulas: [
-            {
-              id: "self_classification",
-              name: "자기분류 셀프체크형",
-              weight: 3,
-              instruction: "A/B/C 중 하나를 본문 안에서 체크하게 만든다.",
-            },
-            {
-              id: "saveable_tool",
-              name: "저장형 판단 도구",
-              weight: 2,
-              instruction: "저장 가능한 체크리스트로 만든다.",
-            },
-            {
-              id: "friend_share",
-              name: "친구 공유형",
-              weight: 2,
-              instruction: "친구에게 보내주고 싶게 만든다.",
-            },
-          ],
-          replyPlaybook: {
-            stay: "버팀형",
-            move: "이동형",
-            prepare: "준비형",
-            cta: "프로필 링크 확인",
-          },
-        }],
-        activeCampaignId: "career_timing_wedge_399",
-        qualityProfile: "career_decision",
-      }),
-      formulaWeights: "{}",
-      growthMemory: "{}",
-      viralMemory: "{}",
-    },
-  })),
+        }),
+        formulaWeights: "{}",
+        growthMemory: "{}",
+        viralMemory: "{}",
+      },
+    };
+  }),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -173,5 +244,47 @@ describe("POST /api/generate viral sprint matrix", () => {
       quiet_contrarian: 7,
       friend_share: 7,
     });
+  }, 10000);
+
+  it("persists a 4:4:4:3 CosmicPath sprint with tracked links only on every third post", async () => {
+    state.createdPosts.length = 0;
+    const { POST } = await import("@/app/api/generate/route");
+
+    const response = await POST(new Request("http://localhost/api/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        brandId: "cmqpj5tjf0002eize6v2ui2lg",
+        count: 15,
+        campaignId: "cosmicpath_lean_sprint",
+      }),
+    }) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ success: true, count: 15, campaignId: "cosmicpath_lean_sprint" });
+    expect(state.createdPosts).toHaveLength(15);
+
+    const counts = state.createdPosts.reduce<Record<string, number>>((result, post) => {
+      const modeId = post.campaignFormulaId ?? "missing";
+      result[modeId] = (result[modeId] ?? 0) + 1;
+      return result;
+    }, {});
+
+    expect(counts).toEqual({
+      imagination_dilemma: 4,
+      concept_hierarchy: 4,
+      identity_profile: 4,
+      relationship_tension: 3,
+    });
+
+    expect(state.createdPosts.map((post) => Boolean(post.linkUrl))).toEqual([
+      false, false, true,
+      false, false, true,
+      false, false, true,
+      false, false, true,
+      false, false, true,
+    ]);
+    expect(state.createdPosts.filter((post) => post.linkUrl)).toHaveLength(5);
+    expect(state.createdPosts.filter((post) => post.utmContent)).toHaveLength(5);
   }, 10000);
 });

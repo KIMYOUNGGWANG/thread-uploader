@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Users, Eye, EyeOff, Video, Copy, LayoutList, Newspaper, MessageSquare, FlaskConical } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Video, LayoutList, Newspaper, MessageSquare, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
@@ -11,6 +11,13 @@ import { Toaster, toast } from "sonner";
 import Link from "next/link";
 import { NewsTrendingTab } from "@/components/NewsTrendingTab";
 import { InteractionsTab } from "@/components/InteractionsTab";
+import { AccountHealthBanner } from "@/components/AccountHealthBanner";
+import {
+  CampaignExperimentReadiness,
+  type ExperimentReadinessData,
+  type MatureComparisonData,
+  type ViralModeComparisonData,
+} from "@/components/CampaignExperimentReadiness";
 import type { AccountInsightSnapshot } from "@/types/account-intelligence";
 
 interface FormulaStats {
@@ -212,6 +219,12 @@ interface CampaignSummaryData {
     clicksConversions: number;
   };
   replyPlaybook: Record<"stay" | "move" | "prepare" | "cta", string>;
+  experimentReadiness?: ExperimentReadinessData;
+  viralModeComparisons?: ViralModeComparisonData[];
+  linkExposureComparison?: {
+    linked: MatureComparisonData;
+    control: MatureComparisonData;
+  };
 }
 
 interface CampaignMetricDraft {
@@ -267,6 +280,12 @@ interface DBPost {
   clicks: number | null;
   conversions: number | null;
   manualPaidConversions: number | null;
+  postCategory?: string | null;
+  algorithmicScore?: number | null;
+  algorithmicPass?: boolean | null;
+  algorithmicDimensions?: Record<string, { name: string; score: number; maxScore: number }> | null;
+  algorithmicFixes?: string[];
+  rewriteCount?: number | null;
 }
 
 interface DashboardProps {
@@ -406,7 +425,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const loadCampaignSummary = useCallback(async () => {
     setIsLoadingCampaign(true);
     try {
-      const response = await fetch(`/api/campaigns/summary?brandId=${brandId}`);
+      const response = await fetch(`/api/campaigns/summary?brandId=${brandId}&scope=campaign`);
       const data = await response.json() as CampaignSummaryData | { error?: string };
       if (!response.ok) throw new Error((data as { error?: string }).error ?? "캠페인 데이터 불러오기 실패");
       const summary = data as CampaignSummaryData;
@@ -801,21 +820,21 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
 
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/70 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap sm:justify-between sm:py-4">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <Link href="/brands" className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
               <ArrowLeft className="w-4 h-4 text-slate-500" />
             </Link>
             <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl shadow-lg shadow-violet-500/30">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800 dark:text-white">{brandName}</h1>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-bold text-slate-800 dark:text-white sm:text-xl">{brandName}</h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">제품 성장 실험 대시보드</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap sm:gap-3">
             {posts.length > 0 && (
               <div className="flex items-center gap-2">
                 {pendingCount > 0 && (
@@ -835,7 +854,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                 )}
               </div>
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               {posts.length > 0 && (
                 <>
                   <Button variant="outline" size="sm" onClick={fetchPosts} disabled={isFetching}>
@@ -846,13 +865,18 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   </Button>
                 </>
               )}
+              <Link href={`/brands/${brandSlug}/tiktok`}>
+                <Button variant="outline" size="sm" className="text-pink-600 dark:text-pink-400 border-pink-500/30 hover:text-pink-700 hover:bg-pink-50 dark:hover:bg-pink-950/20">
+                  <Video className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">TikTok 숏폼</span>
+                </Button>
+              </Link>
               <Link href={`/brands/${brandSlug}/settings`}>
                 <Button variant="ghost" size="sm" className="text-slate-500 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/10">
-                  <Settings className="w-4 h-4 mr-1.5" />설정
+                  <Settings className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">설정</span>
                 </Button>
               </Link>
               <Button variant="ghost" size="sm" onClick={handleLogout} className="text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10">
-                <LogOut className="w-4 h-4 mr-1.5" />로그아웃
+                <LogOut className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">로그아웃</span>
               </Button>
             </div>
           </div>
@@ -861,6 +885,14 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* Account Health Safety Cockpit Banner */}
+        <AccountHealthBanner
+          brandId={brandId}
+          brandSlug={brandSlug}
+          brandName={brandName}
+          onHealthChange={fetchPosts}
+        />
+
         {/* Modern 3-Tab Bar */}
         <div className="flex items-center gap-2 mb-8 border-b border-slate-200 dark:border-slate-700 pb-3">
           <button
@@ -1347,6 +1379,12 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   manualPaidConversions={dbPost.manualPaidConversions}
                   performanceScore={dbPost.performanceScore}
                   performanceTier={dbPost.performanceTier}
+                  postCategory={dbPost.postCategory}
+                  algorithmicScore={dbPost.algorithmicScore}
+                  algorithmicPass={dbPost.algorithmicPass}
+                  algorithmicDimensions={dbPost.algorithmicDimensions}
+                  algorithmicFixes={dbPost.algorithmicFixes}
+                  rewriteCount={dbPost.rewriteCount}
                   onUpdate={() => { }}
                   onDelete={() => handleDeletePost(dbPost.id)}
                   onRefresh={fetchPosts}
@@ -1546,11 +1584,17 @@ function CampaignSummaryPanel({
         <MetricTile label="반응" value={`${summary.metrics.replies} 댓글`} sub={`조회 ${summary.metrics.views} · 리포스트 ${summary.metrics.reposts}`} />
       </div>
 
+      <CampaignExperimentReadiness
+        readiness={summary.experimentReadiness}
+        linkExposureComparison={summary.linkExposureComparison}
+        viralModeComparisons={summary.viralModeComparisons}
+      />
+
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">오늘 캠페인 포스트</p>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">캠페인 포스트</p>
           {summary.todayScheduled.length === 0 ? (
-            <p className="text-sm text-slate-400">오늘 생성/발행된 캠페인 포스트가 없습니다.</p>
+            <p className="text-sm text-slate-400">캠페인에 생성/발행된 포스트가 없습니다.</p>
           ) : (
             <div className="space-y-3">
               {summary.todayScheduled.map((post, index) => {
@@ -1883,17 +1927,6 @@ function viralDimensionLabel(dimension: string): string {
   return labels[dimension] ?? dimension;
 }
 
-function accountPatternDimensionLabel(dimension: string): string {
-  const labels: Record<string, string> = {
-    hook: "훅",
-    topic: "주제",
-    emotion: "감정",
-    structure: "구조",
-    cta: "CTA",
-  };
-  return labels[dimension] ?? dimension;
-}
-
 function sourceLabel(source: string): string {
   const labels: Record<string, string> = {
     own_post: "내 게시물",
@@ -1957,13 +1990,6 @@ function formatViralSourceError(error: ViralSourceError): string {
   return `${sourceLabel(error.adapter)}:${error.source} - ${error.message}`;
 }
 
-function summarizeSourceErrors(errors: ViralSourceError[]): string {
-  const permissionError = errors.find((error) => /permission|권한/i.test(error.message));
-  if (permissionError) {
-    return `Meta discovery 권한 없음 (${errors.length}건): ${permissionError.message}`;
-  }
-  return `일부 소스 실패 (${errors.length}건): ${errors.slice(0, 2).map(formatViralSourceError).join(" / ")}`;
-}
 function optionalString(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;

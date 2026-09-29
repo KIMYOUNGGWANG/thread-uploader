@@ -36,6 +36,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             imageUrls?: unknown;
             scheduledAt?: unknown;
             firstComment?: unknown;
+            status?: unknown;
         };
 
         const data = {
@@ -43,6 +44,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             ...(Array.isArray(body.imageUrls) && { imageUrls: JSON.stringify(body.imageUrls) }),
             ...(typeof body.scheduledAt === "string" && { scheduledAt: new Date(body.scheduledAt) }),
             ...(typeof body.firstComment === "string" && { firstComment: body.firstComment }),
+            ...(typeof body.status === "string" && { status: body.status }),
         };
 
         const updatedPost = await prisma.post.update({

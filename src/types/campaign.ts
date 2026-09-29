@@ -1,7 +1,7 @@
 import { clampNumber, isRecord, normalizeIdentifier, normalizeText } from "@/types/config-normalizers";
 import { normalizeViralIntentModeId, type ViralIntentModeId } from "@/lib/viral-intent-modes";
 
-export type QualityProfileId = "saju_viral" | "career_decision" | "product_growth";
+export type QualityProfileId = "saju_viral" | "career_decision" | "product_growth" | "ecommerce_d2c" | "saas_b2b";
 export type CampaignFormulaId = ViralIntentModeId;
 export type CareerDecisionType = "stay" | "move" | "prepare";
 
@@ -130,7 +130,7 @@ export function normalizeActiveCampaignId(input: unknown, campaignsInput: unknow
 }
 
 export function normalizeQualityProfile(input: unknown): QualityProfileId {
-  return input === "saju_viral" || input === "career_decision" || input === "product_growth" ? input : "career_decision";
+  return input === "saju_viral" || input === "career_decision" || input === "product_growth" || input === "ecommerce_d2c" || input === "saas_b2b" ? input : "career_decision";
 }
 
 function normalizeCampaign(input: Record<string, unknown>): CampaignConfig {
@@ -183,7 +183,7 @@ function normalizeReplyPlaybook(input: unknown, fallback: ReplyPlaybook): ReplyP
 }
 
 function normalizeCampaignQualityProfile(input: unknown, fallback: QualityProfileId): QualityProfileId {
-  return input === "saju_viral" || input === "career_decision" || input === "product_growth" ? input : fallback;
+  return input === "saju_viral" || input === "career_decision" || input === "product_growth" || input === "ecommerce_d2c" || input === "saas_b2b" ? input : fallback;
 }
 
 function normalizeCampaignFormulaId(input: unknown, fallback: CampaignFormulaId): CampaignFormulaId {

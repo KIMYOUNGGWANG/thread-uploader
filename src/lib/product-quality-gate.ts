@@ -1,10 +1,15 @@
 import type { QualityResult } from "@/lib/quality-gate";
-import { hasLowTouchEngagementMechanic } from "@/lib/viral-intent-modes";
+import {
+  hasLowTouchEngagementMechanic,
+  type ViralIntentModeId,
+} from "@/lib/viral-intent-modes";
 
 export interface ProductQualityContext {
   productName?: string;
   productKeywords?: string[];
   ctaTerms?: string[];
+  isEnglish?: boolean;
+  readonly viralIntentModeId?: ViralIntentModeId;
 }
 
 const GENERIC_SELF_HELP_PATTERNS = [

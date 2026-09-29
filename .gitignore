@@ -83,3 +83,4 @@ docs/plans/
 .migration-backup/
 .qwen/tmp/
 .claude/
+output/

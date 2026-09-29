@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { Clock, ImageIcon, AlertCircle, Check, Pencil, Trash2, Copy, CheckCircle2, Upload, Loader2 } from "lucide-react";
+import { Clock, ImageIcon, AlertCircle, Check, Pencil, Trash2, Copy, CheckCircle2, Upload, Loader2, Sparkles, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ParsedPost, validatePost } from "@/lib/parser";
 import { toast } from "sonner";
+import { ScoreRadarPopover, type ScoreDimension } from "@/components/ScoreRadarPopover";
 
 interface PostCardProps {
     post: ParsedPost;
@@ -37,6 +38,18 @@ interface PostCardProps {
     manualPaidConversions?: number | null;
     performanceScore?: number | null;
     performanceTier?: string | null;
+    postCategory?: string | null;
+    algorithmicScore?: number | null;
+    algorithmicPass?: boolean | null;
+    algorithmicDimensions?: {
+        hookTension?: ScoreDimension;
+        conversationDepth?: ScoreDimension;
+        humanVoice?: ScoreDimension;
+        penaltyRisk?: ScoreDimension;
+        formatReadability?: ScoreDimension;
+    } | null;
+    algorithmicFixes?: string[];
+    rewriteCount?: number | null;
     onUpdate: (index: number, post: ParsedPost) => void;
     onDelete: (index: number) => void;
     onTogglePosted?: (index: number) => void;
@@ -48,6 +61,7 @@ export function PostCard({
     index,
     isPosted = false,
     dbPostId,
+    status,
     errorLog,
     formulaId,
     topic,
@@ -68,6 +82,12 @@ export function PostCard({
     manualPaidConversions,
     performanceScore,
     performanceTier,
+    postCategory,
+    algorithmicScore,
+    algorithmicPass,
+    algorithmicDimensions,
+    algorithmicFixes,
+    rewriteCount,
     onUpdate,
     onDelete,
     onTogglePosted,
@@ -81,7 +101,60 @@ export function PostCard({
     );
     const [copied, setCopied] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [isRemediating, setIsRemediating] = useState(false);
+    const [isApproving, setIsApproving] = useState(false);
     const isQualityBlocked = qualityPass === false;
+
+    const handleRemediate = async () => {
+        if (isRemediating || !dbPostId) return;
+        setIsRemediating(true);
+        try {
+            const response = await fetch(`/api/posts/${dbPostId}/remediate`, {
+                method: "POST",
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || "교정에 실패했습니다.");
+            }
+            toast.success(`5D 자동 교정 완료! (${data.beforeScore ?? 0}점 → ${data.afterScore ?? 0}점)`);
+            onUpdate(index, {
+                ...post,
+                content: data.post.content,
+                firstComment: data.post.firstComment || undefined,
+            });
+            setEditedContent(data.post.content);
+            setEditedComment(data.post.firstComment || "");
+            onRefresh?.();
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "교정 중 오류가 발생했습니다.";
+            toast.error(msg);
+        } finally {
+            setIsRemediating(false);
+        }
+    };
+
+    const handleForceApprove = async () => {
+        if (isApproving || !dbPostId) return;
+        setIsApproving(true);
+        try {
+            const response = await fetch(`/api/posts/${dbPostId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "PENDING" }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || "승인에 실패했습니다.");
+            }
+            toast.success("포스트가 승인되어 발행 대기열(PENDING)로 이동했습니다.");
+            onRefresh?.();
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "승인 중 오류가 발생했습니다.";
+            toast.error(msg);
+        } finally {
+            setIsApproving(false);
+        }
+    };
 
     const handleCopy = async () => {
         try {
@@ -271,18 +344,54 @@ export function PostCard({
                         )}
 
                         {/* Metadata */}
-                        <div className="mt-4 flex flex-wrap gap-3">
-                            {/* Order indicator - no time display, just status */}
+                        <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                            {/* Order indicator - status display */}
                             <div className={cn(
                                 "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
                                 isPosted 
                                     ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                                    : status === "FAILED"
-                                        ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                                        : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
+                                    : status === "NEEDS_REVIEW"
+                                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60"
+                                        : status === "PARTIAL_FAILED"
+                                            ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                                            : status === "FAILED"
+                                                ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                                : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
                             )}>
-                                #{index + 1} {isPosted ? "업로드 완료" : status === "FAILED" ? "업로드 실패" : "대기중"}
+                                #{index + 1} {isPosted ? "업로드 완료" : status === "NEEDS_REVIEW" ? "검토 필요 (5D 미달)" : status === "PARTIAL_FAILED" ? "타래 중단(이어올리기 대기)" : status === "FAILED" ? "업로드 실패" : "대기중"}
                             </div>
+
+                            {/* Category Badge */}
+                            {postCategory && (
+                                <div
+                                    className={cn(
+                                        "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide border",
+                                        postCategory === "WARMUP"
+                                            ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-700"
+                                            : "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800"
+                                    )}
+                                    title={postCategory === "WARMUP" ? "알고리즘 신뢰 회복용 논링크 공감 포스트" : "성장 및 전환 포스트"}
+                                >
+                                    {postCategory === "WARMUP" ? "🛡️ WARMUP" : "🚀 GROWTH"}
+                                </div>
+                            )}
+
+                            {/* 5D Score Radar Popover */}
+                            {algorithmicScore !== null && algorithmicScore !== undefined && (
+                                <ScoreRadarPopover
+                                    score={algorithmicScore}
+                                    pass={algorithmicPass}
+                                    dimensions={algorithmicDimensions}
+                                    actionableFixes={algorithmicFixes}
+                                />
+                            )}
+
+                            {/* Rewrite Count Indicator */}
+                            {rewriteCount !== null && rewriteCount !== undefined && rewriteCount > 0 && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-full text-xs font-medium">
+                                    교정 {rewriteCount}회
+                                </div>
+                            )}
 
                             {/* Images */}
                             {post.images.length > 0 && (
@@ -409,6 +518,7 @@ export function PostCard({
                                 size="sm"
                                 className={cn(
                                     "bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white",
+                                    status === "PARTIAL_FAILED" && "from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700",
                                     isQualityBlocked && "from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700",
                                     isPosted && "from-green-500 to-green-600"
                                 )}
@@ -420,12 +530,14 @@ export function PostCard({
                                     <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                                 ) : isPosted ? (
                                     <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                                ) : status === "PARTIAL_FAILED" ? (
+                                    <Upload className="w-3.5 h-3.5 mr-1.5" />
                                 ) : isQualityBlocked ? (
                                     <AlertCircle className="w-3.5 h-3.5 mr-1.5" />
                                 ) : (
                                     <Upload className="w-3.5 h-3.5 mr-1.5" />
                                 )}
-                                {isUploading ? "업로드 중..." : isPosted ? "업로드됨" : isQualityBlocked ? "수동 업로드 (품질주의)" : "Threads 업로드"}
+                                {isUploading ? "업로드 중..." : isPosted ? "업로드됨" : status === "PARTIAL_FAILED" ? "타래 이어올리기" : isQualityBlocked ? "수동 업로드 (품질주의)" : "Threads 업로드"}
                             </Button>
 
                             {/* Copy Button */}
@@ -455,6 +567,43 @@ export function PostCard({
                                 <Pencil className="w-3.5 h-3.5 mr-1.5" />
                                 수정
                             </Button>
+
+                            {/* 5D Auto Remediation & Force Approval */}
+                            {dbPostId && !isPosted && (status === "NEEDS_REVIEW" || (algorithmicScore !== null && algorithmicScore !== undefined && algorithmicScore < 80)) && (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 hover:from-purple-500/20 hover:to-indigo-500/20 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800 gap-1.5"
+                                        onClick={handleRemediate}
+                                        disabled={isRemediating || isApproving}
+                                        title="알고리즘 5D 취약 차원 및 본문 URL을 자동 교정합니다"
+                                    >
+                                        {isRemediating ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                            <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                        )}
+                                        {isRemediating ? "교정 중..." : "✨ 5D 자동 교정"}
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/30 gap-1.5"
+                                        onClick={handleForceApprove}
+                                        disabled={isRemediating || isApproving}
+                                        title="검토 경고를 무시하고 발행 대기열(PENDING)로 강제 승인합니다"
+                                    >
+                                        {isApproving ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                            <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                        )}
+                                        {isApproving ? "승인 중..." : "⚡ 강제 승인"}
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     </>
                 )}

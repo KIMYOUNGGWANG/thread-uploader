@@ -1,5 +1,5 @@
-model = "gpt-5.5"
-model_context_window = 400000
+model = "gpt-5.6-sol"
+model_context_window = 372000
 model_reasoning_effort = "high"
 plan_mode_reasoning_effort = "xhigh"
 
@@ -21,12 +21,8 @@ goals = true
 [features.multi_agent_v2]
 max_concurrent_threads_per_session = 1000
 
-[agents]
-max_threads = 1000
-
 [analytics]
 enabled = false
 
 [feedback]
 enabled = false
-

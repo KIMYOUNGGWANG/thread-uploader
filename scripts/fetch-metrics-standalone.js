@@ -4,16 +4,17 @@
  * PUBLISHED 게시물의 Threads Insights(조회수·좋아요·댓글·리포스트)를
  * 공식 Meta Graph API로 수집해 DB에 저장한다.
  *
- * 수집 대상: 게시 후 2일~7일 사이인 게시물 (성과 안정화 구간)
+ * 수집 대상: 게시 후 6시간~14일 사이인 게시물 (미수집 우선, 실행당 최대 60개)
  * GitHub Actions에서 매일 1회 실행된다.
  * 수집 후 /api/cron/learn 또는 대시보드의 학습 버튼으로 growthMemory를 갱신한다.
  */
 
 const { PrismaClient } = require("@prisma/client");
+const { selectMetricsCandidates } = require("./metrics-selection");
 const prisma = new PrismaClient();
 
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 60;
 const REQUEST_DELAY_MS = 600; // Threads API rate limit 여유
 
 function calculatePerformanceScore(metrics) {
@@ -67,20 +68,25 @@ async function fetchInsights(threadsId, accessToken) {
 
 async function main() {
   const now = Date.now();
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
   const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
 
-  // 최근 14일 이내 발행된 게시물 (지표 갱신 대상)
-  const posts = await prisma.post.findMany({
+  const eligiblePosts = await prisma.post.findMany({
     where: {
       status: "PUBLISHED",
       threadsId: { not: null },
       publishedAt: {
         gte: new Date(now - FOURTEEN_DAYS),
+        lte: new Date(now - SIX_HOURS),
       },
     },
     include: { brand: true },
-    orderBy: { metricsAt: "asc" }, // 가장 오래 갱신 안 된 것부터
-    take: BATCH_SIZE,
+  });
+  const posts = selectMetricsCandidates(eligiblePosts, {
+    now,
+    minAgeMs: SIX_HOURS,
+    maxAgeMs: FOURTEEN_DAYS,
+    limit: BATCH_SIZE,
   });
 
   console.log(`\n🔍 메트릭 수집 대상: ${posts.length}개`);

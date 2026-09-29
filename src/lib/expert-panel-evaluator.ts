@@ -31,7 +31,7 @@ export interface EvaluationContext {
   qualityProfile?: string;
 }
 
-// 24 AI Slop and artificial phrasing patterns
+// 30 AI Slop and artificial phrasing patterns
 export const AI_SLOP_PATTERNS: Array<{ pattern: RegExp; penalty: number; reason: string }> = [
   { pattern: /살펴보겠습니다|알아보겠습니다|살펴볼까요|알아볼까요/, penalty: 20, reason: "강의형/블로그형 어투 (살펴보겠습니다)" },
   { pattern: /뿐만\s*아니라|더\s*나아가|이와\s*같이|이처럼/, penalty: 15, reason: "어색한 접속사 나열" },
@@ -57,19 +57,29 @@ export const AI_SLOP_PATTERNS: Array<{ pattern: RegExp; penalty: number; reason:
   { pattern: /귀추가\s*주목됩니다/, penalty: 15, reason: "신문 기사형 어투" },
   { pattern: /각양각색의|형형색색의/, penalty: 10, reason: "부자연스러운 번역투/문어체 수식어" },
   { pattern: /마음이\s*웅장해진다/, penalty: 10, reason: "유행 지난 밈 남용" },
+  { pattern: /AI한테\s*생년월일\s*넣었더니|AI가\s*(데이터로\s*)?분석하더니|알고리즘\s*무섭네/, penalty: 25, reason: "식상한 AI 프롬프트 핑계 도입" },
+  { pattern: /반박시\s*니\s*말(이)?\s*맞음/, penalty: 20, reason: "복제된 클리셰 방어 문구 (반박시 니 말 맞음)" },
+  { pattern: /끝\.\s*더\s*이상\s*설명\s*안\s*함/, penalty: 20, reason: "상투적 시니컬 클리셰 (끝. 더 이상 설명 안 함)" },
+  { pattern: /자,\s*상상해봐\./, penalty: 20, reason: "기계적으로 반복되는 상상 유도 클리셰" },
+  { pattern: /🔥\s*핵심만\s*말해줌/, penalty: 20, reason: "식상한 정보성 어그로 도입" },
+  { pattern: /□\s*.*\n□\s*.*\n□\s*/, penalty: 20, reason: "기계적 나열식 체크리스트 남발 (글 늘리기용)" },
 ];
 
 export function evaluateRoyLee(content: string): PersonaScore {
   const flags: string[] = [];
   let score = 70;
 
+  const isEnglish = !/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(content);
   const firstLine = content.split("\n").find((l) => l.trim().length > 0)?.trim() ?? "";
 
   // 1. Hook tension
   if (/\?/.test(firstLine)) {
     score += 8;
   }
-  if (/(사실|솔직히|근데|오히려|착각|반대로|문제는|최악)/.test(firstLine)) {
+  if (
+    /(사실|솔직히|근데|오히려|착각|반대로|문제는|최악)/.test(firstLine) ||
+    (isEnglish && /^(why|how|what|stop|never|your|turning\s+29|the\s+truth|actually|honestly|lie|myth|instead)/i.test(firstLine))
+  ) {
     score += 12;
   }
   if (/\d+/.test(firstLine)) {
@@ -77,14 +87,20 @@ export function evaluateRoyLee(content: string): PersonaScore {
   }
 
   // 2. Bold Point of view (50% hate / clear stance)
-  if (/(차이|기준|버려라|하지마|망하는|틀렸다|착각이다)/.test(content)) {
+  if (
+    /(차이|기준|버려라|하지마|망하는|틀렸다|착각이다)/.test(content) ||
+    (isEnglish && /(lie|myth|wrong|stop|waste|illusion|trap|mismatch|demolish|fail|dilute|truth|fake|scam)/i.test(content))
+  ) {
     score += 10;
   } else {
     flags.push("다소 밋밋하고 모두가 동의할 만한 안전한 주장 (50% 혐오/선명한 관점 부족)");
   }
 
   // 3. Shareability / Self-check trigger
-  if (/[ABCabc]\s*[.)]|1\s*[.)]|2\s*[.)]|\[\s*\]|체크/.test(content)) {
+  if (
+    /[ABCabc]\s*[.)]|1\s*[.)]|2\s*[.)]|\[\s*\]|체크/.test(content) ||
+    (isEnglish && /(vs\.|or|truth|sign|archetype|check|secret)/i.test(content))
+  ) {
     score += 10;
   }
 
@@ -107,14 +123,20 @@ export function evaluateTargetUser(content: string, context?: EvaluationContext)
   const flags: string[] = [];
   let score = 75;
 
+  const isEnglish = !/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(content);
+
   // 1. Utility & Self classification
-  const hasClassification = /[ABCabc]\s*[.)]|버팀형|이동형|준비형|유형|체크/.test(content);
+  const hasClassification =
+    /[ABCabc]\s*[.)]|버팀형|이동형|준비형|유형|체크/.test(content) ||
+    (isEnglish && /(archetype|choice|which|type|are\s+you|check)/i.test(content));
   if (hasClassification) {
     score += 12;
   }
 
   // 2. Save trigger (practical framework, checklists, criteria)
-  const hasSaveTrigger = /(저장|기준|정리|체크리스트|판단표|순서|비교)/.test(content);
+  const hasSaveTrigger =
+    /(저장|기준|정리|체크리스트|판단표|순서|비교)/.test(content) ||
+    (isEnglish && /(save|guide|truth|difference|breakdown|rules|framework|chart|map)/i.test(content));
   if (hasSaveTrigger) {
     score += 8;
   }
@@ -124,10 +146,12 @@ export function evaluateTargetUser(content: string, context?: EvaluationContext)
     score += 5;
   }
 
-  // 4. Overly long or confusing
-  if (content.length > 450) {
+  // 4. Fold optimization check:
+  // Korean folds around 260~280 chars, but English threads target ~450 chars
+  const foldThreshold = isEnglish ? 450 : 280;
+  if (content.length > foldThreshold) {
     score -= 10;
-    flags.push("글이 다소 길어 핵심 전달력이 분산됨");
+    flags.push(`글이 ${foldThreshold}자를 초과하여 모바일 Fold 아래로 접혀 즉각적 스크롤 스토핑 효과가 감소함`);
   }
 
   score = Math.min(100, Math.max(0, score));

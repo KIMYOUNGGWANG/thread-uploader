@@ -12,6 +12,13 @@ import {
 } from "@/lib/growth-feedback-loop";
 import { parseBrandConfig } from "@/types/brand";
 import { DOMAIN_MATRICES } from "@/lib/context-matrix-engine";
+import { getDomainPreset } from "@/lib/domain-registry";
+import { QUOTA_TRACKS } from "@/lib/quota-bandit-router";
+import {
+  DEFAULT_INFORMATIVE_PRIORS,
+  updateThompsonPriors,
+  type FormulaPerformanceObservation,
+} from "@/lib/thompson-sampling-router";
 
 export async function learnBrandGrowth(brandId: string) {
   const brand = await prisma.brand.findUnique({
@@ -49,7 +56,20 @@ export async function learnBrandGrowth(brandId: string) {
 
   if (brand) {
     const config = parseBrandConfig(brand.brandConfig);
-    const knownFormulaIds = config.formulas.map((f) => f.id);
+    const domainPreset = getDomainPreset(config.qualityProfile);
+    const domainFormulaIds = Object.values(domainPreset.trackFormulas).flatMap((formulas) => formulas.map((f) => f.id));
+    const campaignFormulaIds = config.campaigns.flatMap((c) => c.formulas.map((f) => f.id));
+    const quotaTrackFormulaIds = Object.values(QUOTA_TRACKS).flatMap((t) => t.defaultFormulas);
+    const postFormulaIds = posts.map((p) => p.formulaId).filter((id): id is string => typeof id === "string" && id.length > 0);
+
+    const knownFormulaIds = Array.from(new Set([
+      ...config.formulas.map((f) => f.id),
+      ...campaignFormulaIds,
+      ...domainFormulaIds,
+      ...quotaTrackFormulaIds,
+      ...postFormulaIds,
+    ]));
+
     let currentWeights: Record<string, number> = {};
     try {
       currentWeights = brand.formulaWeights && brand.formulaWeights !== "{}"
@@ -75,8 +95,26 @@ export async function learnBrandGrowth(brandId: string) {
       matrix.frictions
     );
 
+    const observations: FormulaPerformanceObservation[] = posts
+      .filter((p) => Boolean(p.formulaId) && typeof p.views === "number")
+      .map((p) => ({
+        formulaId: p.formulaId!,
+        views: p.views ?? 0,
+        likes: p.likes ?? 0,
+        replies: p.replies ?? 0,
+        reposts: p.reposts ?? 0,
+        linkClicks: p.clicks ?? 0,
+        conversions: p.conversions ?? 0,
+      }));
+
+    const updatedPriors = updateThompsonPriors(
+      config.thompsonPriors ?? DEFAULT_INFORMATIVE_PRIORS,
+      observations
+    );
+
     updatedBrandConfig = {
       ...config,
+      thompsonPriors: updatedPriors,
       contextWeights: {
         personaWeights: contextWeightResult.personaWeights,
         frictionWeights: contextWeightResult.frictionWeights,
@@ -135,3 +173,5 @@ export async function learnBrandGrowth(brandId: string) {
     ...buildGrowthReport(posts, memory),
   };
 }
+
+export const runGrowthFeedbackLoop = learnBrandGrowth;

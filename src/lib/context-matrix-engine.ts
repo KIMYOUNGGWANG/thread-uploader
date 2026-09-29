@@ -232,21 +232,30 @@ export function resolveDynamicContext(options: ResolveDynamicContextOptions): Dy
     friction = matrix.frictions[fIdx];
   }
 
+  const isEnglish = domainKey === "ecommerce_d2c";
   const baseTopic = options.baseTopic?.trim();
   const dynamicTopic = baseTopic
-    ? `${baseTopic} (${persona}의 ${friction} 사례)`
-    : `${persona}가 겪는 ${friction}과 ${tension}`;
+    ? (isEnglish ? `${baseTopic} (${persona} Case: ${friction})` : `${baseTopic} (${persona}의 ${friction} 사례)`)
+    : (isEnglish ? `${persona} facing ${friction} and ${tension}` : `${persona}가 겪는 ${friction}과 ${tension}`);
 
   // If user provided a specific non-default target/situation, respect it while enriching
   const isDefaultTarget = !options.userTarget || ["일반 독자", "2030 직장인"].includes(options.userTarget.trim());
   const targetAudience = isDefaultTarget
-    ? `${friction}을 겪으며 ${tension}으로 흔들리는 ${persona}`
-    : `${options.userTarget} (${persona} 관점)`;
+    ? (isEnglish
+        ? `${persona} struggling with ${friction} and torn by ${tension}`
+        : `${friction}을 겪으며 ${tension}으로 흔들리는 ${persona}`)
+    : (isEnglish
+        ? `${options.userTarget} (${persona} perspective)`
+        : `${options.userTarget} (${persona} 관점)`);
 
   const isDefaultSituation = !options.userSituation || ["일상적인 상황", "퇴사와 이직 사이에서 흔들리는 상황"].includes(options.userSituation.trim());
   const situation = isDefaultSituation
-    ? `${friction} 상황에서 ${tension}의 결정을 내려야 하는 순간`
-    : `${options.userSituation} (${friction} 맥락)`;
+    ? (isEnglish
+        ? `Facing ${friction} while navigating ${tension}`
+        : `${friction} 상황에서 ${tension}의 결정을 내려야 하는 순간`)
+    : (isEnglish
+        ? `${options.userSituation} (${friction} context)`
+        : `${options.userSituation} (${friction} 맥락)`);
 
   return {
     persona,

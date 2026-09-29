@@ -638,13 +638,14 @@ export async function publishReplyWithRetryForBrand(
     retries = 4,
     initialDelayMs = 4000
 ): Promise<string> {
+    const safeText = text.length > 500 ? text.slice(0, 497) + "..." : text;
     const { accessToken, userId } = credentials;
     await sleep(initialDelayMs);
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            const containerParams = new URLSearchParams({ media_type: "TEXT", text, reply_to_id: replyToId, access_token: accessToken });
+            const containerParams = new URLSearchParams({ media_type: "TEXT", text: safeText, reply_to_id: replyToId, access_token: accessToken });
             const containerRes = await fetch(`${THREADS_API_BASE}/${userId}/threads?${containerParams}`, { method: "POST" });
             const containerData = await containerRes.json() as ThreadsContainerResponse | ThreadsError;
             if (!containerRes.ok) throw new Error(`[ReplyContainer] ${ (containerData as ThreadsError).error?.message }`);
@@ -668,6 +669,19 @@ export async function publishReplyWithRetryForBrand(
     throw lastError instanceof Error ? lastError : new Error("Failed to publish reply");
 }
 
+export interface ThreadChainPublishOptions {
+    delayBetweenPartsMs?: number;
+    existingRootThreadsId?: string;
+    existingPartIds?: string[];
+    startFromPartIndex?: number;
+    onPartPublished?: (checkpoint: {
+        partIndex: number;
+        totalParts: number;
+        threadsId: string;
+        allPartIds: string[];
+    }) => Promise<void> | void;
+}
+
 export interface ThreadChainPublishResult {
     rootThreadsId: string;
     partIds: string[];
@@ -679,30 +693,59 @@ export async function publishThreadChainWithCredentials(
     credentials: ThreadsCredentials,
     imageUrls: string[] = [],
     firstComment: string | null = null,
-    options?: { delayBetweenPartsMs?: number }
+    options?: ThreadChainPublishOptions
 ): Promise<ThreadChainPublishResult> {
     const parts = splitContentIntoThreadParts(text);
     const delayMs = options?.delayBetweenPartsMs ?? 3000;
+    const startFromIndex = options?.startFromPartIndex ?? 0;
 
-    // Part 1 is published as the root post (with images if any)
-    const rootThreadsId = await publishPostWithCredentials(parts[0], credentials, imageUrls);
-    const partIds: string[] = [rootThreadsId];
+    let rootThreadsId: string;
+    let partIds: string[] = [];
+
+    if (options?.existingRootThreadsId && startFromIndex > 0) {
+        rootThreadsId = options.existingRootThreadsId;
+        partIds = options.existingPartIds ? [...options.existingPartIds] : [rootThreadsId];
+    } else {
+        // Part 1 is published as the root post (with images if any)
+        rootThreadsId = await publishPostWithCredentials(parts[0], credentials, imageUrls);
+        partIds = [rootThreadsId];
+        if (options?.onPartPublished) {
+            await options.onPartPublished({
+                partIndex: 0,
+                totalParts: parts.length,
+                threadsId: rootThreadsId,
+                allPartIds: partIds,
+            });
+        }
+    }
 
     // Part 2..N are published as thread replies under rootThreadsId
+    const startIndex = Math.max(1, startFromIndex);
     const partErrors: string[] = [];
-    for (let i = 1; i < parts.length; i++) {
+    for (let i = startIndex; i < parts.length; i++) {
         await sleep(delayMs);
         try {
             const partId = await publishReplyWithRetryForBrand(parts[i], rootThreadsId, credentials);
             partIds.push(partId);
+            if (options?.onPartPublished) {
+                await options.onPartPublished({
+                    partIndex: i,
+                    totalParts: parts.length,
+                    threadsId: partId,
+                    allPartIds: partIds,
+                });
+            }
         } catch (partError) {
             const msg = partError instanceof Error ? partError.message : "part failed";
             console.error(`Failed to publish thread part ${i + 1}/${parts.length}:`, partError);
             partErrors.push(`Part ${i + 1} failed: ${msg}`);
+            // Break on failure to preserve consecutive ordering and allow clean resume
+            break;
         }
     }
 
-    if (firstComment) {
+    // Only post first comment if all parts were successfully posted
+    if (firstComment && partIds.length === parts.length) {
         await sleep(delayMs);
         try {
             await publishReplyWithRetryForBrand(firstComment, rootThreadsId, credentials);

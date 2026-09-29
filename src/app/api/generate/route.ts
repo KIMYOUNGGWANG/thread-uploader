@@ -12,12 +12,15 @@ import {
   type RecentPostSummary,
 } from "@/lib/anti-repeat-memory";
 import { THREADS_CONTENT_MAX_LENGTH, THREADS_CONTENT_TARGET_LENGTH, THREADS_MULTI_PART_MAX_LENGTH } from "@/lib/threads-limits";
-import { buildAdmissionFirstComment } from "@/lib/charlie-viral-skills";
+import { buildAdmissionFirstComment, buildConversationIgniterComment } from "@/lib/charlie-viral-skills";
 import { buildShortRedirectUrl, buildTrackedUrl } from "@/lib/tracking-url";
 import { selectFormulaWithQuota } from "@/lib/quota-bandit-router";
+import { selectFormulaWithThompsonSampling } from "@/lib/thompson-sampling-router";
 import { buildMultiFormatContentBundle } from "@/lib/multi-format-content-bridge";
+import { splitContentIntoThreadParts } from "@/lib/thread-splitter";
 import { svgToDataUri } from "@/lib/carousel-cards/renderer";
 import {
+  ENGLISH_VIRAL_MODE_LABELS,
   formatViralIntentModePrompt,
   hasFortuneOverclaim,
   hasReplyBurdenPromise,
@@ -36,6 +39,7 @@ import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/bran
 import { parseViralMemory } from "@/types/viral";
 import { getDomainPreset } from "@/lib/domain-registry";
 import { resolveDynamicContext } from "@/lib/context-matrix-engine";
+import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -50,8 +54,13 @@ const GENERATED_META_PATTERNS = [
   /글자\s*수\s*확인/,
   /공백[·\s]*줄바꿈.*포함/,
   /500자\s*이하\s*통과/,
-  /Threads\s*본문/,
+  /Threads\s*본문/i,
   /초안\s*작성/,
+  /#+\s*📌\s*THREADS\s*POST/i,
+  /---\s*\*\*본문\*\*/i,
+  /^\*\*본문\*\*/m,
+  /===FIRST_COMMENT===/i,
+  /#\s*The\s*Peach\s*Blossom/i,
 ];
 
 interface GrowthExperiment {
@@ -130,13 +139,30 @@ function selectCampaignFormulaForViralMode(
 }
 
 function cleanGeneratedContentLabels(content: string): string {
-  return content
-    .replace(/^\s*(?:#+\s*)?(?:\*\*)?(?:\[)?(?:Threads\s*)?(?:본문|포스트|Post|첫\s*댓글)(?:\s*(?:내용|초안|시작|예약됨?))?(?:\s*[-:：][^\]\n]*)?(?:\])?(?:\*\*)?\s*[:：]?\s*/i, "")
-    .replace(/^\s*(?:#+\s*)?(?:\*\*)?(?:Threads\s*)?(?:본문|포스트|Post|첫\s*댓글)(?:\s*(?:내용|초안|시작|예약됨?))?(?:\*\*)?\s*[:：]?\s*/i, "")
-    .replace(/^#+\s*(?:본문|Threads\s*본문|Threads\s*포스트|Threads\s*Post|첫\s*댓글)[^\n]*\n+/i, "")
+  let cleaned = content
+    // Remove separator residue
+    .replace(/===FIRST_COMMENT===/gi, "")
+    // Remove markdown headers with emojis and keywords: # 📌 THREADS POST, ## Threads Post etc.
+    .replace(/^\s*#+\s*[^#\n]*(?:Threads|스레드|포스트|Post|본문|초안)[^\n]*\n+/gi, "")
+    // Remove leading horizontal rules with labels: --- **본문**
+    .replace(/^\s*---\s*\n+\s*(?:\*\*)?본문(?:\*\*)?\s*\n+/gi, "")
+    // Remove leading labels like [본문], **본문**, Threads 본문:
+    .replace(/^\s*(?:#+\s*)?(?:\*\*)?(?:\[)?(?:Threads\s*)?(?:본문|포스트|Post|첫\s*댓글)(?:\s*(?:내용|초안|시작|예약됨?))?(?:\s*[-:：][^\]\n]*)?(?:\])?(?:\*\*)?\s*[:：]?\s*/gi, "")
+    .replace(/^\s*(?:#+\s*)?(?:\*\*)?(?:Threads\s*)?(?:본문|포스트|Post|첫\s*댓글)(?:\s*(?:내용|초안|시작|예약됨?))?(?:\*\*)?\s*[:：]?\s*/gi, "")
+    .replace(/^#+\s*(?:본문|Threads\s*본문|Threads\s*포스트|Threads\s*Post|첫\s*댓글)[^\n]*\n+/gi, "")
+    // Remove standalone leading horizontal rules
+    .replace(/^\s*---\s*\n+/g, "")
+    // Remove trailing generation checklist/metadata sections
+    .replace(/\n\s*---\s*\n+\s*(?:\*\*)?(?:생성\s*완료|자수|포맷|훅\s*유형|규격|체크리스트|검증)[\s\S]*$/gi, "")
+    // Remove trailing horizontal rule
+    .replace(/\n+\s*---\s*$/gi, "")
     .trim();
-}
 
+  // If still starts with **본문** or similar standalone line
+  cleaned = cleaned.replace(/^\s*\*\*본문\*\*\s*\n+/gi, "").trim();
+
+  return cleaned;
+}
 
 function hasGeneratedMetaText(content: string): boolean {
   return GENERATED_META_PATTERNS.some((pattern) => pattern.test(content));
@@ -144,10 +170,14 @@ function hasGeneratedMetaText(content: string): boolean {
 
 function enforceGeneratedSurfaceSafety<T extends QualityResult>(
   qualityResult: T,
-  result: { post: string; firstComment: string }
+  result: { post: string; firstComment: string },
+  isEnglish = false
 ): T {
   const reasons = [...qualityResult.reasons];
   const surface = [result.post, result.firstComment].join("\n");
+  if (isEnglish && /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(surface) && !reasons.includes("영문 프로필에 한글 문자 포함 (Zero Hangul 위반)")) {
+    reasons.unshift("영문 프로필에 한글 문자 포함 (Zero Hangul 위반)");
+  }
   if (result.post.length > THREADS_MULTI_PART_MAX_LENGTH && !reasons.some((r) => r.includes("2400자") || r.includes("제한 초과"))) {
     reasons.unshift(`본문 ${result.post.length}자 - 5단 스레드 최대 허용(2,400자) 초과`);
   }
@@ -254,6 +284,7 @@ async function generateWithQuality(
 ): Promise<{
   post: string;
   firstComment: string;
+  conversationIgniter?: string;
   formulaId: string;
   topic: string;
   targetAudience: string;
@@ -269,11 +300,16 @@ async function generateWithQuality(
   careerDecisionType: string | null;
   shouldLink: boolean;
 }> {
+  const isEnglish =
+    experiment.qualityProfile === "ecommerce_d2c" ||
+    config.voiceProfile?.language === "en" ||
+    Boolean(config.productProfile?.productName?.toLowerCase().includes("global"));
   let lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext);
-  const qualityContext = buildProductQualityContext(config);
+  const qualityContext = buildProductQualityContext(config, experiment.viralIntentMode?.id);
   let qualityResult = enforceGeneratedSurfaceSafety(
     checkQuality(lastResult.post, experiment.qualityProfile, qualityContext),
-    lastResult
+    lastResult,
+    isEnglish
   );
 
   if (recentPosts.length > 0) {
@@ -292,7 +328,8 @@ async function generateWithQuality(
     lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, qualityResult.reasons);
     qualityResult = enforceGeneratedSurfaceSafety(
       checkQuality(lastResult.post, experiment.qualityProfile, qualityContext),
-      lastResult
+      lastResult,
+      isEnglish
     );
 
     if (recentPosts.length > 0) {
@@ -311,9 +348,17 @@ async function generateWithQuality(
     console.warn(`Quality generation warning after retries (${qualityResult.profile}, score ${qualityResult.score}): ${qualityResult.reasons.join(", ")}. Preserving post with qualityPass: false for review.`);
   }
 
+  const conversationIgniter = buildConversationIgniterComment(lastResult.post, {
+    topic: experiment.topic,
+    formulaId: experiment.formula.id,
+    voiceProfile: config.voiceProfile,
+    hookType: experiment.hookType,
+  });
+
   return {
     post: lastResult.post,
     firstComment: lastResult.firstComment,
+    conversationIgniter,
     formulaId: experiment.formula.id,
     topic: experiment.topic,
     targetAudience: experiment.targetAudience,
@@ -368,7 +413,9 @@ function buildExperiment(
     qualityProfile,
     campaign,
     campaignFormulaId: campaign ? viralIntentMode.id : null,
-    shouldLink: campaign ? index % cadence === 0 : Boolean(config.websiteUrl.trim()),
+    shouldLink: campaign
+      ? (index + 1) % cadence === 0
+      : Boolean(config.websiteUrl.trim()),
     sequenceIndex: index,
   };
 }
@@ -381,6 +428,11 @@ function buildGenerationPrompt(
   recentPostContext = "최근 생성 글 없음. 같은 첫 문장/같은 구조/같은 결론 반복은 피한다.",
   qualityFeedback: string[] = []
 ): string {
+  const isEnglish =
+    experiment.qualityProfile === "ecommerce_d2c" ||
+    config.voiceProfile?.language === "en" ||
+    Boolean(config.productProfile?.productName?.toLowerCase().includes("global"));
+
   const creatorPatternContext = formatCreatorPatternContext(experiment.hookType, experiment.ctaType);
   const viralIntentMode = experiment.viralIntentMode
     ?? resolveViralIntentMode(experiment.campaignFormulaId ?? experiment.formula.id, 0);
@@ -394,52 +446,153 @@ function buildGenerationPrompt(
   const domainPreset = getDomainPreset(experiment.qualityProfile);
   const crossDomainGuardrails = domainPreset.forbiddenCrossDomainTerms.length > 0
     ? [
-        "[금지된 도메인 교차 용어 (Cross-Domain Safety Guardrail)]",
-        `- 다음 단어/개념은 다른 도메인 용어이므로 본문과 댓글에 절대 포함해서는 안 됩니다: ${domainPreset.forbiddenCrossDomainTerms.join(", ")}`,
+        isEnglish ? "[Cross-Domain Safety Guardrails]" : "[금지된 도메인 교차 용어 (Cross-Domain Safety Guardrail)]",
+        isEnglish
+          ? `- Do not include any of these forbidden terms or concepts in the post or comment: ${domainPreset.forbiddenCrossDomainTerms.join(", ")}`
+          : `- 다음 단어/개념은 다른 도메인 용어이므로 본문과 댓글에 절대 포함해서는 안 됩니다: ${domainPreset.forbiddenCrossDomainTerms.join(", ")}`,
         "",
       ]
     : [];
 
+  const languageMandate = isEnglish
+    ? [
+        "[CRITICAL LANGUAGE MANDATE - ABSOLUTE REQUIREMENT]",
+        "- The entire output MUST be written strictly in fluent, natural English (US/UK English).",
+        "- ZERO Korean characters (Hangul / 가-힣) are allowed anywhere in the post body or the first comment.",
+        "- Both the main Threads post and the first comment must be 100% native, compelling English.",
+        "",
+      ]
+    : [];
+
+  const viralRules = isEnglish
+    ? [
+        "[Threads Viral Compression & High-Retention Hook Rules]",
+        `- Target body length: ~${THREADS_CONTENT_TARGET_LENGTH} chars (approx 35-55 words / max ${THREADS_CONTENT_MAX_LENGTH} chars). Highly compressed and punchy.`,
+        "- Hook within the first 100 characters before the feed fold. Stop the scroll instantly. No boring preamble, no lectures, no bullet lists.",
+        "- [Charlie Hills 2-Line Contrast Hook]: Line 1 is a bold provocative assertion (<40 chars). Line 2 immediately delivers a counter-intuitive twist/contrast (<40 chars) shattering conventional wisdom.",
+        "- [Single-Point Razor]: Focus on ONE contrarian insight. Never summarize or list multiple unfocused ideas.",
+        "- [Focused Conflict]: Zero in on one specific persona friction and internal conflict.",
+        "- [Zero-in-body URL]: Never place links or URLs inside the post body.",
+        "- [Zero AI Slop]: Avoid cliché patterns like 'Here is the truth', 'Imagine if', 'Let's dive in', or checkbox emojis.",
+        "- [Zero-Promo Conversation Igniter First Comment]: Below the delimiter (${SEPARATOR}), write 1-2 lines of an honest personal confession / admission or a raw provocative question that compels readers to reply. Never write sales pitches or spam links in the first comment.",
+        "- [Strictly No Meta Text]: Never output character counts, draft labels, headers (# Title), or explanations.",
+      ]
+    : [
+        "[Threads 압축 바이럴 규격 및 12만 뷰 검증 구조]",
+        `- 본문 목표 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(이상적 범위: 140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하)로 극도로 압축한다.`,
+        `- 상단 100자(피드 접히기 전 Fold)에서 스크롤을 멈추게 해야 한다. 지루한 배경 설명, 훈계조 사주 강의, 불필요한 증상 나열(□)은 절대 금지한다.`,
+        `- [Charlie Hills 2-Line Contrast Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내의 반전/대립각(Contrast)으로 상식을 뒤집는다.`,
+        `- [12만 뷰 서열화/극단적 앵커 훅]: 대중이 아는 통념/기운보다 상위 티어를 비교('A보다 센 B보다 센 게 뭔지 알아? 바로 C야')하거나, 한 문장으로 끝나는 극단적 비유('스님도 파계시킴')와 독자 자신에게 투사시키는 인정 욕구('너한테 그런 치명적 매력이 숨겨져 있을 수도')를 활용한다.`,
+        "- [Single-Point Razor]: 원문이나 여러 주제를 요약/나열하지 말고, 상식을 뒤집는 단 하나의 반직관적 주장(Contrarian Insight)에만 모든 문장을 집중할 것.",
+        "- [Focused Conflict]: 타겟과 상황에 제시된 페르소나의 실전 마찰 1개만 깊게 파고들고, 여러 갈등이나 딜레마를 백화점식으로 나열하지 말 것.",
+        "- [No Factual Hallucination]: 프롬프트에 제공되지 않은 가짜 개인 일화나 날조된 매출/사례 숫자를 지어내지 말고, 구조적 관찰과 냉철한 논리로 설득할 것.",
+        "- [Zero-in-body URL]: 본문에는 절대 링크/URL을 넣지 않는다 (알고리즘 노출 패널티 방지).",
+        "- [AI Slop 절대 금지]: 'AI한테 생년월일 넣었더니', '반박시 니 말이 맞음', '끝. 더 이상 설명 안 함', '자, 상상해봐', '핵심만 말해줌', '□ 나열 체크박스' 등 복제된 클리셰 문구는 즉시 품질 탈락 처리된다.",
+        `- [Zero-Promo Conversation Igniter 첫 댓글]: 첫 댓글은 구분자(${SEPARATOR}) 바로 아래에 1~2줄로 작성한다. **[치명적 금지 규칙]** 첫 댓글에 '프로필 링크', '리포트', '판정표', '진단', 링크, 상업적 유도 문구를 절대 쓰지 마라 (Meta 알고리즘이 즉각 스팸 봇으로 판정하여 조회수를 0으로 락을 건다). 첫 댓글은 오직 작성자 본인의 솔직한 찌질한 경험담/실수 고백 또는 독자가 댓글을 달 수밖에 없게 만드는 날것의 도발적 질문(Conversation Igniter)으로만 작성한다. (예: "난 솔직히 2번 고르고 1년 존버했다가 번아웃 오고 퇴직금 다 날렸음. 너넨 몇 번이냐?")`,
+        "- [메타 텍스트 및 체크리스트 출력 절대 금지]: 글자 수 확인, 자수 체크, 초안, Threads 본문 같은 메타 텍스트를 절대 출력하지 않는다. 제목(# 제목), 구분선(---), '생성 완료', '포맷 체크', '본문/첫댓글 안내' 등 기획서용 메타 텍스트를 본문이나 첫 댓글에 단 한 줄도 출력하지 마라.",
+      ];
+
+  const sideMissionPrompt = config.sideMission
+    ? isEnglish
+      ? [
+          "[Side Mission: Natural Sub-Promotion]",
+          `- Mission: ${config.sideMission}`,
+          "- Core rule: Never hard-sell or advertise openly. Weave in smoothly at the end or in the first comment only when context allows.",
+          "",
+        ]
+      : [
+          "[사이드 미션 (Side Mission: 자연스러운 서브 프로모션)]",
+          `- 미션 내용: ${config.sideMission}`,
+          "- 핵심 지침: 본문 전면에 절대 노골적 광고나 하드셀을 하지 마라. 글의 맥락이 자연스러울 때만 마지막 부분 또는 첫 댓글에 부드럽게 한 줄 녹여내라.",
+          "",
+        ]
+    : [];
+
+  const voiceProfilePrompt = config.voiceProfile
+    ? isEnglish
+      ? [
+          "[Brand Voice Profile]",
+          `- Tone: ${config.voiceProfile.tone}`,
+          `- Perspective: ${config.voiceProfile.perspective}`,
+          `- Sentence length / Rhythm: ${config.voiceProfile.sentenceLength} / ${config.voiceProfile.paragraphStyle}`,
+          ...(config.voiceProfile.forbiddenPhrases.length ? [`- Forbidden phrases/tones: ${config.voiceProfile.forbiddenPhrases.join(", ")}`] : []),
+        ]
+      : [
+          `[브랜드 고유 보이스 (Voice Profile)]`,
+          `- 톤: ${config.voiceProfile.tone}`,
+          `- 화자 관점: ${config.voiceProfile.perspective}`,
+          `- 문장 길이/호흡: ${config.voiceProfile.sentenceLength} / ${config.voiceProfile.paragraphStyle}`,
+          ...(config.voiceProfile.forbiddenPhrases.length ? [`- 금지 어조: ${config.voiceProfile.forbiddenPhrases.join(", ")}`] : []),
+        ]
+    : [];
+
+  const enMode = isEnglish ? ENGLISH_VIRAL_MODE_LABELS[viralIntentMode.id] : null;
+  const variationAngle = experiment.angleVariation ?? enMode?.label ?? viralIntentMode.label;
+  const variationStructure = experiment.structureVariation ?? enMode?.instruction ?? viralIntentMode.instruction;
+  const sanitizedRecentPostContext = isEnglish && recentPostContext.includes("최근 생성 글 없음")
+    ? "No recent posts. Avoid repeating identical openings, hooks, or conclusions."
+    : recentPostContext;
+
+  function sanitizeEnglishField(text: string, fallback: string): string {
+    const stripped = text.replace(/\([^)]*[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]+[^)]*\)/g, "").trim();
+    if (/^[ㄱ-ㅎ|ㅏ-ㅣ|가-힣\s\d.,!?'"#-]+$/.test(stripped) || /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(stripped)) {
+      return fallback;
+    }
+    return stripped || fallback;
+  }
+
+  const enTopic = sanitizeEnglishField(experiment.topic, "Western Astrology vs Korean Saju: debunking birth chart myths");
+  const enTarget = sanitizeEnglishField(experiment.targetAudience, "Western 22-36 Gen Z & Millennials (US, CA, UK, AU)");
+  const enSituation = sanitizeEnglishField(experiment.situation, "Questioning why Western horoscopes fail to give concrete life answers");
+
+  const experimentParams = isEnglish
+    ? [
+        `[Topic]\n${enTopic}`,
+        `[Target Audience]\n${enTarget}`,
+        `[Situation/Context]\n${enSituation}`,
+        `[Hook Type]\n${experiment.hookType}`,
+        `[CTA Type]\n${experiment.ctaType}`,
+        `[Variation]\nAngle: ${variationAngle}\nStructure: ${variationStructure}`,
+        ...(creatorPatternContext ? [creatorPatternContext] : []),
+        `[Performance Memory]\n${growthContext}`,
+        `[Viral Reference Memory]\n${viralContext}`,
+        `[Recent Post Avoidance]\n${sanitizedRecentPostContext}`,
+        ...formatQualityFeedback(qualityFeedback, true),
+        "",
+        `Combine the experimental conditions above and write 1 high-retention Threads post (~${THREADS_CONTENT_TARGET_LENGTH} chars, max ${THREADS_CONTENT_MAX_LENGTH} chars) STRICTLY IN ENGLISH. Output ${SEPARATOR} and immediately write the first comment in English below it.`,
+        "Do NOT write actual URLs in the body or first comment. The system handles UTM tracking links.",
+      ]
+    : [
+        `[주제]\n${experiment.topic}`,
+        `[타겟 독자]\n${experiment.targetAudience}`,
+        `[상황/맥락]\n${experiment.situation}`,
+        `[훅 유형]\n${experiment.hookType}`,
+        `[CTA 유형]\n${experiment.ctaType}`,
+        `[이번 글 변주]\n각도: ${experiment.angleVariation ?? viralIntentMode.label}\n구조: ${experiment.structureVariation ?? viralIntentMode.instruction}`,
+        ...(creatorPatternContext ? [creatorPatternContext] : []),
+        `[성과 학습 메모리]\n${growthContext}`,
+        `[바이럴 레퍼런스 학습 메모리]\n${viralContext}`,
+        `[최근 생성 글 회피]\n${recentPostContext}`,
+        ...formatQualityFeedback(qualityFeedback, false),
+        "",
+        `위 실험 조건을 조합해서 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하) Threads 포스트 1개를 작성해줘. 작성 후 ${SEPARATOR} 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.`,
+        "본문과 첫 댓글에 실제 URL은 쓰지 마. 시스템이 저장 후 필요한 경우 UTM 링크를 붙인다.",
+      ];
+
   return [
-    `[공식: ${experiment.formula.name}]`,
+    ...languageMandate,
+    isEnglish ? `[Formula: ${experiment.formula.name}]` : `[공식: ${experiment.formula.name}]`,
     experiment.formula.instruction,
     "",
     ...formatProductPrompt(config),
     ...formatCampaignPrompt(experiment),
-    formatViralIntentModePrompt(viralIntentMode),
+    formatViralIntentModePrompt(viralIntentMode, isEnglish),
     ...(marketingSkillsContext ? [marketingSkillsContext] : []),
     ...crossDomainGuardrails,
-    "[Threads 길이 제한 및 Charlie Hills 바이럴 구조]",
-    `- 본문은 공백과 줄바꿈을 포함해 반드시 ${THREADS_CONTENT_MAX_LENGTH}자 이하로 작성한다.`,
-    `- 권장 본문 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 이하이며, 길면 예시와 수식어를 줄인다.`,
-    `- ${THREADS_CONTENT_MAX_LENGTH}자를 넘으면 품질 실패로 처리되어 업로드할 수 없다.`,
-    "- [Charlie Hills 2-Line Contrast Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내의 반전/대립각(Contrast)으로 상식을 뒤집는다.",
-    "- [Single-Point Razor]: 원문이나 여러 주제를 요약/나열하지 말고, 상식을 뒤집는 단 하나의 반직관적 주장(Contrarian Insight)에만 모든 문장을 집중할 것.",
-    "- [Focused Conflict]: 타겟과 상황에 제시된 페르소나의 실전 마찰 1개만 깊게 파고들고, 여러 갈등이나 딜레마를 백화점식으로 나열하지 말 것.",
-    "- [No Factual Hallucination]: 프롬프트에 제공되지 않은 가짜 개인 일화나 날조된 매출/사례 숫자를 지어내지 말고, 구조적 관찰과 냉철한 논리로 설득할 것.",
-    "- 첫 댓글은 구분자 아래에 별도로 솔직 고백형(4-line admission: 고백 + 셀프디스 + 작은 가치안내 + 수용)으로 작성한다.",
-    "- 글자 수 확인, 자수 체크, 초안, Threads 본문 같은 메타 텍스트를 절대 출력하지 않는다.",
-    ...(config.voiceProfile ? [
-      `[브랜드 고유 보이스 (Voice Profile)]`,
-      `- 톤: ${config.voiceProfile.tone}`,
-      `- 화자 관점: ${config.voiceProfile.perspective}`,
-      `- 문장 길이/호흡: ${config.voiceProfile.sentenceLength} / ${config.voiceProfile.paragraphStyle}`,
-      ...(config.voiceProfile.forbiddenPhrases.length ? [`- 금지 어조: ${config.voiceProfile.forbiddenPhrases.join(", ")}`] : []),
-    ] : []),
-    `[주제]\n${experiment.topic}`,
-    `[타겟 독자]\n${experiment.targetAudience}`,
-    `[상황/맥락]\n${experiment.situation}`,
-    `[훅 유형]\n${experiment.hookType}`,
-    `[CTA 유형]\n${experiment.ctaType}`,
-    `[이번 글 변주]\n각도: ${experiment.angleVariation ?? viralIntentMode.label}\n구조: ${experiment.structureVariation ?? viralIntentMode.instruction}`,
-    ...(creatorPatternContext ? [creatorPatternContext] : []),
-    `[성과 학습 메모리]\n${growthContext}`,
-    `[바이럴 레퍼런스 학습 메모리]\n${viralContext}`,
-    `[최근 생성 글 회피]\n${recentPostContext}`,
-    ...formatQualityFeedback(qualityFeedback),
-    "",
-    `위 실험 조건을 조합해서 ${THREADS_CONTENT_MAX_LENGTH}자 이하 Threads 포스트 1개를 작성해줘. 작성 후 ${SEPARATOR} 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.`,
-    "본문과 첫 댓글에 실제 URL은 쓰지 마. 시스템이 저장 후 필요한 경우 UTM 링크를 붙인다.",
+    ...viralRules,
+    ...sideMissionPrompt,
+    ...voiceProfilePrompt,
+    ...experimentParams,
   ].join("\n");
 }
 
@@ -465,6 +618,34 @@ function formatRecentPostContext(posts: RecentPostForPrompt[]): string {
 function formatProductPrompt(config: BrandConfig): string[] {
   const profile = config.productProfile;
   const experiment = config.activeExperiment;
+  const isEnglish =
+    config.voiceProfile?.language === "en" ||
+    Boolean(profile.productName?.toLowerCase().includes("global"));
+
+  if (isEnglish) {
+    return [
+      "[Product Profile]",
+      `Product Name: ${profile.productName}`,
+      `Description: ${profile.oneLineDescription || "Not set"}`,
+      `Target Customer: ${profile.targetCustomer || "Not set"}`,
+      `Offer Promise: ${profile.offerPromise || "Not set"}`,
+      `Landing URL: ${profile.landingUrl || config.websiteUrl || "Not set"}`,
+      `Primary Channel: ${profile.primaryChannel}`,
+      `Primary Metric: ${profile.primaryMetric}`,
+      `Conversion Metric: ${profile.conversionMetric}`,
+      `Positioning Notes: ${profile.positioningNotes || "Not set"}`,
+      "[Current Experiment]",
+      `Experiment Name: ${experiment.name}`,
+      `Hypothesis: ${experiment.hypothesis}`,
+      `Stage: ${experiment.stage}`,
+      `Duration: ${experiment.durationDays} days`,
+      `Primary Metric: ${experiment.primaryMetric}`,
+      `Guardrail: ${experiment.guardrailMetric}`,
+      `Status: ${experiment.status}`,
+      "",
+    ];
+  }
+
   return [
     "[제품 프로필]",
     `제품명: ${profile.productName}`,
@@ -488,8 +669,12 @@ function formatProductPrompt(config: BrandConfig): string[] {
   ];
 }
 
-function buildProductQualityContext(config: BrandConfig) {
+function buildProductQualityContext(
+  config: BrandConfig,
+  viralIntentModeId?: ViralIntentMode["id"]
+) {
   const profile = config.productProfile;
+  const isEnglish = config.voiceProfile?.language === "en" || Boolean(profile.productName?.toLowerCase().includes("global"));
   return {
     productName: profile.productName,
     productKeywords: [
@@ -500,6 +685,8 @@ function buildProductQualityContext(config: BrandConfig) {
       ...config.topics,
     ].filter((value) => value.trim().length > 0),
     ctaTerms: ["확인", "랜딩", "링크", "프로필", profile.conversionMetric],
+    isEnglish,
+    viralIntentModeId,
   };
 }
 
@@ -508,6 +695,14 @@ function formatCampaignPrompt(experiment: GrowthExperiment): string[] {
   const campaignExperiment = { ...experiment, campaign: experiment.campaign };
   if (experiment.qualityProfile === "career_decision") return formatCareerCampaignPrompt(campaignExperiment);
   if (experiment.qualityProfile === "product_growth") return formatProductGrowthCampaignPrompt(campaignExperiment);
+  if (experiment.qualityProfile === "ecommerce_d2c") {
+    return [
+      `[Campaign]\n${campaignExperiment.campaign.name} (${campaignExperiment.campaign.id})`,
+      `[Quality Profile]\n${experiment.qualityProfile}`,
+      `[Link Policy]\n${experiment.shouldLink ? "This post should naturally introduce the first-comment link to the Etsy blueprint." : "Zero links in this post. Focus on bookmark, share, or profile visit."}`,
+      "",
+    ];
+  }
   return [
     `[캠페인]\n${campaignExperiment.campaign.name} (${campaignExperiment.campaign.id})`,
     `[품질 프로필]\n${experiment.qualityProfile}`,
@@ -554,11 +749,11 @@ function formatProductGrowthCampaignPrompt(experiment: CampaignGrowthExperiment)
   ];
 }
 
-function formatQualityFeedback(qualityFeedback: string[]): string[] {
+function formatQualityFeedback(qualityFeedback: string[], isEnglish = false): string[] {
   if (qualityFeedback.length === 0) return [];
   return [
     "",
-    "[품질 게이트 실패 이유 - 이번 재작성에서 반드시 수정]",
+    isEnglish ? "[Quality Gate Feedback - Must fix on retry]" : "[품질 게이트 실패 이유 - 이번 재작성에서 반드시 수정]",
     ...qualityFeedback.map((reason) => `- ${reason}`),
   ];
 }
@@ -583,7 +778,7 @@ function validateGenerationReadiness(
   const sourceFormulas = activeCampaign
     ? activeCampaign.formulas
     : config.formulas.map(buildLegacyFormula);
-  const formulaPool = buildFormulaPool(sourceFormulas, activeCampaign ? {} : dbWeights);
+  const formulaPool = buildFormulaPool(sourceFormulas, dbWeights);
   if (formulaPool.length === 0) {
     return "공식 가중치가 모두 0입니다. 제품 설정을 확인하세요.";
   }
@@ -652,12 +847,20 @@ function appendFirstCommentLink(firstComment: string, linkUrl: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as { brandId?: unknown; count?: unknown; insertAtFront?: unknown; campaignId?: unknown; approvedCampaignStart?: unknown };
+    const body = await request.json() as {
+      brandId?: unknown;
+      count?: unknown;
+      insertAtFront?: unknown;
+      campaignId?: unknown;
+      approvedCampaignStart?: unknown;
+      category?: unknown;
+    };
     const brandId = typeof body.brandId === "string" ? body.brandId : null;
     const count = typeof body.count === "number" ? body.count : 30;
     const insertAtFront = body.insertAtFront === true;
     const requestedCampaignId = typeof body.campaignId === "string" ? body.campaignId : null;
     const approvedCampaignStart = body.approvedCampaignStart === true;
+    const postCategory = typeof body.category === "string" ? body.category : "GROWTH";
 
     if (!brandId) {
       return NextResponse.json({ error: "brandId is required" }, { status: 400 });
@@ -675,10 +878,22 @@ export async function POST(request: NextRequest) {
     if (readinessError) {
       return NextResponse.json({ error: readinessError }, { status: 400 });
     }
-    const sourceFormulas = activeCampaign
+    const domainProfile = activeCampaign?.qualityProfile ?? config.qualityProfile;
+    const domainPreset = getDomainPreset(domainProfile);
+    const domainTrackFormulas: GenerationFormula[] = [
+      ...domainPreset.trackFormulas.track_a,
+      ...domainPreset.trackFormulas.track_b,
+      ...domainPreset.trackFormulas.track_c,
+    ];
+
+    const baseFormulas = activeCampaign
       ? activeCampaign.formulas
       : config.formulas.map(buildLegacyFormula);
-    const formulaPool = buildFormulaPool(sourceFormulas, activeCampaign ? {} : dbWeights);
+    const existingFormulaIds = new Set(baseFormulas.map((f) => f.id));
+    const mergedTrackFormulas = domainTrackFormulas.filter((f) => !existingFormulaIds.has(f.id));
+    const sourceFormulas: GenerationFormula[] = [...baseFormulas, ...mergedTrackFormulas];
+
+    const formulaPool = buildFormulaPool(sourceFormulas, dbWeights);
     const allTopics = [...config.topics, ...(config.trendingTopics ?? [])];
     const topics = shuffleTopics(allTopics, count);
     const growthContext = formatGrowthPromptContext(parseStoredGrowthMemory(brand.growthMemory));
@@ -704,18 +919,40 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < count; i += BATCH) {
       const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
         const batchIndex = i + j;
-        const viralIntentMode = selectViralIntentMode(batchIndex);
-        const quotaSelection = selectFormulaWithQuota(batchIndex, {
-          customWeights: dbWeights,
-          recentFormulaIds: results.map((r) => r.formulaId),
+        const isLeanSprint = Boolean(
+          brand.slug === "cosmicpath" ||
+          activeCampaign?.id?.includes("lean") ||
+          activeCampaign?.id?.includes("14day") ||
+          activeCampaign?.id?.includes("cosmicpath") ||
+          config.activeExperiment?.id?.includes("lean") ||
+          config.activeExperiment?.id?.includes("cosmicpath") ||
+          config.productProfile?.productName?.toLowerCase().includes("cosmic") ||
+          count === 10 ||
+          count === 15
+        );
+        const viralIntentMode = selectViralIntentMode(batchIndex, {
+          sprintType: isLeanSprint ? "lean_15post" : "standard_28day",
         });
+        const quotaSelection = config.thompsonPriors
+          ? selectFormulaWithThompsonSampling(batchIndex, {
+              domainProfile,
+              customPriors: config.thompsonPriors,
+              recentFormulaIds: results.map((r) => r.formulaId),
+            })
+          : selectFormulaWithQuota(batchIndex, {
+              domainProfile,
+              customWeights: dbWeights,
+              recentFormulaIds: results.map((r) => r.formulaId),
+            });
 
         const matchedFormula = sourceFormulas.find((f) => f.id === quotaSelection.formulaId);
-        const formula = matchedFormula ?? (
-          activeCampaign
-            ? selectCampaignFormulaForViralMode(sourceFormulas, viralIntentMode)
-            : pickRandom(formulaPool)
-        );
+        const formula = isLeanSprint
+          ? selectCampaignFormulaForViralMode(sourceFormulas, viralIntentMode)
+          : (matchedFormula ?? (
+              activeCampaign
+                ? selectCampaignFormulaForViralMode(sourceFormulas, viralIntentMode)
+                : pickRandom(formulaPool)
+            ));
 
         const topic = topics[batchIndex % topics.length];
         const experiment = buildExperiment(formula, topic, config, activeCampaign, batchIndex, viralIntentMode);
@@ -775,14 +1012,31 @@ export async function POST(request: NextRequest) {
       const jitterMs = (Math.floor(Math.random() * 31) - 15) * 60 * 1000;
       const scheduledTime = Math.max(now + 5 * 60 * 1000, baseTime + index * POST_INTERVAL_MS + jitterMs);
 
+      const rawPostContent = ensureMaxThreadsLength(result.post);
+      const remediation = await remediatePostAlgorithmic(
+        rawPostContent,
+        result.firstComment || null,
+        {
+          topic: result.topic,
+          targetAudience: result.targetAudience,
+          productProfile: config.productProfile ? JSON.stringify(config.productProfile) : undefined,
+        },
+        config.minAlgorithmicScore ?? 80
+      );
+
+      const postContent = remediation.content;
+      const initialComment = remediation.firstComment;
+      const threadParts = splitContentIntoThreadParts(postContent);
+      const postStatus = remediation.pass ? "PENDING" : "NEEDS_REVIEW";
+
       const post = await prisma.post.create({
         data: {
           brandId,
-          content: ensureMaxThreadsLength(result.post),
-          firstComment: result.firstComment || null,
+          content: postContent,
+          firstComment: initialComment,
           imageUrls: JSON.stringify(carouselDataUrls),
           scheduledAt: new Date(scheduledTime),
-          status: "PENDING",
+          status: postStatus,
           formulaId: result.formulaId,
           topic: result.topic,
           targetAudience: result.targetAudience,
@@ -796,6 +1050,15 @@ export async function POST(request: NextRequest) {
           campaignId: result.campaignId,
           campaignFormulaId: result.campaignFormulaId,
           careerDecisionType: result.careerDecisionType,
+          threadTotalParts: threadParts.length,
+          threadPartsPosted: 0,
+          sideMission: config.sideMission || null,
+          postCategory,
+          algorithmicScore: remediation.scoreResult.totalScore,
+          algorithmicPass: remediation.pass,
+          algorithmicDimensions: JSON.stringify(remediation.scoreResult.dimensions),
+          algorithmicFixes: JSON.stringify(remediation.actionableFixes),
+          rewriteCount: remediation.rewriteCount,
         },
       });
 
@@ -820,6 +1083,10 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        if (!finalLinkUrl && (brand.slug === "cosmicpath" || config.productProfile?.productName?.toLowerCase().includes("cosmic"))) {
+          finalLinkUrl = config.productProfile?.landingUrl || "https://www.cosmicpath.app/start?entry=decision_timing_rebuild_v1";
+        }
+
         if (finalLinkUrl) {
           linkedCount++;
           const appBaseUrl = process.env.APP_URL || "https://thread-uploader.vercel.app";
@@ -833,9 +1100,31 @@ export async function POST(request: NextRequest) {
             utmContent: finalUtmContent,
           };
 
-          // Bio-first: Only append URL if explicitly configured with legacy "firstComment" placement
-          if (activeCampaign?.linkPlacement === "firstComment") {
-            updateData.firstComment = appendFirstCommentLink(result.firstComment, shortRedirectUrl);
+          const isCosmicOrLean = Boolean(
+            brand.slug === "cosmicpath" ||
+            activeCampaign?.linkPlacement === "firstComment" ||
+            activeCampaign?.id?.includes("cosmicpath") ||
+            activeCampaign?.id?.includes("lean") ||
+            config.productProfile?.productName?.toLowerCase().includes("cosmic")
+          );
+
+          if (isCosmicOrLean) {
+            const isGlobal = brand.slug === "cosmicpath-global" ||
+              config.voiceProfile?.language === "en" ||
+              config.qualityProfile === "ecommerce_d2c";
+            const isCosmicBrand = brand.slug === "cosmicpath" ||
+              activeCampaign?.id?.includes("cosmicpath") ||
+              config.productProfile?.productName?.toLowerCase().includes("cosmic");
+            const bridgeHeader = isGlobal
+              ? "📌 Full Dual-Engine Natal Blueprint & Decision Dossier (Etsy):"
+              : (isCosmicBrand
+                ? "📌 5대 계산 엔진(사주·점성술·자미두수) 교차 판정 리포트:"
+                : "");
+            const bridgeComment = bridgeHeader
+              ? [initialComment?.trim(), `${bridgeHeader}\n${shortRedirectUrl}`].filter(Boolean).join("\n\n")
+              : appendFirstCommentLink(initialComment || "", shortRedirectUrl);
+
+            updateData.firstComment = bridgeComment;
           }
 
           createdPosts.push(await prisma.post.update({
@@ -848,11 +1137,19 @@ export async function POST(request: NextRequest) {
       createdPosts.push(post);
     }
 
+    const passedCount = createdPosts.filter((p) => p.algorithmicPass).length;
+    const needsReviewCount = createdPosts.filter((p) => !p.algorithmicPass).length;
+
     return NextResponse.json({
       success: true,
       count: createdPosts.length,
       linkedCount,
       campaignId: activeCampaign?.id ?? null,
+      auditSummary: {
+        total: createdPosts.length,
+        passed: passedCount,
+        needsReview: needsReviewCount,
+      },
     });
   } catch (error) {
     const response = accessErrorResponse(error);

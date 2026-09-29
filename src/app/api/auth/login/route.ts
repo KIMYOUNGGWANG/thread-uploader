@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { verifyPassword } from "@/lib/auth";
+import { createSessionToken, verifyPassword } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -23,8 +23,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "이메일 또는 비밀번호가 올바르지 않습니다" }, { status: 401 });
     }
 
+    const sessionToken = createSessionToken(user.id);
     const cookieStore = await cookies();
-    cookieStore.set("auth_session", user.id, {
+    cookieStore.set("auth_session", sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

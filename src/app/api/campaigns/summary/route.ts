@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
 import { prisma } from "@/lib/prisma";
-import { normalizeViralIntentModeId } from "@/lib/viral-intent-modes";
 import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 
 function startOfToday(): Date {
@@ -40,10 +39,11 @@ function parseQualityReasons(raw: string): string[] {
   }
 }
 import {
-  type SummaryMetricPost,
-  type SummaryViralModePost,
   resolveSummaryViralIntentModeId,
   buildViralModeBuckets,
+  buildExperimentReadiness,
+  buildLinkExposureComparison,
+  buildViralModeComparisons,
   sumMetricValue,
   buildCampaignNextAction,
 } from "@/lib/campaign-summary-metrics";
@@ -52,6 +52,11 @@ export async function GET(request: NextRequest) {
   try {
     const brandId = request.nextUrl.searchParams.get("brandId");
     const requestedCampaignId = request.nextUrl.searchParams.get("campaignId");
+    const requestedScope = request.nextUrl.searchParams.get("scope");
+    if (requestedScope && requestedScope !== "today" && requestedScope !== "campaign") {
+      return NextResponse.json({ error: "scope must be today or campaign" }, { status: 400 });
+    }
+    const scope = requestedScope ?? "today";
     if (!brandId) {
       return NextResponse.json({ error: "brandId is required" }, { status: 400 });
     }
@@ -67,7 +72,7 @@ export async function GET(request: NextRequest) {
       where: {
         brandId,
         campaignId: campaign.id,
-        ...todayActivityWhere(),
+        ...(scope === "today" ? todayActivityWhere() : {}),
       },
       orderBy: [{ publishedAt: "asc" }, { createdAt: "asc" }, { scheduledAt: "asc" }],
     });
@@ -85,6 +90,7 @@ export async function GET(request: NextRequest) {
     const conversionMetricName = config.productProfile.conversionMetric;
     const primaryMetricValue = sumMetricValue(posts, primaryMetricName);
     const conversionMetricValue = sumMetricValue(posts, conversionMetricName);
+    const referenceTime = new Date();
 
     return NextResponse.json({
       brandId,
@@ -154,6 +160,11 @@ export async function GET(request: NextRequest) {
         clicksConversions: 15,
       },
       replyPlaybook: campaign.replyPlaybook,
+      ...(scope === "campaign" && {
+        experimentReadiness: buildExperimentReadiness(posts, referenceTime),
+        viralModeComparisons: buildViralModeComparisons(posts, referenceTime),
+        linkExposureComparison: buildLinkExposureComparison(posts, referenceTime),
+      }),
     });
   } catch (error) {
     const response = accessErrorResponse(error);

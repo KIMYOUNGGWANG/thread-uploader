@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, AuthError } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/brand-access";
 import { parseBrandConfig } from "@/types/brand";
 import type { BrandConfig } from "@/types/brand";
 
@@ -8,8 +9,7 @@ async function getBrandForUser(id: string, user: { id: string; email: string }) 
   const brand = await prisma.brand.findUnique({ where: { id } });
   if (!brand) return null;
   
-  const isSuperAdmin = user.email === "admin@example.com";
-  if (!isSuperAdmin && brand.ownerId !== user.id) return null;
+  if (!isSuperAdmin(user.email) && brand.ownerId !== user.id) return null;
   
   return brand;
 }

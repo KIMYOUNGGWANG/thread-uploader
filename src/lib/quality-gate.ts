@@ -5,12 +5,15 @@ import {
 } from "@/lib/product-quality-gate";
 import { getThreadsContentLimitError } from "@/lib/threads-limits";
 import {
+  checkViralModeFidelity,
   hasFortuneOverclaim,
   hasLowTouchEngagementMechanic,
   hasReplyBurdenPromise,
+  type ViralModeFidelityFailureCode,
 } from "@/lib/viral-intent-modes";
 import { validateAntiSlop } from "@/lib/marketing-skills";
 import { evaluateContentWithExpertPanel } from "@/lib/expert-panel-evaluator";
+import { checkMetaPolicySafety } from "@/lib/meta-policy-guard";
 
 /**
  * Quality Gate — CosmicPath 바이럴 공식 준수 검사기
@@ -50,7 +53,7 @@ const HOOK_PATTERNS = [
   /아무도/,       // "아무도 말 안 해줬던"
   /진짜\s/,       // "진짜 ~야"
   /솔직히/,       // 솔직한 폭로
-  /반박시/,       // "반박시 니 말이 맞음"
+  /보다\s*센/,    // 120k 서열화 훅 ("A보다 센 B보다 센")
   /!$/m,          // 감탄 (행 끝)
   /알고\s*있어/,  // "알고 있어"
   /깔려있어/,     // 해당여부 확인
@@ -131,6 +134,28 @@ const CAREER_FIRST_LINE_PATTERNS = [
   /아키텍트/,
   /파트너/,
   /손절/,
+  /역할/,
+  // Global English career & situation patterns
+  /career/i,
+  /job/i,
+  /role/i,
+  /work/i,
+  /office/i,
+  /promot/i,
+  /boss|manager|leader|lead/i,
+  /burnout|burnt\s*out/i,
+  /quit|resign/i,
+  /architect/i,
+  /engineer|developer/i,
+  /founder|startup/i,
+  /company|corporate/i,
+  /salary|paycheck|bonus/i,
+  /hire|hired|hiring|layoff|laid\s*off/i,
+  /scapegoat/i,
+  /saturn\s*return/i,
+  /stuck|trapped/i,
+  /firefighter/i,
+  /saju|zodiac|astrology|horoscope|birth\s*chart/i,
 ];
 
 const CAREER_COMMENT_PATTERNS = [
@@ -153,6 +178,18 @@ const CAREER_COMMENT_PATTERNS = [
   /보내줘/,
   /단계/,
   /엔진/,
+  // Global English engagement patterns
+  /\b[ABC]\b[\.\:\-\)]/i,
+  /archetype/i,
+  /save|bookmark/i,
+  /share/i,
+  /checklist/i,
+  /which\s*(one|type|matches|are\s*you)/i,
+  /comment|tell\s*me/i,
+  /tag/i,
+  /step/i,
+  /engine/i,
+  /anchor|exodus|reposition/i,
 ];
 
 const GENERIC_SELF_HELP_PATTERNS = [
@@ -172,8 +209,13 @@ const GENERATED_META_PATTERNS = [
   /글자\s*수\s*확인/,
   /공백[·\s]*줄바꿈.*포함/,
   /500자\s*이하\s*통과/,
-  /Threads\s*본문/,
+  /Threads\s*본문/i,
   /초안\s*작성/,
+  /#+\s*📌\s*THREADS\s*POST/i,
+  /---\s*\*\*본문\*\*/i,
+  /^\*\*본문\*\*/m,
+  /===FIRST_COMMENT===/i,
+  /#\s*The\s*Peach\s*Blossom/i,
 ];
 
 const CAREER_DECISION_PATTERNS: Array<{
@@ -184,6 +226,10 @@ const CAREER_DECISION_PATTERNS: Array<{
     type: "stay",
     patterns: [
       /버팀형|존버형|잔류형|버티는\s*쪽|남는\s*쪽/,
+      /anchor/i,
+      /stay/i,
+      /remain/i,
+      /outlast/i,
       /버티/,
       /버텨/,
       /남아/,
@@ -202,6 +248,10 @@ const CAREER_DECISION_PATTERNS: Array<{
     type: "move",
     patterns: [
       /이동형|이직형|퇴사형|탈출형|옮기는\s*쪽|떠나는\s*쪽/,
+      /exodus/i,
+      /exit/i,
+      /leave/i,
+      /escape/i,
       /옮기/,
       /이직/,
       /퇴사/,
@@ -219,6 +269,10 @@ const CAREER_DECISION_PATTERNS: Array<{
     type: "prepare",
     patterns: [
       /준비형|탐색형|간보는\s*쪽|준비하는\s*쪽/,
+      /reposition/i,
+      /pivot/i,
+      /prepare/i,
+      /portfolio/i,
       /준비/,
       /정리/,
       /포트폴리오/,
@@ -235,6 +289,11 @@ const CAREER_DECISION_PATTERNS: Array<{
 ];
 
 const CAREER_DECISION_FRAME_PATTERNS = [
+  /three\s*(career)?\s*archetypes/i,
+  /which\s*(one|type|matches)/i,
+  /anchor[\s\S]*exodus[\s\S]*reposition/i,
+  /stay[\s\S]*leave[\s\S]*prepare/i,
+  /\b[ABC]\b\.\s*[\s\S]*\b[ABC]\b\.\s*/i,
   /버팀형[\s\S]*이동형[\s\S]*준비형/,
   /버티[\s\S]*나가[\s\S]*준비/,
   /버텨야[\s\S]*움직여야[\s\S]*준비/,
@@ -252,14 +311,86 @@ const CAREER_DECISION_FRAME_PATTERNS = [
   /(?:[1-7]단계|[1-7]대\s*엔진|감사\s*체크|7단계)[\s\S]*(?:체크|판정|기준|확인|저장|도출)/,
 ];
 
+const ENGLISH_ASTRO_TERMS = [
+  /astrology|horoscope|birth chart|natal chart/i,
+  /sun sign|moon sign|rising|midheaven|ascendant/i,
+  /saturn return|mercury retrograde|ephemeris|transit/i,
+  /saju|bazi|four pillars|day master|eastern metaphysics/i,
+  /synastry|aspect|conjunction|opposition|trine|square/i,
+  /house|10th house|6th house|8th house|7th house|4th house/i,
+];
+
+const ENGLISH_HOOK_PATTERNS = [
+  /\?$/,                          // 질문형
+  /^(why|how|what|stop|never)\b/i, // Why / Stop / Never
+  /your\s+(birth\s*chart|horoscope|founder|saturn|moon|career)/i,
+  /turning\s+29/i,
+  /the\s+(reason|truth|paradox|mistake|trap)/i,
+  /in\s+western\s+astrology/i,
+  /most\s+people/i,
+  /^\d+\s+(reasons|mistakes|signs|steps)/i,
+];
+
+function checkEcommerceD2CQuality(post: string): QualityResult {
+  const reasons: string[] = [];
+  let score = 0;
+
+  // Zero Hangul check
+  if (/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(post)) {
+    reasons.push("영문 D2C 콘텐츠에 한글 문자 포함 (Zero Hangul 위반)");
+    return { pass: false, score: 0, profile: "ecommerce_d2c", reasons };
+  }
+
+  const firstLine = post.split("\n").find((l) => l.trim().length > 0) ?? "";
+
+  // Check 1: English Astro / Metaphysics relevance
+  const hasAstroTerm = ENGLISH_ASTRO_TERMS.some((regex) => regex.test(post));
+  if (hasAstroTerm) {
+    score++;
+  } else {
+    reasons.push("점성술/사주/운명학 핵심 영문 용어 부재");
+  }
+
+  // Check 2: Strong opening hook
+  const hasHook = ENGLISH_HOOK_PATTERNS.some((p) => p.test(firstLine));
+  if (hasHook) {
+    score++;
+  } else {
+    reasons.push(`영문 첫 줄 훅 약함: "${firstLine.slice(0, 50)}"`);
+  }
+
+  // Check 3: Contrarian / Insight structure (contains vs, or, but, however, not, instead)
+  const hasContrastOrConflict = /(vs\.|instead|demolishes|dilute|invisible|trap|truth|mismatch|collapse|lie|myth|actually)/i.test(post);
+  if (hasContrastOrConflict) {
+    score++;
+  } else {
+    reasons.push("대비(Contrast) 및 역설적 인사이트 구조 부재");
+  }
+
+  return {
+    pass: score >= 2,
+    score,
+    profile: "ecommerce_d2c",
+    reasons,
+  };
+}
+
 export function checkQuality(
   post: string,
   profile: QualityProfileId = "saju_viral",
   context: ProductQualityContext = {}
 ): QualityResult {
-  if (profile === "career_decision") return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkCareerDecisionQuality(post)));
-  if (profile === "product_growth") return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkProductGrowthQuality(post, context)));
-  return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkSajuViralQuality(post)));
+  const isEnglish = profile === "ecommerce_d2c" || Boolean(context.isEnglish);
+  if (profile === "ecommerce_d2c") {
+    return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkEcommerceD2CQuality(post)), isEnglish);
+  }
+  if (profile === "career_decision") {
+    return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkCareerDecisionQuality(post)), isEnglish);
+  }
+  if (profile === "product_growth") {
+    return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkProductGrowthQuality(post, context)), isEnglish);
+  }
+  return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkSajuViralQuality(post, context)), isEnglish);
 }
 
 function enforceThreadsContentLimit(post: string, result: QualityResult): QualityResult {
@@ -272,8 +403,11 @@ function enforceThreadsContentLimit(post: string, result: QualityResult): Qualit
   };
 }
 
-function enforceSafetyRules(post: string, result: QualityResult): QualityResult {
+function enforceSafetyRules(post: string, result: QualityResult, isEnglish = false): QualityResult {
   const reasons = [...result.reasons];
+  if (isEnglish && /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(post)) {
+    reasons.unshift("영문 프로필에 한글 문자 포함 (Zero Hangul 위반)");
+  }
   if (hasReplyBurdenPromise(post)) reasons.unshift("reply-burden CTA 포함");
   if (hasFortuneOverclaim(post)) reasons.unshift("overclaim 운세/상대 마음 보장 표현 포함");
   if (GENERATED_META_PATTERNS.some((pattern) => pattern.test(post))) reasons.unshift("generated meta text 포함");
@@ -288,10 +422,15 @@ function enforceSafetyRules(post: string, result: QualityResult): QualityResult 
     reasons.unshift(...expertEvaluation.blockingReasons);
   }
 
+  const metaPolicy = checkMetaPolicySafety(post);
+  if (!metaPolicy.pass && metaPolicy.recommendations.length > 0) {
+    reasons.unshift(...metaPolicy.recommendations);
+  }
+
   return reasons.length === result.reasons.length ? result : { ...result, pass: false, reasons };
 }
 
-function checkSajuViralQuality(post: string): QualityResult {
+function checkSajuViralQuality(post: string, context: ProductQualityContext): QualityResult {
   const firstLine = post.split("\n").find((l) => l.trim().length > 0) ?? "";
   const reasons: string[] = [];
   let score = 0;
@@ -320,11 +459,40 @@ function checkSajuViralQuality(post: string): QualityResult {
     reasons.push("참여 유도 요소 없음 (선택지/시리즈/질문 필요)");
   }
 
-  return { pass: score >= 2, score, profile: "saju_viral", reasons };
+  const fidelity = context.viralIntentModeId
+    ? checkViralModeFidelity(post, context.viralIntentModeId)
+    : { pass: true, failureCodes: [] };
+  reasons.push(...fidelity.failureCodes.map(formatViralModeFidelityFailure));
+
+  return { pass: score >= 2 && fidelity.pass, score, profile: "saju_viral", reasons };
+}
+
+const VIRAL_MODE_FAILURE_MESSAGES: Record<ViralModeFidelityFailureCode, string> = {
+  formal_tone: "바이럴 모드에 맞지 않는 존댓말/전문가 문체",
+  missing_three_choices: "3지선다 모드에 번호 선택지 1/2/3 없음",
+  missing_hierarchy: "개념 서열 모드에 2단계 이상 비교 구조 없음",
+  missing_identity_marker: "기질 프로파일 모드에 구체적 살/일주/글자 없음",
+  missing_relationship_contrast: "관계 텐션 모드에 관계 키워드와 대비 구조 없음",
+};
+
+function formatViralModeFidelityFailure(code: ViralModeFidelityFailureCode): string {
+  return VIRAL_MODE_FAILURE_MESSAGES[code];
+}
+
+function extractFirstContentLine(post: string): string {
+  const lines = post.split("\n").map((l) => l.trim());
+  for (const line of lines) {
+    if (!line) continue;
+    if (/^(\-{3,}|\*{3,}|={3,})$/.test(line)) continue;
+    if (/^#+\s*(📌|\[?메인|threads|post|본문)/i.test(line)) continue;
+    if (/^\*\*본문\*\*$/i.test(line)) continue;
+    return line.replace(/^#+\s*/, "");
+  }
+  return "";
 }
 
 function checkCareerDecisionQuality(post: string): QualityResult {
-  const firstLine = post.split("\n").find((line) => line.trim().length > 0) ?? "";
+  const firstLine = extractFirstContentLine(post);
   const reasons: string[] = [];
   let score = 0;
 

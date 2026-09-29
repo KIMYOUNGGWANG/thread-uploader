@@ -94,6 +94,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       credentials
     );
 
+    await prisma.threadReply.updateMany({
+      where: { replyThreadsId: replyToThreadsId },
+      data: { status: "PUBLISHED", replyText: replyText.trim() },
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       publishedReplyId,

@@ -8,6 +8,7 @@ import {
   validateGenerationReadiness,
 } from "@/lib/generation-engine";
 import { selectViralIntentMode } from "@/lib/viral-intent-modes";
+import { selectFormulaWithQuota } from "@/lib/quota-bandit-router";
 import {
   CAREER_TIMING_WEDGE_399,
   getActiveCampaign,
@@ -82,6 +83,72 @@ describe("buildGenerationPrompt", () => {
     expect(prompt).toContain("가드레일: quality_pass_rate");
     expect(prompt).toContain("Single-Point Razor");
     expect(prompt).toContain("No Factual Hallucination");
+  });
+
+  it("injects CRITICAL LANGUAGE MANDATE and English templates for Global or en language brand", () => {
+    const config = parseBrandConfig(JSON.stringify({
+      voiceProfile: {
+        language: "en",
+        tone: "analytical",
+        perspective: "Forensic Astrological Strategist",
+      },
+      productProfile: {
+        productName: "CosmicPath Global",
+        oneLineDescription: "Dual astrology blueprint",
+        targetCustomer: "Western 20-30s",
+        offerPromise: "Zero sugar-coating dossier",
+      },
+    }));
+    const experiment = {
+      formula: {
+        id: "synastry_avoidant_trap",
+        name: "Synastry & Avoidant Attachment Trap",
+        weight: 1,
+        instruction: "Expose why someone attracts avoidant partners.",
+      },
+      topic: "Attachment styles",
+      targetAudience: "Young professionals",
+      situation: "Dating avoidants",
+      hookType: "Relationship Calling-Out Hook",
+      ctaType: "Profile visit",
+      qualityProfile: "ecommerce_d2c" as QualityProfileId,
+      campaign: null,
+      campaignFormulaId: null,
+      shouldLink: false,
+    };
+
+    const prompt = buildGenerationPrompt(experiment, config, "growth memory", "viral memory");
+
+    expect(prompt).toContain("[CRITICAL LANGUAGE MANDATE - ABSOLUTE REQUIREMENT]");
+    expect(prompt).toContain("The entire output MUST be written strictly in fluent, natural English");
+    expect(prompt).toContain("ZERO Korean characters (Hangul / 가-힣) are allowed");
+    expect(prompt).toContain("[Threads Viral Compression & High-Retention Hook Rules]");
+    expect(prompt).toContain("STRICTLY IN ENGLISH");
+    expect(prompt).toContain("[Product Profile]");
+    expect(prompt).toContain("Product Name: CosmicPath Global");
+  });
+
+  it("injects side mission instructions into generation prompt when configured", () => {
+    const config = parseBrandConfig(JSON.stringify({
+      sideMission: "CosmicPath 커리어 타이밍 진단기 자연스럽게 언급",
+    }));
+    const experiment = {
+      formula: { id: "test", name: "Test Formula", weight: 1, instruction: "Test" },
+      topic: "이직 고민",
+      targetAudience: "3년차 직장인",
+      situation: "연봉 협상 직전",
+      hookType: "공감형 훅",
+      ctaType: "댓글 유도",
+      qualityProfile: "career_timing" as QualityProfileId,
+      campaign: null,
+      campaignFormulaId: null,
+      shouldLink: false,
+    };
+
+    const prompt = buildGenerationPrompt(experiment, config, "", "");
+    expect(prompt).toContain("사이드 미션 (Side Mission: 자연스러운 서브 프로모션)");
+    expect(prompt).toContain("CosmicPath 커리어 타이밍 진단기 자연스럽게 언급");
+    expect(prompt).toContain("본문 전면에 절대 노골적 광고나 하드셀을 하지 마라");
   });
 
 
@@ -417,5 +484,31 @@ describe("buildGenerationPrompt", () => {
 
     expect(link?.utmContent).toBe("post_123");
     expect(link?.url).toBe("https://invoiceflow.app/invoice?utm_source=threads&utm_campaign=invoice_speed_test&utm_content=post_123");
+  });
+
+  it("fails generation readiness when all formula weights in dbWeights are zero", () => {
+    const config = parseBrandConfig(JSON.stringify({
+      systemPrompt: "Write concise CosmicPath posts.",
+      topics: ["사주"],
+      formulas: [{ id: "sal_hierarchy_ego", name: "살 계급도", weight: 5, instruction: "계급화" }],
+    }));
+    const zeroWeights = { sal_hierarchy_ego: 0 };
+    expect(validateGenerationReadiness(config, null, zeroWeights)).toContain("가중치가 모두 0");
+  });
+
+  it("selectFormulaWithQuota routes to high-performing domain formula under adaptive weights", () => {
+    // When sal_hierarchy_ego has high adaptive weight (promoted by 120k views feedback loop)
+    const customWeights = {
+      sal_hierarchy_ego: 10,
+      lotto_zero_friction: 1,
+      self_classification: 1,
+    };
+    const selection = selectFormulaWithQuota(0, {
+      domainProfile: "saju_viral",
+      customWeights,
+      epsilon: 0, // Deterministic exploitation
+    });
+    expect(selection.formulaId).toBe("sal_hierarchy_ego");
+    expect(selection.track).toBe("track_a");
   });
 });

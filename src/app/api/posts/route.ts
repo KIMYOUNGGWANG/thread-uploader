@@ -28,6 +28,16 @@ function parseStringList(raw: string): string[] {
   }
 }
 
+function parseJsonObject<T>(raw: string | null | undefined, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return typeof parsed === "object" && parsed !== null ? (parsed as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const brandId = request.nextUrl.searchParams.get("brandId");
@@ -45,11 +55,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       posts: posts.map((p) => ({
         ...p,
-        imageUrls: JSON.parse(p.imageUrls) as string[],
+        imageUrls: parseStringList(p.imageUrls),
         qualityReasons: parseStringList(p.qualityReasons),
         errorLog: normalizeErrorLog(p.status, p.errorLog),
         performanceScore: p.performanceScore ?? (p.views === null ? null : calculatePerformanceScore(p)),
         performanceTier: p.performanceTier ?? (p.views === null ? null : getPerformanceTier(calculatePerformanceScore(p))),
+        algorithmicDimensions: parseJsonObject(p.algorithmicDimensions, null),
+        algorithmicFixes: parseStringList(p.algorithmicFixes),
       })),
     });
   } catch (error) {

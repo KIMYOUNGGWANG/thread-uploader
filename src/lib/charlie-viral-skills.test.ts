@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildTwoLineContrastHook,
   buildAdmissionFirstComment,
+  buildConversationIgniterComment,
 } from "@/lib/charlie-viral-skills";
 
 describe("buildTwoLineContrastHook", () => {
@@ -91,5 +92,30 @@ describe("buildAdmissionFirstComment", () => {
     const lines = comment.split("\n");
     expect(lines).toHaveLength(4);
     expect(lines[3]).toContain("etsy.com");
+  });
+});
+
+describe("buildConversationIgniterComment", () => {
+  it("generates 3-choice dilemma spark for lotto and choice formulas", () => {
+    const spark = buildConversationIgniterComment("1. 직장 존버\n2. 즉시 퇴사\n3. 치킨집 창업", {
+      formulaId: "lotto_zero_friction",
+    });
+    expect(spark).toMatch(/몇 번|어느 쪽/);
+  });
+
+  it("generates ego/identity spark for hierarchy formulas", () => {
+    const spark = buildConversationIgniterComment("화개살의 치명적 기운", {
+      formulaId: "sal_hierarchy_ego",
+      topic: "화개살",
+    });
+    expect(spark).toMatch(/기운|사주|체감/);
+  });
+
+  it("generates fact bomb discussion spark for attack formulas", () => {
+    const spark = buildConversationIgniterComment("동경시 32분 오차", {
+      formulaId: "fact_bomb_incumbent_attack",
+      topic: "출생시간",
+    });
+    expect(spark).toMatch(/오차|태어난 시|사주/);
   });
 });

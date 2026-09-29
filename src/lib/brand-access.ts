@@ -54,7 +54,14 @@ export function accessErrorResponse(error: unknown) {
   return null;
 }
 
+export function isSuperAdmin(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const configured = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase();
+  if (configured && email.toLowerCase() === configured) return true;
+  return email.toLowerCase() === "admin@example.com";
+}
+
 function assertBrandOwner(user: SessionUser, ownerId: string): void {
-  if (user.email === "admin@example.com") return;
+  if (isSuperAdmin(user.email)) return;
   if (ownerId !== user.id) throw new ForbiddenError();
 }

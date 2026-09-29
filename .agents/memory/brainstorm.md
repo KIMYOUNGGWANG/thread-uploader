@@ -1,3 +1,51 @@
+# Brainstorm — Threads 5D Safety Cockpit Completion & TikTok Decoupled Worker
+
+Updated: 2026-09-18
+Design Document: `docs/plans/designs/threads-cockpit-tiktok-decoupling-design.md`
+
+## Goal
+Complete and stabilize the Threads 5D algorithmic scoring, self-healing remediation, and shadowban safety cockpit on the dashboard and cron, while decoupling the TikTok Remotion rendering pipeline into an asynchronous CLI/background worker to prevent serverless execution timeouts.
+
+## Selected Direction: Approach A (Threads Cockpit Completion + TikTok Async Decoupling)
+- Threads 5D Cockpit: Wire `AccountHealthBanner.tsx` and `ScoreRadarPopover.tsx` with atomic remediation API, 1-min debounced evaluate endpoint, and shadowban link suppression.
+- TikTok Decoupled Worker: Next.js API returns 202 QUEUED immediately; standalone CLI worker (`scripts/render-tiktok-worker.mjs`) renders videos with 10-minute timeout auto-recovery.
+- 3-Tier Verification: Zero-defect typecheck, 63 vitest test files regression net, and E2E scenario checks.
+
+---
+
+# Brainstorm — Dashboard Health Cockpit & 5D Post Radar System
+
+Updated: 2026-09-16
+Design Document: `docs/plans/designs/dashboard-cockpit-safety-design.md`
+
+## Goal
+Build a dedicated Account Health Banner Cockpit and interactive 5D Post Score Radar Popover with 1-click auto-remediation and manual override controls directly on the Dashboard.
+
+## Selected Direction: Approach 1 (Modular Micro-Widgets & Atomic API)
+- `AccountHealthBanner.tsx`: Real-time health status (HEALTHY, WARNING, SHADOWBAN_SUSPECTED, RECOVERY), Trust Ramp tier, daily quota, manual override switches.
+- `ScoreRadarPopover.tsx`: 0-dependency pure SVG 5-axis radar chart showing hook, conversation, human voice, penalty risk, format readability scores, and actionable fixes.
+- `PostCard.tsx`: Score badge with color threshold, [✨ 1-Click 5D Auto-Remediate] button (atomic `POST /api/posts/[id]/remediate`), and [⚡ Force Approve] button.
+- Backend APIs: `POST /api/posts/[id]/remediate`, `PATCH /api/brands/[id]/health`, `POST /api/brands/[id]/health/evaluate`.
+
+---
+
+# Brainstorm — Threads Viral Engine & Account Safety System
+
+Updated: 2026-09-15
+Design Document: `docs/plans/designs/threads-viral-engine-safety-design.md`
+
+## Goal
+Integrate pre-publish 5D algorithmic scoring with 2-stage hybrid remediation into the post generation loop, and integrate silent shadowban health probing with self-healing warmup routing into the cron publishing pipeline.
+
+## Selected Direction: Approach 1 (State-Machine Pipeline & 2-Stage Remediation)
+- 0-token heuristic regex patching (body links to first comment, paragraph formatting) + 1-token targeted LLM rewrite on weakest dimension. Quarantine as `NEEDS_REVIEW` if < 80.
+- T+6h filtered metrics in `evaluateShadowbanHealth` to avoid Meta API lag false positives.
+- Cold-start guard (< 5 posts skips shadowban status).
+- Atomic DB status update (`status='PROCESSING'`) for cron concurrency idempotency.
+- Self-healing fallback: on-demand warmup generator / hardcoded template pool with external links completely suppressed.
+
+---
+
 # Brainstorm — Threads Uploader Development Priorities
 
 Updated: 2026-05-15

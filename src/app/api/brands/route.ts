@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, AuthError } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/brand-access";
 import { parseBrandConfig } from "@/types/brand";
 import { buildCreateProductConfig } from "@/lib/brand-config-builder";
 
 export async function GET() {
   try {
     const user = await requireAuth();
-    const isSuperAdmin = user.email === "admin@example.com";
+    const isSuper = isSuperAdmin(user.email);
     
     const brands = await prisma.brand.findMany({
-      where: isSuperAdmin ? {} : { ownerId: user.id },
+      where: isSuper ? {} : { ownerId: user.id },
       orderBy: { createdAt: "asc" },
     });
 
