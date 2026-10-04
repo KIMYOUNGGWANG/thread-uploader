@@ -9,6 +9,8 @@ const PUBLIC_PATHS = [
   "/api/cron",
   "/api/webhooks",
   "/api/oauth",
+  "/api/cards",
+  "/api/og",
   "/r/",
   "/attribution-tracker.js",
   "/_next",

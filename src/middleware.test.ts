@@ -21,6 +21,12 @@ describe("middleware public routes", () => {
     expect(response.status).toBe(200);
   });
 
+  it("allows visual cards API without a session", () => {
+    const response = middleware(new NextRequest("http://localhost/api/cards/post-123"));
+
+    expect(response.status).toBe(200);
+  });
+
   it("allows attribution tracker script download without a session", () => {
     const response = middleware(new NextRequest("http://localhost/attribution-tracker.js"));
 
