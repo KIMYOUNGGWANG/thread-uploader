@@ -75,7 +75,32 @@ async function publishPost(text, credentials, imageUrls = []) {
     }
 
     // Wait for processing
-    await sleep(5000);
+    if (validHttpImageUrls.length > 0) {
+        console.log(`  ⏳ Polling image container ${containerId} status...`);
+        let finished = false;
+        for (let attempt = 0; attempt < 8; attempt++) {
+            await sleep(3000);
+            try {
+                const statusRes = await fetch(`${THREADS_API_BASE}/${containerId}?fields=status,error_message&access_token=${credentials.accessToken}`);
+                const statusData = await statusRes.json();
+                if (statusData.status === "FINISHED") {
+                    finished = true;
+                    break;
+                }
+                if (statusData.status === "ERROR") {
+                    throw new Error(`Media processing error: ${statusData.error_message || "Unknown error"}`);
+                }
+            } catch (err) {
+                if (err.message.includes("Media processing error")) throw err;
+                break;
+            }
+        }
+        if (!finished) {
+            await sleep(2000);
+        }
+    } else {
+        await sleep(3000);
+    }
 
     // Publish
     const pubParams = new URLSearchParams({
