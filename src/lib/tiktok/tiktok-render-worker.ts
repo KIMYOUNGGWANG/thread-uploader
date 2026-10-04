@@ -5,7 +5,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import type { TikTokScriptResult } from "./tiktok-script-engine";
 import { alignTikTokScenes } from "./tiktok-audio-aligner";
-import type { RenderSpec } from "../../../.agent/skills/oma-video/resources/remotion/src/render-spec";
+import type { RenderSpec } from "./render-spec-types";
 
 const execAsync = promisify(exec);
 
