@@ -124,19 +124,37 @@ export function buildViralMemory(examples: ViralExampleInput[]): ViralMemory {
 }
 
 export function formatViralPromptContext(memory: ViralMemory): string {
-  if (memory.sampleSize === 0 || memory.topPatterns.length === 0) {
+  const sections: string[] = [];
+
+  if (memory.sampleSize > 0 && memory.topPatterns.length > 0) {
+    const patterns = memory.topPatterns.slice(0, 5).map((pattern) => (
+      `- 바이럴 패턴: ${labelPattern(pattern)} (평균 ${pattern.avgViralScore}점, 신뢰도 ${pattern.confidence})`
+    ));
+    sections.push(
+      `최근 바이럴 레퍼런스 ${memory.sampleSize}개 학습 결과:\n` + patterns.join("\n")
+    );
+  }
+
+  if (Array.isArray(memory.topPerformers) && memory.topPerformers.length > 0) {
+    const performerLines = memory.topPerformers.slice(0, 3).map(
+      (tp) => `- [실제 상위 10% 검증 훅 예시] "${tp.hook}" (점수: ${tp.score})`
+    );
+    sections.push(`[실제 검증된 상위 성과 훅 레퍼런스]:\n` + performerLines.join("\n"));
+  }
+
+  if (Array.isArray(memory.nextHookCandidates) && memory.nextHookCandidates.length > 0) {
+    const objectionLines = memory.nextHookCandidates.slice(0, 2).map(
+      (h) => `- [유저 베스트 반론 기반 훅 후보] "${h.nextHeadlineHook}" (반론: ${h.objectionCore})`
+    );
+    sections.push(`[유저 댓글 반론 채굴 훅 후보]:\n` + objectionLines.join("\n"));
+  }
+
+  if (sections.length === 0) {
     return "아직 외부 바이럴 레퍼런스 학습 데이터가 없습니다. 훅, 감정, 구조를 넓게 실험하세요.";
   }
 
-  const patterns = memory.topPatterns.slice(0, 5).map((pattern) => (
-    `- 바이럴 패턴: ${labelPattern(pattern)} (평균 ${pattern.avgViralScore}점, 신뢰도 ${pattern.confidence})`
-  ));
-
-  return [
-    `최근 바이럴 레퍼런스 ${memory.sampleSize}개 학습 결과:`,
-    ...patterns,
-    "위 패턴의 구조만 가져오고, 문장과 주장은 브랜드에 맞게 새로 작성하세요.",
-  ].join("\n");
+  sections.push("위 패턴과 훅의 심리적 구조를 적극 차용하되, 문장과 표현은 브랜드 페르소나에 맞게 독창적으로 작성하세요.");
+  return sections.join("\n\n");
 }
 
 function buildPatternSummaries(examples: ViralExampleInput[]): ViralPatternSummary[] {

@@ -19,6 +19,8 @@ export interface ViralMemory {
   sourceMix: Record<string, number>;
   topPatterns: ViralPatternSummary[];
   recommendations: string[];
+  topPerformers?: Array<{ postId: string; hook: string; score: number; views: number }>;
+  nextHookCandidates?: Array<{ parentPostId: string; nextHeadlineHook: string; objectionCore: string }>;
 }
 
 export interface ManualViralExample {
@@ -61,6 +63,8 @@ export function parseViralMemory(raw: string): ViralMemory {
       sourceMix: parsed.sourceMix ?? {},
       topPatterns: normalizePatterns(parsed.topPatterns),
       recommendations: parsed.recommendations ?? [],
+      topPerformers: Array.isArray((parsed as any).topPerformers) ? (parsed as any).topPerformers : [],
+      nextHookCandidates: Array.isArray((parsed as any).nextHookCandidates) ? (parsed as any).nextHookCandidates : [],
     };
   } catch {
     return EMPTY_VIRAL_MEMORY;
