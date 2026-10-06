@@ -22,9 +22,6 @@ const { PrismaClient } = require('@prisma/client');
 const { refreshTokens } = require('./refresh-token-standalone');
 const prisma = new PrismaClient();
 
-// Dynamic import for fetch if needed, but Node 18+ has it built-in
-// If you're on an older node, we might need a different approach.
-
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
 const FIRST_COMMENT_FAILURE_PREFIX = "First comment failed:";
 const DEFAULT_PUBLISH_BRAND_SLUGS = "cosmicpath,cosmicpath-global";
@@ -44,12 +41,37 @@ function getPublishBrandSlugs() {
         .filter(Boolean);
 }
 
+async function pollContainerStatus(containerId, accessToken, maxAttempts = 8, delayMs = 3000) {
+    console.log(`  ⏳ Polling container ${containerId} status...`);
+    let finished = false;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await sleep(delayMs);
+        try {
+            const statusRes = await fetch(`${THREADS_API_BASE}/${containerId}?fields=status,error_message&access_token=${accessToken}`);
+            const statusData = await statusRes.json();
+            if (statusData.status === "FINISHED") {
+                finished = true;
+                break;
+            }
+            if (statusData.status === "ERROR") {
+                throw new Error(`Media processing error: ${statusData.error_message || "Unknown error"}`);
+            }
+        } catch (err) {
+            if (err.message.includes("Media processing error")) throw err;
+            break;
+        }
+    }
+    if (!finished) {
+        await sleep(2000);
+    }
+}
+
 async function publishPost(text, credentials, imageUrls = []) {
     let containerId;
     const validHttpImageUrls = (imageUrls || []).filter((url) => typeof url === "string" && /^https?:\/\//i.test(url));
 
     if (validHttpImageUrls.length === 0) {
-        // Text only
+        // 1. Text only
         const params = new URLSearchParams({
             media_type: "TEXT",
             text,
@@ -59,9 +81,9 @@ async function publishPost(text, credentials, imageUrls = []) {
         const data = await res.json();
         if (!res.ok) throw new Error(`Threads API Error (Text): ${data.error?.message || "Unknown error"}`);
         containerId = data.id;
-    } else {
-        // For simplicity in this script, handling single image only or just text
-        // (Full carousel logic can be added if needed, but most are text)
+        await sleep(3000);
+    } else if (validHttpImageUrls.length === 1) {
+        // 2. Single Image
         const params = new URLSearchParams({
             media_type: "IMAGE",
             image_url: validHttpImageUrls[0],
@@ -72,34 +94,49 @@ async function publishPost(text, credentials, imageUrls = []) {
         const data = await res.json();
         if (!res.ok) throw new Error(`Threads API Error (Image): ${data.error?.message || "Unknown error"}`);
         containerId = data.id;
-    }
 
-    // Wait for processing
-    if (validHttpImageUrls.length > 0) {
-        console.log(`  ⏳ Polling image container ${containerId} status...`);
-        let finished = false;
-        for (let attempt = 0; attempt < 8; attempt++) {
-            await sleep(3000);
-            try {
-                const statusRes = await fetch(`${THREADS_API_BASE}/${containerId}?fields=status,error_message&access_token=${credentials.accessToken}`);
-                const statusData = await statusRes.json();
-                if (statusData.status === "FINISHED") {
-                    finished = true;
-                    break;
-                }
-                if (statusData.status === "ERROR") {
-                    throw new Error(`Media processing error: ${statusData.error_message || "Unknown error"}`);
-                }
-            } catch (err) {
-                if (err.message.includes("Media processing error")) throw err;
-                break;
-            }
-        }
-        if (!finished) {
-            await sleep(2000);
-        }
+        await pollContainerStatus(containerId, credentials.accessToken);
     } else {
-        await sleep(3000);
+        // 3. Carousel (Multiple Images)
+        console.log(`  📸 Creating Carousel with ${validHttpImageUrls.length} images...`);
+        const childContainerIds = [];
+
+        for (let i = 0; i < validHttpImageUrls.length; i++) {
+            const imgUrl = validHttpImageUrls[i];
+            const childParams = new URLSearchParams({
+                media_type: "IMAGE",
+                image_url: imgUrl,
+                is_carousel_item: "true",
+                access_token: credentials.accessToken,
+            });
+            const childRes = await fetch(`${THREADS_API_BASE}/${credentials.userId}/threads?${childParams}`, { method: "POST" });
+            const childData = await childRes.json();
+            if (!childRes.ok) {
+                throw new Error(`Threads API Error (Carousel Item ${i + 1}): ${childData.error?.message || "Unknown error"}`);
+            }
+            childContainerIds.push(childData.id);
+        }
+
+        // Wait for child containers to process
+        for (const childId of childContainerIds) {
+            await pollContainerStatus(childId, credentials.accessToken);
+        }
+
+        // Create parent carousel container
+        const carouselParams = new URLSearchParams({
+            media_type: "CAROUSEL",
+            children: childContainerIds.join(","),
+            text,
+            access_token: credentials.accessToken,
+        });
+        const carouselRes = await fetch(`${THREADS_API_BASE}/${credentials.userId}/threads?${carouselParams}`, { method: "POST" });
+        const carouselData = await carouselRes.json();
+        if (!carouselRes.ok) {
+            throw new Error(`Threads API Error (Carousel Parent): ${carouselData.error?.message || "Unknown error"}`);
+        }
+        containerId = carouselData.id;
+
+        await pollContainerStatus(containerId, credentials.accessToken);
     }
 
     // Publish
@@ -213,7 +250,7 @@ function splitIntoThreadParts(text, maxLength = 480, maxParts = 5) {
 }
 
 async function main() {
-    console.log("Starting standalone publisher...");
+    console.log("Starting standalone publisher with brand isolation & circuit breaker...");
 
     await refreshTokens({ prismaClient: prisma });
 
@@ -237,8 +274,37 @@ async function main() {
     for (const brand of targetBrands) {
         console.log(`\n▶ [Brand: ${brand.name} (${brand.slug})]`);
 
+        let brandConfig = {};
+        try {
+            brandConfig = JSON.parse(brand.brandConfig || "{}");
+        } catch (_) {
+            brandConfig = {};
+        }
+
+        // Circuit breaker check
+        if (brandConfig.circuitBreaker?.pausedUntil) {
+            const pauseExpiresAt = new Date(brandConfig.circuitBreaker.pausedUntil);
+            if (pauseExpiresAt.getTime() > Date.now()) {
+                console.log(`  ⏸️ Skipping ${brand.slug}: Circuit breaker active until ${brandConfig.circuitBreaker.pausedUntil} (Reason: ${brandConfig.circuitBreaker.lastFailureReason || "Unknown"}).`);
+                continue;
+            }
+        }
+
         if (!brand.accessToken || !brand.threadsUserId) {
             console.log(`  ⚠️ Skipping ${brand.slug}: Missing Threads credentials (accessToken or threadsUserId).`);
+            continue;
+        }
+
+        // 24-hour rate limit check (Threads allows max 250 posts/24h per user)
+        const publishedLast24h = await prisma.post.count({
+            where: {
+                brandId: brand.id,
+                status: "PUBLISHED",
+                publishedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+            }
+        });
+        if (publishedLast24h >= 240) {
+            console.warn(`  ⚠️ Skipping ${brand.slug}: Reached 24h safety limit (${publishedLast24h}/250 posts).`);
             continue;
         }
 
@@ -322,6 +388,17 @@ async function main() {
             });
             console.log(`  ✅ Successfully published ${post.id} (${brand.slug}). Threads ID: ${threadsId}`);
 
+            // Reset circuit breaker on success
+            brandConfig.circuitBreaker = {
+                consecutiveFailures: 0,
+                pausedUntil: null,
+                lastFailureReason: null
+            };
+            await prisma.brand.update({
+                where: { id: brand.id },
+                data: { brandConfig: JSON.stringify(brandConfig) }
+            });
+
             // Gap between brands to avoid rate limiting
             await sleep(4000);
         } catch (error) {
@@ -333,13 +410,42 @@ async function main() {
                     errorLog: error.message
                 }
             });
+
+            // Update circuit breaker
+            const currentFailures = (brandConfig.circuitBreaker?.consecutiveFailures || 0) + 1;
+            const pausedUntil = currentFailures >= 3
+                ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
+                : null;
+            brandConfig.circuitBreaker = {
+                consecutiveFailures: currentFailures,
+                pausedUntil,
+                lastFailureReason: error.message
+            };
+            if (pausedUntil) {
+                console.error(`  🚨 Circuit breaker tripped for ${brand.slug}: 3 consecutive failures. Paused for 1 hour.`);
+            }
+            await prisma.brand.update({
+                where: { id: brand.id },
+                data: { brandConfig: JSON.stringify(brandConfig) }
+            });
         }
     }
 }
 
-main()
-    .catch(e => {
-        console.error("Execution error:", e);
-        process.exit(1);
-    })
-    .finally(() => prisma.$disconnect());
+if (require.main === module) {
+    main()
+        .catch(e => {
+            console.error("Execution error:", e);
+            process.exit(1);
+        })
+        .finally(() => prisma.$disconnect());
+}
+
+module.exports = {
+    pollContainerStatus,
+    publishPost,
+    publishReply,
+    publishReplyWithRetry,
+    splitIntoThreadParts,
+    main,
+};

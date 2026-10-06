@@ -1,3 +1,13 @@
 {
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/publish",
+      "schedule": "0 0,3,9,12,14 * * *"
+    },
+    {
+      "path": "/api/cron/feedback?apply=true",
+      "schedule": "0 15 * * *"
+    }
+  ]
 }

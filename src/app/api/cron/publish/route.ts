@@ -8,6 +8,11 @@ import { isCircadianQuietHour, checkMinimumCooldown, evaluateSporadicSkip } from
 import { resolveAccountTrustTier } from "@/lib/account-trust-ramp";
 import { parseBrandConfig } from "@/types/brand";
 import { sendSystemAlert } from "@/lib/alert-service";
+import {
+  checkCircuitBreaker,
+  recordCircuitBreakerFailure,
+  recordCircuitBreakerSuccess,
+} from "@/lib/threads-publisher";
 
 export const maxDuration = 60;
 
@@ -35,6 +40,26 @@ export async function GET(request: NextRequest) {
     try {
       const now = new Date();
       const brandConfig = parseBrandConfig(brand.brandConfig || "{}");
+
+      // 0. Circuit Breaker Guard
+      const breakerCheck = checkCircuitBreaker(brandConfig as any, now);
+      if (!breakerCheck.isAllowed) {
+        skipped.push({ brandId: brand.id, brandName: brand.name, reason: "circuit_breaker_active" });
+        continue;
+      }
+
+      // 0.1 24h hard safety limit check (max 240 posts/24h)
+      const publishedLast24h = await prisma.post.count({
+        where: {
+          brandId: brand.id,
+          status: "PUBLISHED",
+          publishedAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+        },
+      });
+      if (publishedLast24h >= 240) {
+        skipped.push({ brandId: brand.id, brandName: brand.name, reason: "rate_limit_24h_exhausted" });
+        continue;
+      }
 
       // 1. Circadian Quiet Hours Guard (if jitterEnabled is true)
       if (brandConfig.jitterEnabled && isCircadianQuietHour(now)) {
@@ -203,13 +228,14 @@ export async function GET(request: NextRequest) {
         const result = await publishOrResumePost(post.id, credentials);
 
         if (result.success && result.rootThreadsId) {
+          const updatedBreaker = recordCircuitBreakerSuccess(brandConfig as any);
           if (brandConfig.lastTickSkipped) {
-            brandConfig.lastTickSkipped = false;
-            await prisma.brand.update({
-              where: { id: brand.id },
-              data: { brandConfig: JSON.stringify(brandConfig) },
-            });
+            updatedBreaker.lastTickSkipped = false;
           }
+          await prisma.brand.update({
+            where: { id: brand.id },
+            data: { brandConfig: JSON.stringify(updatedBreaker) },
+          });
 
           published.push({
             brandId: brand.id,
@@ -222,6 +248,17 @@ export async function GET(request: NextRequest) {
           );
         } else {
           const reason = result.partsPosted > 0 ? "partial_failed" : "publish_failed";
+          const updatedBreaker = recordCircuitBreakerFailure(
+            brandConfig as any,
+            result.error || reason,
+            3,
+            60 * 60 * 1000,
+            now
+          );
+          await prisma.brand.update({
+            where: { id: brand.id },
+            data: { brandConfig: JSON.stringify(updatedBreaker) },
+          });
           skipped.push({
             brandId: brand.id,
             brandName: brand.name,
@@ -238,6 +275,17 @@ export async function GET(request: NextRequest) {
       } catch (publishErr) {
         const errorMsg = publishErr instanceof Error ? publishErr.message : String(publishErr);
         console.error(`[cron/publish] ❌ ${brand.name}: publish failed`, publishErr);
+        const updatedBreaker = recordCircuitBreakerFailure(
+          brandConfig as any,
+          errorMsg,
+          3,
+          60 * 60 * 1000,
+          now
+        );
+        await prisma.brand.update({
+          where: { id: brand.id },
+          data: { brandConfig: JSON.stringify(updatedBreaker) },
+        });
         if (post && post.id) {
           await prisma.post.update({
             where: { id: post.id },

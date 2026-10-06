@@ -1,48 +1,42 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parsePostForSlide } from "@/lib/card-parser";
 
 export const runtime = "nodejs";
-
-function parsePostForCard(content: string) {
-  const lines = content.split("\n").map((l) => l.trim()).filter(Boolean);
-  const hook = lines[0] || "운명과 타이밍의 법칙";
-
-  // Look for A/B/C or bullet points
-  const items: string[] = [];
-  let sub = "";
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (/^[▶\-\*•]?\s*[A-C]\./i.test(line) || /^[A-C]\s*[\:\.]/i.test(line)) {
-      items.push(line.replace(/^[▶\-\*•]\s*/, ""));
-    } else if (!sub && !line.includes("체크해봐") && !line.includes("어디에 가까워")) {
-      sub = line;
-    }
-  }
-
-  return { hook, sub, items: items.slice(0, 3) };
-}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const slideParam = request.nextUrl.searchParams.get("slide");
+  const slideIndex = Math.max(0, parseInt(slideParam || "0", 10) || 0);
 
   try {
     const post = await prisma.post.findUnique({
       where: { id },
-      include: { brand: true },
+      select: {
+        id: true,
+        content: true,
+        topic: true,
+        brand: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
+      },
     });
 
     if (!post) {
       return new Response("Post not found", { status: 404 });
     }
 
-    const { hook, sub, items } = parsePostForCard(post.content);
-    const brandName = post.brand.name || "CosmicPath";
+    const { hook, sub, items, totalSlides, isCarouselDetail } = parsePostForSlide(post.content, slideIndex);
+    const brandName = post.brand?.name || "CosmicPath";
     const topic = post.topic || "대운 & 커리어 타이밍";
+    const slideTag = totalSlides && totalSlides > 1 ? `SLIDE ${slideIndex + 1}/${totalSlides}` : "CRITICAL TIMING CHECK";
 
     return new ImageResponse(
       (
@@ -86,8 +80,8 @@ export async function GET(
                 {brandName.toUpperCase()} · {topic}
               </span>
             </div>
-            <span style={{ fontSize: "24px", color: "#64748B", fontWeight: "600" }}>
-              CRITICAL TIMING CHECK
+            <span style={{ fontSize: "24px", color: isCarouselDetail ? "#38BDF8" : "#64748B", fontWeight: "700" }}>
+              {slideTag}
             </span>
           </div>
 
@@ -95,7 +89,7 @@ export async function GET(
           <div style={{ display: "flex", flexDirection: "column", gap: "28px", margin: "40px 0" }}>
             <h1
               style={{
-                fontSize: hook.length > 35 ? "50px" : "58px",
+                fontSize: hook.length > 35 ? "48px" : "58px",
                 fontWeight: "900",
                 lineHeight: "1.25",
                 color: "#FFFFFF",
@@ -109,9 +103,9 @@ export async function GET(
             {sub && (
               <p
                 style={{
-                  fontSize: "26px",
+                  fontSize: isCarouselDetail ? "32px" : "26px",
                   lineHeight: "1.5",
-                  color: "#94A3B8",
+                  color: isCarouselDetail ? "#E2E8F0" : "#94A3B8",
                   maxWidth: "920px",
                   wordBreak: "keep-all",
                 }}
@@ -180,7 +174,7 @@ export async function GET(
         width: 1080,
         height: 1080,
         headers: {
-          "Cache-Control": "public, max-age=31536000, immutable",
+          "Cache-Control": "public, s-maxage=31536000, max-age=3600, stale-while-revalidate=86400",
         },
       }
     );

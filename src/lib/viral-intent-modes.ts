@@ -52,26 +52,61 @@ function extractOpeningLines(content: string, lineCount = 2): string {
   return contentLines.join("\n");
 }
 
+export interface ViralFidelityOptions {
+  identityMarkers?: string[];
+  formalTonePattern?: RegExp;
+  isEnglish?: boolean;
+}
+
 export function checkViralModeFidelity(
   content: string,
-  modeId: ViralIntentModeId
+  modeId: ViralIntentModeId,
+  options?: ViralFidelityOptions
 ): ViralModeFidelityResult {
   const failureCodes: ViralModeFidelityFailureCode[] = [];
   const opening = extractOpeningLines(content, 2);
 
-  if (FORMAL_TONE_PATTERN.test(content)) failureCodes.push("formal_tone");
+  const isEnglish = options?.isEnglish ?? false;
+  const formalPattern = options?.formalTonePattern ?? (isEnglish ? null : FORMAL_TONE_PATTERN);
+
+  if (formalPattern && formalPattern.test(content)) {
+    failureCodes.push("formal_tone");
+  }
+
   if (modeId === "imagination_dilemma" && !hasThreeNumberedChoices(content)) {
     failureCodes.push("missing_three_choices");
   }
-  if (modeId === "concept_hierarchy" && (opening.match(HIERARCHY_PATTERN)?.length ?? 0) < 2) {
+
+  const hierarchyPattern = isEnglish
+    ? /better than|worse than|(?:^|\s)vs(?:\s|$)|[<>＜＞]|higher than|over/gi
+    : HIERARCHY_PATTERN;
+
+  if (modeId === "concept_hierarchy" && (opening.match(hierarchyPattern)?.length ?? 0) < 2) {
     failureCodes.push("missing_hierarchy");
   }
-  if (modeId === "identity_profile" && !IDENTITY_MARKER_PATTERN.test(opening)) {
+
+  let identityMatches = false;
+  if (options?.identityMarkers && options.identityMarkers.length > 0) {
+    const customPattern = new RegExp(options.identityMarkers.join("|"), "i");
+    identityMatches = customPattern.test(opening);
+  } else {
+    identityMatches = IDENTITY_MARKER_PATTERN.test(opening);
+  }
+
+  if (modeId === "identity_profile" && !identityMatches) {
     failureCodes.push("missing_identity_marker");
   }
+
+  const relPattern = isEnglish
+    ? /dating|relationship|partner|ex|breakup|toxic|chemistry/i
+    : RELATIONSHIP_PATTERN;
+  const relContrastPattern = isEnglish
+    ? /never|vs|clash|ruin|drain|contrast|karmic/i
+    : RELATIONSHIP_CONTRAST_PATTERN;
+
   if (
     modeId === "relationship_tension"
-    && (!RELATIONSHIP_PATTERN.test(opening) || !RELATIONSHIP_CONTRAST_PATTERN.test(opening))
+    && (!relPattern.test(opening) || !relContrastPattern.test(opening))
   ) {
     failureCodes.push("missing_relationship_contrast");
   }

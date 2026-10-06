@@ -40,6 +40,7 @@ import { parseViralMemory } from "@/types/viral";
 import { getDomainPreset } from "@/lib/domain-registry";
 import { resolveDynamicContext } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
+import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -249,9 +250,9 @@ async function generateOne(
       });
 
       const raw = (message.content[0] as { text: string }).text.trim();
-      const parts = raw.split(SEPARATOR);
-      const post = cleanGeneratedContentLabels(parts[0]);
-      let firstComment = cleanGeneratedContentLabels(parts[1] ?? "");
+      const parsed = parseStructuredPostOutput(raw);
+      const post = cleanGeneratedContentLabels(parsed.content);
+      let firstComment = cleanGeneratedContentLabels(parsed.firstComment);
       if (!firstComment || firstComment.length < 15) {
         firstComment = buildAdmissionFirstComment(post, {
           topic: experiment.topic,
