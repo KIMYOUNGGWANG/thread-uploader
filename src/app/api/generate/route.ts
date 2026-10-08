@@ -380,7 +380,9 @@ function buildExperiment(
   config: BrandConfig,
   campaign: CampaignConfig | null,
   index: number,
-  viralIntentMode = selectViralIntentMode(index)
+  viralIntentMode = selectViralIntentMode(index),
+  contextDomainId?: string,
+  contextOffset = 0
 ): GrowthExperiment {
   const qualityProfile = campaign?.qualityProfile ?? config.qualityProfile ?? "saju_viral";
   const cadence = Math.max(1, campaign?.linkCadenceEvery ?? 1);
@@ -392,8 +394,8 @@ function buildExperiment(
   const ctaTypes = ctaTypeCandidates.length ? ctaTypeCandidates : defaultCtaTypes;
 
   const dynamicContext = resolveDynamicContext({
-    domainId: qualityProfile,
-    index,
+    domainId: contextDomainId ?? qualityProfile,
+    index: index + contextOffset,
     baseTopic: topic,
     userTarget: config.targets?.length ? pickRandom(config.targets) : undefined,
     userSituation: config.situations?.length ? pickRandom(config.situations) : undefined,
@@ -704,10 +706,20 @@ function formatCampaignPrompt(experiment: GrowthExperiment): string[] {
   return [
     `[캠페인]\n${campaignExperiment.campaign.name} (${campaignExperiment.campaign.id})`,
     `[품질 프로필]\n${experiment.qualityProfile}`,
+    ...(experiment.qualityProfile === "saju_viral" ? SAJU_VIRAL_REQUIREMENTS : []),
     `[링크 정책]\n${experiment.shouldLink ? "이번 글은 첫 댓글에 링크가 붙을 예정이므로 CTA를 자연스럽게 작성" : "이번 글은 링크 없이 저장/공유/프로필 방문만 유도"}`,
     "",
   ];
 }
+
+// Mirrors the saju_viral quality gate so drafts are written to pass it instead of being discarded.
+const SAJU_VIRAL_REQUIREMENTS = [
+  "[필수 조건 — 하나라도 빠지면 품질 게이트에서 폐기됨]",
+  "- 본문에 사주 용어를 최소 1개 넣는다 (예: 일간, 일주, 재성, 관성, 비겁, 식상, 도화살, 역마살, 화개살, 궁합, 대운).",
+  "- 첫 줄은 질문('~알아?'), 'A보다 센 B' 비교, 반전 중 하나로 시작한다.",
+  "- 끝에 번호 선택지(1) 2)) 또는 질문으로 독자가 바로 반응하게 만든다.",
+  "- 100% 반말/독백체(~임, ~했음, ~야)로 쓰고 ~습니다/~하세요 같은 존댓말은 쓰지 않는다.",
+];
 
 function formatCareerCampaignPrompt(experiment: CampaignGrowthExperiment): string[] {
   return [
@@ -912,6 +924,11 @@ export async function POST(request: NextRequest) {
     });
     const recentPostContext = formatRecentPostContext(recentPosts);
 
+    // The matrix is a pure function of index, so a fixed index 0..n repeated the same contexts every run.
+    // ponytail: day-based offset, same-day reruns still repeat; switch to a persisted counter if that matters.
+    const contextOffset = Math.floor(Date.now() / 86_400_000) * count;
+    const isSajuDomain = domainProfile === "saju_viral" || domainProfile === "career_decision";
+
     const BATCH = 3;
     const BATCH_COOLDOWN = 500;
     const results: Awaited<ReturnType<typeof generateWithQuality>>[] = [];
@@ -930,6 +947,7 @@ export async function POST(request: NextRequest) {
           productName: config.productProfile?.productName,
           count,
         });
+        const useRelationshipContext = isLeanSprint && isSajuDomain;
         const viralIntentMode = isLeanSprint
           ? selectLeanViralMode(batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds)
           : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
@@ -956,7 +974,11 @@ export async function POST(request: NextRequest) {
         pickedFormulaIds.push(formula.id);
 
         const topic = topics[batchIndex % topics.length];
-        const experiment = buildExperiment(formula, topic, config, activeCampaign, batchIndex, viralIntentMode);
+        const experiment = buildExperiment(
+          formula, topic, config, activeCampaign, batchIndex, viralIntentMode,
+          useRelationshipContext ? "saju_relationship" : undefined,
+          contextOffset
+        );
         const inBatchPosts: RecentPostSummary[] = [
           ...results.map((r) => ({ content: r.post, topic: r.topic, hookType: r.hookType })),
           ...recentPosts,
@@ -1098,7 +1120,9 @@ export async function POST(request: NextRequest) {
         }
 
         if (!finalLinkUrl && (brand.slug === "cosmicpath" || config.productProfile?.productName?.toLowerCase().includes("cosmic"))) {
-          finalLinkUrl = config.productProfile?.landingUrl || "https://www.cosmicpath.app/start?entry=decision_timing_rebuild_v1";
+          const matchLanding = "https://www.cosmicpath.app/match/new";
+          const legacyLanding = "https://www.cosmicpath.app/start?entry=decision_timing_rebuild_v1";
+          finalLinkUrl = config.productProfile?.landingUrl || (brand.slug === "cosmicpath" ? matchLanding : legacyLanding);
         }
 
         if (finalLinkUrl) {

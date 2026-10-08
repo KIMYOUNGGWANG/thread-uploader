@@ -6,7 +6,7 @@ import {
 
 describe("context-matrix-engine", () => {
   it("has complete 8x8x8 dimensions for each defined domain", () => {
-    const domains = ["saju_viral", "career_decision", "product_growth", "ecommerce_d2c"] as const;
+    const domains = ["saju_viral", "saju_relationship", "career_decision", "product_growth", "ecommerce_d2c"] as const;
     for (const domain of domains) {
       const matrix = DOMAIN_MATRICES[domain];
       expect(matrix).toBeDefined();
@@ -32,6 +32,15 @@ describe("context-matrix-engine", () => {
     }
 
     expect(seenTuples.size).toBe(totalGenerations);
+  });
+
+  it("serves the relationship axis when asked and shifts contexts with the index offset", () => {
+    const first = resolveDynamicContext({ domainId: "saju_relationship", index: 0 });
+    expect(DOMAIN_MATRICES.saju_relationship.personas).toContain(first.persona);
+
+    const nextRun = resolveDynamicContext({ domainId: "saju_relationship", index: 15 });
+    expect(`${nextRun.persona}${nextRun.friction}${nextRun.tension}`)
+      .not.toBe(`${first.persona}${first.friction}${first.tension}`);
   });
 
   it("correctly falls back to relevant domain when partial keywords match", () => {
