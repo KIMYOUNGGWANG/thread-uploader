@@ -1,3 +1,4 @@
+import { encrypt } from "@/lib/crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, AuthError } from "@/lib/auth";
@@ -77,7 +78,8 @@ export async function PATCH(
       where: { id },
       data: {
         ...(typeof body.name === "string" && { name: body.name.trim() }),
-        ...(typeof body.accessToken === "string" && { accessToken: body.accessToken }),
+        // The settings form never receives the stored token, so an empty value means "keep the current one"
+        ...(typeof body.accessToken === "string" && body.accessToken.trim() && { accessToken: encrypt(body.accessToken.trim()) }),
         ...(typeof body.threadsUserId === "string" && { threadsUserId: body.threadsUserId }),
         ...(typeof body.tokenExpiry === "string" && { tokenExpiry: new Date(body.tokenExpiry) }),
         brandConfig: serializeBrandConfigUpdate(brand.brandConfig, mergedConfig),

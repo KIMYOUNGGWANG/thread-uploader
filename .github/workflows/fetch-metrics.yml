@@ -10,7 +10,7 @@ jobs:
   fetch-metrics:
     runs-on: ubuntu-latest
     steps:
-      # Metrics then learning, both through the app routes (single score formula in src/lib/growth-learning.ts)
+      # Token refresh, metrics, then learning, both through the app routes (single score formula in src/lib/growth-learning.ts)
       - name: Collect metrics and refresh growth learning
         env:
           APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
@@ -18,7 +18,7 @@ jobs:
         run: |
           test -n "$APP_URL"
           test -n "$CRON_SECRET"
-          for path in fetch-metrics learn; do
+          for path in refresh-token fetch-metrics learn; do
             echo "::group::$path"
             curl --fail-with-body --show-error --silent --location --max-time 90 \
               -H "Authorization: Bearer ${CRON_SECRET}" \

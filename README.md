@@ -58,7 +58,6 @@ npm run test
 npm run lint
 npm run typecheck
 npm run build
-npm run refresh:tokens
 ```
 
 ## Cron Endpoints

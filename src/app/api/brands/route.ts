@@ -1,3 +1,4 @@
+import { encrypt } from "@/lib/crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, AuthError } from "@/lib/auth";
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         slug,
-        accessToken: accessToken || null,
+        accessToken: accessToken ? encrypt(accessToken) : null,
         threadsUserId: threadsUserId || null,
         tokenExpiry: tokenExpiry ? new Date(tokenExpiry) : null,
         brandConfig: JSON.stringify(buildCreateProductConfig(brandConfig, name, slug)),

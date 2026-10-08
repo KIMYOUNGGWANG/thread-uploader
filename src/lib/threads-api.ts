@@ -1,3 +1,4 @@
+import { decryptToken, encrypt } from "@/lib/crypto";
 /**
  * Threads API Client
  * Uses the official Threads Publishing API (Meta)
@@ -263,7 +264,7 @@ export async function refreshAccessToken(): Promise<{
     await prisma.settings.update({
         where: { id: "default" },
         data: {
-            accessToken: tokenData.access_token,
+            accessToken: encrypt(tokenData.access_token),
             tokenExpiry,
         },
     });
@@ -298,7 +299,7 @@ export async function refreshBrandAccessToken(brandId: string): Promise<{
     }
 
     const response = await fetch(
-        `https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=${brand.accessToken}`
+        `https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=${decryptToken(brand.accessToken)}`
     );
 
     const data = await response.json();
@@ -318,7 +319,7 @@ export async function refreshBrandAccessToken(brandId: string): Promise<{
     await prisma.brand.update({
         where: { id: brandId },
         data: {
-            accessToken: tokenData.access_token,
+            accessToken: encrypt(tokenData.access_token),
             tokenExpiry,
         },
     });
@@ -353,7 +354,7 @@ export async function getFreshBrandCredentials(brandId: string): Promise<Threads
 
     if (!isTokenRefreshDue(brand.tokenExpiry)) {
         return {
-            accessToken: brand.accessToken,
+            accessToken: decryptToken(brand.accessToken),
             userId: brand.threadsUserId,
         };
     }

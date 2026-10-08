@@ -53,6 +53,12 @@ export function decrypt(cipherText: string): string | null {
   }
 }
 
+// Threads tokens at rest: encrypt on write, decrypt on read. Legacy plaintext rows pass through
+// unchanged and get encrypted the next time they are written (refresh or reconnect).
+export function decryptToken(stored: string): string {
+  return decrypt(stored) ?? stored;
+}
+
 /**
  * Sign session data with HMAC-SHA256
  * Format: payload.timestamp.signature

@@ -355,11 +355,11 @@ function BasicTab({
             placeholder="예: InvoiceFlow"
           />
         </Field>
-        <Field label="Threads Access Token" hint="Meta 개발자 콘솔에서 발급">
+        <Field label="Threads Access Token" hint="저장된 토큰은 표시되지 않습니다. 교체할 때만 입력하세요 (비워두면 기존 토큰 유지)">
           <input
             type="password" value={accessToken} onChange={(e) => setAccessToken(e.target.value)}
             className={INPUT_CLASS}
-            placeholder="THQAA..."
+            placeholder="새 토큰으로 교체할 때만 입력"
           />
         </Field>
         <Field label="Threads User ID">

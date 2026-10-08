@@ -9,7 +9,6 @@
     "test": "vitest run",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "refresh:tokens": "node scripts/refresh-token-standalone.js",
     "recover:first-comments": "node scripts/retry-first-comments.js",
     "reply:preview": "node scripts/reply-assistant.mjs --dry-run",
     "reply:interactive": "node scripts/reply-assistant.mjs --interactive",

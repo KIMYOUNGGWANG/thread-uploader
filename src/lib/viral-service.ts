@@ -1,3 +1,4 @@
+import { decryptToken } from "@/lib/crypto";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
@@ -137,7 +138,7 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
 
   if (brand.accessToken) {
     const harvestResult = await harvestFromThreadsSources({
-      accessToken: brand.accessToken,
+      accessToken: decryptToken(brand.accessToken),
       keywords: runConfig.keywords,
       handles: runConfig.handles,
       excludedTerms: runConfig.excludedTerms,

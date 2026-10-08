@@ -1,3 +1,4 @@
+import { encrypt } from "@/lib/crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     await prisma.brand.update({
       where: { id: brand.id },
       data: {
-        accessToken: longLivedToken.accessToken,
+        accessToken: encrypt(longLivedToken.accessToken),
         threadsUserId,
         tokenExpiry,
       },

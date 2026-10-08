@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encrypt, decrypt, signSession, verifySession } from "./crypto";
+import { encrypt, decrypt, decryptToken, signSession, verifySession } from "./crypto";
 
 process.env.ENCRYPTION_KEY = "test-encryption-key";
 
@@ -57,5 +57,12 @@ describe("crypto utilities", () => {
     } finally {
       process.env.ENCRYPTION_KEY = saved;
     }
+  });
+});
+
+describe("decryptToken", () => {
+  it("round-trips encrypted tokens and passes legacy plaintext through", () => {
+    expect(decryptToken(encrypt("THQAA-token"))).toBe("THQAA-token");
+    expect(decryptToken("THQAA-legacy-plaintext")).toBe("THQAA-legacy-plaintext");
   });
 });

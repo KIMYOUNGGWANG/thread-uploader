@@ -28,7 +28,8 @@ export default async function BrandSettingsPage({ params }: PageProps) {
       brandSlug={brand.slug}
       initialData={{
         name: brand.name,
-        accessToken: brand.accessToken,
+        // Never ship the stored token to the browser; the form only sends a new one when typed
+        accessToken: "",
         threadsUserId: brand.threadsUserId,
         tokenExpiry: brand.tokenExpiry ? brand.tokenExpiry.toISOString().split("T")[0] : null,
         config,

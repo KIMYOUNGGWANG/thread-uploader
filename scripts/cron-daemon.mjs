@@ -67,8 +67,7 @@ async function runCycle() {
   console.log(`🔄 Maintenance Cycle Started: ${new Date().toISOString()}`);
   console.log(`========================================`);
 
-  // 1. Refresh long-lived tokens
-  runScript("scripts/refresh-token-standalone.js");
+  // 1. Token refresh runs in the app (/api/cron/refresh-token + publish boundary); tokens are encrypted at rest
 
   // 2. Recover missing/failed first comments
   runScript("scripts/retry-first-comments.js");

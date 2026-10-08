@@ -1,3 +1,4 @@
+import { decryptToken } from "@/lib/crypto";
 import type { Brand, Post, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
@@ -88,7 +89,7 @@ async function refreshRecentMetrics(brand: Brand, windowStart: Date): Promise<Me
   if (!brand.accessToken) return result;
   for (const post of posts) {
     try {
-      const insights = await fetchPostInsightsForBrand(post.threadsId!, brand.accessToken);
+      const insights = await fetchPostInsightsForBrand(post.threadsId!, decryptToken(brand.accessToken));
       const performanceScore = calculatePerformanceScore({
         ...insights,
         clicks: post.clicks,
