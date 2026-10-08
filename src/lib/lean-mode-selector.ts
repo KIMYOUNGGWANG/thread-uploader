@@ -29,6 +29,29 @@ export function selectCampaignFormulaForViralMode(
   };
 }
 
+export interface LeanSprintRunInput {
+  brandSlug: string;
+  domainProfile: string | undefined;
+  campaignId: string | null | undefined;
+  experimentId: string | null | undefined;
+  productName: string | null | undefined;
+  count: number;
+}
+
+// The lean allocation is tuned on Korean CosmicPath posts; the English D2C profile picks from its own domain formulas.
+export function isLeanSprintRun(input: LeanSprintRunInput): boolean {
+  if (input.domainProfile === "ecommerce_d2c") return false;
+  const ids = [input.campaignId ?? "", input.experimentId ?? ""];
+  return (
+    input.brandSlug === "cosmicpath" ||
+    ids.some((id) => id.includes("lean") || id.includes("cosmicpath")) ||
+    (input.campaignId ?? "").includes("14day") ||
+    Boolean(input.productName?.toLowerCase().includes("cosmic")) ||
+    input.count === 10 ||
+    input.count === 15
+  );
+}
+
 const LEAN_MODE_COUNT = 4;
 
 // Lean sprint picks its viral mode by Thompson sampling over learned priors, so the

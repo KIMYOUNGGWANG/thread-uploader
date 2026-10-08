@@ -17,7 +17,7 @@ import { buildAdmissionFirstComment, buildConversationIgniterComment } from "@/l
 import { buildShortRedirectUrl, buildTrackedUrl } from "@/lib/tracking-url";
 import { selectFormulaWithQuota } from "@/lib/quota-bandit-router";
 import { selectFormulaWithThompsonSampling } from "@/lib/thompson-sampling-router";
-import { selectCampaignFormulaForViralMode, selectLeanViralMode } from "@/lib/lean-mode-selector";
+import { isLeanSprintRun, selectCampaignFormulaForViralMode, selectLeanViralMode } from "@/lib/lean-mode-selector";
 import { buildMultiFormatContentBundle } from "@/lib/multi-format-content-bridge";
 import { splitContentIntoThreadParts } from "@/lib/thread-splitter";
 import { svgToDataUri } from "@/lib/carousel-cards/renderer";
@@ -470,7 +470,7 @@ function buildGenerationPrompt(
         "- [Focused Conflict]: Zero in on one specific persona friction and internal conflict.",
         "- [Zero-in-body URL]: Never place links or URLs inside the post body.",
         "- [Zero AI Slop]: Avoid cliché patterns like 'Here is the truth', 'Imagine if', 'Let's dive in', or checkbox emojis.",
-        "- [Zero-Promo Conversation Igniter First Comment]: Below the delimiter (${SEPARATOR}), write 1-2 lines of an honest personal confession / admission or a raw provocative question that compels readers to reply. Never write sales pitches or spam links in the first comment.",
+        `- [Zero-Promo Conversation Igniter First Comment]: Below the delimiter (${SEPARATOR}), write 1-2 lines of an honest personal confession / admission or a raw provocative question that compels readers to reply. Never write sales pitches or spam links in the first comment.`,
         "- [Strictly No Meta Text]: Never output character counts, draft labels, headers (# Title), or explanations.",
       ]
     : [
@@ -919,17 +919,14 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < count; i += BATCH) {
       const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
         const batchIndex = i + j;
-        const isLeanSprint = Boolean(
-          brand.slug === "cosmicpath" ||
-          activeCampaign?.id?.includes("lean") ||
-          activeCampaign?.id?.includes("14day") ||
-          activeCampaign?.id?.includes("cosmicpath") ||
-          config.activeExperiment?.id?.includes("lean") ||
-          config.activeExperiment?.id?.includes("cosmicpath") ||
-          config.productProfile?.productName?.toLowerCase().includes("cosmic") ||
-          count === 10 ||
-          count === 15
-        );
+        const isLeanSprint = isLeanSprintRun({
+          brandSlug: brand.slug,
+          domainProfile,
+          campaignId: activeCampaign?.id,
+          experimentId: config.activeExperiment?.id,
+          productName: config.productProfile?.productName,
+          count,
+        });
         const viralIntentMode = isLeanSprint
           ? selectLeanViralMode(batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds)
           : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
