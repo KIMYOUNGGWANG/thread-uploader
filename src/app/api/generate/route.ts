@@ -1007,7 +1007,8 @@ export async function POST(request: NextRequest) {
         ctaType: result.ctaType,
         targetAudience: result.targetAudience,
       });
-      const carouselDataUrls = bundle.carouselSvgs.map(svgToDataUri);
+      // English Threads audience responds to text-only posts; Korean brands keep card carousels.
+      const carouselDataUrls = result.qualityProfile === "ecommerce_d2c" ? [] : bundle.carouselSvgs.map(svgToDataUri);
       const jitterMs = (Math.floor(Math.random() * 31) - 15) * 60 * 1000;
       const scheduledTime = Math.max(now + 5 * 60 * 1000, baseTime + index * POST_INTERVAL_MS + jitterMs);
 

@@ -25,7 +25,9 @@ export interface DomainFormulaConfig {
 // Hangul stays blocked on the English account; "Saju" is allowed because it is the product's differentiator.
 const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
 const GLOBAL_HYBRID_RULE =
-  "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul.";
+  "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul. " +
+  "Format for a phone feed: line 1 is the hook alone on its own line, under 60 characters. Then short lines, a blank line between ideas, never more than 2 sentences per block. " +
+  "End with a one-tap question the reader can answer in a word (e.g. 'A or B?', 'Which one are you?').";
 
 export interface DomainPresetConfig {
   domainId: string;
