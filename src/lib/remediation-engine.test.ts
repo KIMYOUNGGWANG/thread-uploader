@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyHeuristicFixes,
+  extractRewrittenPost,
   introducesFormalTone,
   remediatePostAlgorithmic,
 } from "./remediation-engine";
@@ -104,5 +105,14 @@ describe("remediatePostAlgorithmic rewrite attempts", () => {
     expect(introducesFormalTone(casual, formal)).toBe(true);
     expect(introducesFormalTone(casual, casual)).toBe(false);
     expect(introducesFormalTone(formal, formal)).toBe(false);
+  });
+
+  it("takes only the <post> block and rejects advice or commentary-only output", () => {
+    const advice = "Hook을 강하게 만들려면 첫 줄을 대비 구조로 바꾸고, 본문 끝에 선택형 질문을 붙이면 됩니다.";
+    const withPreface = "Hook Tension을 높이기 위해 첫 줄을 강화했습니다.\n\n<post>\n연봉보다 센 직급, 뭔지 알아?\n</post>";
+
+    expect(extractRewrittenPost(advice)).toBeNull();
+    expect(extractRewrittenPost("<post>  </post>")).toBeNull();
+    expect(extractRewrittenPost(withPreface)).toBe("연봉보다 센 직급, 뭔지 알아?");
   });
 });

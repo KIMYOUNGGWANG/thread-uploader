@@ -123,6 +123,12 @@ export interface RemediationResult {
   actionableFixes: string[];
 }
 
+/** Only text inside <post>…</post> counts as a rewrite; commentary or advice without the tag is rejected. */
+export function extractRewrittenPost(raw: string): string | null {
+  const body = raw.match(/<post>([\s\S]*?)<\/post>/i)?.[1]?.trim();
+  return body ? body : null;
+}
+
 /**
  * 1-Token Targeted LLM Rewriter
  * Targets only the dimension with the largest point deficit.
@@ -160,7 +166,7 @@ export async function executeTargetedRewrite(
 4. 원문 언어를 그대로 유지하십시오. 원문이 영어면 영어로만 출력하고 한글을 절대 쓰지 마십시오.
    원문이 반말/독백체(~야, ~임, ~했음)면 그 문체를 유지하고 ~습니다/~하세요 같은 존댓말로 바꾸지 마십시오.
 5. 첫 줄은 60자 이내 단독 줄로, 140자를 넘는 줄을 만들지 말고, 전체 450자 이내로 유지하십시오.
-6. 완성된 Threads 본문 텍스트만 출력하십시오. 설명이나 서론/결론은 금지합니다.
+6. 완성된 Threads 본문을 <post> 와 </post> 태그 사이에만 출력하십시오. 태그 밖에는 아무것도 쓰지 마십시오(설명, 수정 내역, 조언 금지).
 
 [원문 초안]
 ${content}`;
@@ -174,7 +180,9 @@ ${content}`;
       messages: [{ role: "user", content: prompt }],
     });
 
-    return { content: readMessageText(response), firstComment };
+    const rewritten = extractRewrittenPost(readMessageText(response));
+    if (rewritten) return { content: rewritten, firstComment };
+    console.warn("[RemediationEngine] Rewrite had no <post> block (advice or commentary instead of a post); keeping the original.");
   } catch (error) {
     console.error("[RemediationEngine] Targeted LLM rewrite failed:", error);
   }
