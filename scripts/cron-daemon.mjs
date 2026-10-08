@@ -73,8 +73,7 @@ async function runCycle() {
   // 2. Recover missing/failed first comments
   runScript("scripts/retry-first-comments.js");
 
-  // 3. Collect growth metrics
-  runScript("scripts/fetch-metrics-standalone.js");
+  // 3. Growth metrics are collected by GitHub Actions via /api/cron/fetch-metrics
 
   // 4. Run growth learning loop and update adaptive weights
   runScript("scripts/learn-standalone.mjs");

@@ -1,13 +1,5 @@
-import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-
-const require = createRequire(import.meta.url);
-const { selectMetricsCandidates } = require("./metrics-selection.js") as {
-  selectMetricsCandidates: (
-    posts: Array<{ id: string; publishedAt: Date | null; metricsAt: Date | null }>,
-    options: { now: number; minAgeMs: number; maxAgeMs: number; limit: number }
-  ) => Array<{ id: string }>;
-};
+import { selectMetricsCandidates } from "./metrics-selection";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;

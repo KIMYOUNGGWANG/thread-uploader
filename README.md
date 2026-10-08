@@ -59,14 +59,14 @@ npm run lint
 npm run typecheck
 npm run build
 npm run refresh:tokens
-npm run growth:metrics
 ```
 
 ## Cron Endpoints
 
 - `GET /api/cron/publish` publishes one pending post per product profile. Optional `?brands=slug1,slug2` limits the run. It is the only publisher: GitHub Actions (`.github/workflows/cron.yml`) calls it once per brand at the 5 daily slots.
 - `GET /api/cron/refresh-token` refreshes Threads tokens when they are within 14 days of expiry.
-- `GET /api/cron/learn` refreshes product growth memory from collected metrics.
+- `GET /api/cron/fetch-metrics` collects Threads insights (6h–14d posts, uncollected and 72h-mature first) and rescoring keeps click/conversion weight.
+- `GET /api/cron/learn` refreshes product growth memory from collected metrics. GitHub Actions (`fetch-metrics.yml`) runs both daily at UTC 12:00.
 - `GET /api/cron/viral` discovers viral references and refreshes product viral memory.
 - `GET /api/cron/account-intelligence` refreshes 48-hour account insight snapshots, intended for a 2-hour cadence.
 

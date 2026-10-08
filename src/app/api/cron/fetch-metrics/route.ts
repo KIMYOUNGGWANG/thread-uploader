@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
 import { verifyCronSecret } from "@/lib/cron-auth";
+import { getFreshBrandCredentials } from "@/lib/threads-api";
+import type { ThreadsCredentials } from "@/lib/threads-api";
+import { selectMetricsCandidates } from "@/lib/metrics-selection";
+
+export const maxDuration = 60;
 
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
+const SIX_HOURS = 6 * 60 * 60 * 1000;
 const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
+// ponytail: fixed batch keeps one call under maxDuration; raise or page when posting volume grows
+const BATCH_SIZE = 40;
+const REQUEST_DELAY_MS = 300;
 
 async function fetchInsights(threadsId: string, accessToken: string) {
   const params = new URLSearchParams({
@@ -38,35 +47,36 @@ export async function GET(request: NextRequest) {
   }
 
   const now = Date.now();
-  const posts = await prisma.post.findMany({
+  const eligible = await prisma.post.findMany({
     where: {
       status: "PUBLISHED",
       threadsId: { not: null },
-      publishedAt: {
-        gte: new Date(now - FOURTEEN_DAYS),
-      },
+      publishedAt: { gte: new Date(now - FOURTEEN_DAYS), lte: new Date(now - SIX_HOURS) },
     },
-    include: { brand: true },
-    orderBy: { metricsAt: "asc" },
-    take: 30,
   });
+  const posts = selectMetricsCandidates(eligible, { now, minAgeMs: SIX_HOURS, maxAgeMs: FOURTEEN_DAYS, limit: BATCH_SIZE });
 
+  const credentialsByBrand = new Map<string, ThreadsCredentials>();
   let updated = 0;
-  const errors = [];
+  const errors: { id: string; error: string }[] = [];
 
   for (const post of posts) {
-    if (!post.threadsId || !post.brand?.accessToken) continue;
+    if (!post.threadsId) continue;
     try {
-      const insights = await fetchInsights(post.threadsId, post.brand.accessToken);
-      const score = calculatePerformanceScore(insights);
+      let credentials = credentialsByBrand.get(post.brandId);
+      if (!credentials) {
+        credentials = await getFreshBrandCredentials(post.brandId);
+        credentialsByBrand.set(post.brandId, credentials);
+      }
+
+      const insights = await fetchInsights(post.threadsId, credentials.accessToken);
+      // Keep click/conversion counters in the score — insights alone would erase attribution weight
+      const score = calculatePerformanceScore({ ...post, ...insights });
 
       await prisma.post.update({
         where: { id: post.id },
         data: {
-          views: insights.views,
-          likes: insights.likes,
-          replies: insights.replies,
-          reposts: insights.reposts,
+          ...insights,
           metricsAt: new Date(),
           performanceScore: score,
           performanceTier: getPerformanceTier(score),
@@ -76,11 +86,13 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       errors.push({ id: post.id, error: err instanceof Error ? err.message : "Unknown error" });
     }
+    await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
   }
 
   return NextResponse.json({
     success: true,
-    totalEligible: posts.length,
+    totalEligible: eligible.length,
+    selected: posts.length,
     updated,
     errors,
   });
