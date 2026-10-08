@@ -8,11 +8,15 @@ import { isCircadianQuietHour, checkMinimumCooldown, evaluateSporadicSkip } from
 import { resolveAccountTrustTier } from "@/lib/account-trust-ramp";
 import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 import { sendSystemAlert } from "@/lib/alert-service";
+import { isMetricsCollectionStale } from "@/lib/metrics-selection";
 import {
   checkCircuitBreaker,
   recordCircuitBreakerFailure,
   recordCircuitBreakerSuccess,
 } from "@/lib/threads-publisher";
+
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 export const maxDuration = 300; // video containers can take minutes to process
 
@@ -82,6 +86,33 @@ export async function GET(request: NextRequest) {
           message: `${stuckPosts.length} post(s) stuck in-flight: ${stuckPosts.map((p) => `${p.id}(${p.status})`).join(", ")}`,
           brandName: brand.name,
         });
+      }
+
+      // 1.6 Stale-metrics alert: fetch-metrics lives in a separate workflow that was disabled for
+      // 7 weeks (2026-08-14..10-04) without anyone noticing, starving the learning loop.
+      // ponytail: repeats every publish run until fixed — add a cooldown if it gets noisy.
+      const awaitingMetrics = await prisma.post.count({
+        where: {
+          brandId: brand.id,
+          status: "PUBLISHED",
+          publishedAt: { gte: new Date(now.getTime() - FOURTEEN_DAYS_MS), lte: new Date(now.getTime() - TWO_DAYS_MS) },
+        },
+      });
+      if (awaitingMetrics > 0) {
+        const latestMeasured = await prisma.post.findFirst({
+          where: { brandId: brand.id, metricsAt: { not: null } },
+          orderBy: { metricsAt: "desc" },
+          select: { metricsAt: true },
+        });
+        const latestMetricsAt = latestMeasured?.metricsAt ?? null;
+        if (isMetricsCollectionStale(latestMetricsAt, now.getTime())) {
+          await sendSystemAlert({
+            level: "error",
+            title: "Metrics collection stopped",
+            message: `No post metrics collected since ${latestMetricsAt?.toISOString() ?? "never"}. Check the "Fetch Post Metrics" workflow is enabled.`,
+            brandName: brand.name,
+          });
+        }
       }
 
       // 2. Priority 1: Check for incomplete multi-part thread requiring resume (PARTIAL_FAILED)

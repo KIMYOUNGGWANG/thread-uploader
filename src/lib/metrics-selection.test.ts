@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectMetricsCandidates } from "./metrics-selection";
+import { isMetricsCollectionStale, selectMetricsCandidates } from "./metrics-selection";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -21,6 +21,16 @@ describe("selectMetricsCandidates", () => {
     ], options);
 
     expect(selected.map((item) => item.id)).toEqual(["fourteen-days", "six-hours"]);
+  });
+
+  it("backfills never-collected posts past 14 days but keeps measured posts capped", () => {
+    const selected = selectMetricsCandidates([
+      post("measured-old", 20 * DAY, new Date(NOW - 10 * DAY)),
+      post("uncollected-old", 30 * DAY),
+      post("uncollected-too-old", 60 * DAY + 1),
+    ], { ...options, uncollectedMaxAgeMs: 60 * DAY });
+
+    expect(selected.map((item) => item.id)).toEqual(["uncollected-old"]);
   });
 
   it("prioritizes posts with no metrics before the oldest measured posts", () => {
@@ -54,5 +64,13 @@ describe("selectMetricsCandidates", () => {
     );
 
     expect(selected).toHaveLength(60);
+  });
+});
+
+describe("isMetricsCollectionStale", () => {
+  it("flags missing or 48h+ old collection only", () => {
+    expect(isMetricsCollectionStale(null, NOW)).toBe(true);
+    expect(isMetricsCollectionStale(new Date(NOW - 49 * HOUR), NOW)).toBe(true);
+    expect(isMetricsCollectionStale(new Date(NOW - 25 * HOUR), NOW)).toBe(false);
   });
 });

@@ -11,6 +11,8 @@ export const maxDuration = 60;
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
 const SIX_HOURS = 6 * 60 * 60 * 1000;
 const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
+// Posts never measured (e.g. the scheduler was disabled 2026-08-14..10-04) are backfilled up to 60 days.
+const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
 // ponytail: fixed batch keeps one call under maxDuration; raise or page when posting volume grows
 const BATCH_SIZE = 40;
 const REQUEST_DELAY_MS = 300;
@@ -51,10 +53,20 @@ export async function GET(request: NextRequest) {
     where: {
       status: "PUBLISHED",
       threadsId: { not: null },
-      publishedAt: { gte: new Date(now - FOURTEEN_DAYS), lte: new Date(now - SIX_HOURS) },
+      publishedAt: { lte: new Date(now - SIX_HOURS) },
+      OR: [
+        { publishedAt: { gte: new Date(now - FOURTEEN_DAYS) } },
+        { metricsAt: null, publishedAt: { gte: new Date(now - SIXTY_DAYS) } },
+      ],
     },
   });
-  const posts = selectMetricsCandidates(eligible, { now, minAgeMs: SIX_HOURS, maxAgeMs: FOURTEEN_DAYS, limit: BATCH_SIZE });
+  const posts = selectMetricsCandidates(eligible, {
+    now,
+    minAgeMs: SIX_HOURS,
+    maxAgeMs: FOURTEEN_DAYS,
+    uncollectedMaxAgeMs: SIXTY_DAYS,
+    limit: BATCH_SIZE,
+  });
 
   const credentialsByBrand = new Map<string, ThreadsCredentials>();
   let updated = 0;
