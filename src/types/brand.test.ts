@@ -127,3 +127,10 @@ describe("serializeBrandConfigUpdate", () => {
     expect(JSON.parse(serializeBrandConfigUpdate("not json", { a: 1 }))).toEqual({ a: 1 });
   });
 });
+
+describe("parseBrandConfig quality profile", () => {
+  it("keeps english and b2b profiles instead of coercing them to career_decision", () => {
+    expect(parseBrandConfig(JSON.stringify({ qualityProfile: "ecommerce_d2c" })).qualityProfile).toBe("ecommerce_d2c");
+    expect(parseBrandConfig(JSON.stringify({ qualityProfile: "saas_b2b" })).qualityProfile).toBe("saas_b2b");
+  });
+});

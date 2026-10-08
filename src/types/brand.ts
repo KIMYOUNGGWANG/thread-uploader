@@ -373,7 +373,9 @@ function normalizeQualityRules(input: unknown): BrandQualityRules | undefined {
 }
 
 function normalizeQualityProfileWithFallback(input: unknown, fallback: QualityProfileId): QualityProfileId {
-  return input === "saju_viral" || input === "career_decision" || input === "product_growth" ? input : fallback;
+  return input === "saju_viral" || input === "career_decision" || input === "product_growth" || input === "ecommerce_d2c" || input === "saas_b2b"
+    ? input
+    : fallback;
 }
 
 function normalizeStringListWithFallback(input: unknown, fallback: string[]): string[] {
