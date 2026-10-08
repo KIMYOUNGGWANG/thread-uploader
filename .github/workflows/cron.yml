@@ -26,11 +26,17 @@ jobs:
           APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           PUBLISH_BRAND_SLUGS: ${{ secrets.PUBLISH_BRAND_SLUGS || 'cosmicpath,cosmicpath-global' }}
+          SCHEDULE: ${{ github.event.schedule }}
         run: |
           test -n "$APP_URL"
           test -n "$CRON_SECRET"
           status=0
           for slug in ${PUBLISH_BRAND_SLUGS//,/ }; do
+            # New English account: 2 posts/day max, US evening (UTC 00) and US morning (UTC 12).
+            if [ "$slug" = "cosmicpath-global" ] && [ -n "$SCHEDULE" ] && [ "$SCHEDULE" != "0 0 * * *" ] && [ "$SCHEDULE" != "0 12 * * *" ]; then
+              echo "skip $slug outside its 2 daily slots"
+              continue
+            fi
             echo "::group::$slug"
             curl --fail-with-body --show-error --silent --location --max-time 300 \
               -H "Authorization: Bearer ${CRON_SECRET}" \
