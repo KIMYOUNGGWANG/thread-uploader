@@ -8,7 +8,7 @@
 
 export interface PostReachRecord {
   postId: string;
-  views: number;
+  views: number | null; // null = metrics not fetched yet; excluded from evaluation
   likes: number;
   replies: number;
   publishedAt: Date;
@@ -67,8 +67,9 @@ export function evaluateShadowbanHealth(
   const refTime = (options.referenceTime ?? new Date()).getTime();
   const minAgeMs = (opts.minHoursSincePublished ?? 6) * 60 * 60 * 1000;
 
-  // Filter out immature posts (< 6 hours old) to avoid Meta API lag false positives
-  const maturePosts = history.filter((p) => {
+  // Filter out unmeasured posts (views null) and immature posts (< 6 hours old) to avoid Meta API lag false positives
+  const maturePosts = history.filter((p): p is PostReachRecord & { views: number } => {
+    if (p.views === null) return false;
     if (opts.minHoursSincePublished === 0) return true;
     const age = refTime - p.publishedAt.getTime();
     return age >= minAgeMs;

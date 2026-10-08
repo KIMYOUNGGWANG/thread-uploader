@@ -178,7 +178,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       .filter((p) => p.publishedAt !== null)
       .map((p) => ({
         postId: p.id,
-        views: p.views ?? 0,
+        views: p.views,
         likes: p.likes ?? 0,
         replies: p.replies ?? 0,
         publishedAt: p.publishedAt as Date,

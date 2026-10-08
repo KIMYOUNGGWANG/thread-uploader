@@ -106,4 +106,27 @@ describe("shadowban-health-probe", () => {
     expect(report.status).toBe("HEALTHY");
     expect(report.reasons[0]).toContain("콜드 스타트 보호 모드");
   });
+
+  it("ignores posts whose metrics were not fetched yet (views null) instead of counting them as 0", () => {
+    const history: PostReachRecord[] = [
+      { postId: "1", views: null, likes: 0, replies: 0, publishedAt: new Date("2026-09-09T10:00:00Z") },
+      { postId: "2", views: null, likes: 0, replies: 0, publishedAt: new Date("2026-09-08T10:00:00Z") },
+      { postId: "3", views: null, likes: 0, replies: 0, publishedAt: new Date("2026-09-07T10:00:00Z") },
+      { postId: "4", views: 500, likes: 30, replies: 12, publishedAt: new Date("2026-09-06T10:00:00Z") },
+      { postId: "5", views: 480, likes: 25, replies: 9, publishedAt: new Date("2026-09-05T10:00:00Z") },
+      { postId: "6", views: 520, likes: 35, replies: 15, publishedAt: new Date("2026-09-04T10:00:00Z") },
+      { postId: "7", views: 450, likes: 20, replies: 8, publishedAt: new Date("2026-09-03T10:00:00Z") },
+      { postId: "8", views: 510, likes: 26, replies: 11, publishedAt: new Date("2026-09-02T10:00:00Z") },
+      { postId: "9", views: 490, likes: 22, replies: 9, publishedAt: new Date("2026-09-01T10:00:00Z") },
+    ];
+
+    const report = evaluateShadowbanHealth(history, {
+      referenceTime: new Date("2026-09-10T10:00:00Z"),
+      minBaselineViews: 100,
+    });
+
+    expect(report.status).toBe("HEALTHY");
+    expect(report.recentAverageViews).toBeGreaterThan(0);
+    expect(report.analyzedPostCount).toBe(6);
+  });
 });
