@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { verifySession } from "@/lib/crypto";
 
 const PUBLIC_PATHS = [
   "/login",
@@ -10,7 +11,6 @@ const PUBLIC_PATHS = [
   "/api/webhooks",
   "/api/oauth",
   "/api/cards",
-  "/api/og",
   "/r/",
   "/attribution-tracker.js",
   "/_next",
@@ -21,16 +21,15 @@ function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : `${p}/`));
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isPublic(pathname)) {
     return NextResponse.next();
   }
 
-  const session = request.cookies.get("auth_session");
-  // session.value holds userId (cuid) — truthy and not the legacy "true" string
-  const authenticated = session?.value && session.value !== "true";
+  const session = request.cookies.get("auth_session")?.value;
+  const authenticated = Boolean(session && verifySession(session));
 
   if (!authenticated) {
     if (pathname.startsWith("/api/")) {

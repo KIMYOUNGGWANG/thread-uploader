@@ -4,6 +4,8 @@ import { isSuperAdmin } from "./brand-access";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 
+process.env.ENCRYPTION_KEY = "test-encryption-key";
+
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
 }));
@@ -62,10 +64,24 @@ describe("auth & session security", () => {
     expect(userId).toBeNull();
   });
 
+  it("rejects a bare user id as a legacy session cookie", async () => {
+    vi.mocked(cookies).mockResolvedValue({
+      get: vi.fn().mockReturnValue({ value: mockUser.id }),
+    } as unknown as Awaited<ReturnType<typeof cookies>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    expect(await getSessionUserId()).toBeNull();
+  });
+
+  it("grants no superadmin when SUPERADMIN_EMAIL is unset", () => {
+    delete process.env.SUPERADMIN_EMAIL;
+    expect(isSuperAdmin("admin@example.com")).toBe(false);
+  });
+
   it("isSuperAdmin correctly identifies configured admin email", () => {
     process.env.SUPERADMIN_EMAIL = "super@company.com";
     expect(isSuperAdmin("super@company.com")).toBe(true);
-    expect(isSuperAdmin("admin@example.com")).toBe(true); // default fallback
+    expect(isSuperAdmin("admin@example.com")).toBe(false);
     expect(isSuperAdmin("other@company.com")).toBe(false);
     expect(isSuperAdmin(null)).toBe(false);
   });

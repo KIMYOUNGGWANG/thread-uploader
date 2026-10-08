@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { encrypt, decrypt, signSession, verifySession } from "./crypto";
 
+process.env.ENCRYPTION_KEY = "test-encryption-key";
+
 describe("crypto utilities", () => {
   it("encrypts and decrypts text cleanly with AES-256-GCM", () => {
     const original = "THAAUubLFZCJwZABYmItcHI2MEw5eHp";
@@ -45,5 +47,15 @@ describe("crypto utilities", () => {
     // -10 seconds TTL
     const expiredToken = signSession(userId, -10);
     expect(verifySession(expiredToken)).toBeNull();
+  });
+
+  it("refuses to sign when ENCRYPTION_KEY is missing", () => {
+    const saved = process.env.ENCRYPTION_KEY;
+    delete process.env.ENCRYPTION_KEY;
+    try {
+      expect(() => signSession("user-1")).toThrow("ENCRYPTION_KEY");
+    } finally {
+      process.env.ENCRYPTION_KEY = saved;
+    }
   });
 });

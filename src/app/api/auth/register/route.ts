@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 
 export async function POST(request: Request) {
+  if (process.env.ALLOW_REGISTRATION !== "true") {
+    return NextResponse.json({ error: "회원가입이 비활성화되어 있습니다" }, { status: 403 });
+  }
   try {
     const body = await request.json() as { email?: unknown; password?: unknown; name?: unknown };
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : null;

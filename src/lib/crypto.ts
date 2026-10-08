@@ -5,10 +5,8 @@ const IV_LENGTH = 12; // 96 bits for GCM
 const AUTH_TAG_LENGTH = 16; // 128 bits
 
 function getMasterKey(): Buffer {
-  const secret =
-    process.env.ENCRYPTION_KEY ||
-    process.env.CRON_SECRET ||
-    "threads-uploader-default-fallback-key-32b";
+  const secret = process.env.ENCRYPTION_KEY;
+  if (!secret) throw new Error("ENCRYPTION_KEY is not set");
   return crypto.createHash("sha256").update(secret).digest();
 }
 

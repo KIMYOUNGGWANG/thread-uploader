@@ -51,19 +51,8 @@ export function createSessionToken(userId: string): string {
 export async function getSessionUserId(): Promise<string | null> {
   const cookieStore = await cookies();
   const session = cookieStore.get("auth_session");
-  if (!session?.value || session.value === "true") return null;
-
-  // 1. Try signed session token verification
-  const verifiedId = verifySession(session.value);
-  if (verifiedId) return verifiedId;
-
-  // 2. Legacy fallback: if plain string without dots, verify user exists in DB
-  if (!session.value.includes(".")) {
-    const user = await prisma.user.findUnique({ where: { id: session.value } });
-    if (user) return user.id;
-  }
-
-  return null;
+  if (!session?.value) return null;
+  return verifySession(session.value);
 }
 
 export async function requireAuth(): Promise<{ id: string; email: string; name: string | null }> {
