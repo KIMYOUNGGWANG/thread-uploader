@@ -1,6 +1,7 @@
 // src/app/api/tiktok/render/route.ts — Render TikTok video draft into MP4 using Remotion.
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { buildTikTokRenderSpec, executeTikTokRender } from "@/lib/tiktok/tiktok-render-worker";
 import type { TikTokSceneBeat } from "@/lib/tiktok/tiktok-script-engine";
 
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
     if (!draft) {
       return NextResponse.json({ error: "Draft not found" }, { status: 404 });
     }
+    await requireBrandForCurrentUser(draft.brandId);
 
     const scenes: TikTokSceneBeat[] = JSON.parse(draft.sceneBeats || "[]");
     const hashtags: string[] = JSON.parse(draft.hashtags || "[]");
@@ -98,10 +100,12 @@ export async function POST(request: NextRequest) {
       },
       { status: 202 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const accessResponse = accessErrorResponse(error);
+    if (accessResponse) return accessResponse;
     console.error("[api/tiktok/render] Error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to process render request" },
+      { error: error instanceof Error ? error.message : "Failed to process render request" },
       { status: 500 }
     );
   }

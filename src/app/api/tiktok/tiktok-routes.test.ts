@@ -4,6 +4,7 @@ import { POST as generateHandler } from "./generate/route";
 import { GET as draftsHandler } from "./drafts/route";
 import { POST as renderHandler } from "./render/route";
 import { prisma } from "@/lib/prisma";
+import { ForbiddenError, requireBrandForCurrentUser } from "@/lib/brand-access";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -19,9 +20,41 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/brand-access", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/brand-access")>();
+  return { ...actual, requireBrandForCurrentUser: vi.fn() };
+});
+
 describe("TikTok API Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireBrandForCurrentUser).mockImplementation(async (brandId: string) => ({
+      user: { id: "user-1", email: "owner@example.com", name: null },
+      brand: { id: brandId, name: "사주브랜드" } as Awaited<ReturnType<typeof requireBrandForCurrentUser>>["brand"],
+    }));
+  });
+
+  describe("brand ownership", () => {
+    it("requires brandId instead of listing every brand's drafts", async () => {
+      const res = await draftsHandler(new Request("http://localhost/api/tiktok/drafts") as never);
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 403 for drafts of a brand the user does not own", async () => {
+      vi.mocked(requireBrandForCurrentUser).mockRejectedValueOnce(new ForbiddenError());
+      const res = await draftsHandler(new Request("http://localhost/api/tiktok/drafts?brandId=other") as never);
+      expect(res.status).toBe(403);
+    });
+
+    it("returns 403 when rendering a draft of another brand", async () => {
+      vi.mocked(prisma.tikTokVideoDraft.findUnique).mockResolvedValue({ id: "d1", brandId: "other" } as never);
+      vi.mocked(requireBrandForCurrentUser).mockRejectedValueOnce(new ForbiddenError());
+      const res = await renderHandler(new Request("http://localhost/api/tiktok/render", {
+        method: "POST",
+        body: JSON.stringify({ draftId: "d1" }),
+      }) as never);
+      expect(res.status).toBe(403);
+    });
   });
 
   describe("POST /api/tiktok/generate", () => {

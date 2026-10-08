@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { extractVoiceProfile } from "@/lib/voice-extractor";
 import { parseBrandConfig } from "@/types/brand";
 
@@ -14,14 +15,7 @@ export async function POST(
 ) {
   try {
     const { id: brandId } = await context.params;
-    const brand = await prisma.brand.findUnique({
-      where: { id: brandId },
-      select: { id: true, brandConfig: true },
-    });
-
-    if (!brand) {
-      return NextResponse.json({ error: "Brand not found" }, { status: 404 });
-    }
+    const { brand } = await requireBrandForCurrentUser(brandId);
 
     const body = (await request.json().catch(() => ({}))) as VoiceRequestPayload;
     let sampleTexts: string[] = body.samples ?? [];
@@ -66,6 +60,8 @@ export async function POST(
       voiceProfile,
     });
   } catch (error) {
+    const accessResponse = accessErrorResponse(error);
+    if (accessResponse) return accessResponse;
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to extract voice profile" },
       { status: 500 }

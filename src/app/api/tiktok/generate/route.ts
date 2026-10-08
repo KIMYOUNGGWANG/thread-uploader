@@ -1,6 +1,7 @@
 // src/app/api/tiktok/generate/route.ts — Generate TikTok short-form script and save as draft.
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { generateTikTokScript } from "@/lib/tiktok/tiktok-script-engine";
 
 export async function POST(request: NextRequest) {
@@ -12,10 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "brandId is required" }, { status: 400 });
     }
 
-    const brand = await prisma.brand.findUnique({ where: { id: brandId } });
-    if (!brand) {
-      return NextResponse.json({ error: "Brand not found" }, { status: 404 });
-    }
+    const { brand } = await requireBrandForCurrentUser(brandId);
 
     const scriptResult = generateTikTokScript({
       topic: topic || "사주 대운 분석",
@@ -49,10 +47,12 @@ export async function POST(request: NextRequest) {
       draft,
       scriptResult,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const accessResponse = accessErrorResponse(error);
+    if (accessResponse) return accessResponse;
     console.error("[api/tiktok/generate] Error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to generate TikTok draft" },
+      { error: error instanceof Error ? error.message : "Failed to generate TikTok draft" },
       { status: 500 }
     );
   }
