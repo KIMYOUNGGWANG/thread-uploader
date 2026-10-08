@@ -60,3 +60,38 @@ export function buildShortRedirectUrl(appUrl: string, postId: string): string {
   return `${normalizedBase}/r/${postId}`;
 }
 
+
+const URL_PATTERN = /https?:\/\/[\w\-.~:/?#@!$&*+,;=%]+/g;
+const TRAILING_PUNCTUATION = /[.,!?:;]+$/;
+
+function normalizedHost(hostname: string): string {
+  return hostname.toLowerCase().replace(/^www\./, "");
+}
+
+// Adds pid to links pointing at the brand's own sites so the landing page can attribute
+// visits and conversions to this post. Other hosts and already-tagged links are untouched.
+export function tagBrandLinks(text: string, postId: string, brandUrls: string[]): string {
+  const hosts = new Set(
+    brandUrls.flatMap((brandUrl) => {
+      try {
+        return [normalizedHost(new URL(brandUrl).hostname)];
+      } catch {
+        return [];
+      }
+    })
+  );
+  if (hosts.size === 0) return text;
+
+  return text.replace(URL_PATTERN, (match) => {
+    const trailing = match.match(TRAILING_PUNCTUATION)?.[0] ?? "";
+    const rawUrl = match.slice(0, match.length - trailing.length);
+    try {
+      const url = new URL(rawUrl);
+      if (!hosts.has(normalizedHost(url.hostname)) || url.searchParams.has("pid")) return match;
+      url.searchParams.set("pid", postId);
+      return `${url.toString()}${trailing}`;
+    } catch {
+      return match;
+    }
+  });
+}

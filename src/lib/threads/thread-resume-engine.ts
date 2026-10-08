@@ -4,6 +4,8 @@ import {
   type ThreadsCredentials,
 } from "@/lib/threads-api";
 import { splitContentIntoThreadParts } from "@/lib/thread-splitter";
+import { tagBrandLinks } from "@/lib/tracking-url";
+import { parseBrandConfig } from "@/types/brand";
 
 export interface ResumePublishResult {
   success: boolean;
@@ -31,11 +33,20 @@ export async function publishOrResumePost(
 ): Promise<ResumePublishResult> {
   const post = await prisma.post.findUnique({
     where: { id: postId },
+    include: { brand: { select: { brandConfig: true } } },
   });
 
   if (!post) {
     throw new Error(`Post ${postId} not found`);
   }
+
+  // Tag brand links with pid on first publish only; a resumed thread must keep the
+  // exact content its earlier parts were split from.
+  const brandConfig = parseBrandConfig(post.brand?.brandConfig ?? "{}");
+  const brandUrls = [brandConfig.websiteUrl, brandConfig.productProfile?.landingUrl ?? ""];
+  const tag = (text: string) => (post.threadRootId ? text : tagBrandLinks(text, post.id, brandUrls));
+  const content = tag(post.content);
+  const firstComment = post.firstComment ? tag(post.firstComment) : post.firstComment;
 
   let imageUrls: string[] = [];
   try {
@@ -51,7 +62,7 @@ export async function publishOrResumePost(
     existingPartIds = [];
   }
 
-  const parts = splitContentIntoThreadParts(post.content);
+  const parts = splitContentIntoThreadParts(content);
   const totalParts = parts.length;
   const startFromPartIndex = post.threadPartsPosted || 0;
   const isResumed = Boolean(post.threadRootId && startFromPartIndex > 0 && startFromPartIndex < totalParts);
@@ -97,11 +108,15 @@ export async function publishOrResumePost(
   }
 
   try {
+    if (content !== post.content || firstComment !== post.firstComment) {
+      await prisma.post.update({ where: { id: postId }, data: { content, firstComment } });
+    }
+
     const result = await publishThreadChainWithCredentials(
-      post.content,
+      content,
       credentials,
       imageUrls,
-      post.firstComment,
+      firstComment,
       {
         delayBetweenPartsMs: options?.delayBetweenPartsMs,
         existingRootThreadsId: post.threadRootId || undefined,

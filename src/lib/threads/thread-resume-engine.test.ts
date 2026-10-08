@@ -340,4 +340,54 @@ describe("thread-resume-engine", () => {
       /is already being published/
     );
   });
+  it("tags brand links with pid on first publish but not when resuming", async () => {
+    const basePost = {
+      id: "post-link",
+      content: "확인 https://www.cosmicpath.app/start?entry=x",
+      firstComment: "링크 https://www.cosmicpath.app/start",
+      imageUrls: "[]",
+      threadPartIds: "[]",
+      threadPartsPosted: 0,
+      threadRootId: null,
+      status: "PENDING",
+      brand: { brandConfig: JSON.stringify({ websiteUrl: "https://www.cosmicpath.app/start" }) },
+    };
+    vi.mocked(prisma.post.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.post.findUnique).mockResolvedValue(basePost as unknown as Post);
+    vi.spyOn(threadSplitter, "splitContentIntoThreadParts").mockImplementation((text: string) => [text]);
+    vi.mocked(threadsApi.publishThreadChainWithCredentials).mockResolvedValue({
+      rootThreadsId: "th-1",
+      partIds: ["th-1"],
+      replyError: null,
+    });
+
+    await publishOrResumePost("post-link", credentials);
+
+    const [text, , , firstComment] = vi.mocked(threadsApi.publishThreadChainWithCredentials).mock.calls[0];
+    expect(text).toBe("확인 https://www.cosmicpath.app/start?entry=x&pid=post-link");
+    expect(firstComment).toBe("링크 https://www.cosmicpath.app/start?pid=post-link");
+    expect(prisma.post.update).toHaveBeenCalledWith({
+      where: { id: "post-link" },
+      data: { content: text, firstComment },
+    });
+
+    vi.clearAllMocks();
+    vi.mocked(prisma.post.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.post.findUnique).mockResolvedValue({
+      ...basePost,
+      threadRootId: "th-1",
+      threadPartsPosted: 1,
+      status: "PARTIAL_FAILED",
+    } as unknown as Post);
+    vi.spyOn(threadSplitter, "splitContentIntoThreadParts").mockReturnValue(["a", "b"]);
+    vi.mocked(threadsApi.publishThreadChainWithCredentials).mockResolvedValue({
+      rootThreadsId: "th-1",
+      partIds: ["th-1", "th-2"],
+      replyError: null,
+    });
+
+    await publishOrResumePost("post-link", credentials);
+
+    expect(vi.mocked(threadsApi.publishThreadChainWithCredentials).mock.calls[0][0]).toBe(basePost.content);
+  });
 });

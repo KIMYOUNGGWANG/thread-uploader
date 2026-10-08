@@ -54,6 +54,12 @@ describe("POST /api/webhooks/conversion", () => {
     expect(learnBrandGrowth).toHaveBeenCalledWith("brand_1");
   });
 
+  it("counts the CosmicPath canonical question-submit event as a conversion", async () => {
+    const res = await webhook({ postId: "post_1", eventType: "decision_question_submit", sessionId: "s2" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).eventType).toBe("conversion");
+  });
+
   it("rejects paid events without the server secret, including a secret in the body", async () => {
     const res = await webhook({ postId: "post_1", eventType: "paid_conversion", secret: "server_secret" });
     expect(res.status).toBe(401);

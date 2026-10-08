@@ -8,7 +8,7 @@ import { learnBrandGrowth } from "@/lib/growth-service";
 type NormalizedEvent = "click" | "conversion" | "paid_conversion";
 
 const CLICK_EVENTS = new Set(["click", "landing_view"]);
-const CONVERSION_EVENTS = new Set(["test_start", "first_result_view", "conversion", "analysis_start", "ritual_action_viewed"]);
+const CONVERSION_EVENTS = new Set(["test_start", "first_result_view", "conversion", "analysis_start", "decision_question_submit", "ritual_action_viewed"]);
 const PAID_EVENTS = new Set(["paid_conversion", "checkout_success", "payment", "order_complete"]);
 
 const POST_SUMMARY_SELECT = {
