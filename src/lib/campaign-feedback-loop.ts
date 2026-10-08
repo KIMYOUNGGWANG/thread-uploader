@@ -1,3 +1,4 @@
+import { calculatePerformanceScore } from "./growth-learning";
 import {
   identifyBottomPerformingPosts,
   extractNegativeCliches,
@@ -47,12 +48,9 @@ function computeMedian(values: number[]): number {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+// Single reward definition shared with the learn cron (revenue-weighted).
 export function calculateEngagementScore(post: MaturePostMetric): number {
-  const views = post.views || 0;
-  const replies = post.replies || 0;
-  const reposts = post.reposts || 0;
-  const conversions = post.conversions || 0;
-  return views + replies * 5 + reposts * 10 + conversions * 25;
+  return calculatePerformanceScore({ ...post, likes: null });
 }
 
 export function harvestTopPerformers(

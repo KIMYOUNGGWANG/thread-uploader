@@ -28,6 +28,7 @@ export interface FormulaPerformanceObservation {
   reposts: number;
   linkClicks?: number;
   conversions?: number;
+  paidConversions?: number;
 }
 
 export interface ThompsonSamplingState {
@@ -39,8 +40,8 @@ export interface ThompsonRouterOptions {
   forceTrack?: ContentTrack;
   recentFormulaIds?: string[];
   customPriors?: Record<string, BetaPrior>;
-  viralWeight?: number;     // Weight for engagement (default: 0.6)
-  conversionWeight?: number; // Weight for click/conversion (default: 0.4)
+  viralWeight?: number;     // Weight for engagement (default: 0.4)
+  conversionWeight?: number; // Weight for click/conversion (default: 0.6)
   brandFormulas?: string[];
 }
 
@@ -131,18 +132,19 @@ function standardNormal(): number {
 /**
  * Calculate Blended Observation Score from raw metrics
  * Engagement Rate = (replies * 3 + reposts * 2 + likes) / (views + 1)
- * Conversion Rate = linkClicks / (views + 1)
+ * Conversion Rate = (linkClicks + conversions * 10 + paidConversions * 50) / (views + 1)
+ * Revenue-first: conversion outweighs engagement so the bandit optimizes money, not reach.
  */
 export function calculateBlendedPerformance(
   obs: FormulaPerformanceObservation,
-  viralWeight = 0.6,
-  conversionWeight = 0.4
+  viralWeight = 0.4,
+  conversionWeight = 0.6
 ): { engagementRate: number; conversionRate: number; blendedScore: number } {
   const views = Math.max(1, obs.views);
   const weightedEngagements = obs.replies * 3.0 + obs.reposts * 2.0 + obs.likes * 1.0;
   const engagementRate = Math.min(1.0, weightedEngagements / (views * 0.15)); // Normalized to ~0-1 scale
 
-  const clicks = (obs.linkClicks ?? 0) * 1.0 + (obs.conversions ?? 0) * 10.0;
+  const clicks = (obs.linkClicks ?? 0) * 1.0 + (obs.conversions ?? 0) * 10.0 + (obs.paidConversions ?? 0) * 50.0;
   const conversionRate = Math.min(1.0, clicks / (views * 0.05)); // 5% click rate = 1.0
 
   const blendedScore = Math.min(1.0, Math.max(0.0, viralWeight * engagementRate + conversionWeight * conversionRate));
@@ -206,6 +208,26 @@ export function updateThompsonPriors(
 }
 
 /**
+ * Draw one sample per arm from its Beta posterior and return the highest.
+ */
+export function sampleBestArm(
+  armIds: string[],
+  priors: Record<string, BetaPrior>
+): { armId: string; sampledValue: number } {
+  let armId = armIds[0];
+  let sampledValue = -1;
+  for (const id of armIds) {
+    const prior = priors[id] ?? DEFAULT_INFORMATIVE_PRIORS[id] ?? { alpha: 5, beta: 5 };
+    const sample = sampleBeta(prior.alpha, prior.beta);
+    if (sample > sampledValue) {
+      sampledValue = sample;
+      armId = id;
+    }
+  }
+  return { armId, sampledValue };
+}
+
+/**
  * Select the optimal formula using Bayesian Thompson Sampling within the 4:4:2 Golden Quota track
  */
 export function selectFormulaWithThompsonSampling(
@@ -235,21 +257,10 @@ export function selectFormulaWithThompsonSampling(
     ? candidateFormulaIds.filter((id) => id !== immediatelyPrevious)
     : candidateFormulaIds;
 
-  const priors = options.customPriors ?? DEFAULT_INFORMATIVE_PRIORS;
-
-  // Sample from posterior Beta distribution for each candidate arm
-  let bestFormulaId = candidatePool[0];
-  let bestSampledValue = -1;
-
-  for (const formulaId of candidatePool) {
-    const prior = priors[formulaId] ?? DEFAULT_INFORMATIVE_PRIORS[formulaId] ?? { alpha: 5, beta: 5 };
-    const sample = sampleBeta(prior.alpha, prior.beta);
-
-    if (sample > bestSampledValue) {
-      bestSampledValue = sample;
-      bestFormulaId = formulaId;
-    }
-  }
+  const { armId: bestFormulaId, sampledValue: bestSampledValue } = sampleBestArm(
+    candidatePool,
+    options.customPriors ?? DEFAULT_INFORMATIVE_PRIORS
+  );
 
   const roundedSample = Math.round(bestSampledValue * 100) / 100;
   const reason = `Thompson Sampling posterior score ${roundedSample} for ${domainPreset.name} (Track: ${trackConfig.name})`;

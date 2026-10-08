@@ -3,6 +3,7 @@ import {
   buildGrowthMemory,
   buildGrowthReport,
   calculatePerformanceScore,
+  computeWeeklyLift,
   getPerformanceTier,
 } from "@/lib/growth-learning";
 import {
@@ -26,7 +27,7 @@ export async function learnBrandGrowth(brandId: string) {
     select: { id: brandId ? true : undefined, formulaWeights: true, brandConfig: true },
   });
 
-  const posts = await prisma.post.findMany({
+  const fetchedPosts = await prisma.post.findMany({
     where: {
       brandId,
       status: "PUBLISHED",
@@ -41,12 +42,16 @@ export async function learnBrandGrowth(brandId: string) {
     take: 300,
   });
 
+  // Score with current metrics before learning, so weights never use last run's stale scores
+  const posts = fetchedPosts.map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
+
   // Filter out promotional / subsidized campaigns from organic formula weights to prevent data poisoning
   const organicPosts = posts.filter(
     (post) => !post.campaignId || !post.campaignId.toLowerCase().includes("promo")
   );
 
-  const memory = buildGrowthMemory(organicPosts.length > 0 ? organicPosts : posts);
+  const learningPosts = organicPosts.length > 0 ? organicPosts : posts;
+  const memory = buildGrowthMemory(learningPosts);
 
   let updatedWeights: Record<string, number> | undefined;
   let promotedFormulas: string[] = [];
@@ -79,7 +84,7 @@ export async function learnBrandGrowth(brandId: string) {
       currentWeights = {};
     }
 
-    const weightResult = computeAdaptiveFormulaWeights(currentWeights, organicPosts.length > 0 ? organicPosts : posts, knownFormulaIds);
+    const weightResult = computeAdaptiveFormulaWeights(currentWeights, learningPosts, knownFormulaIds);
     updatedWeights = weightResult.updatedWeights;
     promotedFormulas = weightResult.promotedFormulas;
     demotedFormulas = weightResult.demotedFormulas;
@@ -90,12 +95,12 @@ export async function learnBrandGrowth(brandId: string) {
     contextWeightResult = computeAdaptiveContextWeights(
       config.contextWeights?.personaWeights ?? {},
       config.contextWeights?.frictionWeights ?? {},
-      organicPosts.length > 0 ? organicPosts : posts,
+      learningPosts,
       matrix.personas,
       matrix.frictions
     );
 
-    const observations: FormulaPerformanceObservation[] = posts
+    const observations: FormulaPerformanceObservation[] = learningPosts
       .filter((p) => Boolean(p.formulaId) && typeof p.views === "number")
       .map((p) => ({
         formulaId: p.formulaId!,
@@ -105,12 +110,12 @@ export async function learnBrandGrowth(brandId: string) {
         reposts: p.reposts ?? 0,
         linkClicks: p.clicks ?? 0,
         conversions: p.conversions ?? 0,
+        paidConversions: p.manualPaidConversions ?? 0,
       }));
 
-    const updatedPriors = updateThompsonPriors(
-      config.thompsonPriors ?? DEFAULT_INFORMATIVE_PRIORS,
-      observations
-    );
+    // Rebuild from defaults every run: the 300-post window already covers history,
+    // so stacking on stored priors would re-count the same posts daily and freeze exploration.
+    const updatedPriors = updateThompsonPriors(DEFAULT_INFORMATIVE_PRIORS, observations);
 
     updatedBrandConfig = {
       ...config,
@@ -136,7 +141,7 @@ export async function learnBrandGrowth(brandId: string) {
   let scoreWriteFailures = 0;
 
   for (const post of posts) {
-    const performanceScore = calculatePerformanceScore(post);
+    const { performanceScore } = post;
     try {
       await prisma.post.update({
         where: { id: post.id },
@@ -170,6 +175,7 @@ export async function learnBrandGrowth(brandId: string) {
     demotedPersonas: contextWeightResult?.demotedPersonas ?? [],
     promotedFrictions: contextWeightResult?.promotedFrictions ?? [],
     demotedFrictions: contextWeightResult?.demotedFrictions ?? [],
+    weeklyLift: computeWeeklyLift(learningPosts, now),
     ...buildGrowthReport(posts, memory),
   };
 }

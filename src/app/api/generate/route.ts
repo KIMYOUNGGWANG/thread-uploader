@@ -17,6 +17,7 @@ import { buildAdmissionFirstComment, buildConversationIgniterComment } from "@/l
 import { buildShortRedirectUrl, buildTrackedUrl } from "@/lib/tracking-url";
 import { selectFormulaWithQuota } from "@/lib/quota-bandit-router";
 import { selectFormulaWithThompsonSampling } from "@/lib/thompson-sampling-router";
+import { selectCampaignFormulaForViralMode, selectLeanViralMode } from "@/lib/lean-mode-selector";
 import { buildMultiFormatContentBundle } from "@/lib/multi-format-content-bridge";
 import { splitContentIntoThreadParts } from "@/lib/thread-splitter";
 import { svgToDataUri } from "@/lib/carousel-cards/renderer";
@@ -121,23 +122,6 @@ function buildFormulaPool(
     for (let i = 0; i < weight; i++) pool.push(formula);
   }
   return pool;
-}
-
-function selectCampaignFormulaForViralMode(
-  formulas: GenerationFormula[],
-  viralIntentMode: ViralIntentMode
-): GenerationFormula {
-  const matchingFormula = formulas.find((formula) => (
-    resolveViralIntentMode(formula.id, 0).id === viralIntentMode.id
-  ));
-  if (matchingFormula) return matchingFormula;
-
-  return {
-    id: viralIntentMode.id,
-    name: viralIntentMode.label,
-    weight: 1,
-    instruction: viralIntentMode.instruction,
-  };
 }
 
 function cleanGeneratedContentLabels(content: string): string {
@@ -929,6 +913,8 @@ export async function POST(request: NextRequest) {
     const BATCH = 3;
     const BATCH_COOLDOWN = 500;
     const results: Awaited<ReturnType<typeof generateWithQuality>>[] = [];
+    // Formulas picked so far, including the current in-flight batch, for anti-repeat.
+    const pickedFormulaIds: string[] = [];
 
     for (let i = 0; i < count; i += BATCH) {
       const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
@@ -944,19 +930,19 @@ export async function POST(request: NextRequest) {
           count === 10 ||
           count === 15
         );
-        const viralIntentMode = selectViralIntentMode(batchIndex, {
-          sprintType: isLeanSprint ? "lean_15post" : "standard_28day",
-        });
+        const viralIntentMode = isLeanSprint
+          ? selectLeanViralMode(batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds)
+          : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
         const quotaSelection = config.thompsonPriors
           ? selectFormulaWithThompsonSampling(batchIndex, {
               domainProfile,
               customPriors: config.thompsonPriors,
-              recentFormulaIds: results.map((r) => r.formulaId),
+              recentFormulaIds: pickedFormulaIds,
             })
           : selectFormulaWithQuota(batchIndex, {
               domainProfile,
               customWeights: dbWeights,
-              recentFormulaIds: results.map((r) => r.formulaId),
+              recentFormulaIds: pickedFormulaIds,
             });
 
         const matchedFormula = sourceFormulas.find((f) => f.id === quotaSelection.formulaId);
@@ -967,6 +953,7 @@ export async function POST(request: NextRequest) {
                 ? selectCampaignFormulaForViralMode(sourceFormulas, viralIntentMode)
                 : pickRandom(formulaPool)
             ));
+        pickedFormulaIds.push(formula.id);
 
         const topic = topics[batchIndex % topics.length];
         const experiment = buildExperiment(formula, topic, config, activeCampaign, batchIndex, viralIntentMode);

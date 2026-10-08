@@ -58,7 +58,7 @@ describe("GET /api/cron/feedback", () => {
     expect(prisma.brand.update).not.toHaveBeenCalled();
   });
 
-  it("applies recommended weights and viral memory when apply=true", async () => {
+  it("applies viral memory but leaves formulaWeights to the learn cron when apply=true", async () => {
     vi.mocked(prisma.brand.findMany).mockResolvedValueOnce([
       {
         id: "b1",
@@ -95,5 +95,7 @@ describe("GET /api/cron/feedback", () => {
         where: { id: "b1" },
       })
     );
+    const updateArgs = vi.mocked(prisma.brand.update).mock.calls.at(-1)?.[0];
+    expect(updateArgs?.data).not.toHaveProperty("formulaWeights");
   });
 });

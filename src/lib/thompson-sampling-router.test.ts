@@ -112,3 +112,11 @@ describe("Thompson Sampling MAB Router", () => {
     expect(superiorCount).toBeGreaterThanOrEqual(75);
   });
 });
+
+describe("revenue-first reward", () => {
+  it("scores a paid-converting post above a higher-engagement post with no conversions", () => {
+    const viralOnly = calculateBlendedPerformance({ formulaId: "a", views: 1000, likes: 100, replies: 20, reposts: 10 });
+    const paying = calculateBlendedPerformance({ formulaId: "b", views: 1000, likes: 5, replies: 1, reposts: 0, paidConversions: 1 });
+    expect(paying.blendedScore).toBeGreaterThan(viralOnly.blendedScore);
+  });
+});

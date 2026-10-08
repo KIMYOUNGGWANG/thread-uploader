@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
         learnedPosts: result.learnedPosts,
         promotedFormulas: result.promotedFormulas,
         demotedFormulas: result.demotedFormulas,
+        weeklyLift: result.weeklyLift,
       });
     } catch (error) {
       results.push({

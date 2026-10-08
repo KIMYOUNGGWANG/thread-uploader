@@ -1084,8 +1084,33 @@ interface ViralAdapterResult {
 |:-------|:-----|:------------|
 | `GET` | `/api/cron/publish` | 모든 active 제품 순회 → 각 1개 FIFO 발행 |
 | `GET` | `/api/cron/refresh-token` | 모든 제품의 Threads 토큰 상태 확인 및 갱신 |
-| `GET` | `/api/cron/learn` | 모든 제품 growthMemory 재학습 |
+| `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자) |
+| `GET` | `/api/cron/feedback?apply=true` | 72h 성숙 글 기준 viralMemory topPerformers + 금지 표현 학습 (formulaWeights는 쓰지 않음) |
 | `GET` | `/api/cron/viral` | 모든 제품 viral discovery + viralMemory 재학습 |
+
+학습 루프 규칙:
+- 보상 정의는 `calculatePerformanceScore` 하나 (조회 0.2 · 클릭 50 · 전환 300 · 유료전환 2500). Thompson 보상은 전환 0.6 / 반응 0.4.
+- `thompsonPriors`는 매 실행마다 `DEFAULT_INFORMATIVE_PRIORS`에서 최근 300개 글로 재계산 (중복 학습 방지).
+- CosmicPath lean sprint는 priors가 있으면 4개 viral mode 중 Thompson 샘플링으로 선택, 없으면 고정 배분.
+
+```typescript
+interface CronLearnResponse {
+  success: true;
+  brands: Array<{
+    slug: string;
+    success: boolean;
+    learnedPosts?: number;
+    promotedFormulas?: string[];
+    demotedFormulas?: string[];
+    weeklyLift?: {
+      current: { posts: number; avgScore: number; conversionsPer1kViews: number };  // 3~10일 전 발행
+      previous: { posts: number; avgScore: number; conversionsPer1kViews: number }; // 10~17일 전 발행
+      scoreLiftPct: number | null; // 한쪽 주에 글이 없으면 null
+    };
+    error?: string;
+  }>;
+}
+```
 
 ```typescript
 interface CronPublishResponse {

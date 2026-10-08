@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const brandFilter = brandSlug ? { slug: brandSlug } : {};
   const brands = await prisma.brand.findMany({
     where: brandFilter,
-    select: { id: true, slug: true, name: true, formulaWeights: true, viralMemory: true, brandConfig: true },
+    select: { id: true, slug: true, name: true, viralMemory: true, brandConfig: true },
   });
 
   if (brands.length === 0) {
@@ -55,18 +55,10 @@ export async function GET(request: NextRequest) {
     });
 
     let applied = false;
-    if (shouldApply && Object.keys(report.recommendedWeights).length > 0) {
-      // 1. Update formula weights
-      let currentWeights: Record<string, number> = {};
-      try {
-        currentWeights = JSON.parse(brand.formulaWeights || "{}");
-      } catch {
-        currentWeights = {};
-      }
-
-      const mergedWeights = { ...currentWeights, ...report.recommendedWeights };
-
-      // 2. Update top performers into viral memory
+    // formulaWeights are owned by /api/cron/learn. This cron only refreshes viral memory and
+    // negative phrases; recommendedWeights stay in the report for visibility.
+    if (shouldApply && report.maturePostCount > 0) {
+      // 1. Update top performers into viral memory
       let currentViralMemory: Record<string, unknown> = {};
       try {
         const parsedMemory: unknown = JSON.parse(brand.viralMemory || "{}");
@@ -88,7 +80,7 @@ export async function GET(request: NextRequest) {
         })),
       };
 
-      // 3. Update negative failure patterns into brandConfig prohibitedPhrases
+      // 2. Update negative failure patterns into brandConfig prohibitedPhrases
       let currentBrandConfig: Record<string, unknown> = {};
       try {
         const parsedConfig: unknown = JSON.parse(brand.brandConfig || "{}");
@@ -106,7 +98,6 @@ export async function GET(request: NextRequest) {
       await prisma.brand.update({
         where: { id: brand.id },
         data: {
-          formulaWeights: JSON.stringify(mergedWeights),
           viralMemory: JSON.stringify(updatedViralMemory),
           brandConfig: JSON.stringify(updatedBrandConfig),
         },

@@ -202,3 +202,56 @@ export function isAutopilotFormula(formulaId: string | null | undefined, memory:
   if (!formulaId) return false;
   return memory.winners.some((winner) => winner.dimension === "formula" && winner.value === formulaId);
 }
+
+export interface WeeklyLiftInput {
+  publishedAt: Date | null;
+  views: number | null;
+  conversions?: number | null;
+  manualPaidConversions?: number | null;
+  performanceScore: number | null;
+}
+
+export interface WeekStats {
+  posts: number;
+  avgScore: number;
+  conversionsPer1kViews: number;
+}
+
+export interface WeeklyLift {
+  current: WeekStats;
+  previous: WeekStats;
+  // null when either week has no posts: no evidence that learning helped or hurt
+  scoreLiftPct: number | null;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
+// Posts younger than 72h are still accumulating views, so both windows end 3 days ago.
+const MATURITY_MS = 3 * DAY_MS;
+
+function summarizeWeek(posts: WeeklyLiftInput[]): WeekStats {
+  const views = posts.reduce((sum, post) => sum + (post.views ?? 0), 0);
+  const conversions = posts.reduce(
+    (sum, post) => sum + (post.conversions ?? 0) + (post.manualPaidConversions ?? 0),
+    0
+  );
+  return {
+    posts: posts.length,
+    avgScore: average(posts.map((post) => post.performanceScore ?? 0)),
+    conversionsPer1kViews: views > 0 ? Math.round((conversions / views) * 1000 * 100) / 100 : 0,
+  };
+}
+
+// Did the loop improve output? Compares the latest mature week against the week before.
+export function computeWeeklyLift(posts: WeeklyLiftInput[], now: Date): WeeklyLift {
+  const inWindow = (post: WeeklyLiftInput, startMs: number) => {
+    const age = now.getTime() - (post.publishedAt?.getTime() ?? Number.NaN);
+    return age >= startMs && age < startMs + WEEK_MS;
+  };
+  const current = summarizeWeek(posts.filter((post) => inWindow(post, MATURITY_MS)));
+  const previous = summarizeWeek(posts.filter((post) => inWindow(post, MATURITY_MS + WEEK_MS)));
+  const scoreLiftPct = current.posts > 0 && previous.posts > 0 && previous.avgScore > 0
+    ? Math.round(((current.avgScore - previous.avgScore) / previous.avgScore) * 100)
+    : null;
+  return { current, previous, scoreLiftPct };
+}

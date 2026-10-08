@@ -46,3 +46,8 @@
   - `진태양시 30분 왜곡 폭로`: "한국인 10명 중 7명은 자기가 태어난 시간 잘못 알고 있다"
   - **반성 및 가드레일**: 이 1개 케이스에만 매몰되어 모든 글에 30분 오차를 복붙하는 단일 소재 과적합(Overfitting) 발생. 30분 오차는 8대 토픽 중 1개로만 다루고, 절대 단독 복제하지 말 것.
 
+
+## [2026-10-08] Learning Loop Audit
+- Recurring bug: open learning loop — learn cron updated priors daily, but CosmicPath (`isLeanSprint`) picked formulas from a hard-coded allocation, so learning never reached output — Prevention: every generation path must read learned state (priors/weights); covered by `lean-mode-selector.test.ts`.
+- Recurring bug: multiple writers to one learned field — `/api/cron/learn` and `/api/cron/feedback` both wrote `formulaWeights` with different key spaces and scales — Prevention: one owner per learned field (learn owns formulaWeights/thompsonPriors).
+- Recurring bug: cumulative bandit update over a sliding window — re-adding the same 300 posts daily inflated Beta confidence ~20x — Prevention: rebuild priors from defaults each run when input is a window.
