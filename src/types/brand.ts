@@ -1,4 +1,5 @@
 import type { ViralAdapterId } from "@/types/viral";
+import type { CircuitBreakerState } from "@/lib/threads-publisher";
 import {
   ADVANCED_CREATOR_CTA_TYPES,
   ADVANCED_CREATOR_HOOK_TYPES,
@@ -144,6 +145,7 @@ export interface BrandConfig {
   sideMission?: string;
   minAlgorithmicScore?: number;
   creatorHandle?: string;
+  circuitBreaker?: CircuitBreakerState;
 }
 
 export interface BrandResponse {

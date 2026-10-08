@@ -29,7 +29,7 @@ describe("GET /api/cron/feedback", () => {
         name: "CosmicPath",
         formulaWeights: "{}",
         viralMemory: "{}",
-      } as any,
+      } as never,
     ]);
 
     const oldDate = new Date(Date.now() - 80 * 60 * 60 * 1000);
@@ -44,7 +44,7 @@ describe("GET /api/cron/feedback", () => {
         replies: 10,
         reposts: 2,
         conversions: 1,
-      } as any,
+      } as never,
     ]);
 
     const req = new NextRequest("http://localhost:3000/api/cron/feedback");
@@ -66,7 +66,7 @@ describe("GET /api/cron/feedback", () => {
         name: "CosmicPath",
         formulaWeights: "{}",
         viralMemory: "{}",
-      } as any,
+      } as never,
     ]);
 
     const oldDate = new Date(Date.now() - 80 * 60 * 60 * 1000);
@@ -81,7 +81,7 @@ describe("GET /api/cron/feedback", () => {
         replies: 10,
         reposts: 2,
         conversions: 1,
-      } as any,
+      } as never,
     ]);
 
     const req = new NextRequest("http://localhost:3000/api/cron/feedback?apply=true");

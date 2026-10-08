@@ -60,11 +60,15 @@ export function extractNegativeCliches(bottomPosts: BottomPostSample[]): string[
 }
 
 export function mergeNegativePhrasesIntoBrandConfig(
-  currentConfig: Record<string, any>,
+  currentConfig: Record<string, unknown>,
   newPhrases: string[]
-): Record<string, any> {
-  const existingProhibited = Array.isArray(currentConfig.fidelity?.prohibitedPhrases)
-    ? currentConfig.fidelity.prohibitedPhrases
+): Record<string, unknown> & { fidelity: { prohibitedPhrases: string[] } } {
+  const fidelity = currentConfig.fidelity;
+  const currentFidelity: Record<string, unknown> =
+    typeof fidelity === "object" && fidelity !== null ? (fidelity as Record<string, unknown>) : {};
+  const rawProhibited = currentFidelity.prohibitedPhrases;
+  const existingProhibited: string[] = Array.isArray(rawProhibited)
+    ? (rawProhibited as unknown[]).filter((p): p is string => typeof p === "string")
     : [];
 
   const merged = Array.from(new Set([...existingProhibited, ...newPhrases]));
@@ -72,7 +76,7 @@ export function mergeNegativePhrasesIntoBrandConfig(
   return {
     ...currentConfig,
     fidelity: {
-      ...(currentConfig.fidelity || {}),
+      ...currentFidelity,
       prohibitedPhrases: merged,
     },
   };

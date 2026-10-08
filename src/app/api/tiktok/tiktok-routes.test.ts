@@ -65,7 +65,7 @@ describe("TikTok API Routes", () => {
         body: JSON.stringify({}),
       });
 
-      const res = await generateHandler(req as any);
+      const res = await generateHandler(req as never);
       expect(res.status).toBe(400);
       const data = await res.json();
       expect(data.error).toContain("brandId is required");
@@ -75,12 +75,11 @@ describe("TikTok API Routes", () => {
       vi.mocked(prisma.brand.findUnique).mockResolvedValue({
         id: "brand-123",
         name: "사주브랜드",
-      } as any);
+      } as never);
 
-      (prisma.tikTokVideoDraft.create as any).mockImplementation(async ({ data }: any) => ({
-        id: "draft-456",
-        ...data,
-      }));
+      vi.mocked(prisma.tikTokVideoDraft.create).mockImplementation(
+        (async ({ data }: { data: Record<string, unknown> }) => ({ id: "draft-456", ...data })) as never
+      );
 
       const req = new Request("http://localhost/api/tiktok/generate", {
         method: "POST",
@@ -92,7 +91,7 @@ describe("TikTok API Routes", () => {
         }),
       });
 
-      const res = await generateHandler(req as any);
+      const res = await generateHandler(req as never);
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
@@ -106,13 +105,13 @@ describe("TikTok API Routes", () => {
     it("fetches drafts for a given brandId", async () => {
       vi.mocked(prisma.tikTokVideoDraft.findMany).mockResolvedValue([
         { id: "draft-1", title: "사주 숏폼 1", status: "DRAFT" },
-      ] as any);
+      ] as never);
 
       const req = new Request("http://localhost/api/tiktok/drafts?brandId=brand-123", {
         method: "GET",
       });
 
-      const res = await draftsHandler(req as any);
+      const res = await draftsHandler(req as never);
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.drafts.length).toBe(1);
@@ -143,12 +142,11 @@ describe("TikTok API Routes", () => {
         cta: "확인해보세요",
         qualityScore: 90,
         qualityPass: true,
-      } as any);
+      } as never);
 
-      (prisma.tikTokVideoDraft.update as any).mockImplementation(async ({ data }: any) => ({
-        id: "draft-789",
-        ...data,
-      }));
+      vi.mocked(prisma.tikTokVideoDraft.update).mockImplementation(
+        (async ({ data }: { data: Record<string, unknown> }) => ({ id: "draft-789", ...data })) as never
+      );
 
       const req = new Request("http://localhost/api/tiktok/render", {
         method: "POST",
@@ -156,7 +154,7 @@ describe("TikTok API Routes", () => {
         body: JSON.stringify({ draftId: "draft-789", dryRun: true }),
       });
 
-      const res = await renderHandler(req as any);
+      const res = await renderHandler(req as never);
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
@@ -174,12 +172,11 @@ describe("TikTok API Routes", () => {
         sceneBeats: JSON.stringify([]),
         hashtags: JSON.stringify([]),
         cta: "확인하세요",
-      } as any);
+      } as never);
 
-      (prisma.tikTokVideoDraft.update as any).mockImplementation(async ({ data }: any) => ({
-        id: "draft-async-1",
-        ...data,
-      }));
+      vi.mocked(prisma.tikTokVideoDraft.update).mockImplementation(
+        (async ({ data }: { data: Record<string, unknown> }) => ({ id: "draft-async-1", ...data })) as never
+      );
 
       const req = new Request("http://localhost/api/tiktok/render", {
         method: "POST",
@@ -187,7 +184,7 @@ describe("TikTok API Routes", () => {
         body: JSON.stringify({ draftId: "draft-async-1", dryRun: false }),
       });
 
-      const res = await renderHandler(req as any);
+      const res = await renderHandler(req as never);
       expect(res.status).toBe(202);
       const data = await res.json();
       expect(data.success).toBe(true);

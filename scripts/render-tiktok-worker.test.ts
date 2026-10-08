@@ -41,7 +41,7 @@ describe("TikTok Render Worker", () => {
         cta: "프로필 확인",
       };
 
-      const spec = buildTikTokRenderSpec(scriptResult as any);
+      const spec = buildTikTokRenderSpec(scriptResult as never);
 
       expect(spec.compositor).toBe("remotion");
       expect(spec.composition).toBe("TikTokExplainer");
@@ -68,7 +68,7 @@ describe("TikTok Render Worker", () => {
         },
       };
 
-      const cleanedCount = await cleanStaleJobs(mockDb as any, 10 * 60 * 1000);
+      const cleanedCount = await cleanStaleJobs(mockDb as never, 10 * 60 * 1000);
 
       expect(cleanedCount).toBe(2);
       expect(mockUpdate).toHaveBeenCalledTimes(2);
@@ -87,7 +87,7 @@ describe("TikTok Render Worker", () => {
         },
       };
 
-      const cleanedCount = await cleanStaleJobs(mockDb as any);
+      const cleanedCount = await cleanStaleJobs(mockDb as never);
       expect(cleanedCount).toBe(0);
     });
   });
@@ -121,7 +121,7 @@ describe("TikTok Render Worker", () => {
         },
       };
 
-      const result = await processNextJob(mockDb as any, { dryRun: true });
+      const result = await processNextJob(mockDb as never, { dryRun: true });
 
       expect(result).not.toBeNull();
       expect(result?.success).toBe(true);
@@ -151,7 +151,7 @@ describe("TikTok Render Worker", () => {
         },
       };
 
-      const result = await processNextJob(mockDb as any);
+      const result = await processNextJob(mockDb as never);
       expect(result).toBeNull();
     });
   });

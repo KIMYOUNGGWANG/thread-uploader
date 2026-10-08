@@ -12,7 +12,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("next/og", () => {
   return {
     ImageResponse: class MockImageResponse {
-      constructor(element: any, options: any) {
+      constructor(_element: unknown, options: { headers?: HeadersInit } | undefined) {
         return new Response("fake-image-binary", {
           status: 200,
           headers: options?.headers,
@@ -41,7 +41,7 @@ describe("GET /api/cards/[id]", () => {
       content: "테스트 훅 제목\n서브 설명\nA. 옵션 1\nB. 옵션 2",
       topic: "커리어",
       brand: { name: "CosmicPath", slug: "cosmicpath" },
-    } as any);
+    } as never);
 
     const req = new NextRequest("http://localhost:3000/api/cards/test-id?slide=1");
     const res = await GET(req, { params: Promise.resolve({ id: "test-id" }) });

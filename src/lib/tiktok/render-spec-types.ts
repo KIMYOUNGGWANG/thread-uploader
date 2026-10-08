@@ -1,4 +1,7 @@
 // render-spec-types.ts — Self-contained RenderSpec type definition for TikTok/Remotion rendering
+import type { SajuCardData } from "./saju-types";
+
+export type CardData = SajuCardData | { subText?: string; badge?: string; colorScheme?: string };
 export interface RenderSpecScene {
   id: string;
   fromFrame: number;
@@ -7,7 +10,7 @@ export interface RenderSpecScene {
     type: "image" | "video" | "slide" | "capture" | "placeholder" | "saju-card" | "kinetic-card";
     src: string;
     kenBurns?: boolean;
-    cardData?: Record<string, any>;
+    cardData?: CardData;
   };
   onScreenText: string[];
   transitionOut?: string;

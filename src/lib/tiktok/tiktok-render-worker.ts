@@ -5,7 +5,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import type { TikTokScriptResult } from "./tiktok-script-engine";
 import { alignTikTokScenes } from "./tiktok-audio-aligner";
-import type { RenderSpec } from "./render-spec-types";
+import type { RenderSpec, CardData } from "./render-spec-types";
 
 const execAsync = promisify(exec);
 
@@ -32,7 +32,7 @@ export function buildTikTokRenderSpec(
 
     let visualType: "saju-card" | "kinetic-card" | "placeholder" | "image" = "placeholder";
     let visualSrc = "#0b0d14";
-    let cardData: Record<string, any> | undefined = undefined;
+    let cardData: CardData | undefined = undefined;
 
     if (scene.type === "saju-card") {
       visualType = "saju-card";
@@ -131,10 +131,10 @@ export async function executeTikTokRender(
       renderDurationMs: Date.now() - startAt,
       renderSpec,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error: error.message || String(error),
+      error: error instanceof Error ? error.message : String(error),
       renderDurationMs: Date.now() - startAt,
       renderSpec,
     };

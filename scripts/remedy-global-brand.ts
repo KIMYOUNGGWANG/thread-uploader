@@ -286,7 +286,7 @@ async function main() {
 
   // 2단계: 신규 15개 포스트 사전 검증 (Quality Gate & Algo Scorer)
   console.log("\n2. 신규 15개 포스트 검증 시작 (Quality Gate + Algorithmic Scorer)...");
-  const validatedPosts: Array<PostCandidate & { qualityScore: number; algoScore: number; algoDimensions: any }> = [];
+  const validatedPosts: Array<PostCandidate & { qualityScore: number; algoScore: number; algoDimensions: unknown }> = [];
 
   for (let i = 0; i < CANDIDATE_POSTS.length; i++) {
     const post = CANDIDATE_POSTS[i];

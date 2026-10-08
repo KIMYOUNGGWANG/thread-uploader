@@ -1,6 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+
+interface TikTokDraft {
+  id: string;
+  title: string;
+  status: string;
+  durationSeconds: number;
+  qualityScore: number;
+  spokenHook: string;
+  sceneBeats: string;
+  qualityReasons?: string | null;
+  utmContent?: string | null;
+}
+
+interface TikTokScenePreview {
+  sceneId?: string;
+  durationSeconds: number;
+  type: string;
+  spokenLine: string;
+  onScreenText?: string[];
+}
 import Link from "next/link";
 import {
   Video,
@@ -47,25 +67,25 @@ export function TikTokStudioClient({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
 
-  const [currentDraft, setCurrentDraft] = useState<any>(null);
-  const [draftsList, setDraftsList] = useState<any[]>([]);
+  const [currentDraft, setCurrentDraft] = useState<TikTokDraft | null>(null);
+  const [draftsList, setDraftsList] = useState<TikTokDraft[]>([]);
 
   // Fetch drafts history
-  const fetchDrafts = async () => {
+  const fetchDrafts = useCallback(async () => {
     try {
       const res = await fetch(`/api/tiktok/drafts?brandId=${brandId}`);
-      const data = await res.json();
+      const data = await res.json() as { success: boolean; drafts?: TikTokDraft[] };
       if (data.success && data.drafts) {
         setDraftsList(data.drafts);
       }
     } catch {
       // silent
     }
-  };
+  }, [brandId]);
 
   useEffect(() => {
     fetchDrafts();
-  }, [brandId]);
+  }, [fetchDrafts]);
 
   // Handle Script Generation
   const handleGenerate = async () => {
@@ -91,8 +111,8 @@ export function TikTokStudioClient({
       } else {
         toast.error(data.error || "대본 생성에 실패했습니다.");
       }
-    } catch (err: any) {
-      toast.error(err.message || "오류가 발생했습니다.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
       setIsGenerating(false);
     }
@@ -112,9 +132,9 @@ export function TikTokStudioClient({
       if (currentDraft) {
         fetch(`/api/tiktok/drafts?brandId=${brandId}`)
           .then((r) => (r.ok ? r.json() : null))
-          .then((d) => {
+          .then((d: { success: boolean; drafts?: TikTokDraft[] } | null) => {
             if (d?.success && d.drafts) {
-              const updated = d.drafts.find((x: any) => x.id === currentDraft.id);
+              const updated = d.drafts.find((x) => x.id === currentDraft.id);
               if (updated) setCurrentDraft(updated);
             }
           })
@@ -123,7 +143,7 @@ export function TikTokStudioClient({
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [currentDraft?.id, currentDraft?.status, draftsList, brandId]);
+  }, [currentDraft, draftsList, brandId, fetchDrafts]);
 
   // Handle Remotion Video Render
   const handleRender = async (dryRun: boolean = true) => {
@@ -155,14 +175,16 @@ export function TikTokStudioClient({
       } else {
         toast.error(data.error || "렌더링 처리에 실패했습니다.");
       }
-    } catch (err: any) {
-      toast.error(err.message || "오류가 발생했습니다.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
       setIsRendering(false);
     }
   };
 
-  const scenes = currentDraft ? JSON.parse(currentDraft.sceneBeats || "[]") : [];
+  const scenes: TikTokScenePreview[] = currentDraft
+    ? (JSON.parse(currentDraft.sceneBeats || "[]") as TikTokScenePreview[])
+    : [];
 
   return (
     <div className="min-h-screen bg-[#090b10] text-slate-100 p-6">
@@ -385,7 +407,7 @@ export function TikTokStudioClient({
                   4단계 씬 스토리보드 (Storyboard Pipeline)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {scenes.map((scene: any, idx: number) => (
+                  {scenes.map((scene, idx) => (
                     <div
                       key={scene.sceneId || idx}
                       className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 flex flex-col justify-between"

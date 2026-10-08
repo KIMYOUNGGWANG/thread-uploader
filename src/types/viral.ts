@@ -63,8 +63,8 @@ export function parseViralMemory(raw: string): ViralMemory {
       sourceMix: parsed.sourceMix ?? {},
       topPatterns: normalizePatterns(parsed.topPatterns),
       recommendations: parsed.recommendations ?? [],
-      topPerformers: Array.isArray((parsed as any).topPerformers) ? (parsed as any).topPerformers : [],
-      nextHookCandidates: Array.isArray((parsed as any).nextHookCandidates) ? (parsed as any).nextHookCandidates : [],
+      topPerformers: Array.isArray(parsed.topPerformers) ? parsed.topPerformers : [],
+      nextHookCandidates: Array.isArray(parsed.nextHookCandidates) ? parsed.nextHookCandidates : [],
     };
   } catch {
     return EMPTY_VIRAL_MEMORY;

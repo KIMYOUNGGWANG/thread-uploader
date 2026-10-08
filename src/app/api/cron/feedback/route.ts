@@ -67,9 +67,12 @@ export async function GET(request: NextRequest) {
       const mergedWeights = { ...currentWeights, ...report.recommendedWeights };
 
       // 2. Update top performers into viral memory
-      let currentViralMemory: any = {};
+      let currentViralMemory: Record<string, unknown> = {};
       try {
-        currentViralMemory = JSON.parse(brand.viralMemory || "{}");
+        const parsedMemory: unknown = JSON.parse(brand.viralMemory || "{}");
+        currentViralMemory = typeof parsedMemory === "object" && parsedMemory !== null
+          ? (parsedMemory as Record<string, unknown>)
+          : {};
       } catch {
         currentViralMemory = {};
       }
@@ -86,9 +89,12 @@ export async function GET(request: NextRequest) {
       };
 
       // 3. Update negative failure patterns into brandConfig prohibitedPhrases
-      let currentBrandConfig: any = {};
+      let currentBrandConfig: Record<string, unknown> = {};
       try {
-        currentBrandConfig = JSON.parse(brand.brandConfig || "{}");
+        const parsedConfig: unknown = JSON.parse(brand.brandConfig || "{}");
+        currentBrandConfig = typeof parsedConfig === "object" && parsedConfig !== null
+          ? (parsedConfig as Record<string, unknown>)
+          : {};
       } catch {
         currentBrandConfig = {};
       }

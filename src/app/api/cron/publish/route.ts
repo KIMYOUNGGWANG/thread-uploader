@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       const brandConfig = parseBrandConfig(brand.brandConfig || "{}");
 
       // 0. Circuit Breaker Guard
-      const breakerCheck = checkCircuitBreaker(brandConfig as any, now);
+      const breakerCheck = checkCircuitBreaker(brandConfig, now);
       if (!breakerCheck.isAllowed) {
         skipped.push({ brandId: brand.id, brandName: brand.name, reason: "circuit_breaker_active" });
         continue;
@@ -234,7 +234,7 @@ export async function GET(request: NextRequest) {
         const result = await publishOrResumePost(post.id, credentials);
 
         if (result.success && result.rootThreadsId) {
-          const updatedBreaker = recordCircuitBreakerSuccess(brandConfig as any);
+          const updatedBreaker = recordCircuitBreakerSuccess(brandConfig);
           if (brandConfig.lastTickSkipped) {
             updatedBreaker.lastTickSkipped = false;
           }
@@ -255,7 +255,7 @@ export async function GET(request: NextRequest) {
         } else {
           const reason = result.partsPosted > 0 ? "partial_failed" : "publish_failed";
           const updatedBreaker = recordCircuitBreakerFailure(
-            brandConfig as any,
+            brandConfig,
             result.error || reason,
             3,
             60 * 60 * 1000,
@@ -284,7 +284,7 @@ export async function GET(request: NextRequest) {
         const errorMsg = publishErr instanceof Error ? publishErr.message : String(publishErr);
         console.error(`[cron/publish] ❌ ${brand.name}: publish failed`, publishErr);
         const updatedBreaker = recordCircuitBreakerFailure(
-          brandConfig as any,
+          brandConfig,
           errorMsg,
           3,
           60 * 60 * 1000,

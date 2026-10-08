@@ -29,7 +29,7 @@ describe("campaign-feedback-loop", () => {
       mockPost("p1", "imagination_dilemma", 80, 1500, 10), // mature
       mockPost("p2", "concept_hierarchy", 75, 800, 5),   // mature
       mockPost("p3", "identity_profile", 24, 2000, 20),   // immature (< 72h)
-      mockPost("p4", "relationship_tension", 90, null as any, 0), // unmeasured
+      mockPost("p4", "relationship_tension", 90, null as never, 0), // unmeasured
     ];
 
     const report = evaluate72hFeedbackLoop(posts, { now: NOW, brandId: "b1" });

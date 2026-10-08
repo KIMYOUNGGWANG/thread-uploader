@@ -14,11 +14,10 @@ export interface CircuitBreakerState {
 
 export interface BrandConfigWithBreaker {
   circuitBreaker?: CircuitBreakerState;
-  [key: string]: any;
 }
 
 export function checkCircuitBreaker(
-  config: BrandConfigWithBreaker,
+  config: { circuitBreaker?: CircuitBreakerState },
   now: Date = new Date()
 ): { isAllowed: boolean; reason?: string } {
   const breaker = config.circuitBreaker;
@@ -37,13 +36,13 @@ export function checkCircuitBreaker(
   return { isAllowed: true };
 }
 
-export function recordCircuitBreakerFailure(
-  config: BrandConfigWithBreaker,
+export function recordCircuitBreakerFailure<T extends { circuitBreaker?: CircuitBreakerState }>(
+  config: T,
   reason: string,
   threshold: number = 3,
   pauseDurationMs: number = 60 * 60 * 1000,
   now: Date = new Date()
-): BrandConfigWithBreaker {
+): T {
   const currentFailures = (config.circuitBreaker?.consecutiveFailures || 0) + 1;
   const shouldPause = currentFailures >= threshold;
   const pausedUntil = shouldPause ? new Date(now.getTime() + pauseDurationMs).toISOString() : null;
@@ -55,10 +54,10 @@ export function recordCircuitBreakerFailure(
       pausedUntil,
       lastFailureReason: reason,
     },
-  };
+  } as T;
 }
 
-export function recordCircuitBreakerSuccess(config: BrandConfigWithBreaker): BrandConfigWithBreaker {
+export function recordCircuitBreakerSuccess<T extends { circuitBreaker?: CircuitBreakerState }>(config: T): T {
   return {
     ...config,
     circuitBreaker: {
@@ -66,7 +65,7 @@ export function recordCircuitBreakerSuccess(config: BrandConfigWithBreaker): Bra
       pausedUntil: null,
       lastFailureReason: null,
     },
-  };
+  } as T;
 }
 
 export function sleep(ms: number): Promise<void> {
@@ -280,7 +279,7 @@ export async function publishReplyWithRetry(
   retries: number = 4,
   initialDelayMs: number = 4000
 ): Promise<string> {
-  let lastError: any = null;
+  let lastError: unknown = null;
   await sleep(initialDelayMs);
 
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -294,5 +293,6 @@ export async function publishReplyWithRetry(
     }
   }
 
-  throw lastError || new Error("Failed to publish first comment");
+  if (lastError) throw lastError;
+  throw new Error("Failed to publish first comment");
 }
