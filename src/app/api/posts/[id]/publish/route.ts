@@ -65,8 +65,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (response) return response;
     console.error("Publish error:", error);
     if (postId) {
-      await prisma.post.update({
-        where: { id: postId },
+      // Never overwrite a post another worker is publishing (or already published) — that burns the claim.
+      await prisma.post.updateMany({
+        where: { id: postId, status: { notIn: ["PUBLISHING", "PARTIAL_PUBLISHED", "PUBLISHED"] } },
         data: { status: "FAILED", errorLog: error instanceof Error ? error.message : "Failed to publish" },
       }).catch(console.error);
     }

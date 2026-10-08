@@ -84,7 +84,8 @@ export async function publishOrResumePost(
   const lockAcquired = await prisma.post.updateMany({
     where: {
       id: postId,
-      status: { in: ["PENDING", "PARTIAL_FAILED"] },
+      // Block only in-flight/finished/archived posts; a manual publish of NEEDS_REVIEW or FAILED is a human approval.
+      status: { notIn: ["PUBLISHING", "PARTIAL_PUBLISHED", "PROCESSING", "PUBLISHED", "ARCHIVED"] },
     },
     data: {
       status: "PUBLISHING",

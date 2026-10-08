@@ -340,6 +340,35 @@ describe("thread-resume-engine", () => {
       /is already being published/
     );
   });
+  it("lets FAILED and NEEDS_REVIEW posts be claimed for a manual publish", async () => {
+    vi.mocked(prisma.post.findUnique).mockResolvedValue({
+      id: "post-failed",
+      status: "FAILED",
+      content: "Short post",
+      imageUrls: "[]",
+      firstComment: null,
+      threadRootId: null,
+      threadPartsPosted: 0,
+      threadTotalParts: 1,
+      threadPartIds: "[]",
+    } as unknown as Post);
+    vi.spyOn(threadSplitter, "splitContentIntoThreadParts").mockReturnValue(["Short post"]);
+    vi.mocked(prisma.post.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(threadsApi.publishThreadChainWithCredentials).mockResolvedValue({
+      rootThreadsId: "root-1",
+      partIds: ["root-1"],
+    } as Awaited<ReturnType<typeof threadsApi.publishThreadChainWithCredentials>>);
+
+    const result = await publishOrResumePost("post-failed", credentials);
+
+    expect(result.success).toBe(true);
+    expect(prisma.post.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: { notIn: expect.not.arrayContaining(["FAILED", "NEEDS_REVIEW"]) } }),
+      })
+    );
+  });
+
   it("tags brand links with pid on first publish but not when resuming", async () => {
     const basePost = {
       id: "post-link",
