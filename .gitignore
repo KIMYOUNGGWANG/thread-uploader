@@ -84,3 +84,6 @@ docs/plans/
 .qwen/tmp/
 .claude/
 output/
+
+# Remotion compositor deps
+/video/node_modules

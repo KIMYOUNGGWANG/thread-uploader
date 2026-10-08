@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     "*.js",
     "scripts/*.js",
     "scripts/*.mjs",
+    // Remotion compositor has its own tsconfig/deps
+    "video/**",
   ]),
 ]);
 
