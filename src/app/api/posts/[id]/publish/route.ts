@@ -5,7 +5,7 @@ import { publishOrResumePost } from "@/lib/threads/thread-resume-engine";
 import { accessErrorResponse, requirePostForCurrentUser } from "@/lib/brand-access";
 import { getPublishSafetyBlockReasons } from "@/lib/publish-safety-gate";
 
-export const maxDuration = 60;
+export const maxDuration = 300; // video containers can take minutes to process
 
 interface RouteParams {
   params: Promise<{ id: string }>;

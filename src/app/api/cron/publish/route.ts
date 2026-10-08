@@ -14,7 +14,7 @@ import {
   recordCircuitBreakerSuccess,
 } from "@/lib/threads-publisher";
 
-export const maxDuration = 60;
+export const maxDuration = 300; // video containers can take minutes to process
 
 const SAFE_WARMUP_TEMPLATES = [
   "일과 삶의 균형을 찾는 과정에서 가장 중요한 건, 나만의 속도를 잃지 않는 것입니다. 오늘 하루도 묵묵히 버텨낸 모든 분들을 응원합니다. 오늘 하루 중 가장 기억에 남는 순간은 무엇이었나요?",

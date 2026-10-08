@@ -590,8 +590,18 @@ export async function publishPostWithCredentials(
     const topicTag = process.env.THREADS_DEFAULT_TOPIC;
     let containerId: string;
     const validHttpImageUrls = imageUrls.filter((url) => /^https?:\/\//i.test(url));
+    const videoUrl = validHttpImageUrls.find(isVideoMediaUrl);
 
-    if (validHttpImageUrls.length === 0) {
+    if (videoUrl) {
+        // Video posts carry a single .mp4 in the media list; Threads must finish processing before publish
+        const params = new URLSearchParams({ media_type: "VIDEO", video_url: videoUrl, text, access_token: accessToken });
+        if (topicTag) params.append("topic_tag", topicTag);
+        const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
+        const data = await res.json() as ThreadsContainerResponse | ThreadsError;
+        if (!res.ok) throw new Error(`[VideoContainer] ${ (data as ThreadsError).error?.message }`);
+        containerId = (data as ThreadsContainerResponse).id;
+        await waitForContainerReady(containerId, accessToken);
+    } else if (validHttpImageUrls.length === 0) {
         const params = new URLSearchParams({ media_type: "TEXT", text, access_token: accessToken });
         if (topicTag) params.append("topic_tag", topicTag);
         const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
@@ -630,6 +640,32 @@ export async function publishPostWithCredentials(
     const publishData = await publishRes.json() as ThreadsPublishResponse | ThreadsError;
     if (!publishRes.ok) throw new Error(`[Publish] ${ (publishData as ThreadsError).error?.message }`);
     return (publishData as ThreadsPublishResponse).id;
+}
+
+export function isVideoMediaUrl(url: string): boolean {
+    return /\.mp4(\?|#|$)/i.test(url);
+}
+
+// ponytail: fixed 5s polling up to 150s; video longer than ~60s may need a queue-based retry instead
+export async function waitForContainerReady(
+    containerId: string,
+    accessToken: string,
+    options: { intervalMs?: number; timeoutMs?: number } = {}
+): Promise<void> {
+    const intervalMs = options.intervalMs ?? 5000;
+    const deadline = Date.now() + (options.timeoutMs ?? 150_000);
+    while (Date.now() < deadline) {
+        const params = new URLSearchParams({ fields: "status,error_message", access_token: accessToken });
+        const res = await fetch(`${THREADS_API_BASE}/${containerId}?${params}`);
+        const data = await res.json() as { status?: string; error_message?: string } & ThreadsError;
+        if (!res.ok) throw new Error(`[ContainerStatus] ${data.error?.message ?? res.status}`);
+        if (data.status === "FINISHED") return;
+        if (data.status === "ERROR" || data.status === "EXPIRED") {
+            throw new Error(`[ContainerStatus] ${data.status}: ${data.error_message ?? "video processing failed"}`);
+        }
+        await sleep(intervalMs);
+    }
+    throw new Error(`[ContainerStatus] video still processing after ${(options.timeoutMs ?? 150_000) / 1000}s`);
 }
 
 export async function publishReplyWithRetryForBrand(

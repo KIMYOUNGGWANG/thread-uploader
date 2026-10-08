@@ -32,7 +32,7 @@ jobs:
           status=0
           for slug in ${PUBLISH_BRAND_SLUGS//,/ }; do
             echo "::group::$slug"
-            curl --fail-with-body --show-error --silent --location --max-time 90 \
+            curl --fail-with-body --show-error --silent --location --max-time 300 \
               -H "Authorization: Bearer ${CRON_SECRET}" \
               "${APP_URL%/}/api/cron/publish?brands=${slug}" || status=1
             echo
