@@ -83,7 +83,7 @@ export async function generateDraftReply(
     ].join("\n");
 
     const message = await client.messages.create({
-      model: "claude-3-5-haiku-latest",
+      model: process.env.ANTHROPIC_GENERATION_MODEL ?? "claude-haiku-4-5-20251001",
       max_tokens: 150,
       temperature: 0.7,
       messages: [{ role: "user", content: prompt }],
