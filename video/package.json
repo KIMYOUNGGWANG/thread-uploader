@@ -6,12 +6,14 @@
   "type": "module",
   "scripts": {
     "render": "remotion render src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "render-job": "node scripts/render-job.mjs"
   },
   "dependencies": {
     "@remotion/captions": "4.0.380",
     "@remotion/cli": "4.0.380",
     "@remotion/fonts": "4.0.380",
+    "@vercel/blob": "2.8.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "remotion": "4.0.380",

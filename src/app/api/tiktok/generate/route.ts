@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { generateTikTokScript } from "@/lib/tiktok/tiktok-script-engine";
+import { buildTikTokDraftCreateData } from "@/lib/tiktok/tiktok-draft-service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,24 +23,7 @@ export async function POST(request: NextRequest) {
     });
 
     const draft = await prisma.tikTokVideoDraft.create({
-      data: {
-        brandId: brand.id,
-        campaignId: "saju_tiktok_campaign",
-        formatId: "tiktok_explainer_vertical",
-        status: "DRAFT",
-        title: scriptResult.title,
-        spokenHook: scriptResult.spokenHook,
-        script: scriptResult.fullScript,
-        sceneBeats: JSON.stringify(scriptResult.scenes),
-        captionOverlays: JSON.stringify(scriptResult.scenes.map((s) => s.spokenLine)),
-        onScreenText: JSON.stringify(scriptResult.scenes.flatMap((s) => s.onScreenText)),
-        hashtags: JSON.stringify(scriptResult.hashtags),
-        cta: scriptResult.cta,
-        qualityProfile: "tiktok_saju_retention",
-        qualityPass: scriptResult.qualityPass,
-        qualityScore: scriptResult.qualityScore,
-        durationSeconds: Math.round(scriptResult.totalDurationSeconds),
-      },
+      data: buildTikTokDraftCreateData(brand.id, scriptResult, "DRAFT"),
     });
 
     return NextResponse.json({

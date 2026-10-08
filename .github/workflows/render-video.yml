@@ -1,0 +1,47 @@
+name: Render Promo Video
+
+on:
+  schedule:
+    # KST 06:00 — 아침에 승인할 영상 1개를 준비 (승인 후 다음 발행 슬롯에 게시)
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: render-video
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: video/pnpm-lock.yaml
+
+      # Korean glyphs: the compositor font stack falls back to "Noto Sans CJK KR"
+      - name: Install CJK fonts
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk
+
+      - name: Install compositor
+        working-directory: video
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec remotion browser ensure
+
+      - name: Render, upload, and queue for review
+        working-directory: video
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          VIDEO_BRAND_SLUGS: ${{ vars.VIDEO_BRAND_SLUGS || 'cosmicpath' }}
+        run: pnpm render-job

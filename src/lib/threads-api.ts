@@ -1,4 +1,5 @@
 import { decryptToken, encrypt } from "@/lib/crypto";
+import { isVideoMediaUrl } from "@/lib/media-url";
 /**
  * Threads API Client
  * Uses the official Threads Publishing API (Meta)
@@ -640,10 +641,6 @@ export async function publishPostWithCredentials(
     const publishData = await publishRes.json() as ThreadsPublishResponse | ThreadsError;
     if (!publishRes.ok) throw new Error(`[Publish] ${ (publishData as ThreadsError).error?.message }`);
     return (publishData as ThreadsPublishResponse).id;
-}
-
-export function isVideoMediaUrl(url: string): boolean {
-    return /\.mp4(\?|#|$)/i.test(url);
 }
 
 // ponytail: fixed 5s polling up to 150s; video longer than ~60s may need a queue-based retry instead

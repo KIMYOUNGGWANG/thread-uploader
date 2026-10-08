@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ParsedPost, validatePost } from "@/lib/parser";
 import { toast } from "sonner";
 import { ScoreRadarPopover, type ScoreDimension } from "@/components/ScoreRadarPopover";
+import { isVideoMediaUrl } from "@/lib/media-url";
 
 interface PostCardProps {
     post: ParsedPost;
@@ -216,6 +217,7 @@ export function PostCard({
     };
 
     const validation = validatePost(post);
+    const videoUrl = post.images.find(isVideoMediaUrl);
     const charCount = post.content.length;
     const isMultiPart = charCount > 500 && charCount <= 2400;
     const isOverLimit = charCount > 2400;
@@ -330,6 +332,17 @@ export function PostCard({
                             {post.content}
                         </p>
 
+                        {videoUrl && (
+                            <video
+                                src={videoUrl}
+                                controls
+                                preload="metadata"
+                                playsInline
+                                aria-label="영상 미리보기"
+                                className="mt-3 w-full max-w-[240px] aspect-[9/16] rounded-lg bg-black object-contain"
+                            />
+                        )}
+
                         {/* First Comment Preview */}
                         {post.firstComment && (
                             <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800 border-dashed">
@@ -397,7 +410,7 @@ export function PostCard({
                             {post.images.length > 0 && (
                                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
                                     <ImageIcon className="w-3.5 h-3.5" />
-                                    {post.images.length} image{post.images.length > 1 ? "s" : ""}
+                                    {videoUrl ? "영상" : `${post.images.length} image${post.images.length > 1 ? "s" : ""}`}
                                 </div>
                             )}
 
