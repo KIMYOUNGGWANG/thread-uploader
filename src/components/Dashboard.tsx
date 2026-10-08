@@ -811,7 +811,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const reviewCount = posts.filter((p) => p.status === "NEEDS_REVIEW").length;
   const visiblePosts = reviewOnly
     ? posts.filter((p) => p.status === "NEEDS_REVIEW")
-    : posts.filter((p) => showPublished || p.status !== "PUBLISHED" || Boolean(p.errorLog));
+    : posts.filter((p) => p.status !== "ARCHIVED" && (showPublished || p.status !== "PUBLISHED" || Boolean(p.errorLog)));
   const convertToCardPost = (dbPost: DBPost): ParsedPost => ({
     content: dbPost.content,
     images: dbPost.imageUrls,
