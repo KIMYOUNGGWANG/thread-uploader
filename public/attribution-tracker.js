@@ -13,6 +13,20 @@
   var STORAGE_KEY = "tu_pid";
   var COOKIE_NAME = "tu_pid";
   var COOKIE_DAYS = 30;
+  var SESSION_KEY = "tu_sid";
+
+  // Stable per-browser session id so repeated events dedupe server-side
+  function getSessionId() {
+    try {
+      var existing = window.localStorage.getItem(SESSION_KEY);
+      if (existing) return existing;
+      var created = "sess_" + Date.now() + "_" + Math.random().toString(36).substr(2, 6);
+      window.localStorage.setItem(SESSION_KEY, created);
+      return created;
+    } catch (e) {
+      return undefined;
+    }
+  }
 
   function setCookie(name, value, days) {
     try {
@@ -85,10 +99,10 @@
       var endpoint = opts.endpoint || "/api/webhooks/conversion";
       var payload = {
         postId: postId,
-        eventType: opts.eventType || "paid_conversion",
+        // Paid events are rejected from the browser; report them from your payment webhook server-side.
+        eventType: opts.eventType || "conversion",
         amount: typeof opts.amount === "number" ? opts.amount : 0,
-        sessionId: opts.sessionId || ("sess_" + Date.now() + "_" + Math.random().toString(36).substr(2, 6)),
-        secret: opts.secret,
+        sessionId: opts.sessionId || getSessionId(),
       };
 
       return fetch(endpoint, {

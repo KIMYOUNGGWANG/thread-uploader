@@ -72,7 +72,7 @@ npm run growth:metrics
 
 Token refresh and account intelligence cadences are registered through `vercel.json` as daily Vercel Cron Jobs.
 The standalone publisher calls `scripts/refresh-token-standalone.js` before posting, so GitHub Actions publishing uses refreshed DB tokens without a separate workflow permission.
-Set `CRON_SECRET` to require `Authorization: Bearer <CRON_SECRET>` or `?secret=` for cron calls.
+Set `CRON_SECRET` to require `Authorization: Bearer <CRON_SECRET>` for cron calls (query-string secrets are rejected).
 
 ## Environment
 
@@ -81,6 +81,8 @@ Copy `.env.example` to `.env` and configure:
 - `DATABASE_URL`
 - `ANTHROPIC_API_KEY`
 - `CRON_SECRET`
+- `ENCRYPTION_KEY` (required: session signing + token encryption, never reuse `CRON_SECRET`)
+- `CONVERSION_WEBHOOK_SECRET` (server-only; required for paid events sent to `/api/webhooks/conversion` via `x-webhook-secret` header. Browser tracker sends click/conversion only)
 - Optional `APP_URL` GitHub repository variable for the manual account intelligence workflow fallback. Defaults to `https://thread-uploader.vercel.app`.
 - Use the manual GitHub workflow or another external scheduler for sub-daily account intelligence on Vercel Hobby.
 - Legacy fallback Threads settings if needed

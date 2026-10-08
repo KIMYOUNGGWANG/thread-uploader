@@ -1,193 +1,149 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { safeEqual } from "@/lib/cron-auth";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
 import { learnBrandGrowth } from "@/lib/growth-service";
+
+type NormalizedEvent = "click" | "conversion" | "paid_conversion";
+
+const CLICK_EVENTS = new Set(["click", "landing_view"]);
+const CONVERSION_EVENTS = new Set(["test_start", "first_result_view", "conversion", "analysis_start", "ritual_action_viewed"]);
+const PAID_EVENTS = new Set(["paid_conversion", "checkout_success", "payment", "order_complete"]);
+
+const POST_SUMMARY_SELECT = {
+  id: true,
+  formulaId: true,
+  clicks: true,
+  conversions: true,
+  manualPaidConversions: true,
+  performanceScore: true,
+  performanceTier: true,
+} as const;
+
+function normalizeEvent(eventType: unknown): NormalizedEvent | null {
+  const raw = String(eventType || "click").toLowerCase();
+  if (PAID_EVENTS.has(raw)) return "paid_conversion";
+  if (CONVERSION_EVENTS.has(raw)) return "conversion";
+  if (CLICK_EVENTS.has(raw)) return "click";
+  return null;
+}
+
+// Browser events (click/conversion) are public. Paid events must come from a server
+// holding CONVERSION_WEBHOOK_SECRET, sent in a header — never from landing-page JS.
+function isPaidEventAuthorized(request: NextRequest): boolean {
+  const webhookSecret = process.env.CONVERSION_WEBHOOK_SECRET;
+  if (!webhookSecret) return false;
+  const provided =
+    request.headers.get("x-webhook-secret") ??
+    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
+    "";
+  return safeEqual(provided, webhookSecret);
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      secret,
-      postId,
-      pid,
-      eventType = "click",
-      amount = 0,
-      sessionId,
-      idempotencyKey,
-    } = body;
+    const { postId, pid, eventType, amount = 0, sessionId, idempotencyKey } = body;
 
     const targetPostId = postId || pid;
-    if (!targetPostId) {
+    if (!targetPostId || typeof targetPostId !== "string") {
       return NextResponse.json({ error: "Missing postId or pid parameter" }, { status: 400 });
     }
 
-    // Strict Webhook Secret Validation
-    const webhookSecret = process.env.CONVERSION_WEBHOOK_SECRET || process.env.CRON_SECRET;
-    if (webhookSecret) {
-      const providedSecret =
-        secret ||
-        request.headers.get("x-webhook-secret") ||
-        request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-
-      if (!providedSecret || providedSecret !== webhookSecret) {
-        return NextResponse.json({ error: "Unauthorized webhook secret" }, { status: 401 });
-      }
+    const normalizedEvent = normalizeEvent(eventType);
+    if (!normalizedEvent) {
+      return NextResponse.json({ success: true, ignored: true, eventType });
+    }
+    if (normalizedEvent === "paid_conversion" && !isPaidEventAuthorized(request)) {
+      return NextResponse.json({ error: "Unauthorized webhook secret" }, { status: 401 });
     }
 
-    const post = await prisma.post.findUnique({
-      where: { id: targetPostId },
-    });
-
+    const post = await prisma.post.findUnique({ where: { id: targetPostId }, select: { ...POST_SUMMARY_SELECT, brandId: true } });
     if (!post) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    // Event type normalization
-    const rawEvent = String(eventType || "click").toLowerCase();
-    let normalizedEvent: "click" | "conversion" | "paid_conversion" = "click";
-    let clickIncrement = 0;
-    let conversionIncrement = 0;
-    let paidIncrement = 0;
-
-    if (rawEvent === "click" || rawEvent === "landing_view") {
-      normalizedEvent = "click";
-      clickIncrement = 1;
-    } else if (
-      rawEvent === "test_start" ||
-      rawEvent === "first_result_view" ||
-      rawEvent === "conversion" ||
-      rawEvent === "analysis_start" ||
-      rawEvent === "ritual_action_viewed"
-    ) {
-      normalizedEvent = "conversion";
-      conversionIncrement = 1;
-    } else if (
-      rawEvent === "paid_conversion" ||
-      rawEvent === "checkout_success" ||
-      rawEvent === "payment" ||
-      rawEvent === "order_complete"
-    ) {
-      normalizedEvent = "paid_conversion";
-      paidIncrement = 1;
-    }
-
-    // Durable DB Idempotency & Deduplication Check
     const dedupeIdentifier = idempotencyKey || sessionId;
     const dedupeKey = dedupeIdentifier ? `${dedupeIdentifier}:${normalizedEvent}:${targetPostId}` : null;
+    const { brandId, ...postSummary } = post;
+    const dedupedResponse = () =>
+      NextResponse.json({ success: true, deduped: true, eventType: normalizedEvent, amount, post: postSummary });
 
-    if (dedupeKey) {
-      const existingEvent = await prisma.conversionEvent.findUnique({
-        where: { idempotencyKey: dedupeKey },
-      });
-
-      if (existingEvent) {
-        return NextResponse.json({
-          success: true,
-          deduped: true,
-          eventType: normalizedEvent,
-          amount,
-          post: {
-            id: post.id,
-            formulaId: post.formulaId,
-            clicks: post.clicks,
-            conversions: post.conversions,
-            manualPaidConversions: post.manualPaidConversions,
-            performanceScore: post.performanceScore,
-            performanceTier: post.performanceTier,
-          },
-        });
-      }
+    if (dedupeKey && (await prisma.conversionEvent.findUnique({ where: { idempotencyKey: dedupeKey } }))) {
+      return dedupedResponse();
     }
-
-    const updatedClicks = (post.clicks ?? 0) + clickIncrement;
-    const updatedConversions = (post.conversions ?? 0) + conversionIncrement;
-    const updatedPaidConversions = (post.manualPaidConversions ?? 0) + paidIncrement;
-
-    const newScore = calculatePerformanceScore({
-      views: post.views,
-      likes: post.likes,
-      replies: post.replies,
-      reposts: post.reposts,
-      clicks: updatedClicks,
-      conversions: updatedConversions,
-      manualPaidConversions: updatedPaidConversions,
-    });
 
     let updatedPost;
     try {
-      if (dedupeKey) {
-        await prisma.conversionEvent.create({
-          data: {
-            brandId: post.brandId || "unknown",
-            postId: post.id,
-            idempotencyKey: dedupeKey,
-            eventType: normalizedEvent,
-            amount: typeof amount === "number" ? amount : 0,
-            sessionId: typeof sessionId === "string" ? sessionId : null,
-            metadata: JSON.stringify({ sessionId, rawEvent }),
-          },
-        });
+      updatedPost = await recordEvent({ postId: targetPostId, brandId, normalizedEvent, dedupeKey, amount, sessionId });
+    } catch (error: unknown) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        return dedupedResponse();
       }
-
-      updatedPost = await prisma.post.update({
-        where: { id: targetPostId },
-        data: {
-          clicks: updatedClicks,
-          conversions: updatedConversions,
-          manualPaidConversions: updatedPaidConversions,
-          performanceScore: newScore,
-          performanceTier: getPerformanceTier(newScore),
-          metricsAt: new Date(),
-        },
-        select: {
-          id: true,
-          formulaId: true,
-          clicks: true,
-          conversions: true,
-          manualPaidConversions: true,
-          performanceScore: true,
-          performanceTier: true,
-        },
-      });
-    } catch (txError: any) {
-      if (txError?.code === "P2002") {
-        return NextResponse.json({
-          success: true,
-          deduped: true,
-          eventType: normalizedEvent,
-          amount,
-          post: {
-            id: post.id,
-            formulaId: post.formulaId,
-            clicks: post.clicks,
-            conversions: post.conversions,
-            manualPaidConversions: post.manualPaidConversions,
-            performanceScore: post.performanceScore,
-            performanceTier: post.performanceTier,
-          },
-        });
-      }
-      throw txError;
+      throw error;
     }
 
-    // Event-driven immediate learning: trigger adaptive growth update in background for conversions
-    if (post.brandId && (normalizedEvent === "paid_conversion" || normalizedEvent === "conversion")) {
-      void learnBrandGrowth(post.brandId).catch((err) =>
+    if (brandId && normalizedEvent !== "click") {
+      void learnBrandGrowth(brandId).catch((err) =>
         console.error("[conversion-webhook] Background learning failed:", err)
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      deduped: false,
-      eventType: normalizedEvent,
-      amount,
-      post: updatedPost,
-    });
+    return NextResponse.json({ success: true, deduped: false, eventType: normalizedEvent, amount, post: updatedPost });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal error" },
       { status: 500 }
     );
   }
+}
+
+interface RecordEventInput {
+  postId: string;
+  brandId: string | null;
+  normalizedEvent: NormalizedEvent;
+  dedupeKey: string | null;
+  amount: unknown;
+  sessionId: unknown;
+}
+
+// Event insert + atomic counter increment + score refresh in one transaction,
+// so concurrent events never overwrite each other's counts.
+async function recordEvent(input: RecordEventInput) {
+  const click = input.normalizedEvent === "click" ? 1 : 0;
+  const conversion = input.normalizedEvent === "conversion" ? 1 : 0;
+  const paid = input.normalizedEvent === "paid_conversion" ? 1 : 0;
+
+  return prisma.$transaction(async (tx) => {
+    if (input.dedupeKey) {
+      await tx.conversionEvent.create({
+        data: {
+          brandId: input.brandId || "unknown",
+          postId: input.postId,
+          idempotencyKey: input.dedupeKey,
+          eventType: input.normalizedEvent,
+          amount: typeof input.amount === "number" ? input.amount : 0,
+          sessionId: typeof input.sessionId === "string" ? input.sessionId : null,
+          metadata: JSON.stringify({ sessionId: input.sessionId }),
+        },
+      });
+    }
+
+    await tx.$executeRaw`
+      UPDATE "Post" SET
+        "clicks" = COALESCE("clicks", 0) + ${click},
+        "conversions" = COALESCE("conversions", 0) + ${conversion},
+        "manualPaidConversions" = COALESCE("manualPaidConversions", 0) + ${paid},
+        "metricsAt" = NOW()
+      WHERE "id" = ${input.postId}`;
+
+    const counted = await tx.post.findUniqueOrThrow({ where: { id: input.postId } });
+    const score = calculatePerformanceScore(counted);
+    return tx.post.update({
+      where: { id: input.postId },
+      data: { performanceScore: score, performanceTier: getPerformanceTier(score) },
+      select: POST_SUMMARY_SELECT,
+    });
+  });
 }

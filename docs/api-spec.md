@@ -35,7 +35,7 @@ This is an internal operator workspace for promoting owned products. The API and
 
 - **Method**: email + password → httpOnly 쿠키 세션 (`auth_session` 쿠키에 userId 저장)
 - **scrypt**: 비밀번호 해싱 (`crypto.scrypt`, per-user salt)
-- **Cron 예외**: `Authorization: Bearer <CRON_SECRET>` 헤더 or `?secret=` 쿼리
+- **Cron 예외**: `Authorization: Bearer <CRON_SECRET>` 헤더만 허용 (`?secret=` 쿼리는 거부)
 
 ### Auth Endpoints
 

@@ -10,7 +10,7 @@ describe("verifyCronSecret", () => {
   });
 
   it("fails closed in production if CRON_SECRET is missing", () => {
-    (process.env as any).NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "production";
     delete process.env.CRON_SECRET;
 
     const req = new NextRequest("http://localhost/api/cron/publish");
@@ -18,7 +18,7 @@ describe("verifyCronSecret", () => {
   });
 
   it("allows non-production when CRON_SECRET is intentionally unset", () => {
-    (process.env as any).NODE_ENV = "development";
+    (process.env as Record<string, string>).NODE_ENV = "development";
     delete process.env.CRON_SECRET;
 
     const req = new NextRequest("http://localhost/api/cron/publish");
@@ -39,13 +39,10 @@ describe("verifyCronSecret", () => {
     expect(verifyCronSecret(invalidReq)).toBe(false);
   });
 
-  it("validates secret query parameter", () => {
+  it("rejects the secret in a query parameter", () => {
     process.env.CRON_SECRET = "top_secret_cron";
 
-    const validReq = new NextRequest("http://localhost/api/cron/publish?secret=top_secret_cron");
-    expect(verifyCronSecret(validReq)).toBe(true);
-
-    const invalidReq = new NextRequest("http://localhost/api/cron/publish?secret=wrong");
-    expect(verifyCronSecret(invalidReq)).toBe(false);
+    const req = new NextRequest("http://localhost/api/cron/publish?secret=top_secret_cron");
+    expect(verifyCronSecret(req)).toBe(false);
   });
 });
