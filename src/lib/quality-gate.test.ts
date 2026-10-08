@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { checkQuality } from "@/lib/quality-gate";
 
 describe("checkQuality", () => {
+  it("rejects a saju_viral post with a hook and engagement but no saju term", () => {
+    const result = checkQuality(
+      "연봉보다 센 직급, 직급보다 센 게 뭔지 알아?\n내 PR을 보는 사람의 실력임.\n너네는 PR 피드백에 몇 번이나 나와?",
+      "saju_viral",
+      { viralIntentModeId: "concept_hierarchy" }
+    );
+
+    expect(result.score).toBeGreaterThanOrEqual(2);
+    expect(result.pass).toBe(false);
+  });
+
   it("rejects an imagination dilemma without three numbered choices", () => {
     const result = checkQuality(
       "대운이 바뀌면 통장부터 지켜야 하는 거 알아?\n지금 판단 기준을 저장해.",

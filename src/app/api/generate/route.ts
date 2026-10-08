@@ -342,7 +342,8 @@ async function generateWithQuality(
   }
 
   if (!qualityResult.pass) {
-    console.warn(`Quality generation warning after retries (${qualityResult.profile}, score ${qualityResult.score}): ${qualityResult.reasons.join(", ")}. Preserving post with qualityPass: false for review.`);
+    // Throwing makes the batch loop skip this draft instead of saving a post that already failed the gate.
+    throw new Error(`Quality gate failed after retries (${qualityResult.profile}, score ${qualityResult.score}): ${qualityResult.reasons.join(", ")}`);
   }
 
   const conversationIgniter = buildConversationIgniterComment(lastResult.post, {
@@ -966,7 +967,7 @@ export async function POST(request: NextRequest) {
           growthContext,
           viralContext,
           recentPostContext,
-          1,
+          2,
           inBatchPosts,
           prohibitedPhrases
         );

@@ -468,7 +468,8 @@ function checkSajuViralQuality(post: string, context: ProductQualityContext): Qu
     : { pass: true, failureCodes: [] };
   reasons.push(...fidelity.failureCodes.map(formatViralModeFidelityFailure));
 
-  return { pass: score >= 2 && fidelity.pass, score, profile: "saju_viral", reasons };
+  // A saju_viral post without any saju term is off-campaign no matter how well hook + engagement score.
+  return { pass: hasSajuTerm && score >= 2 && fidelity.pass, score, profile: "saju_viral", reasons };
 }
 
 const VIRAL_MODE_FAILURE_MESSAGES: Record<ViralModeFidelityFailureCode, string> = {
