@@ -17,6 +17,7 @@ vi.mock("@/lib/prisma", () => ({
     post: {
       findFirst: mocks.findPost,
       findUnique: mocks.findPost,
+      findMany: vi.fn(async () => []),
       count: vi.fn(async () => 0),
       update: mocks.updatePost,
       updateMany: vi.fn(async () => ({ count: 1 })),

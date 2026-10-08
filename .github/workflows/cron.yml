@@ -10,34 +10,32 @@ on:
     - cron: '0 14 * * *'  # KST 23:00 취침 전 심야 고민 피크
   workflow_dispatch: # 수동 실행 버튼 활성화
 
+# Single scheduler: never let two publish runs overlap
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: Test Database Connection
+      # Publishing runs only through /api/cron/publish (safety gate, engine lock, resume).
+      # One request per brand keeps each call under the route's maxDuration.
+      - name: Publish via cron route
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: node scripts/test-connection.js
-
-      - name: Run Standalone Publisher
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
-          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
           PUBLISH_BRAND_SLUGS: ${{ secrets.PUBLISH_BRAND_SLUGS || 'cosmicpath,cosmicpath-global' }}
-        run: node scripts/publish-standalone.js
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          status=0
+          for slug in ${PUBLISH_BRAND_SLUGS//,/ }; do
+            echo "::group::$slug"
+            curl --fail-with-body --show-error --silent --location --max-time 90 \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              "${APP_URL%/}/api/cron/publish?brands=${slug}" || status=1
+            echo
+            echo "::endgroup::"
+          done
+          exit $status

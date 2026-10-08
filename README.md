@@ -64,14 +64,14 @@ npm run growth:metrics
 
 ## Cron Endpoints
 
-- `GET /api/cron/publish` publishes one pending post per product profile.
+- `GET /api/cron/publish` publishes one pending post per product profile. Optional `?brands=slug1,slug2` limits the run. It is the only publisher: GitHub Actions (`.github/workflows/cron.yml`) calls it once per brand at the 5 daily slots.
 - `GET /api/cron/refresh-token` refreshes Threads tokens when they are within 14 days of expiry.
 - `GET /api/cron/learn` refreshes product growth memory from collected metrics.
 - `GET /api/cron/viral` discovers viral references and refreshes product viral memory.
 - `GET /api/cron/account-intelligence` refreshes 48-hour account insight snapshots, intended for a 2-hour cadence.
 
 Token refresh and account intelligence cadences are registered through `vercel.json` as daily Vercel Cron Jobs.
-The standalone publisher calls `scripts/refresh-token-standalone.js` before posting, so GitHub Actions publishing uses refreshed DB tokens without a separate workflow permission.
+The cron publish route refreshes tokens at the publish boundary via `getFreshBrandCredentials`. Vercel Cron only runs the daily feedback job (Hobby allows daily schedules only).
 Set `CRON_SECRET` to require `Authorization: Bearer <CRON_SECRET>` for cron calls (query-string secrets are rejected).
 
 ## Environment

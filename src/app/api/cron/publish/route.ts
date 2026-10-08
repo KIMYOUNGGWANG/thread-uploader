@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const brands = await prisma.brand.findMany();
+  // Optional ?brands=slug1,slug2 lets the scheduler call one brand per request (keeps each run under maxDuration)
+  const brandSlugs = request.nextUrl.searchParams.get("brands")?.split(",").map((slug) => slug.trim()).filter(Boolean);
+  const brands = await prisma.brand.findMany(brandSlugs?.length ? { where: { slug: { in: brandSlugs } } } : undefined);
   if (brands.length === 0) {
     return NextResponse.json({ published: [], skipped: [], message: "No brands found" });
   }
@@ -67,6 +69,21 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
+      // 1.5 Stuck-claim alert: runs are sequential and hours apart, so an in-flight status here means a previous run died mid-publish.
+      // ponytail: alert only — auto-reset needs a lockedAt column to tell stale claims from a concurrent manual publish.
+      const stuckPosts = await prisma.post.findMany({
+        where: { brandId: brand.id, status: { in: ["PUBLISHING", "PARTIAL_PUBLISHED", "PROCESSING"] } },
+        select: { id: true, status: true },
+      });
+      if (stuckPosts.length > 0) {
+        await sendSystemAlert({
+          level: "warning",
+          title: "Stuck publish claims",
+          message: `${stuckPosts.length} post(s) stuck in-flight: ${stuckPosts.map((p) => `${p.id}(${p.status})`).join(", ")}`,
+          brandName: brand.name,
+        });
+      }
+
       // 2. Priority 1: Check for incomplete multi-part thread requiring resume (PARTIAL_FAILED)
       let post = await prisma.post.findFirst({
         where: {
@@ -85,7 +102,8 @@ export async function GET(request: NextRequest) {
           orderBy: { publishedAt: "desc" },
         });
         if (lastPublished && lastPublished.status === "PUBLISHED" && lastPublished.publishedAt) {
-          const cooldown = checkMinimumCooldown(lastPublished.publishedAt, now, 180);
+          // 90 min fits the 2h gap between the 12:00 and 14:00 UTC scheduler slots
+          const cooldown = checkMinimumCooldown(lastPublished.publishedAt, now, 90);
           if (!cooldown.allowed) {
             skipped.push({ brandId: brand.id, brandName: brand.name, reason: "cooldown_active" });
             continue;
@@ -178,20 +196,8 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Concurrency lock (Atomic status update to PROCESSING if updateMany is available)
-      if (typeof prisma.post.updateMany === "function") {
-        const locked = await prisma.post.updateMany({
-          where: {
-            id: post.id,
-            status: isResuming ? "PARTIAL_FAILED" : "PENDING",
-          },
-          data: { status: "PROCESSING" },
-        });
-        if (locked && locked.count === 0) {
-          skipped.push({ brandId: brand.id, brandName: brand.name, reason: "concurrently_locked" });
-          continue;
-        }
-      }
+      // No lock here: publishOrResumePost claims PENDING/PARTIAL_FAILED -> PUBLISHING atomically.
+      // A second lock (e.g. -> PROCESSING) makes that claim fail and burns the post.
 
       // 5. Account Trust Ramp Calculation (Defaults to 'established' for existing accounts)
       const tier = brandConfig.accountTrustTier || (brandConfig.accountCreatedAt ? resolveAccountTrustTier(new Date(brandConfig.accountCreatedAt), now) : "established");
@@ -273,6 +279,8 @@ export async function GET(request: NextRequest) {
           });
         }
       } catch (publishErr) {
+        // publishOrResumePost records its own failure status; it only throws when the post is
+        // missing or claimed by another worker, so the post status must not be overwritten here.
         const errorMsg = publishErr instanceof Error ? publishErr.message : String(publishErr);
         console.error(`[cron/publish] ❌ ${brand.name}: publish failed`, publishErr);
         const updatedBreaker = recordCircuitBreakerFailure(
@@ -286,12 +294,6 @@ export async function GET(request: NextRequest) {
           where: { id: brand.id },
           data: { brandConfig: JSON.stringify(updatedBreaker) },
         });
-        if (post && post.id) {
-          await prisma.post.update({
-            where: { id: post.id },
-            data: { status: "FAILED", errorLog: errorMsg },
-          }).catch(() => {});
-        }
         skipped.push({ brandId: brand.id, brandName: brand.name, reason: "publish_failed" });
         await sendSystemAlert({
           level: "error",

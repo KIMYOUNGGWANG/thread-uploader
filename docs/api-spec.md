@@ -385,7 +385,7 @@ AI classification may later refine category and reason, but the first implementa
 | `DELETE` | `/api/posts/reset?brandId=xxx` | PENDING 전체 삭제 |
 | `POST` | `/api/posts/[id]/publish` | 즉시 발행 |
 
-`qualityPass === false` queued posts are review-only and must not be published by `/api/posts/[id]/publish` or cron publish. `POST /api/posts/upload` is a legacy raw Threads upload route outside the product-growth queue; do not use it for quality-gated product experiments until it is guarded separately.
+`qualityPass === false` queued posts are review-only and must not be published by `/api/posts/[id]/publish` or cron publish. The legacy raw `POST /api/posts/upload` route was removed (2026-10-08); all publishing goes through `/api/posts/[id]/publish` or `/api/cron/publish`.
 
 ```typescript
 // POST /api/posts
@@ -626,7 +626,7 @@ Saju-specific terms are optional in this profile. The post should retain CosmicP
 - The content can stand alone for a non-CosmicPath product.
 - Generic filler such as "좋은 일이 올 거예요" or "스스로를 믿으세요" fails.
 
-Quality gate failures are allowed to remain visible in the queue for review and editing, but `/api/posts/[id]/publish` and cron publish must reject them. The legacy raw `/api/posts/upload` route is outside this product-growth boundary.
+Quality gate failures are allowed to remain visible in the queue for review and editing, but `/api/posts/[id]/publish` and cron publish must reject them. The legacy raw `/api/posts/upload` route has been removed.
 
 ### Campaign Summary
 
