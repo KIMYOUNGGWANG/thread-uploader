@@ -105,6 +105,9 @@ export function PostCard({
     const [isRemediating, setIsRemediating] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
     const isQualityBlocked = qualityPass === false;
+    const isAlgorithmicFailed = algorithmicPass === false
+        || (algorithmicPass == null && algorithmicScore != null && algorithmicScore < 80);
+    const needsFix = isAlgorithmicFailed || isQualityBlocked;
 
     const handleRemediate = async () => {
         if (isRemediating || !dbPostId) return;
@@ -371,7 +374,7 @@ export function PostCard({
                                                 ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
                                                 : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
                             )}>
-                                #{index + 1} {isPosted ? "업로드 완료" : status === "NEEDS_REVIEW" ? "검토 필요 (5D 미달)" : status === "PARTIAL_FAILED" ? "타래 중단(이어올리기 대기)" : status === "FAILED" ? "업로드 실패" : "대기중"}
+                                #{index + 1} {isPosted ? "업로드 완료" : status === "NEEDS_REVIEW" ? (isAlgorithmicFailed ? "검토 필요 (5D 미달)" : isQualityBlocked ? "검토 필요 (품질 FAIL)" : "승인 대기 (승자 공식 아님)") : status === "PARTIAL_FAILED" ? "타래 중단(이어올리기 대기)" : status === "FAILED" ? "업로드 실패" : "대기중"}
                             </div>
 
                             {/* Category Badge */}
@@ -582,9 +585,9 @@ export function PostCard({
                             </Button>
 
                             {/* 5D Auto Remediation & Force Approval */}
-                            {dbPostId && !isPosted && (status === "NEEDS_REVIEW" || (algorithmicScore !== null && algorithmicScore !== undefined && algorithmicScore < 80)) && (
+                            {dbPostId && !isPosted && (status === "NEEDS_REVIEW" || isAlgorithmicFailed) && (
                                 <>
-                                    <Button
+                                    {needsFix && <Button
                                         variant="outline"
                                         size="sm"
                                         className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 hover:from-purple-500/20 hover:to-indigo-500/20 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800 gap-1.5"
@@ -598,7 +601,7 @@ export function PostCard({
                                             <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                                         )}
                                         {isRemediating ? "교정 중..." : "✨ 5D 자동 교정"}
-                                    </Button>
+                                    </Button>}
 
                                     <Button
                                         variant="outline"
@@ -606,14 +609,14 @@ export function PostCard({
                                         className="text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/30 gap-1.5"
                                         onClick={handleForceApprove}
                                         disabled={isRemediating || isApproving}
-                                        title="검토 경고를 무시하고 발행 대기열(PENDING)로 강제 승인합니다"
+                                        title={needsFix ? "검토 경고를 무시하고 발행 대기열(PENDING)로 강제 승인합니다" : "발행 대기열(PENDING)로 승인합니다"}
                                     >
                                         {isApproving ? (
                                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                         ) : (
                                             <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                                         )}
-                                        {isApproving ? "승인 중..." : "⚡ 강제 승인"}
+                                        {isApproving ? "승인 중..." : needsFix ? "⚡ 강제 승인" : "✅ 승인"}
                                     </Button>
                                 </>
                             )}
