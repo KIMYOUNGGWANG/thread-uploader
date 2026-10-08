@@ -26,8 +26,9 @@ export interface DomainFormulaConfig {
 const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
 const GLOBAL_HYBRID_RULE =
   "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul. " +
-  "Format for a phone feed: line 1 is the hook alone on its own line, under 60 characters. Then short lines, a blank line between ideas, never more than 2 sentences per block. " +
-  "End with a one-tap question the reader can answer in a word (e.g. 'A or B?', 'Which one are you?').";
+  "Format for a phone feed: line 1 is the hook alone on its own line, under 60 characters, phrased as a question that also flips an assumption (use a word like wrong, actually, not, instead). " +
+  "Then one sentence per line, a blank line between ideas, 200-420 characters in total. " +
+  "End with two options on their own lines starting 'A) ' and 'B) ', then the line 'Which one are you?'. The first comment must end with a question.";
 
 export interface DomainPresetConfig {
   domainId: string;
@@ -339,7 +340,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "25-Page Couple Synastry Blueprint Offer (Ch 6 & 7)",
           track: "track_c",
           weight: 4,
-          instruction: "Present a concrete case study or checklist comparing a surface-level dating dilemma with the deep 25-page couple synastry dossier on Etsy ($44.99). Honest, resigned, zero-hype recommendation.",
+          instruction: `Present a concrete case study or checklist comparing a surface-level dating dilemma with the deep 25-page couple synastry dossier on Etsy ($44.99). Honest, resigned, zero-hype recommendation. ${GLOBAL_HYBRID_RULE}`,
           hookArchetype: "Couple Synastry Offer Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -348,7 +349,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "15-20 Page Master Dossier Decision Offer (Ch 2, 4, 5, 8)",
           track: "track_c",
           weight: 3,
-          instruction: "Present a high-stakes life decision dilemma (career pivot, wealth defense, relational timing) solved by the 15-20 page Master Life Intelligence Dossier on Etsy ($29.99). Direct soft CTA.",
+          instruction: `Present a high-stakes life decision dilemma (career pivot, wealth defense, relational timing) solved by the 15-20 page Master Life Intelligence Dossier on Etsy ($29.99). Direct soft CTA. ${GLOBAL_HYBRID_RULE}`,
           hookArchetype: "Master Dossier Offer Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },

@@ -61,3 +61,25 @@ https://mytestlink.com`;
     expect(result.rewriteCount).toBe(0);
   });
 });
+
+describe("applyHeuristicFixes long lines", () => {
+  it("splits lines over 140 characters at sentence boundaries", () => {
+    const longLine = "Korean saju reads the same birth year completely differently. Your stability hinges on your Day Master, not the animal sign alone. Two people born the same year can land on opposite days.";
+    const result = applyHeuristicFixes(`Everyone says Fire Goat 2027 is chaotic?\n\n${longLine}`);
+    expect(result.content.split("\n").every((line) => line.length <= 140)).toBe(true);
+    expect(result.content).toContain("Your stability hinges on your Day Master, not the animal sign alone.");
+  });
+});
+
+describe("applyHeuristicFixes long first line", () => {
+  it("breaks a long first line at the dash so the hook stands alone", () => {
+    const result = applyHeuristicFixes("Astrology says Rabbit and Dragon clash—saju says you're missing the real pattern.\n\nBody line.");
+    expect(result.content.split("\n")[0]).toBe("Astrology says Rabbit and Dragon clash");
+    expect(result.content).toContain("saju says you're missing the real pattern.");
+  });
+
+  it("leaves short first lines alone", () => {
+    const result = applyHeuristicFixes("Born in January—read this.\n\nBody line.");
+    expect(result.content.split("\n")[0]).toBe("Born in January—read this.");
+  });
+});

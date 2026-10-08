@@ -65,7 +65,7 @@ const HOOK_CURIOSITY_PATTERNS = [
   /비밀/,
   /왜\s*그럴까/,
   /충격/,
-  /\b(probably|nobody|most\s+people|here's\s+why|born\s+in|to\s+(?:every|all))\b/i,
+  /\b(probably|might|nobody|most\s+people|here's\s+why|born\s+in|to\s+(?:every|all))\b/i,
 ];
 
 const CONVERSATION_CHOICE_PATTERNS = [

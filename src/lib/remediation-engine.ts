@@ -84,6 +84,25 @@ export function applyHeuristicFixes(
     changes.push("모바일 피드 가독성을 위한 단락 호흡 자동 분할 (+5~10점)");
   }
 
+  // 4. Long first line with a dash: the part before the dash becomes a standalone hook (hook scoring caps line 1 at 60 chars)
+  const [firstLine, ...restLines] = modifiedContent.split("\n");
+  const dashMatch = firstLine.length > 60 ? firstLine.match(/^(.{10,60}?)\s*[—–]\s*(.+)$/) : null;
+  if (dashMatch) {
+    modifiedContent = [dashMatch[1].trim(), dashMatch[2].trim(), ...restLines].join("\n");
+    isModified = true;
+    changes.push("긴 첫 줄을 대시 기준으로 분리해 훅을 단독 줄로 배치");
+  }
+
+  // 5. Split lines over 140 chars at sentence boundaries (dense walls cost format points)
+  const splitLines = modifiedContent.split("\n").flatMap((line) => (
+    line.length > 140 ? line.split(/(?<=[.!?])\s+/) : [line]
+  ));
+  if (splitLines.length !== modifiedContent.split("\n").length) {
+    modifiedContent = splitLines.join("\n");
+    isModified = true;
+    changes.push("140자 초과 줄을 문장 단위로 분할");
+  }
+
   return {
     content: modifiedContent.replace(/\n{3,}/g, "\n\n").trim(),
     firstComment: modifiedComment ? modifiedComment.trim() : null,
@@ -135,14 +154,16 @@ export async function executeTargetedRewrite(
 1. 원문의 핵심 메시지와 사실관계를 훼손하지 마십시오.
 2. 첫 문장의 긴장감(대비/호기심)을 강화하거나, 본문 끝에 독자가 즉각 반응할 수 있는 간결한 질문(양자택일 등)을 보강하십시오.
 3. 본문에 링크(http/https)나 '자수 체크' 등의 사족을 일체 넣지 마십시오.
-4. 완성된 Threads 본문 텍스트만 출력하십시오. 설명이나 서론/결론은 금지합니다.
+4. 원문 언어를 그대로 유지하십시오. 원문이 영어면 영어로만 출력하고 한글을 절대 쓰지 마십시오.
+5. 첫 줄은 60자 이내 단독 줄로, 140자를 넘는 줄을 만들지 말고, 전체 450자 이내로 유지하십시오.
+6. 완성된 Threads 본문 텍스트만 출력하십시오. 설명이나 서론/결론은 금지합니다.
 
 [원문 초안]
 ${content}`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-haiku-latest",
+      model: process.env.ANTHROPIC_GENERATION_MODEL ?? "claude-haiku-4-5-20251001",
       max_tokens: 600,
       temperature: 0.3,
       messages: [{ role: "user", content: prompt }],
@@ -207,9 +228,9 @@ export async function remediatePostAlgorithmic(
     return currDeficit > prevDeficit ? curr : prev;
   });
 
-  const fixInstruction =
-    heuristicScore.actionableFixes[0] ||
-    `${weakest.name} 차원의 점수가 부족하므로 해당 요소를 보강하십시오.`;
+  const fixInstruction = heuristicScore.actionableFixes.length
+    ? heuristicScore.actionableFixes.join(" / ")
+    : `${weakest.name} 차원의 점수가 부족하므로 해당 요소를 보강하십시오.`;
 
   const rewritten = await executeTargetedRewrite(
     heuristicResult.content,
