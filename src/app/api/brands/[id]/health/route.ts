@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
-import { parseBrandConfig } from "@/types/brand";
+import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 import type { AccountHealthState } from "@/types/brand";
 import {
   evaluateShadowbanHealth,
@@ -103,7 +103,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     await prisma.brand.update({
       where: { id: brand.id },
       data: {
-        brandConfig: JSON.stringify(config),
+        brandConfig: serializeBrandConfigUpdate(brand.brandConfig, config),
       },
     });
 
@@ -213,7 +213,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     await prisma.brand.update({
       where: { id: brand.id },
       data: {
-        brandConfig: JSON.stringify(config),
+        brandConfig: serializeBrandConfigUpdate(brand.brandConfig, config),
       },
     });
 

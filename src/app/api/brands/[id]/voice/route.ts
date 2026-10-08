@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { extractVoiceProfile } from "@/lib/voice-extractor";
-import { parseBrandConfig } from "@/types/brand";
+import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 
 interface VoiceRequestPayload {
   samples?: string[];
@@ -49,7 +49,7 @@ export async function POST(
     await prisma.brand.update({
       where: { id: brandId },
       data: {
-        brandConfig: JSON.stringify(updatedConfig),
+        brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedConfig),
       },
     });
 

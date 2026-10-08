@@ -252,10 +252,28 @@ export function parseBrandConfig(raw: string): BrandConfig {
       sideMission: typeof parsed.sideMission === "string" ? parsed.sideMission : undefined,
       minAlgorithmicScore: typeof parsed.minAlgorithmicScore === "number" ? parsed.minAlgorithmicScore : undefined,
       creatorHandle: typeof parsed.creatorHandle === "string" ? parsed.creatorHandle : undefined,
+      circuitBreaker: isRecord(parsed.circuitBreaker) ? (parsed.circuitBreaker as unknown as CircuitBreakerState) : undefined,
     };
   } catch {
     return DEFAULT_BRAND_CONFIG;
   }
+}
+
+// parseBrandConfig keeps only known fields. Persist through this so stored keys it does not model
+// (fidelity, brand profile data, ...) survive; known keys from `next` win, undefined removes them.
+export function serializeBrandConfigUpdate(storedRaw: string | null | undefined, next: object): string {
+  let merged: Record<string, unknown> = {};
+  try {
+    const parsedJson: unknown = JSON.parse(storedRaw || "{}");
+    if (isRecord(parsedJson)) merged = { ...parsedJson };
+  } catch {
+    merged = {};
+  }
+  for (const [key, value] of Object.entries(next)) {
+    if (value === undefined) delete merged[key];
+    else merged[key] = value;
+  }
+  return JSON.stringify(merged);
 }
 
 function normalizeContextWeights(input: unknown): {

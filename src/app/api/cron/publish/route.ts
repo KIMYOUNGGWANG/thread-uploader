@@ -6,7 +6,7 @@ import { getPublishSafetyBlockReasons } from "@/lib/publish-safety-gate";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { isCircadianQuietHour, checkMinimumCooldown, evaluateSporadicSkip } from "@/lib/behavioral-jitter";
 import { resolveAccountTrustTier } from "@/lib/account-trust-ramp";
-import { parseBrandConfig } from "@/types/brand";
+import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 import { sendSystemAlert } from "@/lib/alert-service";
 import {
   checkCircuitBreaker,
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
             brandConfig.lastTickSkipped = true;
             await prisma.brand.update({
               where: { id: brand.id },
-              data: { brandConfig: JSON.stringify(brandConfig) },
+              data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, brandConfig) },
             });
             skipped.push({ brandId: brand.id, brandName: brand.name, reason: "sporadic_skip" });
             continue;
@@ -238,7 +238,7 @@ export async function GET(request: NextRequest) {
           }
           await prisma.brand.update({
             where: { id: brand.id },
-            data: { brandConfig: JSON.stringify(updatedBreaker) },
+            data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedBreaker) },
           });
 
           published.push({
@@ -261,7 +261,7 @@ export async function GET(request: NextRequest) {
           );
           await prisma.brand.update({
             where: { id: brand.id },
-            data: { brandConfig: JSON.stringify(updatedBreaker) },
+            data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedBreaker) },
           });
           skipped.push({
             brandId: brand.id,
@@ -290,7 +290,7 @@ export async function GET(request: NextRequest) {
         );
         await prisma.brand.update({
           where: { id: brand.id },
-          data: { brandConfig: JSON.stringify(updatedBreaker) },
+          data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedBreaker) },
         });
         skipped.push({ brandId: brand.id, brandName: brand.name, reason: "publish_failed" });
         await sendSystemAlert({

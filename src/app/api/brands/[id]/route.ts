@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, AuthError } from "@/lib/auth";
 import { isSuperAdmin } from "@/lib/brand-access";
-import { parseBrandConfig } from "@/types/brand";
+import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 import type { BrandConfig } from "@/types/brand";
 
 async function getBrandForUser(id: string, user: { id: string; email: string }) {
@@ -80,7 +80,7 @@ export async function PATCH(
         ...(typeof body.accessToken === "string" && { accessToken: body.accessToken }),
         ...(typeof body.threadsUserId === "string" && { threadsUserId: body.threadsUserId }),
         ...(typeof body.tokenExpiry === "string" && { tokenExpiry: new Date(body.tokenExpiry) }),
-        brandConfig: JSON.stringify(mergedConfig),
+        brandConfig: serializeBrandConfigUpdate(brand.brandConfig, mergedConfig),
         ...(body.formulaWeights !== undefined && {
           formulaWeights: JSON.stringify(body.formulaWeights),
         }),

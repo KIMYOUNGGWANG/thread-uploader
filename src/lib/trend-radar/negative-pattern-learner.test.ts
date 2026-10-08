@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   identifyBottomPerformingPosts,
+  readProhibitedPhrases,
+  findProhibitedPhrases,
   extractNegativeCliches,
   mergeNegativePhrasesIntoBrandConfig,
   type BottomPostSample,
@@ -62,5 +64,16 @@ describe("negative-pattern-learner", () => {
     // Duplicate prevented
     const count = updated.fidelity.prohibitedPhrases.filter((p: string) => p === "좋은 일이 올 거예요").length;
     expect(count).toBe(1);
+  });
+});
+
+describe("prohibited phrase readback", () => {
+  it("reads learned phrases from stored fidelity and finds them in a post", () => {
+    const raw = JSON.stringify({ fidelity: { prohibitedPhrases: ["포기하지 마세요", "", 3] } });
+    const phrases = readProhibitedPhrases(raw);
+    expect(phrases).toEqual(["포기하지 마세요"]);
+    expect(findProhibitedPhrases("오늘도 포기하지 마세요!", phrases)).toEqual(["포기하지 마세요"]);
+    expect(findProhibitedPhrases("담담하게 버텨", phrases)).toEqual([]);
+    expect(readProhibitedPhrases("broken")).toEqual([]);
   });
 });

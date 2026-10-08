@@ -81,3 +81,21 @@ export function mergeNegativePhrasesIntoBrandConfig(
     },
   };
 }
+
+// Reads fidelity.prohibitedPhrases straight from the stored JSON (parseBrandConfig does not model fidelity).
+export function readProhibitedPhrases(rawBrandConfig: string | null | undefined): string[] {
+  try {
+    const parsed: unknown = JSON.parse(rawBrandConfig || "{}");
+    if (typeof parsed !== "object" || parsed === null) return [];
+    const fidelity = (parsed as Record<string, unknown>).fidelity;
+    if (typeof fidelity !== "object" || fidelity === null) return [];
+    const phrases = (fidelity as Record<string, unknown>).prohibitedPhrases;
+    return Array.isArray(phrases) ? phrases.filter((phrase): phrase is string => typeof phrase === "string" && phrase.trim().length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function findProhibitedPhrases(post: string, phrases: string[]): string[] {
+  return phrases.filter((phrase) => post.includes(phrase));
+}

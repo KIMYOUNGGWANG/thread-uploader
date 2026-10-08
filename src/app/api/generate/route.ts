@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { formatCreatorPatternContext } from "@/lib/creator-prompt-patterns";
 import { formatGrowthPromptContext, isAutopilotFormula, parseStoredGrowthMemory } from "@/lib/growth-learning";
+import { findProhibitedPhrases, readProhibitedPhrases } from "@/lib/trend-radar/negative-pattern-learner";
 import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
 import { checkQuality, type QualityResult } from "@/lib/quality-gate";
 import {
@@ -281,7 +282,8 @@ async function generateWithQuality(
   viralContext: string,
   recentPostContext: string,
   maxRetries = 2,
-  recentPosts: RecentPostSummary[] = []
+  recentPosts: RecentPostSummary[] = [],
+  prohibitedPhrases: string[] = []
 ): Promise<{
   post: string;
   firstComment: string;
@@ -313,6 +315,13 @@ async function generateWithQuality(
     isEnglish
   );
 
+  // Phrases learned from bottom performers (cron/feedback) fail the gate so the retry prompt avoids them
+  const withProhibitedPhraseCheck = (result: typeof qualityResult, post: string): typeof qualityResult => {
+    const hits = findProhibitedPhrases(post, prohibitedPhrases);
+    return hits.length === 0 ? result : { ...result, pass: false, reasons: [`학습된 금지 문구 포함: ${hits.join(", ")}`, ...result.reasons] };
+  };
+  qualityResult = withProhibitedPhraseCheck(qualityResult, lastResult.post);
+
   if (recentPosts.length > 0) {
     const similarity = checkAntiRepeatSimilarity(lastResult.post, recentPosts);
     if (similarity.isDuplicate && similarity.reason) {
@@ -332,6 +341,8 @@ async function generateWithQuality(
       lastResult,
       isEnglish
     );
+
+    qualityResult = withProhibitedPhraseCheck(qualityResult, lastResult.post);
 
     if (recentPosts.length > 0) {
       const retrySimilarity = checkAntiRepeatSimilarity(lastResult.post, recentPosts);
@@ -898,6 +909,7 @@ export async function POST(request: NextRequest) {
     const allTopics = [...config.topics, ...(config.trendingTopics ?? [])];
     const topics = shuffleTopics(allTopics, count);
     const growthMemory = parseStoredGrowthMemory(brand.growthMemory);
+    const prohibitedPhrases = readProhibitedPhrases(brand.brandConfig);
     const growthContext = formatGrowthPromptContext(growthMemory);
     const viralContext = formatViralPromptContext(parseViralMemory(brand.viralMemory));
     const recentPosts = await prisma.post.findMany({
@@ -969,7 +981,8 @@ export async function POST(request: NextRequest) {
           viralContext,
           recentPostContext,
           1,
-          inBatchPosts
+          inBatchPosts,
+          prohibitedPhrases
         );
       });
       results.push(...await Promise.all(batch));

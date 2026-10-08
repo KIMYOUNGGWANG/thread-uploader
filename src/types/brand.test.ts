@@ -3,6 +3,7 @@ import {
   CAREER_TIMING_WEDGE_399,
   getActiveCampaign,
   parseBrandConfig,
+  serializeBrandConfigUpdate,
   PRODUCT_GROWTH_BASELINE,
 } from "@/types/brand";
 
@@ -102,5 +103,27 @@ describe("parseBrandConfig", () => {
     expect(formulaText).toContain("A/B/C");
     expect(formulaText).toContain("저장");
     expect(formulaText).not.toMatch(/분류해준|상황을 쓰면|답글|진단해준/);
+  });
+});
+
+describe("serializeBrandConfigUpdate", () => {
+  it("keeps stored keys parseBrandConfig does not model, so fidelity and circuit breaker survive writes", () => {
+    const stored = JSON.stringify({
+      systemPrompt: "old",
+      fidelity: { prohibitedPhrases: ["포기하지 마세요"], identityMarkers: ["사주"] },
+      oracleProfile: { tone: "calm" },
+    });
+    const next = { ...parseBrandConfig(stored), systemPrompt: "new", circuitBreaker: { consecutiveFailures: 2, pausedUntil: null, lastFailureReason: "x" } };
+
+    const merged = JSON.parse(serializeBrandConfigUpdate(stored, next));
+    expect(merged.systemPrompt).toBe("new");
+    expect(merged.fidelity.prohibitedPhrases).toEqual(["포기하지 마세요"]);
+    expect(merged.oracleProfile).toEqual({ tone: "calm" });
+    expect(parseBrandConfig(JSON.stringify(merged)).circuitBreaker?.consecutiveFailures).toBe(2);
+  });
+
+  it("removes known keys set to undefined and tolerates invalid stored JSON", () => {
+    expect(JSON.parse(serializeBrandConfigUpdate('{"sideMission":"a"}', { sideMission: undefined }))).toEqual({});
+    expect(JSON.parse(serializeBrandConfigUpdate("not json", { a: 1 }))).toEqual({ a: 1 });
   });
 });

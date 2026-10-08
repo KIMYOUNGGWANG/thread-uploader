@@ -10,7 +10,7 @@ import {
   computeAdaptiveContextWeights,
   type ContextWeightAdjustmentResult,
 } from "@/lib/growth-feedback-loop";
-import { parseBrandConfig } from "@/types/brand";
+import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 import { DOMAIN_MATRICES } from "@/lib/context-matrix-engine";
 import { getDomainPreset } from "@/lib/domain-registry";
 import { QUOTA_TRACKS } from "@/lib/quota-bandit-router";
@@ -127,7 +127,7 @@ export async function learnBrandGrowth(brandId: string) {
     data: {
       growthMemory: JSON.stringify(memory),
       ...(updatedWeights && { formulaWeights: JSON.stringify(updatedWeights) }),
-      ...(updatedBrandConfig && { brandConfig: JSON.stringify(updatedBrandConfig) }),
+      ...(updatedBrandConfig && { brandConfig: serializeBrandConfigUpdate(brand?.brandConfig, updatedBrandConfig) }),
     },
   });
 
