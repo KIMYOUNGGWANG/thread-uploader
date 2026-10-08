@@ -329,6 +329,10 @@ const ENGLISH_HOOK_PATTERNS = [
   /in\s+western\s+astrology/i,
   /most\s+people/i,
   /^\d+\s+(reasons|mistakes|signs|steps)/i,
+  /\?/,                                                    // question anywhere in line 1
+  /\b(probably|wrong|myth)\b/i,                           // correction hooks
+  /^(born|to\s+(?:every|all))\b/i,                         // boundary / identity call-outs
+  /your\s+(zodiac|animal|sign|day\s*master|real)/i,
 ];
 
 function checkEcommerceD2CQuality(post: string): QualityResult {
@@ -360,7 +364,7 @@ function checkEcommerceD2CQuality(post: string): QualityResult {
   }
 
   // Check 3: Contrarian / Insight structure (contains vs, or, but, however, not, instead)
-  const hasContrastOrConflict = /(vs\.|instead|demolishes|dilute|invisible|trap|truth|mismatch|collapse|lie|myth|actually)/i.test(post);
+  const hasContrastOrConflict = /(vs\.|instead|demolishes|dilute|invisible|trap|truth|mismatch|collapse|lie|myth|actually|wrong|not\s+(?:your|the|january)|differently)/i.test(post);
   if (hasContrastOrConflict) {
     score++;
   } else {

@@ -339,3 +339,14 @@ most people default to A out of fear. some bolt to B and repeat the same pattern
     expect(result.careerDecisionType).toBe("stay");
   });
 });
+
+describe("checkQuality ecommerce_d2c english hooks", () => {
+  it.each([
+    "That Goat birth year on your phone? Probably wrong.\n\nKorean saju flips the year at Ipchun, not January 1st.",
+    "Your zodiac sign was probably decided wrong.\n\nKorean saju uses Ipchun (Feb 4) instead of the calendar.",
+    "To every Rabbit born in 1987, 1999, 2011: you leave first.\n\nSaju says that is not your animal talking.",
+  ])("passes hook and contrast checks: %s", (post) => {
+    const result = checkQuality(post, "ecommerce_d2c");
+    expect(result.reasons.join(" ")).not.toMatch(/첫 줄 훅 약함|대비\(Contrast\)/);
+  });
+});

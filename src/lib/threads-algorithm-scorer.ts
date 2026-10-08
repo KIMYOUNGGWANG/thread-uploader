@@ -52,6 +52,7 @@ const HOOK_CONTRAST_PATTERNS = [
   /차이/,
   /반전/,
   /착각/,
+  /\b(wrong|myth|not\s+your|isn't|actually|instead|different)\b/i,
 ];
 
 const HOOK_CURIOSITY_PATTERNS = [
@@ -64,6 +65,7 @@ const HOOK_CURIOSITY_PATTERNS = [
   /비밀/,
   /왜\s*그럴까/,
   /충격/,
+  /\b(probably|nobody|most\s+people|here's\s+why|born\s+in|to\s+(?:every|all))\b/i,
 ];
 
 const CONVERSATION_CHOICE_PATTERNS = [
@@ -74,6 +76,7 @@ const CONVERSATION_CHOICE_PATTERNS = [
   /골라/,
   /투표/,
   /선택/,
+  /^\s*[A-C][).:]\s/m,
 ];
 
 const CONVERSATION_INVITATION_PATTERNS = [
@@ -85,6 +88,7 @@ const CONVERSATION_INVITATION_PATTERNS = [
   /어느\s*쪽/,
   /의견/,
   /공감/,
+  /\b(which\s+one|are\s+you|comment|send\s+this|tag\s+(?:a|your)|drop\s+your)\b/i,
 ];
 
 const URL_PATTERN = /https?:\/\/[^\s]+/i;

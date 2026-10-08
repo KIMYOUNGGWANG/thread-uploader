@@ -55,3 +55,21 @@ describe("threads-algorithm-scorer", () => {
     expect(result.dimensions.penaltyRisk.score).toBeLessThanOrEqual(7);
   });
 });
+
+describe("threads-algorithm-scorer english hooks", () => {
+  it("rewards research-proven english hooks and choice endings", () => {
+    const post = [
+      "That Goat birth year on your phone? Probably wrong.",
+      "",
+      "Korean saju flips the year at Ipchun (Feb 4), not January 1st.",
+      "",
+      "A) Born before Feb 4",
+      "B) Born after Feb 4",
+      "",
+      "Which one are you?",
+    ].join("\n");
+    const result = scoreThreadsPostAlgorithmic(post, "Did your animal change too?");
+    expect(result.dimensions.hookTension.score).toBeGreaterThanOrEqual(17);
+    expect(result.dimensions.conversationDepth.score).toBeGreaterThanOrEqual(20);
+  });
+});
