@@ -256,6 +256,11 @@ const LEGACY_FORMULA_MAP: Record<string, ViralIntentModeId> = {
   saturn_return_career_reset: "identity_profile",
   relationship_tension: "relationship_tension",
   synastry_avoidant_trap: "relationship_tension",
+  trend_correction: "quiet_contrarian",
+  real_sign_boundary: "saveable_tool",
+  identity_callout: "identity_profile",
+  all_twelve_series: "saveable_tool",
+  two_birthday_compatibility: "friend_share",
   destiny_partner_sign: "relationship_tension",
 };
 

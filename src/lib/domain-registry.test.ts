@@ -30,6 +30,27 @@ describe("Domain Intelligence Registry", () => {
     expect(preset.forbiddenCrossDomainTerms).toContain("MRR");
   });
 
+  it("ecommerce_d2c uses english-market viral formulas and allows Saju", () => {
+    const preset = getDomainPreset("ecommerce_d2c");
+    const formulas = [
+      ...preset.trackFormulas.track_a,
+      ...preset.trackFormulas.track_b,
+      ...preset.trackFormulas.track_c,
+    ];
+    const ids = formulas.map((formula) => formula.id);
+    expect(ids).toEqual(expect.arrayContaining([
+      "trend_correction",
+      "real_sign_boundary",
+      "identity_callout",
+      "all_twelve_series",
+      "two_birthday_compatibility",
+    ]));
+    for (const formula of formulas) {
+      expect(formula.forbiddenKeywords).not.toContain("Saju");
+      expect(formula.forbiddenKeywords).toContain("사주");
+    }
+  });
+
   it("falls back to saju_viral for undefined domain", () => {
     const preset = getDomainPreset(undefined);
     expect(preset.domainId).toBe("saju_viral");

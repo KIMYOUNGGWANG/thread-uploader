@@ -22,6 +22,11 @@ export interface DomainFormulaConfig {
   forbiddenKeywords: string[];
 }
 
+// Hangul stays blocked on the English account; "Saju" is allowed because it is the product's differentiator.
+const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
+const GLOBAL_HYBRID_RULE =
+  "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul.";
+
 export interface DomainPresetConfig {
   domainId: string;
   name: string;
@@ -268,53 +273,62 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
     name: "CosmicPath Global (Dual-Cosmic Intelligence PRD v4.0)",
     description: "동양 명리학(BaZi) ✕ 서양 천문 점성술(Astrology) 듀얼 교차 검증 마스터 도시에 ($29.99~$44.99)",
     defaultTopics: [
-      "Why your Moon sign keeps falling for emotionally unavailable partners (Avoidant Trap)",
-      "The real reason you feel like two different people: Sun vs Moon vs Rising internal clash",
-      "Saturn return at 29: why your corporate job feels like a slow existential death",
-      "Why 90% of $15 Etsy astrology readings are copy-pasted ChatGPT prompts lacking dual precision",
-      "The hidden financial leak in your 2nd house of income and capital defense",
-      "How unhealed childhood emotional karma (4th House IC) secretly sabotages your adult dating life",
+      "Every 2027 Fire Goat headline gets this wrong: what Korean saju actually says about the year",
+      "Born in January or early February? Your real zodiac animal may be the previous year's",
+      "Your birth time is probably off: time zones and why your chart may be built on the wrong hour",
+      "The Day Master type that quietly runs every office (and burns out first)",
+      "Zodiac-animal pairs that fall hard and fast, and the pairs that slowly outlast everyone",
+      "2027 money luck for all 12 animals, one line each",
     ],
     forbiddenCrossDomainTerms: ["MRR", "API 엔드포인트", "SQL 쿼리", "스프린트 회고", "사주팔자", "대운", "살풀이", "신점", "복채", "부적"],
     trackFormulas: {
       track_a: [
         {
-          id: "synastry_avoidant_trap",
-          name: "Synastry & Avoidant Attachment Trap (Ch 6 & 7)",
+          id: "trend_correction",
+          name: "Trending Zodiac Headline Correction",
           track: "track_a",
-          weight: 4,
-          instruction: "Expose why someone attracts emotionally unavailable or avoidant partners using harsh astrological reality (e.g. Venus in Gemini vs Moon in Cancer, 7th house descendant clash). 2-line contrast opening: start with a bold calling-out under 40 chars, followed by a reality-check contrast under 40 chars. Do not sugar-coat.",
-          hookArchetype: "Relationship Calling-Out Hook",
-          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
+          weight: 5,
+          instruction: `Take a trending zodiac headline (e.g. Fire Horse 2026, Fire Goat 2027) and correct it with what Korean saju actually says. Line 1 names what the headlines claim, line 2 contradicts it. Calm, specific, no CTA. ${GLOBAL_HYBRID_RULE}`,
+          hookArchetype: "Headline Correction Hook",
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
         {
-          id: "big3_internal_sabotage",
-          name: "Sun vs Moon Internal Sabotage (Ch 1 & 3)",
+          id: "real_sign_boundary",
+          name: "Your Real Sign May Be Different",
+          track: "track_a",
+          weight: 5,
+          instruction: `Show why the reader's zodiac animal or chart may be wrong: January to early February births vs Ipchun (Feb 4) and Lunar New Year, birth time and time zone shifts. End with one concrete self-check the reader can do right now. No CTA. ${GLOBAL_HYBRID_RULE}`,
+          hookArchetype: "Hidden Mistake Hook",
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
+        },
+        {
+          id: "identity_callout",
+          name: "Zodiac Animal / Day Master Identity Call-Out",
           track: "track_a",
           weight: 4,
-          instruction: "Call out the daily cognitive dissonance between an ambitious external persona and an exhausted, self-sabotaging inner emotional core (e.g. Capricorn Sun vs Pisces Moon, 4th house IC trauma). 2-line contrast opening under 40 chars each. High relatable dopamine.",
-          hookArchetype: "Internal Dissonance Hook",
-          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
+          instruction: `Call out one zodiac animal or Day Master type with one sharp, relatable behavior at work, in dating, or with money (e.g. "To every Yang Fire Day Master: ..."). Line 2 reveals what saju says sits underneath it. No theory lecture, no CTA. ${GLOBAL_HYBRID_RULE}`,
+          hookArchetype: "Identity Call-Out Hook",
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
       ],
       track_b: [
         {
-          id: "saturn_return_burnout",
-          name: "Saturn Return & 29yo Career Collapse (Ch 4, 5, 8)",
+          id: "all_twelve_series",
+          name: "All 12 Animals Series",
           track: "track_b",
           weight: 4,
-          instruction: "Address the 28-32 quarter-life existential crisis and corporate golden handcuffs. Deconstruct why external achievement feels empty when wealth architecture clashes with life timing. Clinical, sharp, forensic tone.",
-          hookArchetype: "Career Reality Check Hook",
-          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
+          instruction: `Cover one theme (love, money, or career in the coming year) for all 12 zodiac animals, one short line each, so readers search for their own and save the post. Open with a one-line promise of what they will find. ${GLOBAL_HYBRID_RULE}`,
+          hookArchetype: "Find Your Animal Hook",
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
         {
-          id: "anti_ai_craft_expose",
-          name: "Anti-AI Slop & Dual Mathematical Precision (Ch 1 & 10)",
+          id: "two_birthday_compatibility",
+          name: "Two-Birthday Compatibility",
           track: "track_b",
-          weight: 3,
-          instruction: "Deconstruct why $15 Etsy readings and free app notifications fail: they are generic ChatGPT outputs lacking cross-verified mathematical depth. Explain the missing half (Eastern time pillars meeting Western ephemeris natal charts) with zero mysticism.",
-          hookArchetype: "Dual Intelligence Authority Hook",
-          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
+          weight: 4,
+          instruction: `Describe what happens when two specific elements or zodiac animals date or work together: the pull, the friction, the tell-tale moment. Close by asking the reader to send it to that person. Profile-link mention only, no URL. ${GLOBAL_HYBRID_RULE}`,
+          hookArchetype: "Send-It-To-Them Hook",
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
       ],
       track_c: [
@@ -325,7 +339,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           weight: 4,
           instruction: "Present a concrete case study or checklist comparing a surface-level dating dilemma with the deep 25-page couple synastry dossier on Etsy ($44.99). Honest, resigned, zero-hype recommendation.",
           hookArchetype: "Couple Synastry Offer Hook",
-          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
         {
           id: "d2c_etsy_offer",
@@ -334,7 +348,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           weight: 3,
           instruction: "Present a high-stakes life decision dilemma (career pivot, wealth defense, relational timing) solved by the 15-20 page Master Life Intelligence Dossier on Etsy ($29.99). Direct soft CTA.",
           hookArchetype: "Master Dossier Offer Hook",
-          forbiddenKeywords: ["10-year luck pillar", "Saju", "Korean bazi", "대운", "사주", "도화살"],
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
       ],
     },
