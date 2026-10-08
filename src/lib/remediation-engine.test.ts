@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyHeuristicFixes,
+  introducesFormalTone,
   remediatePostAlgorithmic,
 } from "./remediation-engine";
 
@@ -95,5 +96,13 @@ describe("remediatePostAlgorithmic rewrite attempts", () => {
     } finally {
       if (savedKey !== undefined) process.env.ANTHROPIC_API_KEY = savedKey;
     }
+  });
+
+  it("rejects rewrites that turn a casual draft into 존댓말", () => {
+    const casual = "쉬면 낫는다고? 반만 맞음.\n충전보다 센 건 기운을 누가 빨아가는지 안 끊는 거야.";
+    const formal = "쉬면 낫는다는 말, 반만 맞습니다.\n기운을 누가 빨아가는지 끊지 않습니다.";
+    expect(introducesFormalTone(casual, formal)).toBe(true);
+    expect(introducesFormalTone(casual, casual)).toBe(false);
+    expect(introducesFormalTone(formal, formal)).toBe(false);
   });
 });

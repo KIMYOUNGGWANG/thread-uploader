@@ -12,6 +12,7 @@ import {
 } from "@/lib/threads-algorithm-scorer";
 import Anthropic from "@anthropic-ai/sdk";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
+import { FORMAL_TONE_PATTERN } from "@/lib/viral-intent-modes";
 
 const URL_REGEX = /https?:\/\/[^\s]+/gi;
 
@@ -157,6 +158,7 @@ export async function executeTargetedRewrite(
 2. 첫 문장의 긴장감(대비/호기심)을 강화하거나, 본문 끝에 독자가 즉각 반응할 수 있는 간결한 질문(양자택일 등)을 보강하십시오.
 3. 본문에 링크(http/https)나 '자수 체크' 등의 사족을 일체 넣지 마십시오.
 4. 원문 언어를 그대로 유지하십시오. 원문이 영어면 영어로만 출력하고 한글을 절대 쓰지 마십시오.
+   원문이 반말/독백체(~야, ~임, ~했음)면 그 문체를 유지하고 ~습니다/~하세요 같은 존댓말로 바꾸지 마십시오.
 5. 첫 줄은 60자 이내 단독 줄로, 140자를 넘는 줄을 만들지 말고, 전체 450자 이내로 유지하십시오.
 6. 완성된 Threads 본문 텍스트만 출력하십시오. 설명이나 서론/결론은 금지합니다.
 
@@ -216,7 +218,9 @@ export async function remediatePostAlgorithmic(
   while (best.score.totalScore < threshold && rewriteCount < MAX_REWRITES) {
     const candidate = await rewriteOnce(best.content, best.firstComment, best.score, context);
     rewriteCount++;
-    if (candidate.score.totalScore > best.score.totalScore) best = { ...best, ...candidate };
+    if (candidate.score.totalScore > best.score.totalScore && !introducesFormalTone(best.content, candidate.content)) {
+      best = { ...best, ...candidate };
+    }
   }
 
   const isPass = best.score.totalScore >= threshold;
@@ -232,6 +236,11 @@ export async function remediatePostAlgorithmic(
 }
 
 const MAX_REWRITES = 2;
+
+/** A rewrite must not turn a casual-voice draft into 존댓말. */
+export function introducesFormalTone(before: string, after: string): boolean {
+  return FORMAL_TONE_PATTERN.test(after) && !FORMAL_TONE_PATTERN.test(before);
+}
 // The scorer's fix hints are Korean-pattern advice; English drafts get the rubric itself.
 const ENGLISH_REWRITE_CHECKLIST = [
   "Line 1: one standalone line under 60 characters that ends with '?' and contains one of: wrong, actually, not, instead, myth.",
