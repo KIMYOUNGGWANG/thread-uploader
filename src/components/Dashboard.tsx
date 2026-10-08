@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Video, LayoutList, Newspaper, MessageSquare, FlaskConical } from "lucide-react";
+import { FormulaConversionTable } from "@/components/FormulaConversionTable";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
@@ -324,6 +325,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const [isFetching, setIsFetching] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showPublished, setShowPublished] = useState(false);
+  const [reviewOnly, setReviewOnly] = useState(false);
   const [insertAtFront, setInsertAtFront] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateCount, setGenerateCount] = useState(21);
@@ -806,7 +808,10 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const pendingCount = posts.filter((p) => p.status === "PENDING").length;
   const publishedCount = posts.filter((p) => p.status === "PUBLISHED").length;
   const failedCount = posts.filter((p) => p.status === "FAILED").length;
-  const visiblePosts = posts.filter((p) => showPublished || p.status !== "PUBLISHED" || Boolean(p.errorLog));
+  const reviewCount = posts.filter((p) => p.status === "NEEDS_REVIEW").length;
+  const visiblePosts = reviewOnly
+    ? posts.filter((p) => p.status === "NEEDS_REVIEW")
+    : posts.filter((p) => showPublished || p.status !== "PUBLISHED" || Boolean(p.errorLog));
   const convertToCardPost = (dbPost: DBPost): ParsedPost => ({
     content: dbPost.content,
     images: dbPost.imageUrls,
@@ -837,6 +842,16 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap sm:gap-3">
             {posts.length > 0 && (
               <div className="flex items-center gap-2">
+                {reviewCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setReviewOnly((value) => !value)}
+                    aria-pressed={reviewOnly}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                  >
+                    <AlertCircle className="w-4 h-4" />{reviewCount} 검토 필요
+                  </button>
+                )}
                 {pendingCount > 0 && (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium">
                     <Calendar className="w-4 h-4" />{pendingCount} 예약
@@ -1310,6 +1325,8 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
               </div>
             )}
 
+            <FormulaConversionTable posts={posts} />
+
             {/* Summary Bar */}
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-4">
@@ -1321,6 +1338,10 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                 <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none">
                   <input type="checkbox" checked={showPublished} onChange={(e) => setShowPublished(e.target.checked)} className="rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
                   완료된 글 보기
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                  <input type="checkbox" checked={reviewOnly} onChange={(e) => setReviewOnly(e.target.checked)} className="rounded border-slate-300 text-orange-600 focus:ring-orange-500" />
+                  검토 필요만 ({reviewCount})
                 </label>
               </div>
 
