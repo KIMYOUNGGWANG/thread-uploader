@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { formatCreatorPatternContext } from "@/lib/creator-prompt-patterns";
-import { formatGrowthPromptContext, parseStoredGrowthMemory } from "@/lib/growth-learning";
+import { formatGrowthPromptContext, isAutopilotFormula, parseStoredGrowthMemory } from "@/lib/growth-learning";
 import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
 import { checkQuality, type QualityResult } from "@/lib/quality-gate";
 import {
@@ -897,7 +897,8 @@ export async function POST(request: NextRequest) {
     const formulaPool = buildFormulaPool(sourceFormulas, dbWeights);
     const allTopics = [...config.topics, ...(config.trendingTopics ?? [])];
     const topics = shuffleTopics(allTopics, count);
-    const growthContext = formatGrowthPromptContext(parseStoredGrowthMemory(brand.growthMemory));
+    const growthMemory = parseStoredGrowthMemory(brand.growthMemory);
+    const growthContext = formatGrowthPromptContext(growthMemory);
     const viralContext = formatViralPromptContext(parseViralMemory(brand.viralMemory));
     const recentPosts = await prisma.post.findMany({
       where: { brandId },
@@ -1028,7 +1029,9 @@ export async function POST(request: NextRequest) {
       const postContent = remediation.content;
       const initialComment = remediation.firstComment;
       const threadParts = splitContentIntoThreadParts(postContent);
-      const postStatus = remediation.pass ? "PENDING" : "NEEDS_REVIEW";
+      // Auto-queue only gate-passing posts from proven formulas; the rest wait for human approval
+      const autoQueue = remediation.pass && result.qualityPass !== false && isAutopilotFormula(result.formulaId, growthMemory);
+      const postStatus = autoQueue ? "PENDING" : "NEEDS_REVIEW";
 
       const post = await prisma.post.create({
         data: {

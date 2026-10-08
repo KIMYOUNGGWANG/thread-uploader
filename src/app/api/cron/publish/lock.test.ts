@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 // Stateful post row: updateMany only matches when the status filter really matches,
 // which is what exposed the cron PROCESSING lock fighting the engine's PUBLISHING lock.
 const row = vi.hoisted(() => ({
-  current: { id: "post_1", brandId: "brand_1", status: "PENDING", qualityPass: true, content: "오늘 하루 수고했어요.",
+  current: { id: "post_1", brandId: "brand_1", status: "PENDING", qualityPass: true as boolean | null, content: "오늘 하루 수고했어요.",
     firstComment: null, imageUrls: "[]", threadPartIds: "[]", threadPartsPosted: 0, threadRootId: null, threadsId: null },
 }));
 
@@ -18,8 +18,9 @@ vi.mock("@/lib/prisma", () => ({
     brand: { findMany: vi.fn(async () => [{ id: "brand_1", name: "CosmicPath", slug: "cosmicpath" }]), update: vi.fn() },
     post: {
       findMany: vi.fn(async () => []),
-      findFirst: vi.fn(async ({ where }: { where: { status?: unknown } }) =>
-        matches(row.current.status, where.status) && where.status !== "PUBLISHED" ? { ...row.current } : null),
+      findFirst: vi.fn(async ({ where }: { where: { status?: unknown; qualityPass?: unknown } }) =>
+        matches(row.current.status, where.status) && where.status !== "PUBLISHED" &&
+        (where.qualityPass === undefined || where.qualityPass === row.current.qualityPass) ? { ...row.current } : null),
       findUnique: vi.fn(async () => ({ ...row.current })),
       count: vi.fn(async () => 0),
       update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => Object.assign(row.current, data)),
@@ -48,5 +49,15 @@ describe("cron publish claim", () => {
 
     expect(body.published).toEqual([expect.objectContaining({ postId: "post_1", threadsId: "root_1" })]);
     expect(row.current.status).toBe("PUBLISHED");
+  });
+
+  it("does not auto-publish posts that were never quality-approved (qualityPass null)", async () => {
+    Object.assign(row.current, { status: "PENDING", qualityPass: null });
+    const { GET } = await import("@/app/api/cron/publish/route");
+    const response = await GET({ headers: new Headers(), nextUrl: new URL("http://localhost/api/cron/publish") } as never);
+    const body = await response.json();
+
+    expect(body.published).toEqual([]);
+    expect(row.current.status).toBe("PENDING");
   });
 });

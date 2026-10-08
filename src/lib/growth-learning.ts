@@ -195,3 +195,10 @@ function average(values: number[]): number {
   if (values.length === 0) return 0;
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
+
+// Autopilot: only formulas that already proved themselves (formula winner in growth memory)
+// skip human review. Everything else is queued as NEEDS_REVIEW.
+export function isAutopilotFormula(formulaId: string | null | undefined, memory: GrowthMemory): boolean {
+  if (!formulaId) return false;
+  return memory.winners.some((winner) => winner.dimension === "formula" && winner.value === formulaId);
+}

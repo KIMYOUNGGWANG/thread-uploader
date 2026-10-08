@@ -174,10 +174,7 @@ export async function GET(request: NextRequest) {
               brandId: brand.id,
               status: "PENDING",
               scheduledAt: { lte: now },
-              OR: [
-                { qualityPass: true },
-                { qualityPass: null },
-              ],
+              qualityPass: true,
             },
             orderBy: { scheduledAt: "asc" },
           });
@@ -213,7 +210,8 @@ export async function GET(request: NextRequest) {
         accountHealth: brandConfig.accountHealth || {
           status: brandConfig.shadowbanStatus,
         },
-        minAlgorithmicScore: brandConfig.minAlgorithmicScore,
+        // Human-approved posts (algorithmicPass=true) skip the heuristic score re-check; policy checks still apply
+        minAlgorithmicScore: post.algorithmicPass === true ? undefined : brandConfig.minAlgorithmicScore,
       });
       if (safetyReasons.length > 0) {
         await prisma.post.update({
