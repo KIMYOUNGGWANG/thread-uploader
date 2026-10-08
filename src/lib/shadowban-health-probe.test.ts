@@ -129,4 +129,16 @@ describe("shadowban-health-probe", () => {
     expect(report.recentAverageViews).toBeGreaterThan(0);
     expect(report.analyzedPostCount).toBe(6);
   });
+
+  it("does not let a single viral outlier inflate the baseline", () => {
+    const day = (n: number) => new Date(Date.UTC(2026, 8, 30 - n, 10));
+    const history: PostReachRecord[] = [140, 150, 160, 9358, ...Array<number>(14).fill(200)].map(
+      (views, index) => ({ postId: String(index), views, likes: 0, replies: 0, publishedAt: day(index) })
+    );
+
+    const report = evaluateShadowbanHealth(history, { referenceTime: new Date("2026-10-01T10:00:00Z") });
+
+    expect(report.baselineAverageViews).toBe(200);
+    expect(report.status).toBe("HEALTHY");
+  });
 });

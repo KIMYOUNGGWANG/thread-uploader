@@ -124,7 +124,11 @@ export function evaluateShadowbanHealth(
     };
   }
 
-  const baselineAvg = baseline.reduce((sum, p) => sum + p.views, 0) / baseline.length;
+  // Median, not mean: one viral post must not make every normal post look like a reach crash
+  const baselineViews = baseline.map((p) => p.views).sort((a, b) => a - b);
+  const middle = Math.floor(baselineViews.length / 2);
+  const baselineAvg =
+    baselineViews.length % 2 ? baselineViews[middle] : (baselineViews[middle - 1] + baselineViews[middle]) / 2;
 
   if (baselineAvg < opts.minBaselineViews) {
     return {
