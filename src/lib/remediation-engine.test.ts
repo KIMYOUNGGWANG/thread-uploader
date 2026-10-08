@@ -83,3 +83,17 @@ describe("applyHeuristicFixes long first line", () => {
     expect(result.content.split("\n")[0]).toBe("Born in January—read this.");
   });
 });
+
+describe("remediatePostAlgorithmic rewrite attempts", () => {
+  it("tries a second rewrite when the first one stays under the threshold", async () => {
+    const savedKey = process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY; // rewrite returns the draft unchanged, so the score never clears 100
+    try {
+      const result = await remediatePostAlgorithmic("A plain sentence with no hook at all.", null, undefined, 100);
+      expect(result.rewriteCount).toBe(2);
+      expect(result.pass).toBe(false);
+    } finally {
+      if (savedKey !== undefined) process.env.ANTHROPIC_API_KEY = savedKey;
+    }
+  });
+});

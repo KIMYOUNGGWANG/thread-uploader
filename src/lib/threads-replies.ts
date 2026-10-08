@@ -4,6 +4,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 
 export interface ThreadsReplyItem {
   id: string;
@@ -83,17 +84,14 @@ export async function generateDraftReply(
     ].join("\n");
 
     const message = await client.messages.create({
-      model: process.env.ANTHROPIC_GENERATION_MODEL ?? "claude-haiku-4-5-20251001",
-      max_tokens: 150,
-      temperature: 0.7,
+      model: CLAUDE_TEXT_MODEL,
+      max_tokens: 1500,
+      thinking: { type: "disabled" }, // short-form copy; thinking only adds latency and output tokens
+      output_config: { effort: "low" },
       messages: [{ role: "user", content: prompt }],
     });
 
-    const block = message.content[0];
-    if (block && block.type === "text") {
-      return block.text.trim().replace(/^["']|["']$/g, "");
-    }
-    return fallback;
+    return readMessageText(message).replace(/^["']|["']$/g, "");
   } catch (err) {
     console.warn("[Threads Replies] Claude draft generation failed, using fallback:", err);
     return fallback;

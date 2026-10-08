@@ -43,10 +43,12 @@ import { getDomainPreset } from "@/lib/domain-registry";
 import { resolveDynamicContext } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
+import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
   timeout: 20000,
+  maxRetries: 1, // generateOne already retries 429/529/timeouts with backoff
 });
 const SEPARATOR = "===FIRST_COMMENT===";
 const RETRYABLE_STATUSES = new Set([429, 529]);
@@ -220,11 +222,10 @@ async function generateOne(
 ): Promise<{ post: string; firstComment: string }> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const model = process.env.ANTHROPIC_GENERATION_MODEL ?? "claude-haiku-4-5-20251001";
       const message = await client.messages.create({
-        model,
-        max_tokens: 900,
-        temperature: 0.95,
+        model: CLAUDE_TEXT_MODEL,
+        max_tokens: 4000,
+        output_config: { effort: "low" },
         system: config.systemPrompt,
         messages: [
           {
@@ -234,7 +235,7 @@ async function generateOne(
         ],
       });
 
-      const raw = (message.content[0] as { text: string }).text.trim();
+      const raw = readMessageText(message);
       const parsed = parseStructuredPostOutput(raw);
       const post = cleanGeneratedContentLabels(parsed.content);
       let firstComment = cleanGeneratedContentLabels(parsed.firstComment);
@@ -916,6 +917,7 @@ export async function POST(request: NextRequest) {
     // Formulas picked so far, including the current in-flight batch, for anti-repeat.
     const pickedFormulaIds: string[] = [];
 
+    let failedCount = 0;
     for (let i = 0; i < count; i += BATCH) {
       const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
         const batchIndex = i + j;
@@ -969,11 +971,20 @@ export async function POST(request: NextRequest) {
           prohibitedPhrases
         );
       });
-      results.push(...await Promise.all(batch));
+      // One failed draft (refusal, empty reply, API hiccup) must not discard the rest of the batch.
+      for (const settled of await Promise.allSettled(batch)) {
+        if (settled.status === "fulfilled") results.push(settled.value);
+        else {
+          failedCount++;
+          console.error("[generate] draft failed, skipping:", settled.reason);
+        }
+      }
       if (i + BATCH < count) {
         await new Promise((res) => setTimeout(res, BATCH_COOLDOWN));
       }
     }
+
+    if (results.length === 0) throw new Error(`All ${count} drafts failed to generate`);
 
     const POST_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours between posts
     const now = Date.now();
@@ -1145,6 +1156,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       count: createdPosts.length,
+      failedCount,
       linkedCount,
       campaignId: activeCampaign?.id ?? null,
       auditSummary: {

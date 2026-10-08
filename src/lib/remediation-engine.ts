@@ -11,6 +11,7 @@ import {
   type AlgorithmicPredictionResult,
 } from "@/lib/threads-algorithm-scorer";
 import Anthropic from "@anthropic-ai/sdk";
+import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 
 const URL_REGEX = /https?:\/\/[^\s]+/gi;
 
@@ -137,7 +138,8 @@ export async function executeTargetedRewrite(
     return { content, firstComment };
   }
 
-  const anthropic = new Anthropic({ apiKey });
+  // Without a timeout the SDK waits up to 10 minutes on a stalled request and blocks the whole batch.
+  const anthropic = new Anthropic({ apiKey, timeout: 20000, maxRetries: 1 });
 
   const prompt = `당신은 Threads 알고리즘 최적화 수석 에디터입니다.
 아래 포스트 초안의 본문 의미, 논지, 어조를 왜곡 없이 그대로 유지하면서 다음 1가지 약점만 즉시 수정하십시오.
@@ -163,19 +165,14 @@ ${content}`;
 
   try {
     const response = await anthropic.messages.create({
-      model: process.env.ANTHROPIC_GENERATION_MODEL ?? "claude-haiku-4-5-20251001",
-      max_tokens: 600,
-      temperature: 0.3,
+      model: CLAUDE_TEXT_MODEL,
+      max_tokens: 3000,
+      thinking: { type: "disabled" }, // short-form copy; thinking only adds latency and output tokens
+      output_config: { effort: "low" },
       messages: [{ role: "user", content: prompt }],
     });
 
-    const block = response.content[0];
-    if (block && block.type === "text" && block.text.trim()) {
-      return {
-        content: block.text.trim(),
-        firstComment,
-      };
-    }
+    return { content: readMessageText(response), firstComment };
   } catch (error) {
     console.error("[RemediationEngine] Targeted LLM rewrite failed:", error);
   }
@@ -213,50 +210,53 @@ export async function remediatePostAlgorithmic(
     };
   }
 
-  // Step 2: 1-Token Targeted Rewrite (Focus strictly on weakest dimension)
-  const dims = [
-    heuristicScore.dimensions.hookTension,
-    heuristicScore.dimensions.conversationDepth,
-    heuristicScore.dimensions.humanVoice,
-    heuristicScore.dimensions.penaltyRisk,
-    heuristicScore.dimensions.formatReadability,
-  ];
+  // Step 2: targeted rewrites, keeping the best-scoring draft
+  let best = { ...heuristicResult, score: heuristicScore };
+  let rewriteCount = 0;
+  while (best.score.totalScore < threshold && rewriteCount < MAX_REWRITES) {
+    const candidate = await rewriteOnce(best.content, best.firstComment, best.score, context);
+    rewriteCount++;
+    if (candidate.score.totalScore > best.score.totalScore) best = { ...best, ...candidate };
+  }
 
-  const weakest = dims.reduce((prev, curr) => {
-    const prevDeficit = prev.maxScore - prev.score;
-    const currDeficit = curr.maxScore - curr.score;
-    return currDeficit > prevDeficit ? curr : prev;
-  });
-
-  const fixInstruction = heuristicScore.actionableFixes.length
-    ? heuristicScore.actionableFixes.join(" / ")
-    : `${weakest.name} 차원의 점수가 부족하므로 해당 요소를 보강하십시오.`;
-
-  const rewritten = await executeTargetedRewrite(
-    heuristicResult.content,
-    heuristicResult.firstComment,
-    {
-      name: weakest.name,
-      score: weakest.score,
-      maxScore: weakest.maxScore,
-      actionableFix: fixInstruction,
-    },
-    context
-  );
-
-  // Re-run heuristic patch on rewritten content (in case LLM added URLs or artifacts)
-  const finalClean = applyHeuristicFixes(rewritten.content, rewritten.firstComment);
-  const finalScore = scoreThreadsPostAlgorithmic(finalClean.content, finalClean.firstComment);
-
-  const isPass = finalScore.totalScore >= threshold;
-
+  const isPass = best.score.totalScore >= threshold;
   return {
-    content: finalClean.content,
-    firstComment: finalClean.firstComment,
-    scoreResult: finalScore,
+    content: best.content,
+    firstComment: best.firstComment,
+    scoreResult: best.score,
     pass: isPass,
     method: isPass ? "TARGETED_REWRITE" : "FAILED_QUARANTINED",
-    rewriteCount: 1,
-    actionableFixes: finalScore.actionableFixes,
+    rewriteCount,
+    actionableFixes: best.score.actionableFixes,
   };
+}
+
+const MAX_REWRITES = 2;
+// The scorer's fix hints are Korean-pattern advice; English drafts get the rubric itself.
+const ENGLISH_REWRITE_CHECKLIST = [
+  "Line 1: one standalone line under 60 characters that ends with '?' and contains one of: wrong, actually, not, instead, myth.",
+  "Whole post under 430 characters, no line over 140 characters, blank line between ideas.",
+  "Keep the closing 'A) ' and 'B) ' option lines and the final line 'Which one are you?'.",
+  "Write in English only.",
+].join(" ");
+
+async function rewriteOnce(
+  content: string,
+  firstComment: string | null,
+  score: AlgorithmicPredictionResult,
+  context?: { topic?: string; targetAudience?: string; productProfile?: string }
+) {
+  const weakest = Object.values(score.dimensions).reduce((prev, curr) => (
+    curr.maxScore - curr.score > prev.maxScore - prev.score ? curr : prev
+  ));
+  const isEnglish = !/[가-힣]/.test(content);
+  const actionableFix = isEnglish
+    ? ENGLISH_REWRITE_CHECKLIST
+    : score.actionableFixes.length
+      ? score.actionableFixes.join(" / ")
+      : `${weakest.name} 차원의 점수가 부족하므로 해당 요소를 보강하십시오.`;
+  const rewritten = await executeTargetedRewrite(content, firstComment, { ...weakest, actionableFix }, context);
+  // Re-run heuristic patch on rewritten content (in case LLM added URLs or artifacts)
+  const clean = applyHeuristicFixes(rewritten.content, rewritten.firstComment);
+  return { content: clean.content, firstComment: clean.firstComment, score: scoreThreadsPostAlgorithmic(clean.content, clean.firstComment) };
 }

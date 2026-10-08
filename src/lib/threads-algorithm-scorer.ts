@@ -52,7 +52,7 @@ const HOOK_CONTRAST_PATTERNS = [
   /차이/,
   /반전/,
   /착각/,
-  /\b(wrong|myth|not\s+your|isn't|actually|instead|different)\b/i,
+  /\b(wrong|myth|not\s+your|isn't|actually|really|instead|different)\b/i,
 ];
 
 const HOOK_CURIOSITY_PATTERNS = [

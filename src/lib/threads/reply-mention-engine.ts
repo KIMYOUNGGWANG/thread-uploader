@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { type ThreadsCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
 import Anthropic from "@anthropic-ai/sdk";
+import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 
 export const THREADS_MAX_UNANSWERED_REPLIES_PER_POST = 20;
 
@@ -137,14 +138,14 @@ export async function generateDraftReplyContent(
 
   try {
     const response = await client.messages.create({
-      model: process.env.ANTHROPIC_GENERATION_MODEL ?? "claude-haiku-4-5-20251001",
-      max_tokens: 200,
-      temperature: 0.85,
+      model: CLAUDE_TEXT_MODEL,
+      max_tokens: 1500,
+      thinking: { type: "disabled" }, // short-form copy; thinking only adds latency and output tokens
+      output_config: { effort: "low" },
       messages: [{ role: "user", content: prompt }],
     });
 
-    const reply = (response.content[0] as { text: string }).text.trim();
-    return reply;
+    return readMessageText(response);
   } catch {
     // Fallback simple acknowledgement if LLM fails
     return `공감해주셔서 고마워요! 오늘도 좋은 하루 보내세요 :)`;
