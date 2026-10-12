@@ -18,11 +18,14 @@ jobs:
         run: |
           test -n "$APP_URL"
           test -n "$CRON_SECRET"
+          # A failed token refresh must not skip metrics/learn; run all, then fail the job so GitHub emails.
+          status=0
           for path in refresh-token fetch-metrics learn; do
             echo "::group::$path"
             curl --fail-with-body --show-error --silent --location --max-time 90 \
               -H "Authorization: Bearer ${CRON_SECRET}" \
-              "${APP_URL%/}/api/cron/${path}"
+              "${APP_URL%/}/api/cron/${path}" || status=1
             echo
             echo "::endgroup::"
           done
+          exit $status

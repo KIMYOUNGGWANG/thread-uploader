@@ -58,6 +58,17 @@ export async function GET(request: NextRequest) {
                 continue;
             }
 
+            // An expired Threads token cannot be refreshed; only an OAuth reconnect fixes it, so don't fail the run daily.
+            if (brand.tokenExpiry <= now) {
+                refreshResults.push({
+                    slug: brand.slug,
+                    success: false,
+                    needsReconnect: true,
+                    error: "Token expired; reconnect Threads via OAuth",
+                });
+                continue;
+            }
+
             if (isTokenRefreshDue(brand.tokenExpiry, now)) {
                 try {
                     const result = await refreshBrandAccessToken(brand.id);
@@ -92,14 +103,16 @@ export async function GET(request: NextRequest) {
             }
         }
 
+        // ALERT_WEBHOOK_URL is unset in production, so a 500 (red GitHub Actions run + email) is the alert that reaches someone.
+        const refreshFailed = refreshResults.some((result) => !result.success && !("needsReconnect" in result));
         return NextResponse.json({
-            success: true,
+            success: !refreshFailed,
             refreshWindowDays: TOKEN_REFRESH_WINDOW_DAYS,
             legacyRefreshed: !!legacyRefreshResults,
             legacyRefreshError,
             brandsCount: brands.length,
             refreshResults,
-        });
+        }, { status: refreshFailed ? 500 : 200 });
     } catch (error) {
         console.error("Token refresh cron error:", error);
         return NextResponse.json({
