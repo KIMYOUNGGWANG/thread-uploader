@@ -26,7 +26,7 @@ export interface DomainFormulaConfig {
 const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
 const GLOBAL_HYBRID_RULE =
   "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul. " +
-  "Format for a phone feed: line 1 is the hook alone on its own line, under 60 characters, phrased as a question that also flips an assumption (use a word like wrong, actually, not, instead). " +
+  "Format for a phone feed: line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim that flips an assumption: no question mark, no 'vs' (e.g. 'Your zodiac animal is probably wrong.'; use a word like wrong, not, isn't, instead plus probably, might or most people). " +
   "Then one sentence per line, a blank line between ideas, 200-420 characters in total. " +
   "End with two options on their own lines starting 'A) ' and 'B) ', then the line 'Which one are you?'. The first comment must end with a question.";
 

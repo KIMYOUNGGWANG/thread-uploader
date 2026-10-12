@@ -72,4 +72,10 @@ describe("threads-algorithm-scorer english hooks", () => {
     expect(result.dimensions.hookTension.score).toBeGreaterThanOrEqual(17);
     expect(result.dimensions.conversationDepth.score).toBeGreaterThanOrEqual(20);
   });
+
+  // Global top posts (300-600 views) were declarative; question-only openers sat near 10-20 views.
+  it("gives a declarative english hook full hook tension without a question mark", () => {
+    const result = scoreThreadsPostAlgorithmic("Your zodiac animal is probably wrong.\n\nSaju flips the year at Ipchun.");
+    expect(result.dimensions.hookTension.score).toBe(25);
+  });
 });
