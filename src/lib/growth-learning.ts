@@ -27,18 +27,24 @@ interface PerformanceMetrics {
 
 type GrowthDimension = GrowthPattern["dimension"];
 
-export function calculatePerformanceScore(metrics: PerformanceMetrics): number {
-  const views = metrics.views ?? 0;
-  const replies = metrics.replies ?? 0;
-  const reposts = metrics.reposts ?? 0;
-  const clicks = metrics.clicks ?? 0;
-  const conversions = metrics.conversions ?? 0;
-  const manualPaidConversions = metrics.manualPaidConversions ?? 0;
+// Revenue-weighted closed-loop reward, points per unit. The only score definition in the app.
+export const PERFORMANCE_SCORE_WEIGHTS = {
+  views: 0.2,
+  replies: 40,
+  reposts: 25,
+  clicks: 50,
+  conversions: 300,
+  manualPaidConversions: 2500,
+} as const;
 
-  // Revenue-weighted closed-loop formula:
-  // Paid conversion (2,500 pts) > Test Start (300 pts) > Click (50 pts) > Social engagement
-  const socialScore = views * 0.2 + replies * 40 + reposts * 25;
-  const revenueScore = clicks * 50 + conversions * 300 + manualPaidConversions * 2500;
+export function calculatePerformanceScore(metrics: PerformanceMetrics): number {
+  const weights = PERFORMANCE_SCORE_WEIGHTS;
+  const socialScore =
+    (metrics.views ?? 0) * weights.views + (metrics.replies ?? 0) * weights.replies + (metrics.reposts ?? 0) * weights.reposts;
+  const revenueScore =
+    (metrics.clicks ?? 0) * weights.clicks +
+    (metrics.conversions ?? 0) * weights.conversions +
+    (metrics.manualPaidConversions ?? 0) * weights.manualPaidConversions;
 
   return Math.round(socialScore + revenueScore);
 }

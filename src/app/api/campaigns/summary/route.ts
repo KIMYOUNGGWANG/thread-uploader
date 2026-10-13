@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
-import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
+import { calculatePerformanceScore, getPerformanceTier, PERFORMANCE_SCORE_WEIGHTS } from "@/lib/growth-learning";
 import { prisma } from "@/lib/prisma";
 import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 
@@ -153,12 +153,7 @@ export async function GET(request: NextRequest) {
         conversions: totalConversions,
         manualPaidConversions: totalManualPaidConversions,
       },
-      scoreWeights: {
-        replies: 40,
-        reposts: 25,
-        views: 20,
-        clicksConversions: 15,
-      },
+      scoreWeights: PERFORMANCE_SCORE_WEIGHTS,
       replyPlaybook: campaign.replyPlaybook,
       ...(scope === "campaign" && {
         experimentReadiness: buildExperimentReadiness(posts, referenceTime),

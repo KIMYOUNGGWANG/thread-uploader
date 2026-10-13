@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Video, LayoutList, Newspaper, MessageSquare, FlaskConical } from "lucide-react";
 import { FormulaConversionTable } from "@/components/FormulaConversionTable";
+import { WeeklyScorecardPanel } from "@/components/WeeklyScorecardPanel";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
@@ -214,10 +215,12 @@ interface CampaignSummaryData {
     manualPaidConversions: number;
   };
   scoreWeights: {
+    views: number;
     replies: number;
     reposts: number;
-    views: number;
-    clicksConversions: number;
+    clicks: number;
+    conversions: number;
+    manualPaidConversions: number;
   };
   replyPlaybook: Record<"stay" | "move" | "prepare" | "cta", string>;
   experimentReadiness?: ExperimentReadinessData;
@@ -1325,6 +1328,8 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
               </div>
             )}
 
+            <WeeklyScorecardPanel brandId={brandId} />
+
             <FormulaConversionTable posts={posts} />
 
             {/* Summary Bar */}
@@ -1700,7 +1705,7 @@ function CampaignSummaryPanel({
       </div>
 
       <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3 text-xs text-slate-500 dark:text-slate-400">
-        성과 점수 가중치: 댓글 {summary.scoreWeights.replies}% · 리포스트 {summary.scoreWeights.reposts}% · 조회 {summary.scoreWeights.views}% · 클릭/전환 {summary.scoreWeights.clicksConversions}%
+        성과 점수 (건당): 조회 {summary.scoreWeights.views} · 댓글 {summary.scoreWeights.replies} · 리포스트 {summary.scoreWeights.reposts} · 클릭 {summary.scoreWeights.clicks} · 전환 {summary.scoreWeights.conversions} · 유료 {summary.scoreWeights.manualPaidConversions}
       </div>
     </div>
   );

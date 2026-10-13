@@ -75,16 +75,9 @@ export async function learnBrandGrowth(brandId: string) {
       ...postFormulaIds,
     ]));
 
-    let currentWeights: Record<string, number> = {};
-    try {
-      currentWeights = brand.formulaWeights && brand.formulaWeights !== "{}"
-        ? JSON.parse(brand.formulaWeights)
-        : {};
-    } catch {
-      currentWeights = {};
-    }
-
-    const weightResult = computeAdaptiveFormulaWeights(currentWeights, learningPosts, knownFormulaIds);
+    // Rebuild from the default weight every run: the 300-post window is re-read daily,
+    // so stacking ±1 on the stored value walked top formulas to the ceiling without new evidence.
+    const weightResult = computeAdaptiveFormulaWeights({}, learningPosts, knownFormulaIds);
     updatedWeights = weightResult.updatedWeights;
     promotedFormulas = weightResult.promotedFormulas;
     demotedFormulas = weightResult.demotedFormulas;

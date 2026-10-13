@@ -13,7 +13,9 @@ export interface MaturePostMetric {
   views: number | null;
   replies: number | null;
   reposts: number | null;
+  clicks?: number | null;
   conversions: number | null;
+  manualPaidConversions?: number | null;
 }
 
 export interface ModePerformance {
