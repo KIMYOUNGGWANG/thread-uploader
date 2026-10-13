@@ -18,7 +18,7 @@ export function buildTranspositionPrompt(
   skeleton: AbstractedTrendSkeleton,
   profile: BrandProfile
 ): string {
-  const brandKeywords = profile.fidelity.identityMarkers.slice(0, 8).join(", ");
+  const brandKeywords = profile.fidelity.identityMarkers.join(", ");
 
   return `
 [역할 및 페르소나]
