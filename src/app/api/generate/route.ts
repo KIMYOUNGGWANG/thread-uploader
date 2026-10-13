@@ -5,6 +5,7 @@ import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-acc
 import { formatCreatorPatternContext } from "@/lib/creator-prompt-patterns";
 import { formatGrowthPromptContext, isAutopilotFormula, parseStoredGrowthMemory } from "@/lib/growth-learning";
 import { findProhibitedPhrases, readProhibitedPhrases } from "@/lib/trend-radar/negative-pattern-learner";
+import { formatTrendRadarContext, readTrendRadar } from "@/lib/trend-radar/trend-radar-memory";
 import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
 import { checkQuality, type QualityResult } from "@/lib/quality-gate";
 import {
@@ -909,7 +910,10 @@ export async function POST(request: NextRequest) {
     const growthMemory = parseStoredGrowthMemory(brand.growthMemory);
     const prohibitedPhrases = readProhibitedPhrases(brand.brandConfig);
     const growthContext = formatGrowthPromptContext(growthMemory);
-    const viralContext = formatViralPromptContext(parseViralMemory(brand.viralMemory));
+    const viralContext = [
+      formatViralPromptContext(parseViralMemory(brand.viralMemory)),
+      formatTrendRadarContext(readTrendRadar(brand.brandConfig)),
+    ].filter(Boolean).join("\n\n");
     const recentPosts = await prisma.post.findMany({
       where: { brandId },
       orderBy: { createdAt: "desc" },

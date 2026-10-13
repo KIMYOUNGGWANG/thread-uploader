@@ -1,0 +1,28 @@
+name: Trend Radar
+
+on:
+  schedule:
+    # 하루 1회 KST 06:29 — 최근 72시간 커뮤니티 갈등을 웹 검색으로 수집해 사주 훅으로 변환 (첫 발행 슬롯 전)
+    - cron: '29 21 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: trends
+  cancel-in-progress: false
+
+jobs:
+  trends:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harvest and transpose trends
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          TREND_BRAND_SLUGS: ${{ vars.TREND_BRAND_SLUGS || 'cosmicpath' }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --show-error --silent --location --max-time 300 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/trends?brands=${TREND_BRAND_SLUGS}"
+          echo
