@@ -120,3 +120,13 @@ describe("revenue-first reward", () => {
     expect(paying.blendedScore).toBeGreaterThan(viralOnly.blendedScore);
   });
 });
+
+describe("DEFAULT_INFORMATIVE_PRIORS", () => {
+  it("gives every lean sprint mode an informative prior", () => {
+    for (const id of ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension"]) {
+      const prior = DEFAULT_INFORMATIVE_PRIORS[id];
+      expect(prior, id).toBeDefined();
+      expect(prior.alpha + prior.beta, id).toBeGreaterThanOrEqual(20);
+    }
+  });
+});

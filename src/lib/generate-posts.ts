@@ -42,6 +42,8 @@ import { parseViralMemory } from "@/types/viral";
 import { getDomainPreset } from "@/lib/domain-registry";
 import { resolveDynamicContext } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
+import { reconcileRemediation } from "@/lib/remediation-regate";
+import { findSaturatedTopics, formatSaturationReason } from "@/lib/topic-saturation-guard";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 
@@ -286,58 +288,47 @@ async function generateWithQuality(
   campaignFormulaId: string | null;
   careerDecisionType: string | null;
   shouldLink: boolean;
+  regate: (post: string, firstComment: string) => QualityResult;
 }> {
   const isEnglish =
     experiment.qualityProfile === "ecommerce_d2c" ||
     config.voiceProfile?.language === "en" ||
     Boolean(config.productProfile?.productName?.toLowerCase().includes("global"));
-  let lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext);
   const qualityContext = buildProductQualityContext(config, experiment.viralIntentMode?.id);
-  let qualityResult = enforceGeneratedSurfaceSafety(
-    checkQuality(lastResult.post, experiment.qualityProfile, qualityContext),
-    lastResult,
-    isEnglish
-  );
 
-  // Phrases learned from bottom performers (cron/feedback) fail the gate so the retry prompt avoids them
-  const withProhibitedPhraseCheck = (result: typeof qualityResult, post: string): typeof qualityResult => {
-    const hits = findProhibitedPhrases(post, prohibitedPhrases);
-    return hits.length === 0 ? result : { ...result, pass: false, reasons: [`학습된 금지 문구 포함: ${hits.join(", ")}`, ...result.reasons] };
-  };
-  qualityResult = withProhibitedPhraseCheck(qualityResult, lastResult.post);
-
-  if (recentPosts.length > 0) {
-    const similarity = checkAntiRepeatSimilarity(lastResult.post, recentPosts);
-    if (similarity.isDuplicate && similarity.reason) {
-      qualityResult = {
-        ...qualityResult,
-        pass: false,
-        reasons: [similarity.reason, ...qualityResult.reasons],
-      };
+  // One gate for the first draft, every retry, and the post-remediation re-check.
+  const runQualityGate = (post: string, firstComment: string): QualityResult => {
+    let gate: QualityResult = enforceGeneratedSurfaceSafety(
+      checkQuality(post, experiment.qualityProfile, qualityContext),
+      { post, firstComment },
+      isEnglish
+    );
+    // Phrases learned from bottom performers (cron/feedback) fail the gate so the retry prompt avoids them
+    const prohibitedHits = findProhibitedPhrases(post, prohibitedPhrases);
+    if (prohibitedHits.length > 0) {
+      gate = { ...gate, pass: false, reasons: [`학습된 금지 문구 포함: ${prohibitedHits.join(", ")}`, ...gate.reasons] };
     }
-  }
+    // One angle must not take over the account (learnings 2026-09-03)
+    const saturated = findSaturatedTopics(post, recentPosts.map((recent) => recent.content));
+    if (saturated.length > 0) {
+      gate = { ...gate, pass: false, reasons: [...saturated.map(formatSaturationReason), ...gate.reasons] };
+    }
+    if (recentPosts.length > 0) {
+      const similarity = checkAntiRepeatSimilarity(post, recentPosts);
+      if (similarity.isDuplicate && similarity.reason) {
+        gate = { ...gate, pass: false, reasons: [similarity.reason, ...gate.reasons] };
+      }
+    }
+    return gate;
+  };
+
+  let lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext);
+  let qualityResult = runQualityGate(lastResult.post, lastResult.firstComment);
 
   for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
     console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
     lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, qualityResult.reasons);
-    qualityResult = enforceGeneratedSurfaceSafety(
-      checkQuality(lastResult.post, experiment.qualityProfile, qualityContext),
-      lastResult,
-      isEnglish
-    );
-
-    qualityResult = withProhibitedPhraseCheck(qualityResult, lastResult.post);
-
-    if (recentPosts.length > 0) {
-      const retrySimilarity = checkAntiRepeatSimilarity(lastResult.post, recentPosts);
-      if (retrySimilarity.isDuplicate && retrySimilarity.reason) {
-        qualityResult = {
-          ...qualityResult,
-          pass: false,
-          reasons: [retrySimilarity.reason, ...qualityResult.reasons],
-        };
-      }
-    }
+    qualityResult = runQualityGate(lastResult.post, lastResult.firstComment);
   }
 
   if (!qualityResult.pass) {
@@ -370,6 +361,7 @@ async function generateWithQuality(
     campaignFormulaId: experiment.campaignFormulaId,
     careerDecisionType: qualityResult.careerDecisionType ?? null,
     shouldLink: experiment.shouldLink,
+    regate: runQualityGate,
   };
 }
 
@@ -486,7 +478,7 @@ function buildGenerationPrompt(
         "- [Focused Conflict]: 타겟과 상황에 제시된 페르소나의 실전 마찰 1개만 깊게 파고들고, 여러 갈등이나 딜레마를 백화점식으로 나열하지 말 것.",
         "- [No Factual Hallucination]: 프롬프트에 제공되지 않은 가짜 개인 일화나 날조된 매출/사례 숫자를 지어내지 말고, 구조적 관찰과 냉철한 논리로 설득할 것.",
         "- [Zero-in-body URL]: 본문에는 절대 링크/URL을 넣지 않는다 (알고리즘 노출 패널티 방지).",
-        "- [AI Slop 절대 금지]: 'AI한테 생년월일 넣었더니', '반박시 니 말이 맞음', '끝. 더 이상 설명 안 함', '자, 상상해봐', '핵심만 말해줌', '□ 나열 체크박스' 등 복제된 클리셰 문구는 즉시 품질 탈락 처리된다.",
+        "- [AI Slop 절대 금지]: 'AI한테 생년월일 넣었더니', '반박시 니 말이 맞음', '끝. 더 이상 설명 안 함', '핵심만 말해줌', '□ 나열 체크박스' 등 복제된 클리셰 문구는 즉시 품질 탈락 처리된다.",
         `- [Zero-Promo Conversation Igniter 첫 댓글]: 첫 댓글은 구분자(${SEPARATOR}) 바로 아래에 1~2줄로 작성한다. **[치명적 금지 규칙]** 첫 댓글에 '프로필 링크', '리포트', '판정표', '진단', 링크, 상업적 유도 문구를 절대 쓰지 마라 (Meta 알고리즘이 즉각 스팸 봇으로 판정하여 조회수를 0으로 락을 건다). 첫 댓글은 오직 작성자 본인의 솔직한 찌질한 경험담/실수 고백 또는 독자가 댓글을 달 수밖에 없게 만드는 날것의 도발적 질문(Conversation Igniter)으로만 작성한다. (예: "난 솔직히 2번 고르고 1년 존버했다가 번아웃 오고 퇴직금 다 날렸음. 너넨 몇 번이냐?")`,
         "- [메타 텍스트 및 체크리스트 출력 절대 금지]: 글자 수 확인, 자수 체크, 초안, Threads 본문 같은 메타 텍스트를 절대 출력하지 않는다. 제목(# 제목), 구분선(---), '생성 완료', '포맷 체크', '본문/첫댓글 안내' 등 기획서용 메타 텍스트를 본문이나 첫 댓글에 단 한 줄도 출력하지 마라.",
       ];
@@ -1048,7 +1040,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     const scheduledTime = Math.max(now + 5 * 60 * 1000, baseTime + index * POST_INTERVAL_MS + jitterMs);
 
     const rawPostContent = ensureMaxThreadsLength(result.post);
-    const remediation = await remediatePostAlgorithmic(
+    const algorithmicThreshold = config.minAlgorithmicScore ?? 80;
+    const rawRemediation = await remediatePostAlgorithmic(
       rawPostContent,
       result.firstComment || null,
       {
@@ -1056,11 +1049,20 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         targetAudience: result.targetAudience,
         productProfile: config.productProfile ? JSON.stringify(config.productProfile) : undefined,
       },
-      config.minAlgorithmicScore ?? 80
+      algorithmicThreshold
     );
-
-    const postContent = remediation.content;
-    const initialComment = remediation.firstComment;
+    // A rewrite can break the content gate the original already passed; keep the original then.
+    const reconciled = reconcileRemediation({
+      rawContent: rawPostContent,
+      rawFirstComment: result.firstComment || null,
+      remediation: rawRemediation,
+      regate: result.regate,
+      threshold: algorithmicThreshold,
+    });
+    const remediation = reconciled.remediation;
+    const postContent = reconciled.content;
+    const initialComment = reconciled.firstComment;
+    const qualityReasons = [...result.qualityReasons, ...reconciled.extraReasons];
     const threadParts = splitContentIntoThreadParts(postContent);
     // Auto-queue only gate-passing posts from proven formulas; the rest wait for human approval
     const autoQueue = remediation.pass && result.qualityPass !== false && isAutopilotFormula(result.formulaId, growthMemory);
@@ -1083,7 +1085,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         qualityScore: result.qualityScore,
         qualityProfile: result.qualityProfile,
         qualityPass: result.qualityPass,
-        qualityReasons: JSON.stringify(result.qualityReasons),
+        qualityReasons: JSON.stringify(qualityReasons),
         campaignId: result.campaignId,
         campaignFormulaId: result.campaignFormulaId,
         careerDecisionType: result.careerDecisionType,

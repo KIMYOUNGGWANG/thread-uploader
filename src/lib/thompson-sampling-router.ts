@@ -63,6 +63,8 @@ export const DEFAULT_INFORMATIVE_PRIORS: Record<string, BetaPrior> = {
   career_mismatch: { alpha: 12, beta: 8 },              // 60% prior mean
   self_classification: { alpha: 12, beta: 8 },          // 60% prior mean
   imagination_dilemma: { alpha: 11, beta: 9 },          // 55% prior mean
+  identity_profile: { alpha: 12, beta: 8 },             // 22k verified profiling post (60% prior mean)
+  relationship_tension: { alpha: 12, beta: 8 },         // 23k verified relationship post (60% prior mean)
   cost_loss_punch: { alpha: 10, beta: 10 },             // 50% prior mean
 
   // Mid-of-Funnel Authority & Fact Bombs (Track B)
