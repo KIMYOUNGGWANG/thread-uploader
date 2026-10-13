@@ -134,3 +134,11 @@ describe("parseBrandConfig quality profile", () => {
     expect(parseBrandConfig(JSON.stringify({ qualityProfile: "saas_b2b" })).qualityProfile).toBe("saas_b2b");
   });
 });
+
+describe("campaign perPostLinks", () => {
+  it("defaults to per-post links on and keeps an explicit off", () => {
+    expect(parseBrandConfig("{}").campaigns[0].perPostLinks).toBe(true);
+    const off = parseBrandConfig(JSON.stringify({ campaigns: [{ id: "career_timing_wedge_399", perPostLinks: false }] }));
+    expect(off.campaigns[0].perPostLinks).toBe(false);
+  });
+});

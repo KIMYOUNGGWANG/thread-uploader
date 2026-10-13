@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast, Toaster } from "sonner";
 import type { BrandConfig, BrandFormula, CampaignConfig, OptimizationGoal, QualityProfileId, ViralDiscoveryConfig } from "@/types/brand";
 import { parseOptimizationGoal } from "@/types/brand";
+import { buildBioLinkUrl } from "@/lib/tracking-url";
 import type { ViralAdapterId } from "@/types/viral";
 import { ProductSettingsTab } from "@/components/ProductSettingsTab";
 
@@ -552,6 +553,16 @@ function CampaignTab({
               className={INPUT_CLASS}
             />
           </Field>
+          <Field label="글 링크" hint="끄면 모든 글에서 링크와 '링크 확인' CTA가 빠지고 프로필 링크로만 유도">
+            <select
+              value={activeCampaign.perPostLinks ? "on" : "off"}
+              onChange={(event) => updateCampaign({ perPostLinks: event.target.value === "on" })}
+              className={INPUT_CLASS}
+            >
+              <option value="on">첫 댓글에 N개 중 1개 삽입 (글 단위 귀속)</option>
+              <option value="off">넣지 않음 (bio 링크만)</option>
+            </select>
+          </Field>
           <Field label="링크 cadence" hint="3이면 3개 중 1개">
             <input
               type="number"
@@ -560,12 +571,20 @@ function CampaignTab({
               value={activeCampaign.linkCadenceEvery}
               onChange={(event) => updateCampaign({ linkCadenceEvery: clampNumberInput(event.target.value, 1, 12, 3) })}
               className={INPUT_CLASS}
+              disabled={!activeCampaign.perPostLinks}
             />
           </Field>
         </div>
-        <p className="text-xs text-slate-500 mt-3">
-          UTM: utm_source=threads · utm_campaign={activeCampaign.utmCampaign} · utm_content=postId
-        </p>
+        {activeCampaign.perPostLinks ? (
+          <p className="text-xs text-slate-500 mt-3">
+            UTM: utm_source=threads · utm_campaign={activeCampaign.utmCampaign} · utm_content=postId
+          </p>
+        ) : (
+          <p className="text-xs text-slate-500 mt-3 break-all">
+            Threads 프로필 링크에 붙여넣기: <span className="font-mono text-slate-300">{buildBioLinkUrl(activeCampaign.landingUrl || "/")}</span>
+            <br />글 단위 귀속은 불가. 랜딩 쪽 분석에서 ref=threads_bio 합계로만 측정.
+          </p>
+        )}
       </SectionCard>
 
       <SectionCard title="3종 포스트 공식" description="캠페인 생성 시 이 공식들만 회전시키며 테스트합니다.">

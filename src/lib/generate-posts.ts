@@ -379,7 +379,7 @@ function buildExperiment(
 ): GrowthExperiment {
   const qualityProfile = campaign?.qualityProfile ?? config.qualityProfile ?? "saju_viral";
   const shouldLink = campaign
-    ? shouldLinkAt({ index, linkOffset, cadence: campaign.linkCadenceEvery ?? 1 })
+    ? campaign.perPostLinks && shouldLinkAt({ index, linkOffset, cadence: campaign.linkCadenceEvery ?? 1 })
     : Boolean(config.websiteUrl.trim());
   const defaultCtaTypes = qualityProfile === "career_decision"
     ? ["셀프체크", "저장 유도", "공유 유도", "프로필 확인"]

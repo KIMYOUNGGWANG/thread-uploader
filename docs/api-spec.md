@@ -499,6 +499,7 @@ const CAREER_TIMING_WEDGE_399: CampaignConfig = {
   dailyPostTarget: 3,
   linkCadenceEvery: 3,
   linkPlacement: "firstComment",
+  perPostLinks: true, // false = bio-only: 글 링크·"링크 확인" CTA 없음, 프로필 링크(ref=threads_bio)로만 유도
   formulas: [
     {
       id: "self_classification",
@@ -574,6 +575,7 @@ const PRODUCT_GROWTH_BASELINE: CampaignConfig = {
 
 ### Link Cadence
 
+- `perPostLinks: false` turns the campaign into bio-only mode: no post gets a link, the "링크 확인" CTA is never chosen, and `linkCadenceEvery` is ignored. Attribution then exists only in aggregate via the profile link (`buildBioLinkUrl`: `ref=threads_bio&track=track_c&fid=profile_hub`).
 - In each campaign batch, only 1 of every 3 posts receives a landing link.
 - Links are placed in `firstComment`, not the main body.
 - For 21 generated posts, exactly 7 should include links.
