@@ -1,3 +1,5 @@
+import { calculateSearchSignalScore } from "@/lib/viral-analysis";
+
 export type TargetDomainCategory = "CAREER_CONFLICT" | "WEALTH_PANIC" | "RELATIONSHIP_TOXICITY";
 
 export interface AbstractedTrendSkeleton {
@@ -20,6 +22,7 @@ export interface ThreadsTrendSample {
 const SAMPLE_WINDOW_MS = 72 * 60 * 60 * 1000;
 const MAX_SAMPLES_PER_DOMAIN = 12;
 const MAX_SAMPLE_CHARS = 280;
+const REPLIES_BONUS = 5;
 
 // Threads keyword search terms per domain; searched with the brand's own token.
 export const DOMAIN_THREADS_KEYWORDS: Record<TargetDomainCategory, string[]> = {
@@ -28,19 +31,43 @@ export const DOMAIN_THREADS_KEYWORDS: Record<TargetDomainCategory, string[]> = {
   RELATIONSHIP_TOXICITY: ["잠수이별", "회피형", "가스라이팅", "손절"],
 };
 
-/** Keeps non-empty posts from the last 72h, newest first, trimmed so the prompt stays bounded. */
-export function selectThreadsTrendSamples(
-  posts: Array<{ text?: string; username?: string; timestamp?: string }>,
-  now: Date = new Date()
-): ThreadsTrendSample[] {
+export interface ThreadsKeywordResult {
+  keyword: string;
+  posts: Array<{ id: string; text?: string; username?: string; timestamp?: string; has_replies?: boolean }>;
+}
+
+/**
+ * Picks the posts that are actually travelling, not merely the newest ones.
+ * Threads search returns no engagement counts, so the same proxy as the viral cron is used:
+ * TOP-search rank per keyword, overlap across keywords, plus a small bump for posts that drew replies.
+ * Only posts from the last 72h qualify; text is trimmed so the prompt stays bounded.
+ */
+export function selectThreadsTrendSamples(results: ThreadsKeywordResult[], now: Date = new Date()): ThreadsTrendSample[] {
   const cutoff = now.getTime() - SAMPLE_WINDOW_MS;
-  return posts
-    .filter((post) => post.text?.trim())
-    .map((post) => ({ ...post, parsedAt: Date.parse(post.timestamp ?? "") }))
-    .filter((post) => Number.isFinite(post.parsedAt) && post.parsedAt >= cutoff && post.parsedAt <= now.getTime())
-    .sort((a, b) => b.parsedAt - a.parsedAt)
+  const byId = new Map<string, { post: ThreadsKeywordResult["posts"][number]; bestRank: number; keywordHits: number }>();
+  for (const { posts } of results) {
+    posts.forEach((post, index) => {
+      if (!post.text?.trim()) return;
+      const parsedAt = Date.parse(post.timestamp ?? "");
+      if (!Number.isFinite(parsedAt) || parsedAt < cutoff || parsedAt > now.getTime()) return;
+      const rank = index + 1;
+      const seen = byId.get(post.id);
+      byId.set(post.id, {
+        post,
+        bestRank: Math.min(seen?.bestRank ?? rank, rank),
+        keywordHits: (seen?.keywordHits ?? 0) + 1,
+      });
+    });
+  }
+
+  return Array.from(byId.values())
+    .map((entry) => ({
+      ...entry,
+      score: calculateSearchSignalScore({ searchRank: entry.bestRank, keywordHits: entry.keywordHits }) + (entry.post.has_replies ? REPLIES_BONUS : 0),
+    }))
+    .sort((a, b) => b.score - a.score)
     .slice(0, MAX_SAMPLES_PER_DOMAIN)
-    .map((post) => ({ text: post.text!.trim().slice(0, MAX_SAMPLE_CHARS), username: post.username, timestamp: post.timestamp }));
+    .map(({ post }) => ({ text: post.text!.trim().slice(0, MAX_SAMPLE_CHARS), username: post.username, timestamp: post.timestamp }));
 }
 
 function formatThreadsSamples(samples: ThreadsTrendSample[]): string {

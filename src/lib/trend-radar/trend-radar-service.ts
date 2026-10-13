@@ -69,11 +69,14 @@ async function createThreadsSamplesFn(brandId: string, now: Date) {
     return undefined;
   }
   return async (domain: TargetDomainCategory): Promise<ThreadsTrendSample[]> => {
+    const keywords = DOMAIN_THREADS_KEYWORDS[domain];
     const settled = await Promise.allSettled(
-      DOMAIN_THREADS_KEYWORDS[domain].map((keyword) => searchThreadsByKeyword(accessToken, keyword, THREADS_RESULTS_PER_KEYWORD))
+      keywords.map((keyword) => searchThreadsByKeyword(accessToken, keyword, THREADS_RESULTS_PER_KEYWORD))
     );
-    const posts = settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
-    return selectThreadsTrendSamples(posts, now);
+    const results = settled.flatMap((result, index) =>
+      result.status === "fulfilled" ? [{ keyword: keywords[index], posts: result.value }] : []
+    );
+    return selectThreadsTrendSamples(results, now);
   };
 }
 

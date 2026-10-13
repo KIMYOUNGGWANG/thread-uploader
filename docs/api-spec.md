@@ -1130,7 +1130,7 @@ interface ViralAdapterResult {
 | `GET` | `/api/cron/feedback?apply=true` | 72h 성숙 글 기준 viralMemory topPerformers + 금지 표현 학습 (formulaWeights는 쓰지 않음) |
 | `GET` | `/api/cron/viral` | 모든 제품 viral discovery → 미분석 상위 10개 Claude 분석(`rawMetrics.llmAnalyzedAt`, `whyItWorks`) → viralMemory 재학습. `topPerformers`/`nextHookCandidates`는 feedback cron 소유라 보존. 외부 글 점수에 TOP 검색 순위·키워드 중복·반복 노출(`rawMetrics.searchRank`/`keywordHits`/`timesSeen`) 가산 |
 | `GET` | `/api/cron/refill?brand=slug&target=N` | `brand`, `target`(1-50) 필수. 대기열(PENDING+NEEDS_REVIEW)이 target 미만이면 부족분을 최대 6개까지 `generatePostsForBrand`로 생성. `approvedCampaignStart`는 항상 false. 대기열이 차 있으면 `skipped: "backlog_full"` |
-| `GET` | `/api/cron/trends?brands=slug` | `brands` 필수(없으면 400). 한국어 제품만 대상. 도메인별 키워드로 브랜드 토큰의 Threads 키워드 검색(최근 72시간, 도메인당 최대 12개, 작성자 제거) + Claude(Sonnet) 웹 검색으로 커리어·재테크·관계 갈등 수집. 토큰이 없거나 만료면 웹 검색만으로 진행 → 브랜드 훅으로 변환 → `brandConfig.trendRadar = { harvestedAt, items[≤6] }` 저장. 생성 시 4일 이내 레이더만 프롬프트에 주입 |
+| `GET` | `/api/cron/trends?brands=slug` | `brands` 필수(없으면 400). 한국어 제품만 대상. 도메인별 키워드로 브랜드 토큰의 Threads 키워드 검색(최근 72시간 글 중 TOP 검색 순위·키워드 중복 노출·댓글 유무로 점수화해 도메인당 상위 12개, 작성자 제거) + Claude(Sonnet) 웹 검색으로 커리어·재테크·관계 갈등 수집. 토큰이 없거나 만료면 웹 검색만으로 진행 → 브랜드 훅으로 변환 → `brandConfig.trendRadar = { harvestedAt, items[≤6] }` 저장. 생성 시 4일 이내 레이더만 프롬프트에 주입 |
 
 학습 루프 규칙:
 - 보상 정의는 `calculatePerformanceScore` 하나 (조회 0.2 · 댓글 40 · 리포스트 25 · 클릭 50 · 전환 300 · 유료전환 2500). Thompson 보상은 전환 0.6 / 반응 0.4.
