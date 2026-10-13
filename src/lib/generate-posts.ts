@@ -1186,7 +1186,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   }
 
   const passedCount = createdPosts.filter((p) => p.algorithmicPass).length;
-  const needsReviewCount = createdPosts.filter((p) => !p.algorithmicPass).length;
+  const needsReviewCount = createdPosts.filter((p) => p.status === "NEEDS_REVIEW").length;
 
   return {
     ok: true,

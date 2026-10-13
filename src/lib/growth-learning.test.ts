@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculatePerformanceScore, computeWeeklyLift, isAutopilotFormula } from "@/lib/growth-learning";
+import { buildGrowthMemory, calculatePerformanceScore, computeWeeklyLift, isAutopilotFormula, type GrowthPostInput } from "@/lib/growth-learning";
 import { EMPTY_GROWTH_MEMORY } from "@/types/brand";
 
 describe("calculatePerformanceScore", () => {
@@ -56,5 +56,34 @@ describe("computeWeeklyLift", () => {
 
   it("returns null lift when a week has no evidence", () => {
     expect(computeWeeklyLift([], now).scoreLiftPct).toBeNull();
+  });
+});
+
+describe("formulaWinners", () => {
+  const post = (id: string, formulaId: string, hookType: string, views: number): GrowthPostInput => ({
+    id, formulaId, hookType, topic: hookType, targetAudience: null, ctaType: null,
+    views, likes: 0, replies: 0, reposts: 0, performanceScore: null,
+  });
+  // The formula averages its hot and cold posts; three hook+topic pairs above that
+  // average (6 patterns) push every formula out of the mixed top-5 winners.
+  const posts: GrowthPostInput[] = [
+    post("1", "steady", "h1", 2000), post("2", "steady", "h1", 2000),
+    post("3", "steady", "h2", 1800), post("4", "steady", "h2", 1800),
+    post("5", "steady", "h3", 1600), post("6", "steady", "h3", 1600),
+    post("7", "steady", "h4", 200), post("8", "steady", "h4", 200),
+    post("9", "steady", "h5", 100), post("10", "steady", "h5", 100),
+    post("11", "weak", "h6", 10), post("12", "weak", "h6", 10),
+  ];
+
+  it("lists formulas with 2+ posts scoring at or above the brand average", () => {
+    const memory = buildGrowthMemory(posts);
+    expect(memory.formulaWinners).toEqual(["steady"]);
+  });
+
+  it("auto-queues a formula winner even when mixed winners are all hooks", () => {
+    const memory = buildGrowthMemory(posts);
+    expect(memory.winners.some((winner) => winner.dimension === "formula")).toBe(false);
+    expect(isAutopilotFormula("steady", memory)).toBe(true);
+    expect(isAutopilotFormula("weak", memory)).toBe(false);
   });
 });

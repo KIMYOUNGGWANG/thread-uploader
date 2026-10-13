@@ -72,6 +72,10 @@ export function buildGrowthMemory(posts: GrowthPostInput[]): GrowthMemory {
     .filter((pattern) => pattern.count >= 2)
     .sort((a, b) => a.avgScore - b.avgScore)
     .slice(0, 5);
+  // Mixed top-5 winners are usually hooks/topics, so formulas get their own proven list.
+  const formulaWinners = patterns
+    .filter((pattern) => pattern.dimension === "formula" && pattern.count >= 2 && pattern.avgScore >= avgScore)
+    .map((pattern) => pattern.value);
 
   return {
     version: 1,
@@ -81,6 +85,7 @@ export function buildGrowthMemory(posts: GrowthPostInput[]): GrowthMemory {
     winners,
     weakSignals,
     recommendations: buildRecommendations(winners, weakSignals, scoredPosts.length),
+    formulaWinners,
   };
 }
 
@@ -206,6 +211,7 @@ function average(values: number[]): number {
 // skip human review. Everything else is queued as NEEDS_REVIEW.
 export function isAutopilotFormula(formulaId: string | null | undefined, memory: GrowthMemory): boolean {
   if (!formulaId) return false;
+  if (memory.formulaWinners?.includes(formulaId)) return true;
   return memory.winners.some((winner) => winner.dimension === "formula" && winner.value === formulaId);
 }
 

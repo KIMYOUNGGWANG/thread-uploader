@@ -19,6 +19,8 @@ export interface GrowthMemory {
   winners: GrowthPattern[];
   weakSignals: GrowthPattern[];
   recommendations: string[];
+  // Formula ids proven at or above the brand average (2+ posts). Drives auto-queue; optional for old rows.
+  formulaWinners?: string[];
 }
 
 export const EMPTY_GROWTH_MEMORY: GrowthMemory = {
@@ -29,6 +31,7 @@ export const EMPTY_GROWTH_MEMORY: GrowthMemory = {
   winners: [],
   weakSignals: [],
   recommendations: [],
+  formulaWinners: [],
 };
 
 export function parseGrowthMemory(raw: string): GrowthMemory {
@@ -43,6 +46,7 @@ export function parseGrowthMemory(raw: string): GrowthMemory {
       winners: normalizeGrowthPatterns(parsed.winners),
       weakSignals: normalizeGrowthPatterns(parsed.weakSignals),
       recommendations: normalizeRecommendations(parsed.recommendations),
+      formulaWinners: normalizeRecommendations(parsed.formulaWinners),
     };
   } catch {
     return EMPTY_GROWTH_MEMORY;
