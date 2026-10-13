@@ -44,6 +44,7 @@ import { resolveDynamicContext } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
 import { findSaturatedTopics, formatSaturationReason } from "@/lib/topic-saturation-guard";
+import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 
@@ -373,16 +374,19 @@ function buildExperiment(
   index: number,
   viralIntentMode = selectViralIntentMode(index),
   contextDomainId?: string,
-  contextOffset = 0
+  contextOffset = 0,
+  linkOffset = 0
 ): GrowthExperiment {
   const qualityProfile = campaign?.qualityProfile ?? config.qualityProfile ?? "saju_viral";
-  const cadence = Math.max(1, campaign?.linkCadenceEvery ?? 1);
+  const shouldLink = campaign
+    ? shouldLinkAt({ index, linkOffset, cadence: campaign.linkCadenceEvery ?? 1 })
+    : Boolean(config.websiteUrl.trim());
   const defaultCtaTypes = qualityProfile === "career_decision"
     ? ["셀프체크", "저장 유도", "공유 유도", "프로필 확인"]
     : ["링크 확인", "저장 유도", "공유 유도", "프로필 확인"];
   const ctaTypeCandidates = (config.ctaTypes?.length ? config.ctaTypes : defaultCtaTypes)
     .filter((ctaType) => !hasReplyBurdenPromise(ctaType));
-  const ctaTypes = ctaTypeCandidates.length ? ctaTypeCandidates : defaultCtaTypes;
+  const ctaTypes = coupleCtaToLink(ctaTypeCandidates.length ? ctaTypeCandidates : defaultCtaTypes, shouldLink);
 
   const dynamicContext = resolveDynamicContext({
     domainId: contextDomainId ?? qualityProfile,
@@ -404,9 +408,7 @@ function buildExperiment(
     qualityProfile,
     campaign,
     campaignFormulaId: campaign ? viralIntentMode.id : null,
-    shouldLink: campaign
-      ? (index + 1) % cadence === 0
-      : Boolean(config.websiteUrl.trim()),
+    shouldLink,
     sequenceIndex: index,
   };
 }
@@ -921,6 +923,10 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   // ponytail: day-based offset, same-day reruns still repeat; switch to a persisted counter if that matters.
   const contextOffset = Math.floor(Date.now() / 86_400_000) * count;
   const isSajuDomain = domainProfile === "saju_viral" || domainProfile === "career_decision";
+  // Link cadence counts the campaign's existing posts, so chunked requests keep the 1-in-N rhythm.
+  const linkOffset = activeCampaign
+    ? await prisma.post.count({ where: { brandId, campaignId: activeCampaign.id } })
+    : 0;
 
   const BATCH = 3;
   const BATCH_COOLDOWN = 500;
@@ -970,7 +976,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       const experiment = buildExperiment(
         formula, topic, config, activeCampaign, batchIndex, viralIntentMode,
         useRelationshipContext ? "saju_relationship" : undefined,
-        contextOffset
+        contextOffset,
+        linkOffset
       );
       const inBatchPosts: RecentPostSummary[] = [
         ...results.map((r) => ({ content: r.post, topic: r.topic, hookType: r.hookType })),

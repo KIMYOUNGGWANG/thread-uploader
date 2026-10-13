@@ -189,6 +189,7 @@ vi.mock("@/lib/prisma", () => ({
     post: {
       findMany: vi.fn(async () => []),
       findFirst: vi.fn(async () => null),
+      count: vi.fn(async () => 0),
       create: vi.fn(async ({ data }) => {
         const post = {
           id: `post_${state.createdPosts.length}`,

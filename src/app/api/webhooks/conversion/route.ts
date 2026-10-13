@@ -8,7 +8,12 @@ import { learnBrandGrowth } from "@/lib/growth-service";
 type NormalizedEvent = "click" | "conversion" | "paid_conversion";
 
 const CLICK_EVENTS = new Set(["click", "landing_view"]);
-const CONVERSION_EVENTS = new Set(["test_start", "first_result_view", "conversion", "analysis_start", "decision_question_submit", "ritual_action_viewed"]);
+// Mid-funnel events: anything past the landing view that is not yet money.
+// `match_created` is the CosmicPath north-star (docs/cosmicpath-handoff-2026-10-08.md).
+const CONVERSION_EVENTS = new Set([
+  "test_start", "first_result_view", "conversion", "analysis_start", "decision_question_submit", "ritual_action_viewed",
+  "signup", "checkout_intent", "match_created", "match_create",
+]);
 const PAID_EVENTS = new Set(["paid_conversion", "checkout_success", "payment", "order_complete"]);
 
 const POST_SUMMARY_SELECT = {
