@@ -16,6 +16,7 @@ Internal growth workspace for promoting my owned products. The database/API stil
 - Manage viral sources per product: keyword searches, competitor handles, excluded terms, source adapters, and run limits.
 - Extract viral hook, emotion, structure, topic, and CTA patterns.
 - Learn winning and weak growth patterns, then feed that memory into future AI generation.
+- Show a weekly scorecard on the dashboard: 7-day buckets of published/measured posts, median views, 10k-view breakout rate, click→conversion→paid funnel, linked vs unlinked views, per-formula rows, and one diagnosed bottleneck (sample → ops → reach → conversion) with a next action.
 - Show a portfolio overview with experiment status, primary/conversion metrics, quality state, and next action.
 
 ## Growth Loop
@@ -62,10 +63,10 @@ npm run build
 
 ## Cron Endpoints
 
-- `GET /api/cron/publish` publishes one pending post per product profile. Optional `?brands=slug1,slug2` limits the run. It is the only publisher: GitHub Actions (`.github/workflows/cron.yml`) calls it hourly with `?slots=` (UTC hours), and the route publishes at most once per slot while the slot's 3-hour window is open, so late GitHub runs still post.
+- `GET /api/cron/publish` publishes one pending post per product profile. Optional `?brands=slug1,slug2` limits the run. It is the only publisher: GitHub Actions (`.github/workflows/cron.yml`) calls it hourly with `?slots=` (UTC hours), and the route publishes at most once per slot while the slot's 3-hour window is open, so late GitHub runs still post. Daily trust-tier quotas (newbie 1 / warming 2 / established 5 / authority 8, reset at KST midnight) skip the run with `daily_quota_reached` instead of demoting the post.
 - `GET /api/cron/refresh-token` refreshes Threads tokens when they are within 14 days of expiry.
 - `GET /api/cron/fetch-metrics` collects Threads insights (6h–14d posts, uncollected and 72h-mature first) and rescoring keeps click/conversion weight.
-- `GET /api/cron/learn` refreshes product growth memory from collected metrics. GitHub Actions (`fetch-metrics.yml`) runs both daily at UTC 12:00.
+- `GET /api/cron/learn` refreshes product growth memory from collected metrics. Formula weights and Thompson priors are rebuilt from the recent window each run (never stacked on stored values). `growthMemory.formulaWinners` (formula-level, 2+ posts at or above the brand average) is what lets generated drafts skip review. GitHub Actions (`fetch-metrics.yml`) runs both daily at UTC 12:00.
 - `GET /api/cron/viral` discovers viral references, has Claude analyze the top 10 not-yet-analyzed references, and refreshes product viral memory (keeping the feedback-owned top performers). External posts carry no engagement counts, so TOP-search rank, keyword overlap, and repeat sightings feed their score. GitHub Actions (`viral.yml`) runs it hourly.
 - `GET /api/cron/trends?brands=slug` (brands required) harvests the last 72h of Korean community tension with Claude web search, transposes it into brand hooks, and stores `brandConfig.trendRadar`, which generation injects as timely material. GitHub Actions (`trends.yml`) runs it daily at KST 06:29 for `vars.TREND_BRAND_SLUGS` (default `cosmicpath`).
 - `GET /api/cron/refill?brand=slug&target=N` tops a product's backlog (PENDING + NEEDS_REVIEW) up to `target`, at most 6 drafts per run, through the same generation pipeline as the dashboard. Drafts from unproven formulas still land in NEEDS_REVIEW, and campaign starts are never auto-approved. GitHub Actions (`refill.yml`) runs it daily at KST 07:13, right after the trend radar.

@@ -1,6 +1,6 @@
 # Task Board
 
-> Updated: 2026-06-04
+> Updated: 2026-10-13
 
 ---
 
@@ -19,6 +19,20 @@ Operating loop:
 **Active experiment:** `portfolio_growth_os`
 
 **Default cadence:** 7-day evidence sprint
+
+---
+
+## Current Mission (2026-10-13): Viral Engine v2
+
+Spec: `docs/superpowers/specs/2026-10-13-viral-engine-v2-design.md`. Order: 측정 → 도달 → 전환 → 운영. Stage 2 (SaaS productization) starts only after the scorecard shows the engine working on owned products.
+
+| Phase | Work | Status |
+|---|---|---|
+| A 측정 | `/api/growth/scorecard`, dashboard panel, weights rebuilt per run, feedback cron reads clicks/paid, single score-weight constant | Done |
+| B 도달 | '자, 상상해봐' gate contradiction removed, topic saturation guard, remediation re-gate, fact_bomb overfit mandate removed, lean mode priors | Done |
+| C 전환 | link cadence offset across chunks, CTA↔link coupling, webhook accepts signup/checkout_intent/match_created | Done |
+| D 운영 | formulaWinners auto-queue, quota 5/8 + KST day, quota skip instead of demotion, needsReview count fixed | Done |
+| 다음 | 4주 스코어카드 관찰 후 병목에 맞는 다음 실험 선택; `generation-engine.ts` 중복본 정리; SaaS 2단계 spec | Open |
 
 ---
 
