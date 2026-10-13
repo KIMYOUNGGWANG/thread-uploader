@@ -3,6 +3,9 @@ import {
   analyzeViralText,
   buildViralMemory,
   calculateConfidence,
+  keepFeedbackFields,
+  calculateSearchSignalScore,
+  mergeStoredRawMetrics,
 } from "@/lib/viral-analysis";
 
 describe("analyzeViralText", () => {
@@ -55,5 +58,59 @@ describe("buildViralMemory", () => {
     expect(oneSampleConfidence).toBeLessThan(tenSamplesConfidence);
     expect(oneSampleConfidence).toBeGreaterThan(0);
     expect(tenSamplesConfidence).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("keepFeedbackFields", () => {
+  it("keeps feedback-owned hooks when the hourly learner rebuilds memory", () => {
+    const previous = JSON.stringify({
+      topPerformers: [{ postId: "p1", hook: "로또 1등 되면 뭐 할 거야?", score: 900, views: 299073 }],
+      nextHookCandidates: [{ parentPostId: "p1", nextHeadlineHook: "퇴사 vs 존버", objectionCore: "세금" }],
+    });
+    const rebuilt = buildViralMemory([]);
+
+    const merged = keepFeedbackFields(rebuilt, previous);
+
+    expect(merged.topPerformers?.[0]?.hook).toBe("로또 1등 되면 뭐 할 거야?");
+    expect(merged.nextHookCandidates).toHaveLength(1);
+    expect(merged.sampleSize).toBe(rebuilt.sampleSize);
+  });
+
+  it("tolerates missing or broken previous memory", () => {
+    expect(keepFeedbackFields(buildViralMemory([]), null).topPerformers).toEqual([]);
+    expect(keepFeedbackFields(buildViralMemory([]), "not json").topPerformers).toEqual([]);
+  });
+});
+
+describe("calculateSearchSignalScore", () => {
+  it("ranks a top-1 post seen across keywords and runs above a rank-10 one-off", () => {
+    const strong = calculateSearchSignalScore({ searchRank: 1, keywordHits: 3, timesSeen: 12 });
+    const weak = calculateSearchSignalScore({ searchRank: 10, keywordHits: 1, timesSeen: 1 });
+    expect(strong).toBe(28 + 40 + 22);
+    expect(weak).toBe(1);
+  });
+
+  it("scores zero without any search signal and caps persistence", () => {
+    expect(calculateSearchSignalScore({})).toBe(0);
+    expect(calculateSearchSignalScore({ timesSeen: 500 })).toBe(48);
+  });
+});
+
+describe("mergeStoredRawMetrics", () => {
+  it("starts at one sighting for a new post", () => {
+    const stored = mergeStoredRawMetrics(null, { searchRank: 3, keywordHits: 1 });
+    expect(stored.signal).toEqual({ searchRank: 3, keywordHits: 1, timesSeen: 1 });
+    expect(stored.isLlmAnalyzed).toBe(false);
+  });
+
+  it("counts repeat sightings and keeps the Claude analysis markers", () => {
+    const previous = JSON.stringify({ timesSeen: 4, llmAnalyzedAt: "2026-10-13T00:00:00Z", whyItWorks: "양자택일" });
+    const stored = mergeStoredRawMetrics(previous, { searchRank: 2 });
+    expect(stored.merged).toMatchObject({ timesSeen: 5, llmAnalyzedAt: "2026-10-13T00:00:00Z", whyItWorks: "양자택일", searchRank: 2 });
+    expect(stored.isLlmAnalyzed).toBe(true);
+  });
+
+  it("treats a legacy row without timesSeen as one prior sighting", () => {
+    expect(mergeStoredRawMetrics("{}", {}).signal.timesSeen).toBe(2);
   });
 });

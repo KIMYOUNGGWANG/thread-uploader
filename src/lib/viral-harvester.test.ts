@@ -4,6 +4,7 @@ import {
   isContentExcluded,
   deduplicateHarvestedCandidates,
   convertThreadsPostToCandidate,
+  annotateSearchSignals,
   type HarvestedCandidate,
 } from "./viral-harvester";
 
@@ -68,5 +69,27 @@ describe("Viral Harvester", () => {
     expect(candidate?.sourceKey).toBe("post_001");
     expect(candidate?.authorUsername).toBe("career_coach");
     expect(candidate?.content).toBe("이직할 때 가장 중요한 3가지");
+  });
+});
+
+describe("annotateSearchSignals", () => {
+  const fromSearch = (id: string, keyword: string, rank: number): HarvestedCandidate => {
+    const candidate = convertThreadsPostToCandidate({ id, text: `post ${id}` }, "threads_keyword", `keyword:${keyword}`, { keyword });
+    if (!candidate) throw new Error("fixture must convert");
+    candidate.rawMetrics.searchRank = rank;
+    return candidate;
+  };
+
+  it("counts keyword overlap and keeps the best rank per post", () => {
+    const annotated = annotateSearchSignals([fromSearch("a", "이직", 4), fromSearch("a", "퇴사", 1), fromSearch("b", "이직", 2)]);
+
+    expect(annotated[0].rawMetrics).toMatchObject({ searchRank: 1, keywordHits: 2 });
+    expect(annotated[2].rawMetrics).toMatchObject({ searchRank: 2, keywordHits: 1 });
+  });
+
+  it("leaves profile posts without a search rank untouched", () => {
+    const profilePost = convertThreadsPostToCandidate({ id: "p", text: "profile" }, "threads_profile", "profile:@x");
+    if (!profilePost) throw new Error("fixture must convert");
+    expect(annotateSearchSignals([profilePost])[0].rawMetrics.keywordHits).toBeUndefined();
   });
 });

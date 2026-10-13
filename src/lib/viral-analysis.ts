@@ -1,5 +1,5 @@
 import type { ViralMemory, ViralPatternDimension, ViralPatternSummary } from "@/types/viral";
-import { EMPTY_VIRAL_MEMORY } from "@/types/viral";
+import { EMPTY_VIRAL_MEMORY, parseViralMemory } from "@/types/viral";
 import {
   hasSaveShareMechanic,
   hasSelfClassificationMechanic,
@@ -120,6 +120,75 @@ export function buildViralMemory(examples: ViralExampleInput[]): ViralMemory {
     sourceMix: buildSourceMix(examples),
     topPatterns,
     recommendations: buildRecommendations(topPatterns, examples.length),
+  };
+}
+
+export interface SearchSignal {
+  searchRank?: number | null;
+  keywordHits?: number | null;
+  timesSeen?: number | null;
+}
+
+const MAX_PERSISTENCE_RUNS = 24;
+
+/**
+ * Threads search returns no engagement counts for other accounts' posts, so TOP-search
+ * placement stands in: rank within a query, overlap across queries, and staying in TOP across runs.
+ */
+export function calculateSearchSignalScore(signal: SearchSignal): number {
+  const rank = signal.searchRank ?? 0;
+  const rankScore = rank > 0 ? Math.max(0, 31 - rank * 3) : 0;
+  const overlapScore = Math.max(0, (signal.keywordHits ?? 1) - 1) * 20;
+  const extraRuns = Math.min(Math.max(0, (signal.timesSeen ?? 1) - 1), MAX_PERSISTENCE_RUNS);
+  return rankScore + overlapScore + extraRuns * 2;
+}
+
+export interface StoredRawMetrics {
+  merged: Record<string, unknown>;
+  signal: SearchSignal;
+  isLlmAnalyzed: boolean;
+}
+
+const LLM_OWNED_RAW_KEYS = ["llmAnalyzedAt", "whyItWorks"] as const;
+
+/** Merge a re-harvested post's raw metrics with what is stored: bump timesSeen, keep LLM-owned keys. */
+export function mergeStoredRawMetrics(previousRaw: string | null, next: Record<string, unknown>): StoredRawMetrics {
+  const previous = parseRecord(previousRaw);
+  const timesSeen = (readNumber(previous.timesSeen) ?? (previousRaw ? 1 : 0)) + 1;
+  const merged: Record<string, unknown> = { ...next, timesSeen };
+  for (const key of LLM_OWNED_RAW_KEYS) {
+    if (previous[key] !== undefined) merged[key] = previous[key];
+  }
+  return {
+    merged,
+    signal: { searchRank: readNumber(merged.searchRank), keywordHits: readNumber(merged.keywordHits), timesSeen },
+    isLlmAnalyzed: typeof merged.llmAnalyzedAt === "string",
+  };
+}
+
+function parseRecord(raw: string | null): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(raw || "{}");
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function readNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * The hourly viral learner rebuilds memory from examples, but topPerformers and
+ * nextHookCandidates are owned by the daily feedback cron. Carry them over.
+ */
+export function keepFeedbackFields(next: ViralMemory, previousRaw: string | null): ViralMemory {
+  const previous = parseViralMemory(previousRaw || "{}");
+  return {
+    ...next,
+    topPerformers: previous.topPerformers ?? [],
+    nextHookCandidates: previous.nextHookCandidates ?? [],
   };
 }
 

@@ -69,6 +69,22 @@ export function deduplicateHarvestedCandidates(candidates: HarvestedCandidate[])
   return unique;
 }
 
+/** Before dedupe: count how many keyword searches surfaced each post and keep its best rank. */
+export function annotateSearchSignals(candidates: HarvestedCandidate[]): HarvestedCandidate[] {
+  const hits = new Map<string, { count: number; bestRank: number }>();
+  for (const item of candidates) {
+    const rank = item.rawMetrics.searchRank;
+    if (typeof rank !== "number") continue;
+    const seen = hits.get(item.sourceKey);
+    hits.set(item.sourceKey, { count: (seen?.count ?? 0) + 1, bestRank: Math.min(seen?.bestRank ?? rank, rank) });
+  }
+  return candidates.map((item) => {
+    const signal = hits.get(item.sourceKey);
+    if (!signal) return item;
+    return { ...item, rawMetrics: { ...item.rawMetrics, searchRank: signal.bestRank, keywordHits: signal.count } };
+  });
+}
+
 export function convertThreadsPostToCandidate(
   post: ThreadsPublicPost,
   adapter: ViralAdapterId,
@@ -127,12 +143,13 @@ export async function harvestFromThreadsSources(options: HarvestOptions): Promis
   for (const keyword of keywords.slice(0, 5)) {
     try {
       const posts = await searchThreadsByKeyword(accessToken, keyword, maxPerSource);
-      for (const post of posts) {
+      posts.forEach((post, index) => {
         const candidate = convertThreadsPostToCandidate(post, "threads_keyword", `keyword:${keyword}`, { keyword });
         if (candidate && !isContentExcluded(candidate.content, excludedTerms)) {
+          candidate.rawMetrics.searchRank = index + 1; // TOP search order
           rawCandidates.push(candidate);
         }
-      }
+      });
       if (requestDelayMs > 0) {
         await new Promise((res) => setTimeout(res, requestDelayMs));
       }
@@ -167,7 +184,7 @@ export async function harvestFromThreadsSources(options: HarvestOptions): Promis
     }
   }
 
-  const unique = deduplicateHarvestedCandidates(rawCandidates);
+  const unique = deduplicateHarvestedCandidates(annotateSearchSignals(rawCandidates));
 
   return {
     candidates: unique,

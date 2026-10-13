@@ -7,6 +7,9 @@ import {
   calculateEngagementRate,
   calculateVelocityScore,
   calculateViralScore,
+  keepFeedbackFields,
+  calculateSearchSignalScore,
+  mergeStoredRawMetrics,
 } from "@/lib/viral-analysis";
 import { fetchPublicProfilePosts, searchThreadsByKeyword, type ThreadsPublicPost } from "@/lib/threads-api";
 import { harvestFromThreadsSources } from "@/lib/viral-harvester";
@@ -194,7 +197,8 @@ export async function learnViralPatterns(brandId: string) {
     take: 500,
   });
 
-  const memory = buildViralMemory(examples.map((example) => ({
+  const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { viralMemory: true } });
+  const builtMemory = buildViralMemory(examples.map((example) => ({
     id: example.id,
     source: example.source,
     content: example.content,
@@ -213,6 +217,7 @@ export async function learnViralPatterns(brandId: string) {
     structureType: example.structureType,
     ctaType: example.ctaType,
   })));
+  const memory = keepFeedbackFields(builtMemory, brand?.viralMemory ?? null);
 
   await prisma.$transaction([
     prisma.viralPattern.deleteMany({ where: { brandId } }),
@@ -358,73 +363,53 @@ async function saveCandidate(
   minViralScore: number
 ) {
   const discoveredAt = new Date();
-  const analysis = analyzeViralText(candidate.content, brandTopics);
+  const where = { brandId_source_sourceKey: { brandId, source: candidate.source, sourceKey: candidate.sourceKey } };
+  const existing = await prisma.viralExample.findUnique({ where, select: { rawMetrics: true } });
+  const stored = mergeStoredRawMetrics(existing?.rawMetrics ?? null, candidate.rawMetrics);
   const scoreMetrics = { ...candidate, discoveredAt };
-  const viralScore = calculateViralScore(scoreMetrics, candidate.content);
-  const engagementRate = calculateEngagementRate(candidate);
-  const velocityScore = calculateVelocityScore(scoreMetrics);
+  // Other accounts' posts come back without counts, so TOP-search placement stands in for engagement.
+  const searchBonus = candidate.views === null ? calculateSearchSignalScore(stored.signal) : 0;
+  const viralScore = calculateViralScore(scoreMetrics, candidate.content) + searchBonus;
   if (viralScore < minViralScore) return null;
 
+  const fields = {
+    authorUsername: candidate.authorUsername,
+    permalink: candidate.permalink,
+    content: candidate.content,
+    publishedAt: candidate.publishedAt,
+    views: candidate.views,
+    likes: candidate.likes,
+    replies: candidate.replies,
+    reposts: candidate.reposts,
+    quotes: candidate.quotes,
+    shares: candidate.shares,
+    engagementRate: calculateEngagementRate(candidate),
+    velocityScore: calculateVelocityScore(scoreMetrics),
+    viralScore,
+    rawMetrics: JSON.stringify(stored.merged),
+    discoveredAt,
+  };
+  const analysis = buildRuleAnalysisFields(candidate.content, brandTopics);
+
   return prisma.viralExample.upsert({
-    where: {
-      brandId_source_sourceKey: {
-        brandId,
-        source: candidate.source,
-        sourceKey: candidate.sourceKey,
-      },
-    },
-    update: {
-      authorUsername: candidate.authorUsername,
-      permalink: candidate.permalink,
-      content: candidate.content,
-      publishedAt: candidate.publishedAt,
-      views: candidate.views,
-      likes: candidate.likes,
-      replies: candidate.replies,
-      reposts: candidate.reposts,
-      quotes: candidate.quotes,
-      shares: candidate.shares,
-      engagementRate,
-      velocityScore,
-      viralScore,
-      hookType: analysis.hookType,
-      topic: analysis.topic,
-      emotionalDriver: analysis.emotionalDriver,
-      structureType: analysis.structureType,
-      ctaType: analysis.ctaType,
-      patternSummary: analysis.patternSummary,
-      keyTakeaway: analysis.keyTakeaway,
-      rawMetrics: JSON.stringify(candidate.rawMetrics),
-      discoveredAt,
-    },
-    create: {
-      brandId,
-      source: candidate.source,
-      sourceKey: candidate.sourceKey,
-      authorUsername: candidate.authorUsername,
-      permalink: candidate.permalink,
-      content: candidate.content,
-      publishedAt: candidate.publishedAt,
-      views: candidate.views,
-      likes: candidate.likes,
-      replies: candidate.replies,
-      reposts: candidate.reposts,
-      quotes: candidate.quotes,
-      shares: candidate.shares,
-      engagementRate,
-      velocityScore,
-      viralScore,
-      hookType: analysis.hookType,
-      topic: analysis.topic,
-      emotionalDriver: analysis.emotionalDriver,
-      structureType: analysis.structureType,
-      ctaType: analysis.ctaType,
-      patternSummary: analysis.patternSummary,
-      keyTakeaway: analysis.keyTakeaway,
-      rawMetrics: JSON.stringify(candidate.rawMetrics),
-      discoveredAt,
-    },
+    where,
+    // Rule-based labels must not overwrite a Claude analysis of the same post.
+    update: stored.isLlmAnalyzed ? fields : { ...fields, ...analysis },
+    create: { brandId, source: candidate.source, sourceKey: candidate.sourceKey, ...fields, ...analysis },
   });
+}
+
+function buildRuleAnalysisFields(content: string, brandTopics: string[]) {
+  const analysis = analyzeViralText(content, brandTopics);
+  return {
+    hookType: analysis.hookType,
+    topic: analysis.topic,
+    emotionalDriver: analysis.emotionalDriver,
+    structureType: analysis.structureType,
+    ctaType: analysis.ctaType,
+    patternSummary: analysis.patternSummary,
+    keyTakeaway: analysis.keyTakeaway,
+  };
 }
 
 function buildPatternCreateInput(brandId: string, pattern: ViralPatternSummary) {
