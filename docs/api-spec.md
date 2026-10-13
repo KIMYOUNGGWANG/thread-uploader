@@ -1086,7 +1086,8 @@ interface ViralAdapterResult {
 | `GET` | `/api/cron/refresh-token` | 모든 제품의 Threads 토큰 상태 확인 및 갱신 |
 | `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자) |
 | `GET` | `/api/cron/feedback?apply=true` | 72h 성숙 글 기준 viralMemory topPerformers + 금지 표현 학습 (formulaWeights는 쓰지 않음) |
-| `GET` | `/api/cron/viral` | 모든 제품 viral discovery + viralMemory 재학습 |
+| `GET` | `/api/cron/viral` | 모든 제품 viral discovery → 미분석 상위 10개 Claude 분석(`rawMetrics.llmAnalyzedAt`, `whyItWorks`) → viralMemory 재학습. `topPerformers`/`nextHookCandidates`는 feedback cron 소유라 보존. 외부 글 점수에 TOP 검색 순위·키워드 중복·반복 노출(`rawMetrics.searchRank`/`keywordHits`/`timesSeen`) 가산 |
+| `GET` | `/api/cron/trends?brands=slug` | `brands` 필수(없으면 400). 한국어 제품만 대상. Claude 웹 검색으로 최근 72시간 커리어·재테크·관계 갈등 수집 → 브랜드 훅으로 변환 → `brandConfig.trendRadar = { harvestedAt, items[≤6] }` 저장. 생성 시 4일 이내 레이더만 프롬프트에 주입 |
 
 학습 루프 규칙:
 - 보상 정의는 `calculatePerformanceScore` 하나 (조회 0.2 · 클릭 50 · 전환 300 · 유료전환 2500). Thompson 보상은 전환 0.6 / 반응 0.4.

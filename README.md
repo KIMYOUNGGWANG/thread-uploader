@@ -62,11 +62,12 @@ npm run build
 
 ## Cron Endpoints
 
-- `GET /api/cron/publish` publishes one pending post per product profile. Optional `?brands=slug1,slug2` limits the run. It is the only publisher: GitHub Actions (`.github/workflows/cron.yml`) calls it once per brand at the 5 daily slots.
+- `GET /api/cron/publish` publishes one pending post per product profile. Optional `?brands=slug1,slug2` limits the run. It is the only publisher: GitHub Actions (`.github/workflows/cron.yml`) calls it hourly with `?slots=` (UTC hours), and the route publishes at most once per slot while the slot's 3-hour window is open, so late GitHub runs still post.
 - `GET /api/cron/refresh-token` refreshes Threads tokens when they are within 14 days of expiry.
 - `GET /api/cron/fetch-metrics` collects Threads insights (6h–14d posts, uncollected and 72h-mature first) and rescoring keeps click/conversion weight.
 - `GET /api/cron/learn` refreshes product growth memory from collected metrics. GitHub Actions (`fetch-metrics.yml`) runs both daily at UTC 12:00.
-- `GET /api/cron/viral` discovers viral references and refreshes product viral memory.
+- `GET /api/cron/viral` discovers viral references, has Claude analyze the top 10 not-yet-analyzed references, and refreshes product viral memory (keeping the feedback-owned top performers). External posts carry no engagement counts, so TOP-search rank, keyword overlap, and repeat sightings feed their score. GitHub Actions (`viral.yml`) runs it hourly.
+- `GET /api/cron/trends?brands=slug` (brands required) harvests the last 72h of Korean community tension with Claude web search, transposes it into brand hooks, and stores `brandConfig.trendRadar`, which generation injects as timely material. GitHub Actions (`trends.yml`) runs it daily at KST 06:29 for `vars.TREND_BRAND_SLUGS` (default `cosmicpath`).
 - `GET /api/cron/account-intelligence` refreshes 48-hour account insight snapshots, intended for a 2-hour cadence.
 
 Token refresh and account intelligence cadences are registered through `vercel.json` as daily Vercel Cron Jobs.
