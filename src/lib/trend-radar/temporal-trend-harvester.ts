@@ -25,10 +25,12 @@ const MAX_SAMPLE_CHARS = 280;
 const REPLIES_BONUS = 5;
 
 // Threads keyword search terms per domain; searched with the brand's own token.
+// 8 per domain: enough for the keyword-overlap signal to mean something, 24 calls a day in total.
+// Keep terms unique across domains so one post does not count as "overlap" in two domains.
 export const DOMAIN_THREADS_KEYWORDS: Record<TargetDomainCategory, string[]> = {
-  CAREER_CONFLICT: ["이직", "퇴사", "번아웃", "권고사직"],
-  WEALTH_PANIC: ["손절", "영끌", "코인", "물타기"],
-  RELATIONSHIP_TOXICITY: ["잠수이별", "회피형", "가스라이팅", "손절"],
+  CAREER_CONFLICT: ["이직", "퇴사", "번아웃", "권고사직", "수습 탈락", "연봉 협상", "이직 실패", "퇴사 고민"],
+  WEALTH_PANIC: ["손절", "영끌", "코인", "물타기", "하우스푸어", "청산", "존버", "전재산"],
+  RELATIONSHIP_TOXICITY: ["잠수이별", "회피형", "가스라이팅", "환승이별", "재회", "썸 타이밍", "친구 손절", "헌신"],
 };
 
 export interface ThreadsKeywordResult {

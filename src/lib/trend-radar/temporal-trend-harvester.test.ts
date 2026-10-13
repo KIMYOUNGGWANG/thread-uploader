@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildTemporalSearchPrompt,
   parseAbstractedTrendResponse,
+  DOMAIN_THREADS_KEYWORDS,
   harvestTemporalTrends,
   selectThreadsTrendSamples,
   type TargetDomainCategory,
@@ -39,6 +40,15 @@ describe("temporal-trend-harvester", () => {
     ] }], now);
 
     expect(samples.map((sample) => sample.text.length)).toEqual([280]);
+  });
+
+  it("searches at least 8 unique keywords per domain with no overlap across domains", () => {
+    const all = Object.values(DOMAIN_THREADS_KEYWORDS).flat();
+    for (const keywords of Object.values(DOMAIN_THREADS_KEYWORDS)) {
+      expect(keywords.length).toBeGreaterThanOrEqual(8);
+      expect(new Set(keywords).size).toBe(keywords.length);
+    }
+    expect(new Set(all).size).toBe(all.length);
   });
 
   it("ranks by TOP-search placement and keyword overlap, not by recency", () => {
