@@ -57,6 +57,35 @@ describe("learnBrandGrowth", () => {
     ]);
   });
 
+  it("under the default reach goal, a paid conversion on a low-view formula does not make it the winner", async () => {
+    mocks.findPosts.mockResolvedValue([
+      post("1", "winner", 5000),
+      post("2", "winner", 4000),
+      { ...post("3", "loser", 100), manualPaidConversions: 1 },
+      { ...post("4", "loser", 120), manualPaidConversions: 1 },
+    ]);
+
+    const result = await learnBrandGrowth("brand_1");
+
+    expect(result.promotedFormulas).toEqual(["winner"]);
+    expect(result.demotedFormulas).toEqual(["loser"]);
+    expect(result.memory.formulaWinners).toEqual(["winner"]);
+  });
+
+  it("under the conversion goal, the paying formula wins", async () => {
+    mocks.findBrand.mockResolvedValue({ id: "brand_1", formulaWeights: "{}", brandConfig: JSON.stringify({ optimizationGoal: "conversion" }) });
+    mocks.findPosts.mockResolvedValue([
+      post("1", "reach", 5000),
+      post("2", "reach", 4000),
+      { ...post("3", "money", 100), manualPaidConversions: 1 },
+      { ...post("4", "money", 120), manualPaidConversions: 1 },
+    ]);
+
+    const result = await learnBrandGrowth("brand_1");
+
+    expect(result.promotedFormulas).toEqual(["money"]);
+  });
+
   it("rebuilds formula weights from the window instead of stacking on stored weights", async () => {
     const result = await learnBrandGrowth("brand_1");
 

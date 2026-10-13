@@ -163,10 +163,12 @@ export function updateThompsonPriors(
   options: {
     minViewsForUpdate?: number;
     decayFactor?: number; // Decay past evidence (0.9 ~ 0.98) to adapt to shifting trends
+    reward?: (observation: FormulaPerformanceObservation) => number; // 0..1 success; defaults to the revenue-first blend
   } = {}
 ): Record<string, BetaPrior> {
   const minViews = options.minViewsForUpdate ?? 200; // Ignore tiny noisy samples (<200 views)
   const decay = options.decayFactor ?? 0.95;
+  const reward = options.reward ?? ((observation: FormulaPerformanceObservation) => calculateBlendedPerformance(observation).blendedScore);
 
   const updated: Record<string, BetaPrior> = {};
 
@@ -193,7 +195,7 @@ export function updateThompsonPriors(
     let failureAddition = 0;
 
     for (const obs of obsList) {
-      const { blendedScore } = calculateBlendedPerformance(obs);
+      const blendedScore = Math.min(1, Math.max(0, reward(obs)));
       // Pseudo-count evidence update scaled by sample confidence (up to 5 pseudo-counts per qualified post)
       const evidenceScale = Math.min(5, Math.log10(obs.views));
       successAddition += blendedScore * evidenceScale;

@@ -1133,7 +1133,8 @@ interface ViralAdapterResult {
 | `GET` | `/api/cron/trends?brands=slug` | `brands` 필수(없으면 400). 한국어 제품만 대상. 도메인별 키워드로 브랜드 토큰의 Threads 키워드 검색(최근 72시간 글 중 TOP 검색 순위·키워드 중복 노출·댓글 유무로 점수화해 도메인당 상위 12개, 작성자 제거) + Claude(Sonnet) 웹 검색으로 커리어·재테크·관계 갈등 수집. 토큰이 없거나 만료면 웹 검색만으로 진행 → 브랜드 훅으로 변환 → `brandConfig.trendRadar = { harvestedAt, items[≤6] }` 저장. 생성 시 4일 이내 레이더만 프롬프트에 주입 |
 
 학습 루프 규칙:
-- 보상 정의는 `calculatePerformanceScore` 하나 (조회 0.2 · 댓글 40 · 리포스트 25 · 클릭 50 · 전환 300 · 유료전환 2500). Thompson 보상은 전환 0.6 / 반응 0.4.
+- 학습 목표 `brandConfig.optimizationGoal`: `"reach"`(기본, 조회수 우선) 또는 `"conversion"`. reach면 공식 승격·`formulaWinners` 자동 승인·feedback top performer·Thompson 보상이 **조회수**로 계산된다 (Thompson 보상 = min(1, views / (브랜드 중앙값 뷰 × 2))). conversion이면 아래 revenue 점수를 쓴다. 저장되는 `performanceScore`/`performanceTier`는 목표와 무관하게 revenue 점수(표시용).
+- 표시 점수 정의는 `calculatePerformanceScore` 하나 (조회 0.2 · 댓글 40 · 리포스트 25 · 클릭 50 · 전환 300 · 유료전환 2500). Thompson 보상은 전환 0.6 / 반응 0.4.
 - 생성 품질 게이트에 토픽 포화 가드가 있다: 최근 10개 글 중 같은 마커 그룹(`birth_time_offset`: 진태양시/30분 오차/32분/동경시/서머타임)이 상한(1개)에 도달하면 후보 글이 그 소재를 쓸 때 실패 처리하고 재시도 프롬프트에 사유를 넣는다.
 - remediation 리라이트 결과는 품질 게이트를 다시 통과해야 하며, 실패하면 원문(이미 통과)으로 되돌리고 `qualityReasons`에 `remediation_reverted: …`를 남긴다.
 - 캠페인 링크 cadence는 캠페인의 기존 글 수를 오프셋으로 더해 `(offset + index + 1) % linkCadenceEvery === 0`으로 결정한다 (청크 요청에서도 1/N 유지). 링크 없는 글에는 "링크 확인" CTA를 쓰지 않는다.

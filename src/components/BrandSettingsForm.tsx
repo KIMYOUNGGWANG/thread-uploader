@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast, Toaster } from "sonner";
-import type { BrandConfig, BrandFormula, CampaignConfig, QualityProfileId, ViralDiscoveryConfig } from "@/types/brand";
+import type { BrandConfig, BrandFormula, CampaignConfig, OptimizationGoal, QualityProfileId, ViralDiscoveryConfig } from "@/types/brand";
+import { parseOptimizationGoal } from "@/types/brand";
 import type { ViralAdapterId } from "@/types/viral";
 import { ProductSettingsTab } from "@/components/ProductSettingsTab";
 
@@ -58,6 +59,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
   const [campaigns, setCampaigns] = useState<CampaignConfig[]>(initialData.config.campaigns);
   const [activeCampaignId, setActiveCampaignId] = useState(initialData.config.activeCampaignId ?? initialData.config.campaigns[0]?.id ?? "");
   const [qualityProfile, setQualityProfile] = useState<QualityProfileId>(initialData.config.qualityProfile);
+  const [optimizationGoal, setOptimizationGoal] = useState<OptimizationGoal>(initialData.config.optimizationGoal ?? "reach");
 
   // 트렌딩 토픽
   const [trendingTopics, setTrendingTopics] = useState<string[]>(
@@ -105,6 +107,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             campaigns,
             activeCampaignId,
             qualityProfile,
+            optimizationGoal,
             trendingTopics,
             productProfile,
             activeExperiment,
@@ -128,7 +131,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     } finally {
       setIsSaving(false);
     }
-  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, router]);
+  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, optimizationGoal, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, router]);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "basic", label: "기본 정보", icon: <Key className="w-4 h-4" /> },
@@ -244,6 +247,8 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             setActiveCampaignId={setActiveCampaignId}
             qualityProfile={qualityProfile}
             setQualityProfile={setQualityProfile}
+            optimizationGoal={optimizationGoal}
+            setOptimizationGoal={setOptimizationGoal}
           />
         )}
         {activeTab === "topics" && (
@@ -441,6 +446,8 @@ function CampaignTab({
   setActiveCampaignId,
   qualityProfile,
   setQualityProfile,
+  optimizationGoal,
+  setOptimizationGoal,
 }: {
   campaigns: CampaignConfig[];
   setCampaigns: (items: CampaignConfig[]) => void;
@@ -448,6 +455,8 @@ function CampaignTab({
   setActiveCampaignId: (value: string) => void;
   qualityProfile: QualityProfileId;
   setQualityProfile: (value: QualityProfileId) => void;
+  optimizationGoal: OptimizationGoal;
+  setOptimizationGoal: (value: OptimizationGoal) => void;
 }) {
   const activeCampaign = campaigns.find((campaign) => campaign.id === activeCampaignId) ?? campaigns[0];
 
@@ -494,6 +503,16 @@ function CampaignTab({
               {campaigns.map((campaign) => (
                 <option key={campaign.id} value={campaign.id}>{campaign.name}</option>
               ))}
+            </select>
+          </Field>
+          <Field label="학습 목표">
+            <select
+              value={optimizationGoal}
+              onChange={(event) => setOptimizationGoal(parseOptimizationGoal(event.target.value) ?? "reach")}
+              className={INPUT_CLASS}
+            >
+              <option value="reach">조회수 우선 (공식 승격·자동 승인·샘플링을 조회수로 판단)</option>
+              <option value="conversion">전환 우선 (클릭·전환·결제 가중 점수로 판단)</option>
             </select>
           </Field>
           <Field label="Quality profile">

@@ -57,7 +57,8 @@ export function calculateEngagementScore(post: MaturePostMetric): number {
 
 export function harvestTopPerformers(
   posts: MaturePostMetric[],
-  topFraction: number = 0.1
+  topFraction: number = 0.1,
+  scorePost: (post: MaturePostMetric) => number = calculateEngagementScore
 ): Array<{ id: string; hook: string; formulaId: string | null; score: number; views: number }> {
   if (posts.length === 0) return [];
 
@@ -67,7 +68,7 @@ export function harvestTopPerformers(
       id: post.id,
       hook: firstLine.trim(),
       formulaId: post.campaignFormulaId,
-      score: calculateEngagementScore(post),
+      score: scorePost(post),
       views: post.views || 0,
     };
   });
@@ -105,10 +106,11 @@ export function calculateMABWeights(
 
 export function evaluate72hFeedbackLoop(
   posts: MaturePostMetric[],
-  options: { now?: Date; brandId?: string } = {}
+  options: { now?: Date; brandId?: string; scorePost?: (post: MaturePostMetric) => number } = {}
 ): FeedbackOptimizationReport {
   const now = options.now || new Date();
   const brandId = options.brandId || "unknown";
+  const scorePost = options.scorePost ?? calculateEngagementScore;
 
   // Filter mature posts
   const matureMeasuredPosts = posts.filter((p) => {
@@ -130,7 +132,7 @@ export function evaluate72hFeedbackLoop(
 
   for (const [mode, group] of Object.entries(modeGroups)) {
     const viewsList = group.map((p) => p.views || 0);
-    const scoreList = group.map((p) => calculateEngagementScore(p));
+    const scoreList = group.map((p) => scorePost(p));
     const medianViews = computeMedian(viewsList);
     const medianScore = computeMedian(scoreList);
 
@@ -152,7 +154,7 @@ export function evaluate72hFeedbackLoop(
   }
 
   const recommendedWeights = calculateMABWeights(modeStatsForMAB);
-  const topPerformers = harvestTopPerformers(matureMeasuredPosts, 0.1);
+  const topPerformers = harvestTopPerformers(matureMeasuredPosts, 0.1, scorePost);
 
   const bottomPosts = identifyBottomPerformingPosts(
     matureMeasuredPosts.map((p) => ({

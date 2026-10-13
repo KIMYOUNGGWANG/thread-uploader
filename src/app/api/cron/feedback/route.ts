@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { evaluate72hFeedbackLoop, type MaturePostMetric } from "@/lib/campaign-feedback-loop";
 import { mergeNegativePhrasesIntoBrandConfig } from "@/lib/trend-radar/negative-pattern-learner";
+import { calculateLearningScore, resolveOptimizationGoal } from "@/lib/optimization-goal";
+import { parseBrandConfig } from "@/types/brand";
 
 export const maxDuration = 60;
 
@@ -51,9 +53,11 @@ export async function GET(request: NextRequest) {
       take: 200,
     });
 
+    const goal = resolveOptimizationGoal(parseBrandConfig(brand.brandConfig));
     const report = evaluate72hFeedbackLoop(posts as MaturePostMetric[], {
       brandId: brand.id,
       now: new Date(),
+      scorePost: (post) => calculateLearningScore(goal, { ...post, likes: null }),
     });
 
     let applied = false;

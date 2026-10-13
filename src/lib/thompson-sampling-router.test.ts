@@ -130,3 +130,15 @@ describe("DEFAULT_INFORMATIVE_PRIORS", () => {
     }
   });
 });
+
+describe("updateThompsonPriors reward option", () => {
+  it("uses the supplied reward instead of the blended revenue score", () => {
+    const observations: FormulaPerformanceObservation[] = [
+      { formulaId: "reach", views: 20000, likes: 0, replies: 0, reposts: 0 },
+      { formulaId: "money", views: 300, likes: 0, replies: 0, reposts: 0, paidConversions: 3 },
+    ];
+    const priors = updateThompsonPriors({}, observations, { reward: (obs) => Math.min(1, obs.views / 10000) });
+    const mean = (prior: BetaPrior) => prior.alpha / (prior.alpha + prior.beta);
+    expect(mean(priors.reach)).toBeGreaterThan(mean(priors.money));
+  });
+});
