@@ -1,0 +1,27 @@
+name: Viral Discovery
+
+on:
+  schedule:
+    # 매시간 — 브랜드 topics 키워드 검색 → 바이럴 예시 저장 → 패턴 학습 (Vercel Hobby는 일 1회 크론만 허용)
+    - cron: '41 * * * *'
+  workflow_dispatch: # 수동 실행 가능
+
+concurrency:
+  group: viral
+  cancel-in-progress: false
+
+jobs:
+  viral:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discover and learn viral patterns
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --show-error --silent --location --max-time 300 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/viral"
+          echo
