@@ -3,6 +3,7 @@ import {
   buildTemporalSearchPrompt,
   parseAbstractedTrendResponse,
   harvestTemporalTrends,
+  selectThreadsTrendSamples,
   type TargetDomainCategory,
 } from "./temporal-trend-harvester";
 
@@ -16,6 +17,28 @@ describe("temporal-trend-harvester", () => {
     expect(prompt).toContain("CAREER_CONFLICT");
     expect(prompt).toContain("심리적 결핍");
     expect(prompt).toContain("3지선다");
+    expect(prompt).not.toContain("Threads 실제 게시물");
+  });
+
+  it("embeds Threads samples so the model abstracts from real posts, not only web search", () => {
+    const prompt = buildTemporalSearchPrompt("CAREER_CONFLICT", new Date("2026-10-06T12:00:00Z"), [
+      { text: "대기업 이직 1년 만에 권고사직 당함. 다들 어떻게 버팀?", username: "u1", timestamp: "2026-10-05T10:00:00+0000" },
+    ]);
+
+    expect(prompt).toContain("Threads 실제 게시물 1개");
+    expect(prompt).toContain("권고사직 당함");
+    expect(prompt).not.toContain("@u1");
+  });
+
+  it("keeps only posts from the last 72 hours and trims long text", () => {
+    const now = new Date("2026-10-06T12:00:00Z");
+    const samples = selectThreadsTrendSamples([
+      { text: "오래된 글", timestamp: "2026-10-01T00:00:00+0000" },
+      { text: "ㄱ".repeat(500), timestamp: "2026-10-05T12:00:00+0000" },
+      { text: "", timestamp: "2026-10-06T00:00:00+0000" },
+    ], now);
+
+    expect(samples.map((sample) => sample.text.length)).toEqual([280]);
   });
 
   it("parses JSON response into AbstractedTrendSkeleton array", () => {
