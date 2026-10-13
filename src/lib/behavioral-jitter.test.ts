@@ -5,6 +5,8 @@ import {
   adjustForCircadianRhythm,
   checkMinimumCooldown,
   evaluateSporadicSkip,
+  findOpenPublishSlot,
+  parseSlotHours,
 } from "./behavioral-jitter";
 
 describe("behavioral-jitter", () => {
@@ -99,3 +101,35 @@ describe("behavioral-jitter", () => {
   });
 });
 
+
+describe("findOpenPublishSlot", () => {
+  const slots = [0, 3, 9, 12, 14];
+
+  it("opens the slot a late scheduler run still falls inside", () => {
+    const slot = findOpenPublishSlot(new Date("2026-10-12T13:40:00Z"), slots, 3);
+    expect(slot?.toISOString()).toBe("2026-10-12T12:00:00.000Z");
+  });
+
+  it("prefers the most recent slot when windows overlap", () => {
+    const slot = findOpenPublishSlot(new Date("2026-10-12T14:20:00Z"), slots, 3);
+    expect(slot?.toISOString()).toBe("2026-10-12T14:00:00.000Z");
+  });
+
+  it("returns null outside every slot window", () => {
+    expect(findOpenPublishSlot(new Date("2026-10-12T18:30:00Z"), slots, 3)).toBeNull();
+  });
+
+  it("wraps a slot window across midnight UTC", () => {
+    const slot = findOpenPublishSlot(new Date("2026-10-13T00:30:00Z"), [23], 3);
+    expect(slot?.toISOString()).toBe("2026-10-12T23:00:00.000Z");
+  });
+});
+
+describe("parseSlotHours", () => {
+  it("parses valid UTC hours and rejects bad input", () => {
+    expect(parseSlotHours("0,3, 12")).toEqual([0, 3, 12]);
+    expect(parseSlotHours(null)).toBeNull();
+    expect(parseSlotHours("0,24")).toBeNull();
+    expect(parseSlotHours("abc")).toBeNull();
+  });
+});

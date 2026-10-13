@@ -163,5 +163,46 @@ describe("GET /api/cron/publish", () => {
       })
     );
   });
+  describe("?slots= publish windows", () => {
+    const callWithSlots = async (slots: string) => {
+      const { GET } = await import("@/app/api/cron/publish/route");
+      return GET({
+        headers: new Headers(),
+        nextUrl: new URL(`http://localhost/api/cron/publish?slots=${slots}`),
+      } as never);
+    };
+
+    it("skips a late run when its slot already published", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-12T13:40:00Z"));
+      mocks.findBrands.mockResolvedValue([{ id: "brand_slot", name: "CosmicPath" }]);
+      mocks.findPost
+        .mockResolvedValueOnce(null) // no PARTIAL_FAILED resume
+        .mockResolvedValueOnce({ status: "PUBLISHED", publishedAt: new Date("2026-10-12T12:20:00Z") });
+
+      const body = await (await callWithSlots("0,12")).json();
+
+      expect(body.skipped).toEqual([{ brandId: "brand_slot", brandName: "CosmicPath", reason: "slot_already_served" }]);
+      vi.useRealTimers();
+    });
+
+    it("skips runs that land outside every slot window", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-12T18:30:00Z"));
+      mocks.findBrands.mockResolvedValue([{ id: "brand_slot", name: "CosmicPath" }]);
+      mocks.findPost.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+      const body = await (await callWithSlots("0,12")).json();
+
+      expect(body.skipped).toEqual([{ brandId: "brand_slot", brandName: "CosmicPath", reason: "outside_publish_slot" }]);
+      vi.useRealTimers();
+    });
+
+    it("rejects malformed slots", async () => {
+      mocks.findBrands.mockResolvedValue([{ id: "brand_slot", name: "CosmicPath" }]);
+      const response = await callWithSlots("25");
+      expect(response.status).toBe(400);
+    });
+  });
 });
 

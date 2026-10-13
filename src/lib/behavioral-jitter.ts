@@ -228,3 +228,29 @@ export function evaluateSporadicSkip(
   };
 }
 
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * Returns the start of the most recent publish slot whose window contains `now`, or null.
+ * Lets a late or repeated scheduler run publish once per slot instead of trusting cron timing.
+ */
+export function findOpenPublishSlot(now: Date, slotHoursUtc: number[], windowHours: number): Date | null {
+  let latest: Date | null = null;
+  for (const hour of slotHoursUtc) {
+    const slotStart = new Date(now);
+    slotStart.setUTCHours(hour, 0, 0, 0);
+    if (slotStart.getTime() > now.getTime()) slotStart.setUTCDate(slotStart.getUTCDate() - 1);
+    const isOpen = now.getTime() - slotStart.getTime() < windowHours * HOUR_MS;
+    if (isOpen && (!latest || slotStart > latest)) latest = slotStart;
+  }
+  return latest;
+}
+
+/** Parses "0,3,12" into UTC hours; null when absent or any entry is not an integer 0-23. */
+export function parseSlotHours(raw: string | null): number[] | null {
+  if (!raw) return null;
+  const hours = raw.split(",").map((part) => Number(part.trim()));
+  const isValid = hours.every((hour) => Number.isInteger(hour) && hour >= 0 && hour <= 23);
+  return isValid && hours.length > 0 ? hours : null;
+}

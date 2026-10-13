@@ -4,7 +4,13 @@ import { getFreshBrandCredentials } from "@/lib/threads-api";
 import { publishOrResumePost } from "@/lib/threads/thread-resume-engine";
 import { getPublishSafetyBlockReasons } from "@/lib/publish-safety-gate";
 import { verifyCronSecret } from "@/lib/cron-auth";
-import { isCircadianQuietHour, checkMinimumCooldown, evaluateSporadicSkip } from "@/lib/behavioral-jitter";
+import {
+  isCircadianQuietHour,
+  checkMinimumCooldown,
+  evaluateSporadicSkip,
+  findOpenPublishSlot,
+  parseSlotHours,
+} from "@/lib/behavioral-jitter";
 import { resolveAccountTrustTier } from "@/lib/account-trust-ramp";
 import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 import { sendSystemAlert } from "@/lib/alert-service";
@@ -17,6 +23,8 @@ import {
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+// GitHub schedules run hours late, so the scheduler calls hourly and a slot stays open this long.
+const SLOT_WINDOW_HOURS = 3;
 
 export const maxDuration = 300; // video containers can take minutes to process
 
@@ -35,6 +43,12 @@ export async function GET(request: NextRequest) {
   // Optional ?brands=slug1,slug2 lets the scheduler call one brand per request (keeps each run under maxDuration)
   const brandSlugs = request.nextUrl.searchParams.get("brands")?.split(",").map((slug) => slug.trim()).filter(Boolean);
   const brands = await prisma.brand.findMany(brandSlugs?.length ? { where: { slug: { in: brandSlugs } } } : undefined);
+  // Optional ?slots=0,12 (UTC hours): publish at most once per slot, whenever the run lands inside its window.
+  const rawSlots = request.nextUrl.searchParams.get("slots");
+  const slotHours = parseSlotHours(rawSlots);
+  if (rawSlots && !slotHours) {
+    return NextResponse.json({ error: "slots must be comma-separated UTC hours 0-23" }, { status: 400 });
+  }
   if (brands.length === 0) {
     return NextResponse.json({ published: [], skipped: [], message: "No brands found" });
   }
@@ -132,6 +146,14 @@ export async function GET(request: NextRequest) {
           where: { brandId: brand.id, status: "PUBLISHED" },
           orderBy: { publishedAt: "desc" },
         });
+        if (slotHours) {
+          const openSlot = findOpenPublishSlot(now, slotHours, SLOT_WINDOW_HOURS);
+          const slotServed = Boolean(openSlot && lastPublished?.publishedAt && lastPublished.publishedAt >= openSlot);
+          if (!openSlot || slotServed) {
+            skipped.push({ brandId: brand.id, brandName: brand.name, reason: openSlot ? "slot_already_served" : "outside_publish_slot" });
+            continue;
+          }
+        }
         if (lastPublished && lastPublished.status === "PUBLISHED" && lastPublished.publishedAt) {
           // 90 min fits the 2h gap between the 12:00 and 14:00 UTC scheduler slots
           const cooldown = checkMinimumCooldown(lastPublished.publishedAt, now, 90);
