@@ -97,6 +97,35 @@ describe("checkQuality", () => {
     }).pass).toBe(true);
   });
 
+  const IDENTITY_POST_WITHOUT_CHOICES = [
+    "신금 일주는 끊을 때 칼이 아니라 정으로 베임.",
+    "판단은 빠른데 인정은 제일 늦게 하는 타입이라, 이미 끝난 관계를 1년씩 끌고 감.",
+    "",
+    "강점은 한 번 정한 기준을 끝까지 지키는 거고, 맹점은 그 기준이 상대 사정을 못 봄.",
+    "",
+    "너는 지금 누구를 정 때문에 붙잡고 있음?",
+  ].join("\n");
+  const FACT_POST_WITHOUT_QUESTION_HOOK = [
+    "한국인 10명 중 7명은 자기 시주를 잘못 알고 있음.",
+    "",
+    "출생 시각을 표준시로만 넣으면 진태양시랑 30분 넘게 어긋나는 경우가 많아서, 일주는 맞아도 시주 글자가 통째로 바뀜.",
+    "",
+    "시주가 바뀌면 말년운 해석이랑 자식 궁 읽는 기준이 전부 달라짐.",
+    "",
+    "너는 태어난 시간 정확히 알고 있음?",
+  ].join("\n");
+
+  it("accepts an identity post that ends with a direct question instead of numbered choices", () => {
+    const result = checkQuality(IDENTITY_POST_WITHOUT_CHOICES, "saju_viral", { viralIntentModeId: "identity_profile" });
+
+    expect(result.pass).toBe(true);
+    expect(result.reasons.join(" ")).toContain("참여 유도 요소 없음");
+  });
+
+  it("accepts a fact hook without a question mark, hierarchy phrase, or choices", () => {
+    expect(checkQuality(FACT_POST_WITHOUT_QUESTION_HOOK, "saju_viral").pass).toBe(true);
+  });
+
   it("preserves saju viral pass and fail behavior", () => {
     const passing = checkQuality("혹시 도화살 있는 사람? 솔직히 남들보다 감정 소모가 심한 편이야.\nA. 화개살 B. 도화살 C. 역마살 중 가까운 쪽 체크해봐. 저장해두고 기준 삼아봐.", "saju_viral");
     const failing = checkQuality("좋은 일이 올 거예요. 스스로를 믿으세요.", "saju_viral");
