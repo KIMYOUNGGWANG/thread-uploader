@@ -51,7 +51,7 @@ CosmicPath 생성 글이 거의 같은 모양으로 수렴했다.
 ### 성공 기준
 
 - 단위 테스트: 아래 "테스트" 절의 케이스 전부 통과, 기존 테스트 전부 통과(전제가 바뀐 테스트는 수정)
-- 실측: 배포 후 cosmicpath 한 번 생성분(최대 6개)에서 같은 틀 서명이 3개 이상인 경우 0, 같은 첫 댓글 첫마디 0쌍 (규칙이 최근 5개 중 1개까지는 같은 틀을 허용하므로 2개까지는 정상)
+- 실측: 배포 후 cosmicpath 한 번 생성분(최대 6개)에서 옛 틀 표지(`hierarchy` 첫 줄, `저장해`, `어때?`)가 각각 3개 이상인 경우 0, 같은 첫 댓글 첫마디 0쌍, 그리고 재시도·버려진 글 수를 함께 기록
 
 ## 설계
 
@@ -64,7 +64,7 @@ CosmicPath 생성 글이 거의 같은 모양으로 수렴했다.
 
 `quality-gate.ts` `checkSajuViralQuality`
 
-- `pass = hasSajuTerm && fidelity.pass` 로 바꾼다. 훅·참여 장치 검사는 `score`와 `reasons`에 그대로 남겨 정보로만 쓴다.
+- `pass = hasSajuTerm && fidelity.pass` 로 바꾼다. 훅·참여 장치 검사는 `score`에만 반영하고 `reasons`에는 넣지 않는다. 재시도 프롬프트가 `reasons`를 필수 수정 항목으로 인용해서, 남겨 두면 재시도가 질문·번호 선택지 틀로 되돌아간다(최종 리뷰 반영).
 
 ### 2. 모드별 모양 재정의
 
@@ -86,6 +86,7 @@ CosmicPath 생성 글이 거의 같은 모양으로 수렴했다.
 - 모드별 방향을 넣는다: 딜레마 = 고른 이유를 묻는 한 줄, 서열 = 독자 원국에 그 개념이 있는지 묻기, 정체성 = 본인 일주·살을 꺼내게 하기, 관계 = 상대와의 실제 상황을 묻기. 이 방향은 `viral-intent-modes.ts` 각 모드 `rules`에 "첫 댓글: …" 규칙으로 둔다(모드 규칙은 이미 프롬프트에 들어간다).
 - 모드 규칙의 "첫 댓글에 판정 기준표/원국 확인/결핍 해소 브릿지를 배치한다"는 첫 댓글 홍보 금지 규칙과 모순이므로 위 "첫 댓글:" 규칙으로 대체한다. 링크가 필요한 글은 기존처럼 시스템이 첫 댓글 뒤에 붙인다.
 - 공통: "난 솔직히"로 시작하지 않는다. 링크·상업 문구 금지는 유지한다.
+- saju_viral에서는 첫 댓글이 5자 미만일 때만 고정 대체 댓글(`buildAdmissionFirstComment`)로 바꾼다. 기존 15자 기준은 짧은 한 줄 질문을 홍보 문구가 든 "📌 솔직히 …" 댓글로 바꿔서, 위 금지 규칙과 첫마디 반복 검사에 동시에 걸렸다(최종 리뷰 반영).
 
 `charlie-viral-skills.ts`의 `buildConversationIgniterComment`는 저장 경로에서 쓰이지 않으므로 변경하지 않는다.
 
@@ -98,7 +99,7 @@ CosmicPath 생성 글이 거의 같은 모양으로 수렴했다.
   - `hasNumberedChoices`: `^\s*1[.)]\s` 존재
   - `closer`: 마지막 비어있지 않은 줄이 `저장해` 포함 → `save`, `어때?` → `ask`, 그 외 `other`
   - `commentOpener`: 첫 댓글 앞 2어절 (없으면 `null`)
-- `checkStructureRepeat(candidate, recentPosts, { window = 5, maxSame = 1 })`: 최근 `window`개 중 `opener|hasNumberedChoices|closer`가 같은 글이 `maxSame`개를 넘거나, `commentOpener`가 같은 글이 1개 이상이면 중복 사유를 반환한다.
+- `checkStructureRepeat(candidate, recentPosts, { window = 5, maxSame = 1 })`: 옛 틀 표지(`hierarchy` 첫 줄, `저장해`·`어때?` 마무리)만 센다. 후보가 가진 표지가 최근 `window`개 중 `maxSame`개를 넘게 나왔거나, `commentOpener`가 같은 글이 1개 이상이면 중복 사유를 반환한다. 표지 없는 깨끗한 서명은 반복으로 세지 않는다. 처음 설계(서명 전체 일치)는 새 규칙을 따른 정상 글끼리도 걸러서 재시도가 옛 틀로 빠져나갔다(최종 리뷰 반영). 사유 문구는 내부 키 없이 한국어로, 물음표·선택지·마무리를 덧붙여 피하지 말라고 지시한다.
 - `generate-posts.ts`의 `generateWithQuality`에서 `checkAntiRepeatSimilarity`를 부르는 두 곳(첫 초안, 재시도)마다 바로 뒤에 후보 본문과 첫 댓글로 호출하고, 중복이면 기존처럼 `gate.pass = false` + 사유를 앞에 넣는다.
 - 틀 검사는 `experiment.qualityProfile === "saju_viral"`일 때만 돈다. 서명 규칙이 한국어 saju 틀(`보다`, `저장해`, `어때?`) 기준이라 career·영문 글에는 오탐이 난다.
 - 최근 글 조회 `select`와 `RecentPostSummary`에 `firstComment`를 추가하고, 배치 내 글(`inBatchPosts`)에도 `firstComment`를 넣는다.
@@ -118,7 +119,7 @@ CosmicPath 생성 글이 거의 같은 모양으로 수렴했다.
 
 - `quality-gate`: 선택지·물음표 없는 정체성 글(사주 용어 포함, 반말)이 `identity_profile` 모드로 통과. 사주 용어 없는 글은 여전히 실패.
 - `viral-intent-modes`: 첫 두 줄에 비교 1회인 서열 글이 `concept_hierarchy` fidelity 통과.
-- `anti-repeat-memory`: 최근 5개 중 2개가 `hierarchy|true|save`일 때 같은 서명 후보는 거부, `callout|false|other` 후보는 통과. 최근 글 하나와 첫 댓글 첫 2어절("난 솔직히")이 같으면 거부.
+- `anti-repeat-memory`: 최근 5개 중 2개가 `hierarchy` 첫 줄일 때 같은 표지 후보는 거부, 표지 없는 후보는 통과(깨끗한 서명이 3개 겹쳐도 통과). 최근 글 하나와 첫 댓글 첫 2어절("난 솔직히")이 같으면 거부.
 - `threads-algorithm-scorer`: "한국인 10명 중 7명은 …"으로 시작해 "너는 …?"로 끝나는 선택지 없는 글이 이전보다 높은 점수, 수정 지시에 "보다 센"/"1번/2번" 문구 없음.
 - 기존 테스트 중 "보다 센 필수" 또는 선택지 필수를 전제로 한 케이스는 새 규칙에 맞게 수정한다.
 - 전체 `pnpm test`, `pnpm typecheck` 통과.
