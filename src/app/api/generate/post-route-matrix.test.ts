@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
+  prompts: [] as string[],
   createdPosts: [] as Array<{
     id: string;
     campaignFormulaId: string | null;
@@ -46,7 +47,8 @@ let mockPostCallCounter = 0;
 vi.mock("@anthropic-ai/sdk", () => ({
   default: class MockAnthropic {
     messages = {
-      create: vi.fn(async () => {
+      create: vi.fn(async (request: unknown) => {
+        state.prompts.push(JSON.stringify(request));
         const body = DIVERSE_POST_BODIES[mockPostCallCounter % DIVERSE_POST_BODIES.length];
         const count = mockPostCallCounter++;
         return {
@@ -304,5 +306,23 @@ describe("POST /api/generate viral sprint matrix", () => {
 
     expect(state.createdPosts).toHaveLength(4);
     expect(new Set(state.createdPosts.map((post) => post.targetAudience)).size).toBe(4);
+  }, 10000);
+
+  it("sends CosmicPath prompts without the copied hierarchy hook or confession comment example", async () => {
+    state.createdPosts.length = 0;
+    state.prompts.length = 0;
+    const { POST } = await import("@/app/api/generate/route");
+
+    const response = await POST(new Request("http://localhost/api/generate", {
+      method: "POST",
+      body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 3, campaignId: "cosmicpath_lean_sprint" }),
+    }) as never);
+    const prompts = state.prompts.join("\n");
+
+    expect(response.status).toBe(200);
+    expect(prompts).not.toContain("A보다 센 B보다 센");
+    expect(prompts).not.toContain("난 솔직히 2번");
+    expect(prompts).not.toContain("첫 줄에 물음표(?)를 넣어");
+    expect(prompts).toContain("'난 솔직히'로 시작하지 않으며");
   }, 10000);
 });
