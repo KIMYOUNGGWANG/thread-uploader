@@ -10,6 +10,7 @@ import {
   scoreThreadsPostAlgorithmic,
   type AlgorithmicPredictionResult,
 } from "@/lib/threads-algorithm-scorer";
+import { ENGLISH_HOOK_RULE } from "@/lib/domain-registry";
 import Anthropic from "@anthropic-ai/sdk";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { FORMAL_TONE_PATTERN } from "@/lib/viral-intent-modes";
@@ -250,8 +251,8 @@ export function introducesFormalTone(before: string, after: string): boolean {
   return FORMAL_TONE_PATTERN.test(after) && !FORMAL_TONE_PATTERN.test(before);
 }
 // The scorer's fix hints are Korean-pattern advice; English drafts get the rubric itself.
-const ENGLISH_REWRITE_CHECKLIST = [
-  "Line 1: one standalone line under 60 characters that ends with '?' and contains one of: wrong, actually, not, instead, myth.",
+export const ENGLISH_REWRITE_CHECKLIST = [
+  `Format: ${ENGLISH_HOOK_RULE}.`,
   "Whole post under 430 characters, no line over 140 characters, blank line between ideas.",
   "Keep the closing 'A) ' and 'B) ' option lines and the final line 'Which one are you?'.",
   "Write in English only.",

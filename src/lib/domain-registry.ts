@@ -24,9 +24,12 @@ export interface DomainFormulaConfig {
 
 // Hangul stays blocked on the English account; "Saju" is allowed because it is the product's differentiator.
 const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
+// Shared with the remediation rewrite checklist so generation and rewrite can't drift apart again.
+export const ENGLISH_HOOK_RULE =
+  "line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim that flips an assumption: no question mark, no 'vs' (e.g. 'Your zodiac animal is probably wrong.'; use a word like wrong, not, isn't, instead plus probably, might or most people)";
 const GLOBAL_HYBRID_RULE =
   "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul. " +
-  "Format for a phone feed: line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim that flips an assumption: no question mark, no 'vs' (e.g. 'Your zodiac animal is probably wrong.'; use a word like wrong, not, isn't, instead plus probably, might or most people). " +
+  `Format for a phone feed: ${ENGLISH_HOOK_RULE}. ` +
   "Then one sentence per line, a blank line between ideas, 200-420 characters in total. " +
   "End with two options on their own lines starting 'A) ' and 'B) ', then the line 'Which one are you?'. The first comment must end with a question.";
 

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { ENGLISH_HOOK_RULE } from "./domain-registry";
 import {
+  ENGLISH_REWRITE_CHECKLIST,
   applyHeuristicFixes,
   extractRewrittenPost,
   introducesFormalTone,
@@ -114,5 +116,11 @@ describe("remediatePostAlgorithmic rewrite attempts", () => {
     expect(extractRewrittenPost(advice)).toBeNull();
     expect(extractRewrittenPost("<post>  </post>")).toBeNull();
     expect(extractRewrittenPost(withPreface)).toBe("연봉보다 센 직급, 뭔지 알아?");
+  });
+
+  // A question-forcing checklist stapled "Wrong about X, actually?" onto declarative global hooks (views 1-9).
+  it("rewrites english hooks with the same declarative rule generation uses", () => {
+    expect(ENGLISH_REWRITE_CHECKLIST).toContain(ENGLISH_HOOK_RULE);
+    expect(ENGLISH_REWRITE_CHECKLIST).not.toMatch(/ends with '\?'/);
   });
 });
