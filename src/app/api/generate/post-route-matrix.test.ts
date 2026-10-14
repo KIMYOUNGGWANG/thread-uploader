@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   prompts: [] as string[],
+  checkStructureRepeat: vi.fn<
+    (content: string, firstComment: string | null | undefined, recentPosts: Array<{ firstComment?: string | null }>) => { isDuplicate: boolean; similarityScore: number }
+  >(() => ({ isDuplicate: false, similarityScore: 0 })),
   createdPosts: [] as Array<{
     id: string;
     campaignFormulaId: string | null;
@@ -61,6 +64,11 @@ vi.mock("@anthropic-ai/sdk", () => ({
     };
   },
 }));
+
+vi.mock("@/lib/anti-repeat-memory", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/anti-repeat-memory")>();
+  return { ...actual, checkStructureRepeat: state.checkStructureRepeat };
+});
 
 vi.mock("@/lib/brand-access", () => ({
   accessErrorResponse: () => null,
@@ -221,6 +229,7 @@ vi.mock("@/lib/quality-gate", () => ({
 
 describe("POST /api/generate viral sprint matrix", () => {
   it("persists 28 generated campaign posts into four 7-post viral mode buckets", async () => {
+    state.checkStructureRepeat.mockClear();
     state.createdPosts.length = 0;
     const { POST } = await import("@/app/api/generate/route");
 
@@ -248,9 +257,12 @@ describe("POST /api/generate viral sprint matrix", () => {
       quiet_contrarian: 7,
       friend_share: 7,
     });
+    // career_decision drafts must never go through the Korean saju skeleton check
+    expect(state.checkStructureRepeat).not.toHaveBeenCalled();
   }, 10000);
 
   it("persists a 4:4:4:3 CosmicPath sprint with tracked links only on every third post", async () => {
+    state.checkStructureRepeat.mockClear();
     state.createdPosts.length = 0;
     const { POST } = await import("@/app/api/generate/route");
 
@@ -290,6 +302,13 @@ describe("POST /api/generate viral sprint matrix", () => {
     ]);
     expect(state.createdPosts.filter((post) => post.linkUrl)).toHaveLength(5);
     expect(state.createdPosts.filter((post) => post.utmContent)).toHaveLength(5);
+
+    const lastRecentPosts = state.checkStructureRepeat.mock.calls.at(-1)?.[2] ?? [];
+    const commentNumber = (comment: string | null | undefined) => /북마크 (\d+)/.exec(comment ?? "")?.[1];
+    expect(lastRecentPosts.length).toBeGreaterThan(1);
+    // The window must start at the newest in-batch draft, not the oldest
+    expect(lastRecentPosts.map((post) => commentNumber(post.firstComment)))
+      .toEqual(state.createdPosts.slice(0, lastRecentPosts.length).map((post) => commentNumber(post.firstComment)).reverse());
   }, 10000);
 
   it("gives each 2-post dashboard chunk fresh personas instead of repeating the same pair", async () => {

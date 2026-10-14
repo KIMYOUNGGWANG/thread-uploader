@@ -9,6 +9,7 @@ import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
 import { checkQuality, type QualityResult } from "@/lib/quality-gate";
 import {
   checkAntiRepeatSimilarity,
+  checkStructureRepeat,
   formatAntiRepeatContext,
   type RecentPostSummary,
 } from "@/lib/anti-repeat-memory";
@@ -306,16 +307,18 @@ async function generateWithQuality(
   };
   qualityResult = withProhibitedPhraseCheck(qualityResult, lastResult.post);
 
-  if (recentPosts.length > 0) {
-    const similarity = checkAntiRepeatSimilarity(lastResult.post, recentPosts);
-    if (similarity.isDuplicate && similarity.reason) {
-      qualityResult = {
-        ...qualityResult,
-        pass: false,
-        reasons: [similarity.reason, ...qualityResult.reasons],
-      };
-    }
-  }
+  // Word overlap and a shared skeleton both count as a repeat; the retry prompt receives the reason.
+  // The skeleton rules are Korean saju templates, so other profiles only get the word-overlap check.
+  const checkStructure = experiment.qualityProfile === "saju_viral";
+  const withRepeatCheck = (result: typeof qualityResult, draft: typeof lastResult): typeof qualityResult => {
+    if (recentPosts.length === 0) return result;
+    const repeat = [
+      checkAntiRepeatSimilarity(draft.post, recentPosts),
+      ...(checkStructure ? [checkStructureRepeat(draft.post, draft.firstComment, recentPosts)] : []),
+    ].find((check) => check.isDuplicate && check.reason);
+    return repeat?.reason ? { ...result, pass: false, reasons: [repeat.reason, ...result.reasons] } : result;
+  };
+  qualityResult = withRepeatCheck(qualityResult, lastResult);
 
   for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
     console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
@@ -327,17 +330,7 @@ async function generateWithQuality(
     );
 
     qualityResult = withProhibitedPhraseCheck(qualityResult, lastResult.post);
-
-    if (recentPosts.length > 0) {
-      const retrySimilarity = checkAntiRepeatSimilarity(lastResult.post, recentPosts);
-      if (retrySimilarity.isDuplicate && retrySimilarity.reason) {
-        qualityResult = {
-          ...qualityResult,
-          pass: false,
-          reasons: [retrySimilarity.reason, ...qualityResult.reasons],
-        };
-      }
-    }
+    qualityResult = withRepeatCheck(qualityResult, lastResult);
   }
 
   if (!qualityResult.pass) {
@@ -916,6 +909,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     take: RECENT_POST_AVOIDANCE_COUNT,
     select: {
       content: true,
+      firstComment: true,
       topic: true,
       hookType: true,
       ctaType: true,
@@ -979,8 +973,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         useRelationshipContext ? "saju_relationship" : undefined,
         contextOffset
       );
+      // Newest first, so the anti-repeat windows look at the latest drafts.
       const inBatchPosts: RecentPostSummary[] = [
-        ...results.map((r) => ({ content: r.post, topic: r.topic, hookType: r.hookType })),
+        ...[...results].reverse().map((result) => ({ content: result.post, topic: result.topic, hookType: result.hookType, firstComment: result.firstComment })),
         ...recentPosts,
       ];
       return generateWithQuality(
