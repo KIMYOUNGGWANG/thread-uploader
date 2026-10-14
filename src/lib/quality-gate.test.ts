@@ -23,7 +23,7 @@ describe("checkQuality", () => {
     expect(result.pass).toBe(false);
   });
 
-  it("rejects a concept hierarchy without two comparison steps", () => {
+  it("rejects a concept hierarchy without any comparison", () => {
     const result = checkQuality(
       "동기 연봉이 오르면 왜 불안한지 알아?\n사주 대운이 흔들릴 때 보는 기준이야. 저장해.",
       "saju_viral",
