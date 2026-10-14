@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDomainPreset } from "./domain-registry";
+import { ENGLISH_HOOK_RULE, findBorrowedYearBoundaryClaim, getDomainPreset, normalizeIpchunSpelling } from "./domain-registry";
 
 describe("Domain Intelligence Registry", () => {
   it("resolves product_growth preset cleanly", () => {
@@ -87,5 +87,37 @@ describe("Domain Intelligence Registry", () => {
     expect(hierarchy?.instruction).toContain("2~3개");
     expect(hierarchy?.instruction).not.toContain("보다 센 홍염보다 센");
     expect(hierarchy?.instruction).not.toContain("브릿지");
+  });
+});
+
+describe("ecommerce_d2c batch keeps one claim per formula", () => {
+  // The 2026-10-15 refill: three formulas in one batch all wrote this same year-boundary claim.
+  const yearBoundaryDraft = "Your zodiac animal is probably wrong.\n\nSaju changes the year at Ipchun (Feb 4), not January 1.\n\nBorn in January? You may be the previous year's animal.";
+  const globalFormulas = Object.values(getDomainPreset("ecommerce_d2c").trackFormulas).flat();
+
+  it("lets only real_sign_boundary use the ipchun year-boundary claim", () => {
+    expect(findBorrowedYearBoundaryClaim("real_sign_boundary", yearBoundaryDraft)).toBeNull();
+    const borrowers = globalFormulas.filter((formula) => formula.id !== "real_sign_boundary");
+    expect(borrowers.length).toBeGreaterThan(0);
+    for (const formula of borrowers) {
+      expect(findBorrowedYearBoundaryClaim(formula.id, yearBoundaryDraft)).toContain("real_sign_boundary");
+    }
+  });
+
+  it("catches the lichun spelling and passes a post on its own formula", () => {
+    expect(findBorrowedYearBoundaryClaim("all_twelve_series", "Saju starts the year at lichun.")).not.toBeNull();
+    const compatibility = "A Fire Horse and a Water Rat fall fast.\n\nThe pull is real; so is the friction.\n\nSend this to your Rat.";
+    expect(findBorrowedYearBoundaryClaim("two_birthday_compatibility", compatibility)).toBeNull();
+  });
+
+  it("does not seed a concrete claim in the hook rule every formula shares", () => {
+    expect(ENGLISH_HOOK_RULE).not.toMatch(/zodiac|animal|ipchun/i);
+    for (const formula of globalFormulas) {
+      expect(formula.instruction).not.toMatch(/lichun/i);
+    }
+  });
+
+  it("normalizes lichun to ipchun", () => {
+    expect(normalizeIpchunSpelling("Lichun (Feb 4) vs li-chun vs ipchun")).toBe("Ipchun (Feb 4) vs ipchun vs ipchun");
   });
 });

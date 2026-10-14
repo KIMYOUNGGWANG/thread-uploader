@@ -40,7 +40,7 @@ import {
 import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
-import { getDomainPreset } from "@/lib/domain-registry";
+import { findBorrowedYearBoundaryClaim, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
 import { resolveDynamicContext } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
@@ -149,7 +149,7 @@ function cleanGeneratedContentLabels(content: string): string {
   // If still starts with **본문** or similar standalone line
   cleaned = cleaned.replace(/^\s*\*\*본문\*\*\s*\n+/gi, "").trim();
 
-  return cleaned;
+  return normalizeIpchunSpelling(cleaned);
 }
 
 function hasGeneratedMetaText(content: string): boolean {
@@ -309,6 +309,13 @@ async function generateWithQuality(
   };
   qualityResult = withProhibitedPhraseCheck(qualityResult, lastResult.post);
 
+  // Batch siblings generate in parallel and can't see each other, so a claim owned by another formula fails per draft.
+  const withClaimOwnershipCheck = (result: typeof qualityResult, post: string): typeof qualityResult => {
+    const borrowed = findBorrowedYearBoundaryClaim(experiment.formula.id, post);
+    return borrowed ? { ...result, pass: false, reasons: [borrowed, ...result.reasons] } : result;
+  };
+  qualityResult = withClaimOwnershipCheck(qualityResult, lastResult.post);
+
   // Word overlap and a shared skeleton both count as a repeat; the retry prompt receives the reason.
   // The skeleton rules are Korean saju templates, so other profiles only get the word-overlap check.
   const checkStructure = experiment.qualityProfile === "saju_viral";
@@ -332,6 +339,7 @@ async function generateWithQuality(
     );
 
     qualityResult = withProhibitedPhraseCheck(qualityResult, lastResult.post);
+    qualityResult = withClaimOwnershipCheck(qualityResult, lastResult.post);
     qualityResult = withRepeatCheck(qualityResult, lastResult);
   }
 

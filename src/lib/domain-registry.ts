@@ -25,10 +25,12 @@ export interface DomainFormulaConfig {
 // Hangul stays blocked on the English account; "Saju" is allowed because it is the product's differentiator.
 const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
 // Shared with the remediation rewrite checklist so generation and rewrite can't drift apart again.
+// No example sentence: every formula copied the old one ("Your zodiac animal is probably wrong.") into the same post.
 export const ENGLISH_HOOK_RULE =
-  "line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim that flips an assumption: no question mark, no 'vs' (e.g. 'Your zodiac animal is probably wrong.'; use a word like wrong, not, isn't, instead plus probably, might or most people)";
+  "line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim that flips an assumption about this post's own subject: no question mark, no 'vs' (use a word like wrong, not, isn't, instead plus probably, might or most people)";
 const GLOBAL_HYBRID_RULE =
   "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul. " +
+  "Leave the zodiac year boundary (when the animal year starts, January or early February birthdays) out unless this formula is about it. " +
   `Format for a phone feed: ${ENGLISH_HOOK_RULE}. ` +
   "Then one sentence per line, a blank line between ideas, 200-420 characters in total. " +
   "End with two options on their own lines starting 'A) ' and 'B) ', then the line 'Which one are you?'. The first comment must end with a question.";
@@ -303,7 +305,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "Your Real Sign May Be Different",
           track: "track_a",
           weight: 5,
-          instruction: `Show why the reader's zodiac animal or chart may be wrong: January to early February births vs Ipchun (Feb 4) and Lunar New Year, birth time and time zone shifts. End with one concrete self-check the reader can do right now. No CTA. ${GLOBAL_HYBRID_RULE}`,
+          instruction: `Show why the reader's zodiac animal or chart may be wrong: January to early February births vs ipchun (Feb 4; always spell it 'ipchun') and Lunar New Year, birth time and time zone shifts. End with one concrete self-check the reader can do right now. No CTA. ${GLOBAL_HYBRID_RULE}`,
           hookArchetype: "Hidden Mistake Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -425,4 +427,19 @@ export function getDomainPreset(domainOrQualityProfile?: string): DomainPresetCo
     return DOMAIN_PRESETS.ecommerce_d2c;
   }
   return DOMAIN_PRESETS.saju_viral;
+}
+
+// The year-boundary claim belongs to one formula. On 2026-10-15 three formulas in one parallel batch
+// all wrote it, and siblings in a batch can't see each other, so ownership is checked per formula.
+const YEAR_BOUNDARY_OWNER = "real_sign_boundary";
+const YEAR_BOUNDARY_PATTERN = /\b(?:ip[\s-]?chun|li[\s-]?chun|feb(?:ruary)?\.?\s+4(?:th)?|born in (?:january|early february)|before lunar new year)\b/i;
+
+export function findBorrowedYearBoundaryClaim(formulaId: string, post: string): string | null {
+  if (formulaId === YEAR_BOUNDARY_OWNER || !YEAR_BOUNDARY_PATTERN.test(post)) return null;
+  return `Off-formula claim: the ipchun year-boundary angle belongs to ${YEAR_BOUNDARY_OWNER}. Write what the ${formulaId} formula asks for, without ipchun or January/February birthdays.`;
+}
+
+// One romanization for 입춘 on the English account (Korean RR, not the Chinese "lichun").
+export function normalizeIpchunSpelling(text: string): string {
+  return text.replace(/\bli[\s-]?chun\b/gi, (match) => (match[0] === "L" ? "Ipchun" : "ipchun"));
 }
