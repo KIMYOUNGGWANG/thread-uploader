@@ -73,7 +73,7 @@ export function resolveBrandProfile(
   brandSlug: string,
   brandName: string
 ): BrandProfile {
-  let parsedConfig: Record<string, any> = {};
+  let parsedConfig: Partial<Omit<BrandProfile, "fidelity">> & { fidelity?: Partial<BrandFidelityConfig> } = {};
   if (brandConfigJson) {
     try {
       parsedConfig = JSON.parse(brandConfigJson);
