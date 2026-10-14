@@ -41,6 +41,8 @@ async function main() {
   console.log(`campaign ${CAMPAIGN_ID}.landingUrl:`, campaign.landingUrl, "->", MATCH_URL);
   console.log("topics (before):", config.topics);
   console.log("topics (after): ", TOPICS);
+  // Career-era targets/situations got glued onto relationship topics; empty lets the relationship matrix supply them.
+  console.log("targets/situations (before):", config.targets, config.situations, "-> []");
 
   if (!apply) {
     console.log("\nDry run only. Re-run with --apply to write.");
@@ -50,6 +52,8 @@ async function main() {
   config.productProfile = { ...profile, landingUrl: MATCH_URL };
   campaign.landingUrl = MATCH_URL;
   config.topics = TOPICS;
+  config.targets = [];
+  config.situations = [];
   await prisma.brand.update({ where: { id: brand.id }, data: { brandConfig: JSON.stringify(config) } });
   console.log("\nApplied.");
 }
