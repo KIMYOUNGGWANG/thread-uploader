@@ -51,7 +51,7 @@ CosmicPath 생성 글이 거의 같은 모양으로 수렴했다.
 ### 성공 기준
 
 - 단위 테스트: 아래 "테스트" 절의 케이스 전부 통과, 기존 테스트 전부 통과(전제가 바뀐 테스트는 수정)
-- 실측: 배포 후 cosmicpath 6개 생성 시 같은 틀 서명 최대 1쌍, 같은 첫 댓글 첫마디 0쌍
+- 실측: 배포 후 cosmicpath 한 번 생성분(최대 6개)에서 같은 틀 서명이 3개 이상인 경우 0, 같은 첫 댓글 첫마디 0쌍 (규칙이 최근 5개 중 1개까지는 같은 틀을 허용하므로 2개까지는 정상)
 
 ## 설계
 
@@ -76,12 +76,15 @@ CosmicPath 생성 글이 거의 같은 모양으로 수렴했다.
 
 `domain-registry.ts` 서열 공식 instruction: 원조 글 문장 예시를 제거하고 비교 원칙만 남긴다.
 
+운영 캠페인 공식: `cosmicpath_viral_reset_v1`의 `concept_hierarchy` instruction("A보다 센 B보다 센 C 구조로 … 두 단계 이상 비교한다")은 코드가 아니라 DB `brandConfig`에 있다. `scripts/cosmicpath-viral-reset-config.js`의 원본 문구를 바꾸고(`CONCEPT_HIERARCHY_INSTRUCTION`으로 export), `scripts/set-cosmicpath-match-focus.ts`가 DB의 해당 instruction 하나만 같은 문구로 갱신한다(dry-run 기본, `--apply`로 쓰기). 캠페인 전체를 다시 만드는 `apply-cosmicpath-viral-reset.js`는 이후 바뀐 랜딩 URL 등을 덮어쓸 수 있어 쓰지 않는다.
+
 ### 3. 첫 댓글
 
 `generate-posts.ts` 한국어 바이럴 규칙의 첫 댓글 항목
 
 - "난 솔직히 2번 고르고 … 너넨 몇 번이냐?" 예시를 제거한다.
-- 모드별 방향을 넣는다: 딜레마 = 고른 이유를 묻는 한 줄, 서열 = 독자 원국에 그 개념이 있는지 묻기, 정체성 = 본인 일주·살을 꺼내게 하기, 관계 = 상대와의 실제 상황을 묻기.
+- 모드별 방향을 넣는다: 딜레마 = 고른 이유를 묻는 한 줄, 서열 = 독자 원국에 그 개념이 있는지 묻기, 정체성 = 본인 일주·살을 꺼내게 하기, 관계 = 상대와의 실제 상황을 묻기. 이 방향은 `viral-intent-modes.ts` 각 모드 `rules`에 "첫 댓글: …" 규칙으로 둔다(모드 규칙은 이미 프롬프트에 들어간다).
+- 모드 규칙의 "첫 댓글에 판정 기준표/원국 확인/결핍 해소 브릿지를 배치한다"는 첫 댓글 홍보 금지 규칙과 모순이므로 위 "첫 댓글:" 규칙으로 대체한다. 링크가 필요한 글은 기존처럼 시스템이 첫 댓글 뒤에 붙인다.
 - 공통: "난 솔직히"로 시작하지 않는다. 링크·상업 문구 금지는 유지한다.
 
 `charlie-viral-skills.ts`의 `buildConversationIgniterComment`는 저장 경로에서 쓰이지 않으므로 변경하지 않는다.
@@ -97,7 +100,9 @@ CosmicPath 생성 글이 거의 같은 모양으로 수렴했다.
   - `commentOpener`: 첫 댓글 앞 2어절 (없으면 `null`)
 - `checkStructureRepeat(candidate, recentPosts, { window = 5, maxSame = 1 })`: 최근 `window`개 중 `opener|hasNumberedChoices|closer`가 같은 글이 `maxSame`개를 넘거나, `commentOpener`가 같은 글이 1개 이상이면 중복 사유를 반환한다.
 - `generate-posts.ts`의 `generateWithQuality`에서 `checkAntiRepeatSimilarity`를 부르는 두 곳(첫 초안, 재시도)마다 바로 뒤에 후보 본문과 첫 댓글로 호출하고, 중복이면 기존처럼 `gate.pass = false` + 사유를 앞에 넣는다.
+- 틀 검사는 `experiment.qualityProfile === "saju_viral"`일 때만 돈다. 서명 규칙이 한국어 saju 틀(`보다`, `저장해`, `어때?`) 기준이라 career·영문 글에는 오탐이 난다.
 - 최근 글 조회 `select`와 `RecentPostSummary`에 `firstComment`를 추가하고, 배치 내 글(`inBatchPosts`)에도 `firstComment`를 넣는다.
+- `inBatchPosts`는 지금 배치 결과를 오래된 순으로 앞에 둔다. "최근 5개" 창이 가장 최근 글을 보도록 배치 결과를 최신순으로 뒤집어 넣는다. 같은 배치(3개 병렬) 안의 글끼리는 서로 보지 못하는 기존 한계는 그대로 둔다(모드 순환이 배치 안 모양을 이미 갈라 놓음).
 
 ### 5. 점수기·자동 재작성
 
