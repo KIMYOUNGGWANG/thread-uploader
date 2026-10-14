@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
     firstComment?: string | null;
     linkUrl?: string | null;
     utmContent?: string | null;
+    targetAudience?: string | null;
   }>,
 }));
 
@@ -189,6 +190,7 @@ vi.mock("@/lib/prisma", () => ({
     post: {
       findMany: vi.fn(async () => []),
       findFirst: vi.fn(async () => null),
+      count: vi.fn(async () => state.createdPosts.length),
       create: vi.fn(async ({ data }) => {
         const post = {
           id: `post_${state.createdPosts.length}`,
@@ -286,5 +288,21 @@ describe("POST /api/generate viral sprint matrix", () => {
     ]);
     expect(state.createdPosts.filter((post) => post.linkUrl)).toHaveLength(5);
     expect(state.createdPosts.filter((post) => post.utmContent)).toHaveLength(5);
+  }, 10000);
+
+  it("gives each 2-post dashboard chunk fresh personas instead of repeating the same pair", async () => {
+    state.createdPosts.length = 0;
+    const { POST } = await import("@/app/api/generate/route");
+
+    for (let chunk = 0; chunk < 2; chunk++) {
+      const response = await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 2, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      expect(response.status).toBe(200);
+    }
+
+    expect(state.createdPosts).toHaveLength(4);
+    expect(new Set(state.createdPosts.map((post) => post.targetAudience)).size).toBe(4);
   }, 10000);
 });
