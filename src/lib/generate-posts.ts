@@ -919,9 +919,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   });
   const recentPostContext = formatRecentPostContext(recentPosts);
 
-  // The matrix is a pure function of index, so a fixed index 0..n repeated the same contexts every run.
-  // ponytail: day-based offset, same-day reruns still repeat; switch to a persisted counter if that matters.
-  const contextOffset = Math.floor(Date.now() / 86_400_000) * count;
+  // The matrix is a pure function of index, and the dashboard sends 2-post chunks that each restart at 0.
+  // Offsetting by the brand's post count gives every chunk fresh contexts instead of the same day's pair.
+  const contextOffset = await prisma.post.count({ where: { brandId } });
   const isSajuDomain = domainProfile === "saju_viral" || domainProfile === "career_decision";
   // Link cadence counts the campaign's existing posts, so chunked requests keep the 1-in-N rhythm.
   const linkOffset = activeCampaign
