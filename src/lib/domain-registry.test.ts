@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ENGLISH_HOOK_RULE, findBorrowedYearBoundaryClaim, getDomainPreset, normalizeIpchunSpelling } from "./domain-registry";
+import { ENGLISH_HOOK_RULE, findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "./domain-registry";
+import { checkQuality } from "./quality-gate";
 
 describe("Domain Intelligence Registry", () => {
   it("resolves product_growth preset cleanly", () => {
@@ -114,6 +115,59 @@ describe("ecommerce_d2c batch keeps one claim per formula", () => {
     expect(ENGLISH_HOOK_RULE).not.toMatch(/zodiac|animal|ipchun/i);
     for (const formula of globalFormulas) {
       expect(formula.instruction).not.toMatch(/lichun/i);
+    }
+  });
+
+  // 2026-10-15: every formula shared one 200-420 char A/B ending, so the 12-line list and the
+  // send-it-to-them post came out as the same generic A/B post.
+  const twelveDraft = [
+    "Your 2027 money luck probably isn't your animal's.",
+    "",
+    "Rat: collect old debts.",
+    "Ox: the slow raise lands.",
+    "Tiger: pitch once, big.",
+    "Rabbit: side income wins.",
+    "Dragon: cancel 3 subs.",
+    "Snake: late-year payout.",
+    "Horse: wait 48h to buy.",
+    "Goat: help first, paid later.",
+    "Monkey: switch jobs, not fields.",
+    "Rooster: savings finally stick.",
+    "Dog: have the family talk.",
+    "Pig: cap your giving.",
+    "",
+    "Saju reads it by element. Save this and find yours.",
+  ].join("\n");
+  const compatibilityDraft = "A Fire Horse and a Water Rat probably won't burn out.\n\nThe pull is instant. The friction shows up in plans, not feelings.\n\nSaju calls it a clash that still builds.\n\nSend this to your Rat.";
+  const abDraft = "Your 2027 money luck probably isn't your animal's.\n\nSaju reads it by element.\n\nA) I save\nB) I spend\nWhich one are you?";
+  const formulaById = new Map(globalFormulas.map((formula) => [formula.id, formula]));
+
+  it("gives the 12-line and compatibility formulas their own length and ending", () => {
+    for (const id of ["all_twelve_series", "two_birthday_compatibility"]) {
+      const instruction = formulaById.get(id)?.instruction ?? "";
+      expect(instruction).toContain(ENGLISH_HOOK_RULE);
+      expect(instruction).not.toContain("Which one are you?");
+      expect(instruction).not.toMatch(/200-420 characters[\s\S]*'A\) '[\s\S]*Which one/);
+    }
+    expect(formulaById.get("all_twelve_series")?.instruction).toMatch(/exactly 12 lines/);
+    expect(formulaById.get("two_birthday_compatibility")?.instruction).toMatch(/send this to that person/);
+    expect(formulaById.get("trend_correction")?.instruction).toContain("Which one are you?");
+  });
+
+  it("fails drafts that fall back to the generic A/B post", () => {
+    expect(findFormulaShapeViolation("all_twelve_series", twelveDraft)).toBeNull();
+    expect(findFormulaShapeViolation("all_twelve_series", abDraft)).toContain("Off-shape");
+    expect(findFormulaShapeViolation("all_twelve_series", "Rat, Ox and Tiger lead 2027.\n\nSave this.")).toContain("3 of 12");
+    expect(findFormulaShapeViolation("two_birthday_compatibility", compatibilityDraft)).toBeNull();
+    expect(findFormulaShapeViolation("two_birthday_compatibility", abDraft)).toContain("Off-shape");
+    expect(findFormulaShapeViolation("two_birthday_compatibility", compatibilityDraft.replace("Send this to your Rat.", "Which one are you?"))).toContain("send this");
+    expect(findFormulaShapeViolation("trend_correction", abDraft)).toBeNull();
+  });
+
+  it("lets formula-shaped drafts through the English quality gate", () => {
+    expect(twelveDraft.length).toBeLessThan(450);
+    for (const draft of [twelveDraft, compatibilityDraft]) {
+      expect(checkQuality(draft, "ecommerce_d2c").pass).toBe(true);
     }
   });
 

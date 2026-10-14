@@ -10,7 +10,7 @@ import {
   scoreThreadsPostAlgorithmic,
   type AlgorithmicPredictionResult,
 } from "@/lib/threads-algorithm-scorer";
-import { ENGLISH_HOOK_RULE } from "@/lib/domain-registry";
+import { ENGLISH_HOOK_RULE, englishShapeRule, findFormulaShapeViolation } from "@/lib/domain-registry";
 import Anthropic from "@anthropic-ai/sdk";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { FORMAL_TONE_PATTERN } from "@/lib/viral-intent-modes";
@@ -114,6 +114,13 @@ export function applyHeuristicFixes(
   };
 }
 
+export interface RemediationContext {
+  topic?: string;
+  targetAudience?: string;
+  productProfile?: string;
+  formulaId?: string;
+}
+
 export interface RemediationResult {
   content: string;
   firstComment: string | null;
@@ -198,7 +205,7 @@ ${content}`;
 export async function remediatePostAlgorithmic(
   content: string,
   firstComment: string | null = null,
-  context?: { topic?: string; targetAudience?: string; productProfile?: string },
+  context?: RemediationContext,
   threshold = 80
 ): Promise<RemediationResult> {
   // Step 1: 0-Token Heuristic Patch (Strip body links, meta artifacts, format spacing)
@@ -227,7 +234,11 @@ export async function remediatePostAlgorithmic(
   while (best.score.totalScore < threshold && rewriteCount < MAX_REWRITES) {
     const candidate = await rewriteOnce(best.content, best.firstComment, best.score, context);
     rewriteCount++;
-    if (candidate.score.totalScore > best.score.totalScore && !introducesFormalTone(best.content, candidate.content)) {
+    if (
+      candidate.score.totalScore > best.score.totalScore &&
+      !introducesFormalTone(best.content, candidate.content) &&
+      !breaksFormulaShape(context?.formulaId ?? "", best.content, candidate.content)
+    ) {
       best = { ...best, ...candidate };
     }
   }
@@ -250,26 +261,28 @@ const MAX_REWRITES = 2;
 export function introducesFormalTone(before: string, after: string): boolean {
   return FORMAL_TONE_PATTERN.test(after) && !FORMAL_TONE_PATTERN.test(before);
 }
-// The scorer's fix hints are Korean-pattern advice; English drafts get the rubric itself.
-export const ENGLISH_REWRITE_CHECKLIST = [
-  `Format: ${ENGLISH_HOOK_RULE}.`,
-  "Whole post under 430 characters, no line over 140 characters, blank line between ideas.",
-  "Keep the closing 'A) ' and 'B) ' option lines and the final line 'Which one are you?'.",
-  "Write in English only.",
-].join(" ");
+/** A rewrite must not drop the formula's own shape (12 animal lines, send-it-to-them close). */
+export function breaksFormulaShape(formulaId: string, before: string, after: string): boolean {
+  return findFormulaShapeViolation(formulaId, after) !== null && findFormulaShapeViolation(formulaId, before) === null;
+}
+// The scorer's fix hints are Korean-pattern advice; English drafts get the rubric itself,
+// with the same per-formula length and ending generation used.
+export function englishRewriteChecklist(formulaId: string): string {
+  return [`Format: ${ENGLISH_HOOK_RULE}.`, englishShapeRule(formulaId), "No line over 140 characters.", "Write in English only."].join(" ");
+}
 
 async function rewriteOnce(
   content: string,
   firstComment: string | null,
   score: AlgorithmicPredictionResult,
-  context?: { topic?: string; targetAudience?: string; productProfile?: string }
+  context?: RemediationContext
 ) {
   const weakest = Object.values(score.dimensions).reduce((prev, curr) => (
     curr.maxScore - curr.score > prev.maxScore - prev.score ? curr : prev
   ));
   const isEnglish = !/[가-힣]/.test(content);
   const actionableFix = isEnglish
-    ? ENGLISH_REWRITE_CHECKLIST
+    ? englishRewriteChecklist(context?.formulaId ?? "")
     : score.actionableFixes.length
       ? score.actionableFixes.join(" / ")
       : `${weakest.name} 차원의 점수가 부족하므로 해당 요소를 보강하십시오.`;

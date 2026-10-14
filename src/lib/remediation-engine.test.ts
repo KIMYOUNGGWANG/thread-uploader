@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ENGLISH_HOOK_RULE } from "./domain-registry";
 import {
-  ENGLISH_REWRITE_CHECKLIST,
   applyHeuristicFixes,
+  breaksFormulaShape,
+  englishRewriteChecklist,
   extractRewrittenPost,
   introducesFormalTone,
   remediatePostAlgorithmic,
@@ -120,7 +121,26 @@ describe("remediatePostAlgorithmic rewrite attempts", () => {
 
   // A question-forcing checklist stapled "Wrong about X, actually?" onto declarative global hooks (views 1-9).
   it("rewrites english hooks with the same declarative rule generation uses", () => {
-    expect(ENGLISH_REWRITE_CHECKLIST).toContain(ENGLISH_HOOK_RULE);
-    expect(ENGLISH_REWRITE_CHECKLIST).not.toMatch(/ends with '\?'/);
+    expect(englishRewriteChecklist("trend_correction")).toContain(ENGLISH_HOOK_RULE);
+    expect(englishRewriteChecklist("trend_correction")).not.toMatch(/ends with '\?'/);
+  });
+
+  // The fixed checklist ("under 430 characters", "Keep the closing A)/B)") squeezed every rewrite into the A/B post.
+  it("rewrites a shaped formula with its own length and ending, not the A/B template", () => {
+    expect(englishRewriteChecklist("trend_correction")).toContain("Which one are you?");
+    for (const formulaId of ["all_twelve_series", "two_birthday_compatibility"]) {
+      const checklist = englishRewriteChecklist(formulaId);
+      expect(checklist).toContain(ENGLISH_HOOK_RULE);
+      expect(checklist).not.toContain("Which one are you?");
+    }
+    expect(englishRewriteChecklist("all_twelve_series")).toMatch(/12 lines/);
+  });
+
+  it("rejects a rewrite that drops the formula's shape", () => {
+    const shaped = "Fire and Water don't cancel out. They probably boil.\n\nThe tell: you argue about timing, never love.\n\nSend this to your Water person.";
+    const generic = "Fire and Water don't cancel out. They probably boil.\n\nA) I'm the Fire\nB) I'm the Water\nWhich one are you?";
+    expect(breaksFormulaShape("two_birthday_compatibility", shaped, generic)).toBe(true);
+    expect(breaksFormulaShape("two_birthday_compatibility", shaped, shaped)).toBe(false);
+    expect(breaksFormulaShape("trend_correction", shaped, generic)).toBe(false);
   });
 });

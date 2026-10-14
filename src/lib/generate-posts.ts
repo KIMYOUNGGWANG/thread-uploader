@@ -40,7 +40,7 @@ import {
 import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
-import { findBorrowedYearBoundaryClaim, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
+import { findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
 import { resolveDynamicContext } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
@@ -309,12 +309,13 @@ async function generateWithQuality(
   };
   qualityResult = withProhibitedPhraseCheck(qualityResult, lastResult.post);
 
-  // Batch siblings generate in parallel and can't see each other, so a claim owned by another formula fails per draft.
-  const withClaimOwnershipCheck = (result: typeof qualityResult, post: string): typeof qualityResult => {
-    const borrowed = findBorrowedYearBoundaryClaim(experiment.formula.id, post);
-    return borrowed ? { ...result, pass: false, reasons: [borrowed, ...result.reasons] } : result;
+  // Per-formula checks: batch siblings generate in parallel and can't see each other, so a claim owned by
+  // another formula fails per draft; a draft that dropped its formula's own shape fails too.
+  const withFormulaCheck = (result: typeof qualityResult, post: string): typeof qualityResult => {
+    const violation = findBorrowedYearBoundaryClaim(experiment.formula.id, post) ?? findFormulaShapeViolation(experiment.formula.id, post);
+    return violation ? { ...result, pass: false, reasons: [violation, ...result.reasons] } : result;
   };
-  qualityResult = withClaimOwnershipCheck(qualityResult, lastResult.post);
+  qualityResult = withFormulaCheck(qualityResult, lastResult.post);
 
   // Word overlap and a shared skeleton both count as a repeat; the retry prompt receives the reason.
   // The skeleton rules are Korean saju templates, so other profiles only get the word-overlap check.
@@ -339,7 +340,7 @@ async function generateWithQuality(
     );
 
     qualityResult = withProhibitedPhraseCheck(qualityResult, lastResult.post);
-    qualityResult = withClaimOwnershipCheck(qualityResult, lastResult.post);
+    qualityResult = withFormulaCheck(qualityResult, lastResult.post);
     qualityResult = withRepeatCheck(qualityResult, lastResult);
   }
 
@@ -1059,6 +1060,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         topic: result.topic,
         targetAudience: result.targetAudience,
         productProfile: config.productProfile ? JSON.stringify(config.productProfile) : undefined,
+        formulaId: result.formulaId,
       },
       config.minAlgorithmicScore ?? 80
     );
