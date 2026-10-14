@@ -1,8 +1,10 @@
 import { PrismaClient } from "@prisma/client";
+import { createRequire } from "node:module";
 
 // Points the cosmicpath brand at the compatibility funnel (/match/new) and a relationship topic axis.
 // Dry-run by default; pass --apply to write.
 const prisma = new PrismaClient();
+const require = createRequire(import.meta.url);
 
 const MATCH_URL = "https://www.cosmicpath.app/match/new";
 const CAMPAIGN_ID = "cosmicpath_viral_reset_v1";
@@ -23,6 +25,21 @@ function isRecord(value: unknown): value is Json {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function readHierarchyInstruction(): string {
+  const resetConfig: unknown = require("./cosmicpath-viral-reset-config.js");
+  if (!isRecord(resetConfig) || typeof resetConfig.CONCEPT_HIERARCHY_INSTRUCTION !== "string") {
+    throw new Error("cosmicpath-viral-reset-config.js must export CONCEPT_HIERARCHY_INSTRUCTION");
+  }
+  return resetConfig.CONCEPT_HIERARCHY_INSTRUCTION;
+}
+
+function findHierarchyFormula(campaign: Json): Json {
+  const formulas = Array.isArray(campaign.formulas) ? campaign.formulas : [];
+  const formula = formulas.find((item): item is Json => isRecord(item) && item.id === "concept_hierarchy");
+  if (!formula) throw new Error(`Campaign '${CAMPAIGN_ID}' has no concept_hierarchy formula`);
+  return formula;
+}
+
 async function main() {
   const apply = process.argv.includes("--apply");
   const brand = await prisma.brand.findFirst({ where: { slug: "cosmicpath" } });
@@ -36,6 +53,8 @@ async function main() {
   const campaigns = Array.isArray(config.campaigns) ? config.campaigns : [];
   const campaign = campaigns.find((item): item is Json => isRecord(item) && item.id === CAMPAIGN_ID);
   if (!campaign) throw new Error(`Campaign '${CAMPAIGN_ID}' not found`);
+  const hierarchyFormula = findHierarchyFormula(campaign);
+  const hierarchyInstruction = readHierarchyInstruction();
 
   console.log("productProfile.landingUrl:", profile.landingUrl, "->", MATCH_URL);
   console.log(`campaign ${CAMPAIGN_ID}.landingUrl:`, campaign.landingUrl, "->", MATCH_URL);
@@ -43,6 +62,7 @@ async function main() {
   console.log("topics (after): ", TOPICS);
   // Career-era targets/situations got glued onto relationship topics; empty lets the relationship matrix supply them.
   console.log("targets/situations (before):", config.targets, config.situations, "-> []");
+  console.log("concept_hierarchy.instruction:", hierarchyFormula.instruction, "->", hierarchyInstruction);
 
   if (!apply) {
     console.log("\nDry run only. Re-run with --apply to write.");
@@ -54,6 +74,7 @@ async function main() {
   config.topics = TOPICS;
   config.targets = [];
   config.situations = [];
+  hierarchyFormula.instruction = hierarchyInstruction;
   await prisma.brand.update({ where: { id: brand.id }, data: { brandConfig: JSON.stringify(config) } });
   console.log("\nApplied.");
 }

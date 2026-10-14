@@ -1,4 +1,5 @@
 const CAMPAIGN_ID = "cosmicpath_viral_reset_v1";
+const CONCEPT_HIERARCHY_INSTRUCTION = "실제 사주 개념 2~3개(살·십신·일주)를 서열이나 대비로 비교한다. 같은 비교 문장 틀을 반복하지 않는다.";
 
 const FORMULAS = [
   {
@@ -11,7 +12,7 @@ const FORMULAS = [
     id: "concept_hierarchy",
     name: "개념 서열 비교",
     weight: 4,
-    instruction: "A보다 센 B보다 센 C 구조로 사주 개념의 서열을 두 단계 이상 비교한다.",
+    instruction: CONCEPT_HIERARCHY_INSTRUCTION,
   },
   {
     id: "identity_profile",
@@ -88,4 +89,4 @@ function text(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-module.exports = { CAMPAIGN_ID, buildCosmicPathViralResetConfig };
+module.exports = { CAMPAIGN_ID, CONCEPT_HIERARCHY_INSTRUCTION, buildCosmicPathViralResetConfig };

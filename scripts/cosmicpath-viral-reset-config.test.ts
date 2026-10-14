@@ -67,4 +67,14 @@ describe("buildCosmicPathViralResetConfig", () => {
       campaigns: [existingCampaign],
     });
   });
+
+  it("describes the hierarchy formula without forcing a two-step 'A보다 센' sentence", () => {
+    const result = buildCosmicPathViralResetConfig({ campaigns: [] }) as {
+      campaigns: Array<{ formulas: Array<{ id: string; instruction: string }> }>;
+    };
+    const hierarchy = result.campaigns[0]?.formulas.find((formula) => formula.id === "concept_hierarchy");
+
+    expect(hierarchy?.instruction).toContain("2~3개");
+    expect(hierarchy?.instruction).not.toContain("A보다 센");
+  });
 });
