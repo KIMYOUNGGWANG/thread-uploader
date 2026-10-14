@@ -52,6 +52,10 @@ const HOOK_CONTRAST_PATTERNS = [
   /차이/,
   /반전/,
   /착각/,
+  // Korean contrarian framing the generation prompt asks for ("통념 반박")
+  /반대/,
+  /통념/,
+  /아니라/,
   /\b(wrong|myth|not\s+your|isn't|actually|really|instead|different)\b/i,
 ];
 
@@ -91,6 +95,8 @@ const CONVERSATION_INVITATION_PATTERNS = [
   /어느\s*쪽/,
   /의견/,
   /공감/,
+  // Korean questions often end in -인가/-일까/-할까 without a question mark
+  /(?:인가|일까|할까)[.!]?\s*$/m,
   /\b(which\s+one|are\s+you|comment|send\s+this|tag\s+(?:a|your)|drop\s+your)\b/i,
   /(?:^|\s)너(?:는|넨|네|희|가)?\s[^\n]*\?/,
 ];
@@ -147,7 +153,8 @@ export function scoreThreadsPostAlgorithmic(
 
   const hasChoice = CONVERSATION_CHOICE_PATTERNS.some((p) => p.test(content));
   const hasInvitation = CONVERSATION_INVITATION_PATTERNS.some((p) => p.test(content));
-  const hasFirstCommentPrompt = firstComment && (firstComment.includes("?") || firstComment.includes("댓글"));
+  // "한 줄로 적어줘" style asks invite a reply as much as a question mark does
+  const hasFirstCommentPrompt = firstComment && /\?|댓글|적어|알려줘|말해줘/.test(firstComment);
 
   if (hasChoice) {
     convScore += 9;
