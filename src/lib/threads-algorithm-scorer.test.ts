@@ -54,6 +54,40 @@ describe("threads-algorithm-scorer", () => {
     expect(result.pass).toBe(false);
     expect(result.dimensions.penaltyRisk.score).toBeLessThanOrEqual(7);
   });
+
+  const FACT_POST = [
+    "한국인 10명 중 7명은 자기 시주를 잘못 알고 있음.",
+    "",
+    "출생 시각을 표준시로만 넣으면 진태양시랑 30분 넘게 어긋나는 경우가 많아서, 일주는 맞아도 시주 글자가 통째로 바뀜.",
+    "",
+    "시주가 바뀌면 말년운 해석이랑 자식 궁 읽는 기준이 전부 달라짐.",
+    "",
+    "너는 태어난 시간 정확히 알고 있음?",
+  ].join("\n");
+  const IDENTITY_POST = [
+    "신금 일주는 끊을 때 칼이 아니라 정으로 베임.",
+    "판단은 빠른데 인정은 제일 늦게 하는 타입이라, 이미 끝난 관계를 1년씩 끌고 감.",
+    "",
+    "강점은 한 번 정한 기준을 끝까지 지키는 거고, 맹점은 그 기준이 상대 사정을 못 봄.",
+    "",
+    "너는 지금 누구를 정 때문에 붙잡고 있음?",
+  ].join("\n");
+
+  it("passes fact and identity hooks that end with a direct question instead of numbered choices", () => {
+    for (const post of [FACT_POST, IDENTITY_POST]) {
+      const result = scoreThreadsPostAlgorithmic(post, "너넨 일주 뭐야? 같은 일주 있으면 이 맹점 맞는지 궁금함.");
+      expect(result.dimensions.hookTension.score).toBeGreaterThanOrEqual(17);
+      expect(result.dimensions.conversationDepth.score).toBeGreaterThanOrEqual(16);
+      expect(result.totalScore).toBeGreaterThanOrEqual(80);
+    }
+  });
+
+  it("never prescribes the hierarchy hook or numbered choices as a fix", () => {
+    const fixes = scoreThreadsPostAlgorithmic("오늘은 날씨가 좋았음.\n\n사주 공부를 조금 했음.").actionableFixes.join(" ");
+    expect(fixes).not.toContain("보다 센");
+    expect(fixes).not.toContain("1번/2번");
+    expect(fixes).not.toContain("선택지");
+  });
 });
 
 describe("threads-algorithm-scorer english hooks", () => {
