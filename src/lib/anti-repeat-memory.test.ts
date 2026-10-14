@@ -118,6 +118,27 @@ describe("structure repeat", () => {
     expect(result.reason).toContain("난 솔직히");
   });
 
+  it("does not count clean skeletons as a repeat", () => {
+    const clean = (index: number) => ({ content: `신금 일주는 정으로 베임 ${index}.\n너는 누구 붙잡고 있음?`, firstComment: `다른 ${index}` });
+    const result = checkStructureRepeat("문창귀인 타입은 답장이 늦음.\n너는 몇 시간 넘으면 서운함?", "새 댓글", [clean(0), clean(1), clean(2)]);
+    expect(result.isDuplicate).toBe(false);
+  });
+
+  it("rejects a third '어때?' closer even when the opener changes", () => {
+    const askPost = (opener: string) => `${opener}\n갈리는 지점이 있음.\n어때?`;
+    const recentPosts = [
+      { content: askPost("신금 일주는 정으로 베임."), firstComment: "가 댓글" },
+      { content: askPost("한국인 10명 중 7명은 시주를 모름."), firstComment: "나 댓글" },
+    ];
+    expect(checkStructureRepeat(askPost("도화살 있는 사람은 답장이 빠름?"), "다 댓글", recentPosts).isDuplicate).toBe(true);
+  });
+
+  it("explains a template repeat in plain words without the internal key", () => {
+    const result = checkStructureRepeat(hierarchyPost, "새 댓글 하나", recentHierarchy(2));
+    expect(result.reason).not.toContain("|");
+    expect(result.reason).toContain("물음표");
+  });
+
   it("does not treat two missing first comments as the same opener", () => {
     const recentPosts = [{ content: "신금 일주는 정으로 베임.\n너는?", firstComment: null }];
     expect(checkStructureRepeat("한국인 10명 중 7명은 시주를 잘못 앎.\n너는 알고 있음?", null, recentPosts).isDuplicate).toBe(false);

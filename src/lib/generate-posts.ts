@@ -239,7 +239,9 @@ async function generateOne(
       const parsed = parseStructuredPostOutput(raw);
       const post = cleanGeneratedContentLabels(parsed.content);
       let firstComment = cleanGeneratedContentLabels(parsed.firstComment);
-      if (!firstComment || firstComment.length < 15) {
+      // Korean one-line questions are often under 15 characters; only a near-empty saju comment needs the fallback.
+      const minimumCommentLength = experiment.qualityProfile === "saju_viral" ? 5 : 15;
+      if (!firstComment || firstComment.length < minimumCommentLength) {
         firstComment = buildAdmissionFirstComment(post, {
           topic: experiment.topic,
           voiceProfile: config.voiceProfile,

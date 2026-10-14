@@ -31,6 +31,9 @@ describe("checkQuality", () => {
     );
 
     expect(result.pass).toBe(false);
+    // The retry prompt quotes this reason, so it must not ask for a two-step comparison again
+    expect(result.reasons.join(" ")).toContain("비교 구조 없음");
+    expect(result.reasons.join(" ")).not.toContain("2단계");
   });
 
   it("rejects an identity profile without a concrete natal marker", () => {
@@ -119,7 +122,9 @@ describe("checkQuality", () => {
     const result = checkQuality(IDENTITY_POST_WITHOUT_CHOICES, "saju_viral", { viralIntentModeId: "identity_profile" });
 
     expect(result.pass).toBe(true);
-    expect(result.reasons.join(" ")).toContain("참여 유도 요소 없음");
+    // Missing hook or engagement only lowers the score; as a reason it would push retries back to the template
+    expect(result.reasons.join(" ")).not.toContain("참여 유도 요소 없음");
+    expect(result.reasons.join(" ")).not.toContain("훅 없는 첫 줄");
   });
 
   it("accepts a fact hook without a question mark, hierarchy phrase, or choices", () => {

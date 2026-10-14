@@ -447,21 +447,10 @@ function checkSajuViralQuality(post: string, context: ProductQualityContext): Qu
     reasons.push("사주 전문 용어 없음 — generic 콘텐츠 의심");
   }
 
-  // Check 2: 첫 줄 훅 구조
-  const hasHook = HOOK_PATTERNS.some((p) => p.test(firstLine));
-  if (hasHook) {
-    score++;
-  } else {
-    reasons.push(`훅 없는 첫 줄: "${firstLine.slice(0, 40)}"`);
-  }
-
-  // Check 3: 참여 유도 요소
-  const hasEngagement = ENGAGEMENT_PATTERNS.some((p) => p.test(post));
-  if (hasEngagement) {
-    score++;
-  } else {
-    reasons.push("참여 유도 요소 없음 (선택지/시리즈/질문 필요)");
-  }
+  // Check 2 & 3: hook and engagement only raise the score. Reported as reasons, they reach the retry prompt
+  // as must-fix items and push drafts back into the question-plus-numbered-choices template.
+  if (HOOK_PATTERNS.some((p) => p.test(firstLine))) score++;
+  if (ENGAGEMENT_PATTERNS.some((p) => p.test(post))) score++;
 
   const fidelity = context.viralIntentModeId
     ? checkViralModeFidelity(post, context.viralIntentModeId)
@@ -476,7 +465,7 @@ function checkSajuViralQuality(post: string, context: ProductQualityContext): Qu
 const VIRAL_MODE_FAILURE_MESSAGES: Record<ViralModeFidelityFailureCode, string> = {
   formal_tone: "바이럴 모드에 맞지 않는 존댓말/전문가 문체",
   missing_three_choices: "3지선다 모드에 번호 선택지 1/2/3 없음",
-  missing_hierarchy: "개념 서열 모드에 2단계 이상 비교 구조 없음",
+  missing_hierarchy: "개념 서열 모드에 비교 구조 없음",
   missing_identity_marker: "기질 프로파일 모드에 구체적 살/일주/글자 없음",
   missing_relationship_contrast: "관계 텐션 모드에 관계 키워드와 대비 구조 없음",
 };

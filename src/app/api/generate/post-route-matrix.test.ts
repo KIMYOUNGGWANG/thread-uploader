@@ -306,6 +306,9 @@ describe("POST /api/generate viral sprint matrix", () => {
     const lastRecentPosts = state.checkStructureRepeat.mock.calls.at(-1)?.[2] ?? [];
     const commentNumber = (comment: string | null | undefined) => /북마크 (\d+)/.exec(comment ?? "")?.[1];
     expect(lastRecentPosts.length).toBeGreaterThan(1);
+    // Short one-line saju comments must survive instead of being swapped for the fixed admission comment
+    expect(state.createdPosts.every((post) => post.firstComment?.startsWith("북마크"))).toBe(true);
+    expect(lastRecentPosts.every((post) => commentNumber(post.firstComment) !== undefined)).toBe(true);
     // The window must start at the newest in-batch draft, not the oldest
     expect(lastRecentPosts.map((post) => commentNumber(post.firstComment)))
       .toEqual(state.createdPosts.slice(0, lastRecentPosts.length).map((post) => commentNumber(post.firstComment)).reverse());

@@ -197,12 +197,26 @@ export function extractStructureSignature(content: string, firstComment?: string
   };
 }
 
-function shapeKey(signature: StructureSignature): string {
-  return `${signature.opener}|${signature.hasNumberedChoices}|${signature.closer}`;
+type TemplateMark = "opener:hierarchy" | "closer:save" | "closer:ask";
+
+const TEMPLATE_MARK_LABELS: Record<TemplateMark, string> = {
+  "opener:hierarchy": "'X보다 센 건 Y' 서열 첫 줄",
+  "closer:save": "'저장해' 마무리",
+  "closer:ask": "'어때?' 마무리",
+};
+
+// Only the old template features count. Clean skeletons repeat naturally across modes and are not a problem;
+// counting them forced retries whose easiest escape was re-adding a template feature.
+function templateMarks(signature: StructureSignature): TemplateMark[] {
+  const marks: TemplateMark[] = [];
+  if (signature.opener === "hierarchy") marks.push("opener:hierarchy");
+  if (signature.closer === "save") marks.push("closer:save");
+  if (signature.closer === "ask") marks.push("closer:ask");
+  return marks;
 }
 
 /**
- * Flags a candidate that reuses the skeleton or the first-comment opener of the most recent posts.
+ * Flags a candidate that reuses a template feature or the first-comment opener of the most recent posts.
  */
 export function checkStructureRepeat(
   candidateContent: string,
@@ -214,9 +228,12 @@ export function checkStructureRepeat(
   const recent = recentPosts
     .slice(0, options?.window ?? 5)
     .map((post) => extractStructureSignature(post.content, post.firstComment));
-  const sameShape = recent.filter((signature) => shapeKey(signature) === shapeKey(candidate)).length;
-  if (sameShape > (options?.maxSame ?? 1)) {
-    return { isDuplicate: true, similarityScore: 1, reason: `최근 글 ${sameShape}개와 같은 틀(${shapeKey(candidate)}) 반복: 첫 줄 유형·번호 선택지·마무리 중 하나를 바꿔라` };
+  const maxSame = options?.maxSame ?? 1;
+  const repeatedMark = templateMarks(candidate).find(
+    (mark) => recent.filter((signature) => templateMarks(signature).includes(mark)).length > maxSame
+  );
+  if (repeatedMark) {
+    return { isDuplicate: true, similarityScore: 1, reason: `최근 글들과 같은 틀(${TEMPLATE_MARK_LABELS[repeatedMark]}) 반복: 이번엔 그 틀 없이 써라. 물음표·번호 선택지·'저장해'/'어때?'를 덧붙여 피하지 말고 첫 줄 시작 방식(숫자·통념 반박·호명)을 바꿔라` };
   }
   if (candidate.commentOpener && recent.some((signature) => signature.commentOpener === candidate.commentOpener)) {
     return { isDuplicate: true, similarityScore: 1, reason: `첫 댓글 첫마디 "${candidate.commentOpener}"가 최근 글과 같음: 다른 말로 시작해라` };
