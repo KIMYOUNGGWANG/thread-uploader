@@ -4,12 +4,15 @@
  * Inspired by autoTHREADS recent-post anti-repeat memory.
  */
 
+import { IDENTITY_MARKER_PATTERN } from "@/lib/viral-intent-modes";
+
 export interface RecentPostSummary {
   content: string;
   topic?: string | null;
   hookType?: string | null;
   ctaType?: string | null;
   campaignFormulaId?: string | null;
+  firstComment?: string | null;
 }
 
 export interface SimilarityCheckResult {
@@ -149,4 +152,74 @@ export function checkAntiRepeatSimilarity(
     isDuplicate: false,
     similarityScore: 0,
   };
+}
+
+export interface StructureSignature {
+  opener: "hierarchy" | "question" | "callout" | "statement";
+  hasNumberedChoices: boolean;
+  closer: "save" | "ask" | "other";
+  commentOpener: string | null;
+}
+
+function contentLines(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.replace(/^\[.*?\]\s*/, "").replace(/^#+\s*/, "").trim())
+    .filter((line) => line.length > 0);
+}
+
+function classifyOpener(lines: string[]): StructureSignature["opener"] {
+  const firstLine = lines[0] ?? "";
+  const openingComparisons = lines.slice(0, 2).join(" ").match(/보다/g)?.length ?? 0;
+  if (openingComparisons >= 2) return "hierarchy";
+  if (firstLine.includes("?")) return "question";
+  if (IDENTITY_MARKER_PATTERN.test(firstLine)) return "callout";
+  return "statement";
+}
+
+function classifyCloser(lastLine: string): StructureSignature["closer"] {
+  if (lastLine.includes("저장해")) return "save";
+  if (lastLine.includes("어때?")) return "ask";
+  return "other";
+}
+
+/**
+ * Reduces a post to the template it follows, so rewordings of the same skeleton still match.
+ */
+export function extractStructureSignature(content: string, firstComment?: string | null): StructureSignature {
+  const lines = contentLines(content);
+  const commentWords = (firstComment ?? "").trim().split(/\s+/).filter((word) => word.length > 0).slice(0, 2);
+  return {
+    opener: classifyOpener(lines),
+    hasNumberedChoices: /^\s*1[.)]\s/m.test(content),
+    closer: classifyCloser(lines[lines.length - 1] ?? ""),
+    commentOpener: commentWords.length > 0 ? commentWords.join(" ") : null,
+  };
+}
+
+function shapeKey(signature: StructureSignature): string {
+  return `${signature.opener}|${signature.hasNumberedChoices}|${signature.closer}`;
+}
+
+/**
+ * Flags a candidate that reuses the skeleton or the first-comment opener of the most recent posts.
+ */
+export function checkStructureRepeat(
+  candidateContent: string,
+  candidateFirstComment: string | null | undefined,
+  recentPosts: RecentPostSummary[],
+  options?: { window?: number; maxSame?: number }
+): SimilarityCheckResult {
+  const candidate = extractStructureSignature(candidateContent, candidateFirstComment);
+  const recent = recentPosts
+    .slice(0, options?.window ?? 5)
+    .map((post) => extractStructureSignature(post.content, post.firstComment));
+  const sameShape = recent.filter((signature) => shapeKey(signature) === shapeKey(candidate)).length;
+  if (sameShape > (options?.maxSame ?? 1)) {
+    return { isDuplicate: true, similarityScore: 1, reason: `최근 글 ${sameShape}개와 같은 틀(${shapeKey(candidate)}) 반복: 첫 줄 유형·번호 선택지·마무리 중 하나를 바꿔라` };
+  }
+  if (candidate.commentOpener && recent.some((signature) => signature.commentOpener === candidate.commentOpener)) {
+    return { isDuplicate: true, similarityScore: 1, reason: `첫 댓글 첫마디 "${candidate.commentOpener}"가 최근 글과 같음: 다른 말로 시작해라` };
+  }
+  return { isDuplicate: false, similarityScore: 0 };
 }
