@@ -12,6 +12,7 @@ import { Explainer } from "./compositions/Explainer";
 import { Demo } from "./compositions/Demo";
 import { TikTokExplainer } from "./compositions/TikTokExplainer";
 import { PromoReportTour } from "./compositions/PromoReportTour";
+import { PromoRace } from "./compositions/PromoRace";
 import { previewProps } from "./promo/preview.ts";
 import { FORMAT_FRAMES, PROMO_FPS } from "./promo/types.ts";
 import {
@@ -42,6 +43,8 @@ export const RemotionRoot: React.FC = () => {
         fps={PROMO_FPS}
         durationInFrames={FORMAT_FRAMES.reportTour}
       />
+      <Composition id="PromoRace" component={PromoRace} defaultProps={previewProps("race")}
+        width={1080} height={1920} fps={PROMO_FPS} durationInFrames={FORMAT_FRAMES.race} />
       <Composition
         id="TikTokExplainer"
         component={TikTokExplainer}
