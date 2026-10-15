@@ -14,7 +14,7 @@ export interface Persona {
 }
 
 export interface PromoVariant {
-  date: string; // KST render date, YYYY-MM-DD
+  date: string; // slot date (latest Mon/Thu, KST), YYYY-MM-DD — run identity, not the engine as-of date
   lang: PromoLang;
   slot: number;
   format: PromoFormat;

@@ -25,6 +25,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
 concurrency:
   group: render-promo
   cancel-in-progress: false
@@ -35,6 +38,8 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Checkout cosmicpath engines (read-only)
         uses: actions/checkout@v4
@@ -42,6 +47,8 @@ jobs:
           repository: KIMYOUNGGWANG/cosmicpath
           token: ${{ secrets.COSMICPATH_READ_TOKEN }}
           path: cosmicpath
+          # Do not leave the PAT in cosmicpath/.git/config while install scripts run.
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -88,7 +95,8 @@ jobs:
           node scripts/render-promo-job.mjs "${args[@]}"
 
       - name: Keep dry-run videos
-        if: ${{ inputs.dry_run }}
+        # always(): keep whichever language rendered even when the other one failed.
+        if: ${{ always() && inputs.dry_run }}
         uses: actions/upload-artifact@v4
         with:
           name: promo-dry-run

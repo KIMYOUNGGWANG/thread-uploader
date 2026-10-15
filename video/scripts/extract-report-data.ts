@@ -12,7 +12,9 @@ import { parseArgs } from "node:util";
 import type { Persona, PromoVariant } from "../src/promo/types.ts";
 import type { PromoSnapshot } from "../src/promo/snapshot.ts";
 
-interface ExtractInput { variant: PromoVariant; scenarioA: string; scenarioB: string; question: string }
+// asOf = the real render date (KST today): the engines' rolling windows and the stale-day check use it.
+// variant.date is only the slot identity (persona seed, dedupe key) and can be days older on a re-run.
+interface ExtractInput { variant: PromoVariant; asOf: string; scenarioA: string; scenarioB: string; question: string }
 
 const { values } = parseArgs({ options: { input: { type: "string" }, out: { type: "string" } } });
 if (!values.input || !values.out) throw new Error("usage: --input variant-input.json --out snapshot.json");
@@ -34,7 +36,7 @@ const { calculateCompatibility } = engine("lib/match/match-calculator.ts");
 
 const input: ExtractInput = JSON.parse(readFileSync(values.input, "utf8"));
 const { variant } = input;
-const [asOfYear, asOfMonth] = variant.date.split("-").map(Number);
+const [asOfYear, asOfMonth] = input.asOf.split("-").map(Number);
 
 async function sajuFor(persona: Persona) {
   const profile = await calculateOracleSajuProfile({ birthDate: persona.birthDate, birthTime: persona.birthTime, gender: persona.gender, cityName: "Seoul" });
@@ -61,7 +63,7 @@ function matchFor(host: Persona, guest: Persona): PromoSnapshot["match"] {
 }
 
 const saju = await sajuFor(variant.persona);
-const heatmap = calculateRollingTimingHeatmap(saju, asOfYear, asOfMonth, variant.date);
+const heatmap = calculateRollingTimingHeatmap(saju, asOfYear, asOfMonth, input.asOf);
 const scenario = calculateScenarioDecision({
   scenarioA: input.scenarioA, scenarioB: input.scenarioB, question: input.question,
   weeklyHeatmap: heatmap, saju, targetYear: asOfYear, startMonth: asOfMonth, language: variant.lang,
@@ -73,7 +75,7 @@ const ziwei = calculateZiweiChart(new Date(variant.persona.birthDate), Number(va
 const pillar = (value: { stem: string; branch: string }) => ({ stem: value.stem, branch: value.branch });
 
 const snapshot: PromoSnapshot = {
-  asOf: variant.date,
+  asOf: input.asOf,
   lang: variant.lang,
   persona: variant.persona,
   guest: variant.format === "match" ? variant.guest : null,

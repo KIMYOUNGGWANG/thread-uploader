@@ -33,6 +33,15 @@ export function slotFor(date: string): number {
   return Math.max(0, count - 1);
 }
 
+// The slot's own date (latest Monday/Thursday on or before `date`): the identity of a promo run.
+// Persona seeds and the post dedupe key use it, so a re-run on a later weekday reproduces the slot.
+export function slotDateFor(date: string): string {
+  let day = toUtcDay(date);
+  const start = toUtcDay(ROTATION_START);
+  while (day > start && !SLOT_WEEKDAYS.has(new Date(day).getUTCDay())) day -= DAY_MS;
+  return new Date(Math.max(day, start)).toISOString().slice(0, 10);
+}
+
 function seededRandom(seed: string): () => number {
   let state = 2166136261;
   for (const char of seed) state = Math.imul(state ^ char.charCodeAt(0), 16777619);
@@ -56,27 +65,31 @@ export function personaFor(seed: string, gender: Gender): Persona {
   return { birthDate: `${year}-${pad(month)}-${pad(day)}`, birthTime: `${pad(hour)}:${pad(minute)}`, gender };
 }
 
+// Shifting by the cycle breaks the gcd(4 formats, 6 topics) = 2 coupling, so every format meets all topics.
+const cycleOf = (slot: number) => Math.floor(slot / FORMATS.length);
+
 function pickTopic(slot: number, format: PromoFormat, override?: PromoTopic): PromoTopic {
-  if (format !== "match") return override ?? TOPICS[slot % TOPICS.length] ?? "career";
+  if (format !== "match") return override ?? TOPICS[(slot + cycleOf(slot)) % TOPICS.length] ?? "career";
   if (override && !RELATION_TOPICS.includes(override)) {
     throw new Error(`match format needs a relation topic, got "${override}"`);
   }
-  return override ?? RELATION_TOPICS[Math.floor(slot / FORMATS.length) % RELATION_TOPICS.length] ?? "contact";
+  return override ?? RELATION_TOPICS[cycleOf(slot) % RELATION_TOPICS.length] ?? "contact";
 }
 
 export function pickPromoVariant(date: string, lang: PromoLang, overrides: VariantOverrides = {}): PromoVariant {
   const slot = slotFor(date);
+  const slotDate = slotDateFor(date);
   const picked = overrides.format ?? FORMATS[slot % FORMATS.length] ?? "reportTour";
   const format: PromoFormat = lang === "en" && picked === "match" ? "race" : picked; // match screens are Korean-only
-  const gender: Gender = slot % 2 === 0 ? "female" : "male";
+  const gender: Gender = (slot + cycleOf(slot)) % 2 === 0 ? "female" : "male";
   return {
-    date,
+    date: slotDate,
     lang,
     slot,
     format,
     topic: pickTopic(slot, format, overrides.topic),
-    hookIndex: Math.floor(slot / FORMATS.length) % HOOK_COUNT,
-    persona: personaFor(date, gender),
-    guest: personaFor(`${date}:guest`, gender === "female" ? "male" : "female"),
+    hookIndex: cycleOf(slot) % HOOK_COUNT,
+    persona: personaFor(slotDate, gender),
+    guest: personaFor(`${slotDate}:guest`, gender === "female" ? "male" : "female"),
   };
 }

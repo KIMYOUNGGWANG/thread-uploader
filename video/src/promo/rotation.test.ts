@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickPromoVariant, slotFor } from "./rotation.ts";
+import { pickPromoVariant, slotDateFor, slotFor } from "./rotation.ts";
 import { RELATION_TOPICS } from "./types.ts";
 
 const addDays = (date: string, days: number) =>
@@ -68,6 +68,30 @@ describe("pickPromoVariant", () => {
         expect(person.birthTime).toMatch(/^([01]\d|2[0-3]):(00|30)$/);
       }
       expect(guest.gender).not.toBe(persona.gender);
+    }
+  });
+});
+
+describe("slot identity and diversity", () => {
+  it("maps any date to the latest Monday/Thursday slot date", () => {
+    expect(slotDateFor("2026-10-19")).toBe("2026-10-19");
+    expect(slotDateFor("2026-10-21")).toBe("2026-10-19");
+    expect(slotDateFor("2026-10-24")).toBe("2026-10-22");
+    expect(slotDateFor("2026-10-01")).toBe("2026-10-19");
+  });
+
+  it("reproduces the whole slot variant, persona included, on a non-slot weekday", () => {
+    expect(pickPromoVariant("2026-10-20", "ko")).toEqual(pickPromoVariant("2026-10-19", "ko"));
+    expect(pickPromoVariant("2026-10-20", "ko").date).toBe("2026-10-19");
+  });
+
+  it("rotates every Korean non-match format through all six topics and both genders", () => {
+    for (const format of ["reportTour", "race", "experiment"] as const) {
+      const variants = Array.from({ length: 104 }, (_, i) => addDays("2026-10-19", i * 3.5 | 0))
+        .map((date) => pickPromoVariant(date, "ko"))
+        .filter((variant) => variant.format === format);
+      expect(new Set(variants.map((variant) => variant.topic)).size).toBe(6);
+      expect(new Set(variants.map((variant) => variant.persona.gender)).size).toBe(2);
     }
   });
 });

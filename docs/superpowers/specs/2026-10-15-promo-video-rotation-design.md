@@ -67,14 +67,16 @@ CI는 DB에 직접 접근하지 않는다 (기존 `render-job.mjs` 규칙과 동
 - **슬롯 번호**: 기준일 `2026-10-19`(월)부터 센 월·목 슬롯 순번. 월·목이 아닌 날짜(수동 실행)는 직전 슬롯 번호를 쓴다.
 - **포맷**: `FORMATS = [reportTour, race, match, experiment]`, `format = FORMATS[slot % 4]`.
   - EN에서 `match`가 걸리면 `race`로 대체 (궁합 화면이 한국어 전용).
-- **주제**: `TOPICS = [contact, career, confession, sideJob, marriage, partnership]`.
-  - 일반: `TOPICS[slot % 6]`
+- **주제**: `TOPICS = [contact, career, confession, sideJob, marriage, partnership]`, `cycle = floor(slot / 4)`.
+  - 일반: `TOPICS[(slot + cycle) % 6]` — cycle만큼 밀어서 포맷마다 6개 주제를 모두 돈다 (gcd(4, 6) = 2 결합 방지).
   - `match` 회차: 관계 주제 `[contact, confession, marriage, partnership]`에서 `[floor(slot / 4) % 4]`
-- **가상 인물**: 날짜 문자열 시드의 결정적 난수.
+- **회차 날짜(slotDate)**: 입력 날짜 이하의 가장 최근 월·목. 인물 시드, 파일 이름, 중복 방지 키(`video:promo:<slotDate>`)는 모두 slotDate를 쓴다 → 화요일에 다시 돌려도 월요일 회차가 그대로 재현되고 중복 게시물이 생기지 않는다.
+- **엔진 기준일(asOf)**: 항상 실제 실행일(KST 오늘). 엔진 계산과 "지난 날짜" 검사는 asOf 기준이라, 지난 회차를 다시 돌려도 숫자는 최신이다.
+- **가상 인물**: slotDate 문자열 시드의 결정적 난수.
   - 출생 1990–2001년, 월 1–12, 일 1–28, 시 0–23, 분 0 또는 30, 출생지 서울.
-  - 성별은 슬롯 홀짝으로 번갈아.
+  - 성별은 `(slot + cycle) % 2`로 번갈아 (포맷마다 두 성별 모두 나옴).
   - `match`는 두 번째 인물을 시드 `date + ":guest"`, 반대 성별로 만든다.
-- **훅**: 포맷마다 3개, `hookIndex = floor(slot / 4) % 3`.
+- **훅**: 포맷마다 3개, `hookIndex = cycle % 3`.
 - 수동 실행 시 `--format`, `--topic` 덮어쓰기 허용.
 
 ## 5. 포맷 4종
@@ -108,7 +110,7 @@ CI는 DB에 직접 접근하지 않는다 (기존 `render-job.mjs` 규칙과 동
 
 입력 JSON(`--input`)을 받아 출력 JSON(`--out`)을 쓴다. cosmicpath 루트에서 `TZ=UTC node <thread-uploader>/video/scripts/extract-report-data.ts --input … --out …`로 실행한다. cosmicpath 엔진 일부가 타입을 값처럼 import 해서 Node 타입 제거만으로는 못 읽으므로, cosmicpath의 `scripts/report-test-data/ts-loader.ts`(`registerTypeScriptLoader`)로 불러온다.
 
-- 입력: `{ asOf, lang, topic, scenarioA, scenarioB, question, persona, guest? }`
+- 입력: `{ variant, asOf, scenarioA, scenarioB, question }` (asOf = 실행일 KST, variant.date = slotDate)
 - 출력 (기존 구조 확장):
   - `saju`: 일간, 4주, 오행
   - `heatmap`: 월별 단계·평균, 최강일
