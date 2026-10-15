@@ -56,18 +56,22 @@ async function queueOne(date: string, item: PromoPostItem): Promise<PromoPostRes
   const formulaId = `video:promo:${date}`;
   const existing = await prisma.post.findFirst({ where: { brandId: brand.id, formulaId } });
   if (existing) return { brandSlug: item.brandSlug, skipped: "already_queued" };
-  const post = await prisma.post.create({
-    data: {
-      brandId: brand.id, content: item.content, imageUrls: JSON.stringify([item.videoUrl]), scheduledAt: new Date(),
-      status: "NEEDS_REVIEW", formulaId, topic: `${item.format}:${item.topic}`, qualityReasons: JSON.stringify(["영상 포스트: 승인 후 발행"]),
-    },
+  // One transaction: a post without its UTM first comment would be skipped as already_queued forever.
+  const postId = await prisma.$transaction(async (tx) => {
+    const post = await tx.post.create({
+      data: {
+        brandId: brand.id, content: item.content, imageUrls: JSON.stringify([item.videoUrl]), scheduledAt: new Date(),
+        status: "NEEDS_REVIEW", formulaId, topic: `${item.format}:${item.topic}`, qualityReasons: JSON.stringify(["영상 포스트: 승인 후 발행"]),
+      },
+    });
+    const linkUrl = buildPromoLink(item.landingPath, post.id);
+    await tx.post.update({
+      where: { id: post.id },
+      data: { linkUrl, utmContent: post.id, firstComment: item.commentTemplate.replace("{{link}}", linkUrl) },
+    });
+    return post.id;
   });
-  const linkUrl = buildPromoLink(item.landingPath, post.id);
-  await prisma.post.update({
-    where: { id: post.id },
-    data: { linkUrl, utmContent: post.id, firstComment: item.commentTemplate.replace("{{link}}", linkUrl) },
-  });
-  return { brandSlug: item.brandSlug, postId: post.id };
+  return { brandSlug: item.brandSlug, postId };
 }
 
 // Sequential on purpose: at most 2 items per run, and it keeps the per-brand duplicate check simple.

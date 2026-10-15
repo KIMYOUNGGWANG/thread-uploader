@@ -9,9 +9,12 @@ const db = vi.hoisted(() => ({
     update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => data),
   },
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: db }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: { ...db, $transaction: vi.fn(async (work: (tx: typeof db) => Promise<unknown>) => work(db)) },
+}));
 
 import { POST } from "./route";
+import { prisma } from "@/lib/prisma";
 
 const item = (overrides: Record<string, unknown> = {}) => ({
   brandSlug: "cosmicpath",
@@ -68,6 +71,13 @@ describe("POST /api/cron/promo-posts", () => {
     expect(Object.fromEntries(link.searchParams)).toEqual({ context: "love", utm_source: "threads", utm_campaign: "promo-rotation", utm_content: "p1" });
     expect(update.data.firstComment).toBe(`무료 진단부터 돌려봐 → ${update.data.linkUrl}`);
     expect(update.data.utmContent).toBe("p1");
+  });
+
+  it("creates the post and its UTM link in one transaction so no half-written post survives", async () => {
+    await POST(request({ date: "2026-10-19", items: [item()] }));
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.post.create).toHaveBeenCalledTimes(1);
+    expect(db.post.update).toHaveBeenCalledTimes(1);
   });
 
   it("skips an already queued brand and a missing brand without failing the others", async () => {
