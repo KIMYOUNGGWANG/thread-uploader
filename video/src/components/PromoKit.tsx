@@ -4,7 +4,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, random, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { FONT_STACK } from "../load-fonts";
 
-export type PromoLang = "ko" | "en";
+export type { PromoLang } from "../promo/types.ts";
 
 export const C = {
   bg: "#0a0908",
