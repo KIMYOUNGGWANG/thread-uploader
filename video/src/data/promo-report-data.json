@@ -1,0 +1,750 @@
+{
+  "persona": {
+    "birthDate": "1996-03-14",
+    "hour": 10,
+    "minute": 30,
+    "gender": "female"
+  },
+  "asOf": "2026-10-14",
+  "saju": {
+    "dayMaster": "경",
+    "pillars": {
+      "hour": {
+        "stem": "신",
+        "branch": "사"
+      },
+      "day": {
+        "stem": "경",
+        "branch": "술"
+      },
+      "month": {
+        "stem": "신",
+        "branch": "묘"
+      },
+      "year": {
+        "stem": "병",
+        "branch": "자"
+      }
+    },
+    "elements": [
+      {
+        "stem": "fire",
+        "branch": "water"
+      },
+      {
+        "stem": "metal",
+        "branch": "wood"
+      },
+      {
+        "stem": "metal",
+        "branch": "earth"
+      },
+      {
+        "stem": "metal",
+        "branch": "fire"
+      }
+    ]
+  },
+  "heatmap": {
+    "peakQuarter": "2027년 7월 ~ 2027년 9월",
+    "bestDay": {
+      "date": "2026-10-25",
+      "pillar": "임신",
+      "tenGod": "식신",
+      "score": 90,
+      "reasonKo": "임신일 식신: 결과물 만들기 · 원국과 합",
+      "reasonEn": "Ren Shen day (Eating God): producing work, combines with your chart"
+    },
+    "months": [
+      {
+        "year": 2026,
+        "month": 10,
+        "nameKo": "10월 (무술월)",
+        "nameEn": "October",
+        "tenGod": "편인",
+        "average": 45,
+        "phase": "DEFEND",
+        "opportunityKo": "무술월(편인)은 조사하고 전략을 다시 짜기에 맞는 달",
+        "opportunityEn": "Wu Xu (Indirect Resource) is a month for research and reworking the plan",
+        "goldenDays": [
+          "2026-10-20",
+          "2026-10-22",
+          "2026-10-25"
+        ],
+        "cautionDays": [
+          "2026-10-21",
+          "2026-10-23"
+        ]
+      },
+      {
+        "year": 2026,
+        "month": 11,
+        "nameKo": "11월 (기해월)",
+        "nameEn": "November",
+        "tenGod": "정인",
+        "average": 52,
+        "phase": "NEGOTIATE",
+        "opportunityKo": "기해월(정인)은 서류·자격·조언자를 확보하기 좋은 달",
+        "opportunityEn": "Ji Hai (Direct Resource) is a month for securing documents, credentials and advisers",
+        "goldenDays": [
+          "2026-11-06",
+          "2026-11-17",
+          "2026-11-18"
+        ],
+        "cautionDays": [
+          "2026-11-02",
+          "2026-11-16"
+        ]
+      },
+      {
+        "year": 2026,
+        "month": 12,
+        "nameKo": "12월 (경자월)",
+        "nameEn": "December",
+        "tenGod": "비견",
+        "average": 67,
+        "phase": "HARVEST",
+        "opportunityKo": "경자월(비견)은 내 기준으로 혼자 밀어붙이기 좋은 달",
+        "opportunityEn": "Geng Zi (Companion) is a month for pushing ahead on your own terms",
+        "goldenDays": [
+          "2026-12-09",
+          "2026-12-11",
+          "2026-12-24"
+        ],
+        "cautionDays": [
+          "2026-12-03",
+          "2026-12-10"
+        ]
+      },
+      {
+        "year": 2027,
+        "month": 1,
+        "nameKo": "1월 (신축월)",
+        "nameEn": "January",
+        "tenGod": "겁재",
+        "average": 49,
+        "phase": "DEFEND",
+        "opportunityKo": "신축월(겁재)은 경쟁과 지출이 늘기 쉬워 돈 관리가 먼저인 달",
+        "opportunityEn": "Xin Chou (Rob Wealth) is a month of competition and spending; guard cash first",
+        "goldenDays": [
+          "2027-01-05",
+          "2027-01-16",
+          "2027-01-17"
+        ],
+        "cautionDays": [
+          "2027-01-01",
+          "2027-01-15"
+        ]
+      },
+      {
+        "year": 2027,
+        "month": 2,
+        "nameKo": "2월 (임인월)",
+        "nameEn": "February",
+        "tenGod": "식신",
+        "average": 56,
+        "phase": "NEGOTIATE",
+        "opportunityKo": "임인월(식신)은 꾸준히 결과물을 쌓아 보여주기 좋은 달",
+        "opportunityEn": "Ren Yin (Eating God) is a month for steadily producing visible output",
+        "goldenDays": [
+          "2027-02-07",
+          "2027-02-09",
+          "2027-02-22"
+        ],
+        "cautionDays": [
+          "2027-02-01",
+          "2027-02-08"
+        ]
+      },
+      {
+        "year": 2027,
+        "month": 3,
+        "nameKo": "3월 (계묘월)",
+        "nameEn": "March",
+        "tenGod": "상관",
+        "average": 64,
+        "phase": "NEGOTIATE",
+        "opportunityKo": "계묘월(상관)은 제안·발표로 틀을 바꾸기 좋지만 말실수를 조심할 달",
+        "opportunityEn": "Gui Mao (Hurting Officer) is a month to pitch and change the frame, minding your words",
+        "goldenDays": [
+          "2027-03-06",
+          "2027-03-17",
+          "2027-03-18"
+        ],
+        "cautionDays": [
+          "2027-03-02",
+          "2027-03-16"
+        ]
+      },
+      {
+        "year": 2027,
+        "month": 4,
+        "nameKo": "4월 (갑진월)",
+        "nameEn": "April",
+        "tenGod": "편재",
+        "average": 47,
+        "phase": "DEFEND",
+        "opportunityKo": "갑진월(편재)은 새 기회와 거래 제안이 들어오기 쉬운 달. 일지와 충이 들어 관계·거처 변동을 조심하세요",
+        "opportunityEn": "Jia Chen (Indirect Wealth) is a month when new deals and offers tend to arrive; it clashes with your day branch, so watch relationship or housing shifts",
+        "goldenDays": [
+          "2027-04-08",
+          "2027-04-10",
+          "2027-04-23"
+        ],
+        "cautionDays": [
+          "2027-04-02",
+          "2027-04-09"
+        ]
+      },
+      {
+        "year": 2027,
+        "month": 5,
+        "nameKo": "5월 (을사월)",
+        "nameEn": "May",
+        "tenGod": "정재",
+        "average": 64,
+        "phase": "NEGOTIATE",
+        "opportunityKo": "을사월(정재)은 조건을 확정하고 수입·계약을 정리하기 좋은 달",
+        "opportunityEn": "Yi Si (Direct Wealth) is a month for locking terms and settling income or contracts",
+        "goldenDays": [
+          "2027-05-05",
+          "2027-05-16",
+          "2027-05-17"
+        ],
+        "cautionDays": [
+          "2027-05-01",
+          "2027-05-15"
+        ]
+      },
+      {
+        "year": 2027,
+        "month": 6,
+        "nameKo": "6월 (병오월)",
+        "nameEn": "June",
+        "tenGod": "편관",
+        "average": 32,
+        "phase": "DEFEND",
+        "opportunityKo": "병오월(편관)은 압박과 마감이 몰려 우선순위를 좁혀야 하는 달",
+        "opportunityEn": "Bing Wu (Seven Killings) is a month of pressure and deadlines; narrow your priorities",
+        "goldenDays": [
+          "2027-06-07",
+          "2027-06-09",
+          "2027-06-22"
+        ],
+        "cautionDays": [
+          "2027-06-01",
+          "2027-06-08"
+        ]
+      },
+      {
+        "year": 2027,
+        "month": 7,
+        "nameKo": "7월 (정미월)",
+        "nameEn": "July",
+        "tenGod": "정관",
+        "average": 50,
+        "phase": "NEGOTIATE",
+        "opportunityKo": "정미월(정관)은 평가·승인·공식 절차가 잘 풀리는 달",
+        "opportunityEn": "Ding Wei (Direct Officer) is a month when reviews, approvals and formal steps move well",
+        "goldenDays": [
+          "2027-07-04",
+          "2027-07-15",
+          "2027-07-16"
+        ],
+        "cautionDays": [
+          "2027-07-14",
+          "2027-07-31"
+        ]
+      },
+      {
+        "year": 2027,
+        "month": 8,
+        "nameKo": "8월 (무신월)",
+        "nameEn": "August",
+        "tenGod": "편인",
+        "average": 71,
+        "phase": "HARVEST",
+        "opportunityKo": "무신월(편인)은 조사하고 전략을 다시 짜기에 맞는 달",
+        "opportunityEn": "Wu Shen (Indirect Resource) is a month for research and reworking the plan",
+        "goldenDays": [
+          "2027-08-06",
+          "2027-08-08",
+          "2027-08-21"
+        ],
+        "cautionDays": [
+          "2027-08-07",
+          "2027-08-17"
+        ]
+      },
+      {
+        "year": 2027,
+        "month": 9,
+        "nameKo": "9월 (기유월)",
+        "nameEn": "September",
+        "tenGod": "정인",
+        "average": 75,
+        "phase": "ATTACK",
+        "opportunityKo": "기유월(정인)은 서류·자격·조언자를 확보하기 좋은 달",
+        "opportunityEn": "Ji You (Direct Resource) is a month for securing documents, credentials and advisers",
+        "goldenDays": [
+          "2027-09-02",
+          "2027-09-13",
+          "2027-09-14"
+        ],
+        "cautionDays": [
+          "2027-09-12",
+          "2027-09-29"
+        ]
+      }
+    ]
+  },
+  "scenario": {
+    "ko": {
+      "headline": "지금 이직 준비 시작 쪽 흐름이 우세 — 내년 9월 구간 주목",
+      "peakLabel": "9월 ('27)",
+      "goldenWindows": [
+        "내년 9월"
+      ],
+      "timeline": [
+        {
+          "label": "10월",
+          "action": 45,
+          "risk": 55,
+          "phase": "DEFEND",
+          "best": "EQUAL"
+        },
+        {
+          "label": "11월",
+          "action": 52,
+          "risk": 48,
+          "phase": "NEGOTIATE",
+          "best": "EQUAL"
+        },
+        {
+          "label": "12월",
+          "action": 67,
+          "risk": 33,
+          "phase": "HARVEST",
+          "best": "A"
+        },
+        {
+          "label": "1월 ('27)",
+          "action": 49,
+          "risk": 51,
+          "phase": "DEFEND",
+          "best": "EQUAL"
+        },
+        {
+          "label": "2월 ('27)",
+          "action": 56,
+          "risk": 44,
+          "phase": "NEGOTIATE",
+          "best": "EQUAL"
+        },
+        {
+          "label": "3월 ('27)",
+          "action": 64,
+          "risk": 36,
+          "phase": "NEGOTIATE",
+          "best": "EQUAL"
+        },
+        {
+          "label": "4월 ('27)",
+          "action": 47,
+          "risk": 53,
+          "phase": "DEFEND",
+          "best": "EQUAL"
+        },
+        {
+          "label": "5월 ('27)",
+          "action": 64,
+          "risk": 36,
+          "phase": "NEGOTIATE",
+          "best": "EQUAL"
+        },
+        {
+          "label": "6월 ('27)",
+          "action": 32,
+          "risk": 68,
+          "phase": "DEFEND",
+          "best": "B"
+        },
+        {
+          "label": "7월 ('27)",
+          "action": 50,
+          "risk": 50,
+          "phase": "NEGOTIATE",
+          "best": "EQUAL"
+        },
+        {
+          "label": "8월 ('27)",
+          "action": 71,
+          "risk": 29,
+          "phase": "HARVEST",
+          "best": "A"
+        },
+        {
+          "label": "9월 ('27)",
+          "action": 75,
+          "risk": 25,
+          "phase": "ATTACK",
+          "best": "A"
+        }
+      ]
+    },
+    "en": {
+      "headline": "Option A shows the stronger flow — watch Next year 9M",
+      "peakLabel": "Sep '27",
+      "goldenWindows": [
+        "Next September"
+      ],
+      "timeline": [
+        {
+          "label": "Oct",
+          "action": 45,
+          "risk": 55,
+          "phase": "DEFEND",
+          "best": "EQUAL"
+        },
+        {
+          "label": "Nov",
+          "action": 52,
+          "risk": 48,
+          "phase": "NEGOTIATE",
+          "best": "EQUAL"
+        },
+        {
+          "label": "Dec",
+          "action": 67,
+          "risk": 33,
+          "phase": "HARVEST",
+          "best": "A"
+        },
+        {
+          "label": "Jan '27",
+          "action": 49,
+          "risk": 51,
+          "phase": "DEFEND",
+          "best": "EQUAL"
+        },
+        {
+          "label": "Feb '27",
+          "action": 56,
+          "risk": 44,
+          "phase": "NEGOTIATE",
+          "best": "EQUAL"
+        },
+        {
+          "label": "Mar '27",
+          "action": 64,
+          "risk": 36,
+          "phase": "NEGOTIATE",
+          "best": "EQUAL"
+        },
+        {
+          "label": "Apr '27",
+          "action": 47,
+          "risk": 53,
+          "phase": "DEFEND",
+          "best": "EQUAL"
+        },
+        {
+          "label": "May '27",
+          "action": 64,
+          "risk": 36,
+          "phase": "NEGOTIATE",
+          "best": "EQUAL"
+        },
+        {
+          "label": "Jun '27",
+          "action": 32,
+          "risk": 68,
+          "phase": "DEFEND",
+          "best": "B"
+        },
+        {
+          "label": "Jul '27",
+          "action": 50,
+          "risk": 50,
+          "phase": "NEGOTIATE",
+          "best": "EQUAL"
+        },
+        {
+          "label": "Aug '27",
+          "action": 71,
+          "risk": 29,
+          "phase": "HARVEST",
+          "best": "A"
+        },
+        {
+          "label": "Sep '27",
+          "action": 75,
+          "risk": 25,
+          "phase": "ATTACK",
+          "best": "A"
+        }
+      ]
+    }
+  },
+  "ziwei": {
+    "mingGongBranch": "酉",
+    "wuxingJu": "화육국",
+    "wuxingJuEn": "Fire",
+    "palaces": [
+      {
+        "name": "명궁",
+        "nameEn": "Life",
+        "branch": "酉",
+        "stars": [
+          {
+            "ko": "천동",
+            "en": "Tian Tong",
+            "category": "main"
+          },
+          {
+            "ko": "문곡",
+            "en": "Wen Qu",
+            "category": "auxiliary"
+          },
+          {
+            "ko": "천월",
+            "en": "Tian Yue",
+            "category": "auxiliary"
+          }
+        ],
+        "isShenGong": false
+      },
+      {
+        "name": "형제궁",
+        "nameEn": "Siblings",
+        "branch": "申",
+        "stars": [
+          {
+            "ko": "칠살",
+            "en": "Qi Sha",
+            "category": "main"
+          }
+        ],
+        "isShenGong": false
+      },
+      {
+        "name": "부처궁",
+        "nameEn": "Spouse",
+        "branch": "未",
+        "stars": [
+          {
+            "ko": "천량",
+            "en": "Tian Liang",
+            "category": "main"
+          },
+          {
+            "ko": "화성",
+            "en": "Huo Xing",
+            "category": "malefic"
+          }
+        ],
+        "isShenGong": true
+      },
+      {
+        "name": "자녀궁",
+        "nameEn": "Children",
+        "branch": "午",
+        "stars": [
+          {
+            "ko": "염정",
+            "en": "Lian Zhen",
+            "category": "main"
+          },
+          {
+            "ko": "천상",
+            "en": "Tian Xiang",
+            "category": "main"
+          },
+          {
+            "ko": "경양",
+            "en": "Qing Yang",
+            "category": "malefic"
+          },
+          {
+            "ko": "지공",
+            "en": "Di Kong",
+            "category": "malefic"
+          }
+        ],
+        "isShenGong": false
+      },
+      {
+        "name": "재백궁",
+        "nameEn": "Wealth",
+        "branch": "巳",
+        "stars": [
+          {
+            "ko": "거문",
+            "en": "Ju Men",
+            "category": "main"
+          },
+          {
+            "ko": "문창",
+            "en": "Wen Chang",
+            "category": "auxiliary"
+          },
+          {
+            "ko": "록존",
+            "en": "Lu Cun",
+            "category": "auxiliary"
+          }
+        ],
+        "isShenGong": false
+      },
+      {
+        "name": "질액궁",
+        "nameEn": "Health",
+        "branch": "辰",
+        "stars": [
+          {
+            "ko": "탐랑",
+            "en": "Tan Lang",
+            "category": "main"
+          },
+          {
+            "ko": "좌보",
+            "en": "Zuo Fu",
+            "category": "auxiliary"
+          },
+          {
+            "ko": "타라",
+            "en": "Tuo Luo",
+            "category": "malefic"
+          },
+          {
+            "ko": "지겁",
+            "en": "Di Jie",
+            "category": "malefic"
+          }
+        ],
+        "isShenGong": false
+      },
+      {
+        "name": "천이궁",
+        "nameEn": "Travel",
+        "branch": "卯",
+        "stars": [
+          {
+            "ko": "태음",
+            "en": "Tai Yin",
+            "category": "main"
+          },
+          {
+            "ko": "영성",
+            "en": "Ling Xing",
+            "category": "malefic"
+          }
+        ],
+        "isShenGong": false
+      },
+      {
+        "name": "노복궁",
+        "nameEn": "Friends",
+        "branch": "寅",
+        "stars": [
+          {
+            "ko": "자미",
+            "en": "Zi Wei",
+            "category": "main"
+          },
+          {
+            "ko": "천부",
+            "en": "Tian Fu",
+            "category": "main"
+          },
+          {
+            "ko": "천마",
+            "en": "Tian Ma",
+            "category": "auxiliary"
+          }
+        ],
+        "isShenGong": false
+      },
+      {
+        "name": "관록궁",
+        "nameEn": "Career",
+        "branch": "丑",
+        "stars": [
+          {
+            "ko": "천기",
+            "en": "Tian Ji",
+            "category": "main"
+          }
+        ],
+        "isShenGong": false
+      },
+      {
+        "name": "전택궁",
+        "nameEn": "Property",
+        "branch": "子",
+        "stars": [
+          {
+            "ko": "파군",
+            "en": "Po Jun",
+            "category": "main"
+          }
+        ],
+        "isShenGong": false
+      },
+      {
+        "name": "복덕궁",
+        "nameEn": "Fortune",
+        "branch": "亥",
+        "stars": [
+          {
+            "ko": "태양",
+            "en": "Tai Yang",
+            "category": "main"
+          },
+          {
+            "ko": "천괴",
+            "en": "Tian Kui",
+            "category": "auxiliary"
+          }
+        ],
+        "isShenGong": false
+      },
+      {
+        "name": "부모궁",
+        "nameEn": "Parents",
+        "branch": "戌",
+        "stars": [
+          {
+            "ko": "무곡",
+            "en": "Wu Qu",
+            "category": "main"
+          },
+          {
+            "ko": "우필",
+            "en": "You Bi",
+            "category": "auxiliary"
+          }
+        ],
+        "isShenGong": false
+      }
+    ],
+    "siHua": {
+      "화록": {
+        "star": "천동",
+        "palace": "명궁"
+      },
+      "화권": {
+        "star": "천기",
+        "palace": "관록궁"
+      },
+      "화과": {
+        "star": "문창",
+        "palace": "재백궁"
+      },
+      "화기": {
+        "star": "염정",
+        "palace": "자녀궁"
+      }
+    }
+  }
+}
