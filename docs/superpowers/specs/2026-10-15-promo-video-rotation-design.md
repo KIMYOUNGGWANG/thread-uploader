@@ -89,8 +89,8 @@ CI는 DB에 직접 접근하지 않는다 (기존 `render-job.mjs` 규칙과 동
 | ④ 7일 실험 | `PromoExperiment` | 20초 | 훅 → 질문 → Day1→7 체크리스트 체크 → Day4 '접을 신호' 경고 → "저장해두고 이번 주에 해봐" | '언제' 구간(최고 달), 최강일 | `/start` |
 
 - ①의 자미두수 강조 궁: career→관록궁, sideJob→재백궁, partnership→노복궁, 관계 주제→부처궁.
-- ①은 기존 `PromoViral`을 props 기반으로 바꾼 것이다. 기존 컴포지션 ID `PromoViralKo/En`은 미리보기용 기본값으로 남긴다.
-- 컴포지션 props는 Zod 스키마로 검증한다: `{ lang, variant: { format, topic, hookIndex, persona, guest? }, copy, snapshot }`.
+- ①은 기존 `PromoViral`을 `PromoReportTour`(props 기반)로 바꾼 것이다. `PromoViralKo/En` 컴포지션 ID는 없애고, 4개 포맷 모두 `src/data/promo-preview.json`을 Studio 기본 props로 쓴다.
+- 컴포지션 props `{ lang, variant, snapshot }`는 Zod 대신 `snapshot.ts`의 타입 가드(`parsePromoProps`)와 `validateSnapshot`으로 검증한다 — 러너와 Studio 미리보기가 같은 검증을 쓰도록.
 
 ## 6. 문구 (`video/src/promo/copy.ts`)
 
@@ -106,7 +106,7 @@ CI는 DB에 직접 접근하지 않는다 (기존 `render-job.mjs` 규칙과 동
 
 ## 7. 엔진 스냅샷 (`video/scripts/extract-report-data.ts`)
 
-입력 JSON(`--input`)을 받아 출력 JSON(`--out`)을 쓴다. cosmicpath 루트에서 `node --experimental-transform-types --import ./scripts/alias-loader.mjs`로 실행.
+입력 JSON(`--input`)을 받아 출력 JSON(`--out`)을 쓴다. cosmicpath 루트에서 `TZ=UTC node <thread-uploader>/video/scripts/extract-report-data.ts --input … --out …`로 실행한다. cosmicpath 엔진 일부가 타입을 값처럼 import 해서 Node 타입 제거만으로는 못 읽으므로, cosmicpath의 `scripts/report-test-data/ts-loader.ts`(`registerTypeScriptLoader`)로 불러온다.
 
 - 입력: `{ asOf, lang, topic, scenarioA, scenarioB, question, persona, guest? }`
 - 출력 (기존 구조 확장):

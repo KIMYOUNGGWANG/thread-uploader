@@ -1,0 +1,96 @@
+name: Render Promo Rotation
+
+on:
+  schedule:
+    # 월·목 KST 06:30 — 아침에 승인할 홍보 영상(KO/EN) 준비
+    - cron: '30 21 * * 0,3'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'KST 날짜 YYYY-MM-DD (비우면 오늘)'
+        required: false
+        default: ''
+      format:
+        description: '포맷 덮어쓰기'
+        type: choice
+        options: ['', reportTour, race, match, experiment]
+        default: ''
+      topic:
+        description: '주제 덮어쓰기'
+        type: choice
+        options: ['', contact, career, confession, sideJob, marriage, partnership]
+        default: ''
+      dry_run:
+        description: '렌더만 하고 업로드·등록 안 함'
+        type: boolean
+        default: false
+
+concurrency:
+  group: render-promo
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout cosmicpath engines (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: KIMYOUNGGWANG/cosmicpath
+          token: ${{ secrets.COSMICPATH_READ_TOKEN }}
+          path: cosmicpath
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: |
+            video/pnpm-lock.yaml
+            cosmicpath/pnpm-lock.yaml
+
+      - name: Install CJK fonts and ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk ffmpeg
+
+      - name: Install compositor
+        working-directory: video
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec remotion browser ensure
+
+      - name: Install cosmicpath engines
+        working-directory: cosmicpath
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm exec prisma generate
+
+      - name: Render, upload, and queue for review
+        working-directory: video
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          COSMICPATH_DIR: ${{ github.workspace }}/cosmicpath
+          PROMO_DATE: ${{ inputs.date }}
+          PROMO_FORMAT: ${{ inputs.format }}
+          PROMO_TOPIC: ${{ inputs.topic }}
+          PROMO_DRY_RUN: ${{ inputs.dry_run }}
+        # Inputs travel through env and quoted shell variables, never interpolated into the script.
+        run: |
+          args=(--date "$PROMO_DATE" --format "$PROMO_FORMAT" --topic "$PROMO_TOPIC")
+          if [ "$PROMO_DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          node scripts/render-promo-job.mjs "${args[@]}"
+
+      - name: Keep dry-run videos
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: promo-dry-run
+          path: video/out/promo-*.mp4
+          retention-days: 3
