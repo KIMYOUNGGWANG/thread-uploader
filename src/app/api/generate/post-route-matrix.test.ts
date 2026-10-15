@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
     utmContent?: string | null;
     targetAudience?: string | null;
   }>,
+  remediationPass: true,
 }));
 
 const DIVERSE_POST_BODIES = [
@@ -217,6 +218,19 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// The heuristic scorer isn't under test here; each case sets whether drafts clear it.
+vi.mock("@/lib/remediation-engine", () => ({
+  remediatePostAlgorithmic: vi.fn(async (content: string, firstComment: string | null) => ({
+    content,
+    firstComment,
+    pass: state.remediationPass,
+    scoreResult: { totalScore: state.remediationPass ? 90 : 60, dimensions: {} },
+    method: state.remediationPass ? "INITIAL_PASS" : "FAILED_QUARANTINED",
+    rewriteCount: 0,
+    actionableFixes: [],
+  })),
+}));
+
 vi.mock("@/lib/quality-gate", () => ({
   checkQuality: vi.fn(() => ({
     pass: true,
@@ -328,6 +342,26 @@ describe("POST /api/generate viral sprint matrix", () => {
 
     expect(state.createdPosts).toHaveLength(4);
     expect(new Set(state.createdPosts.map((post) => post.targetAudience)).size).toBe(4);
+  }, 10000);
+
+  // Drafts under the algorithm score used to be saved as NEEDS_REVIEW and filled the approval queue.
+  it("drops drafts that stay under the algorithm score instead of queueing them", async () => {
+    state.createdPosts.length = 0;
+    state.remediationPass = false;
+    try {
+      const { POST } = await import("@/app/api/generate/route");
+      const response = await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 3, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({ success: true, count: 0, failedCount: 3 });
+      expect(state.createdPosts).toHaveLength(0);
+    } finally {
+      state.remediationPass = true;
+    }
   }, 10000);
 
   it("sends CosmicPath prompts without the copied hierarchy hook or confession comment example", async () => {

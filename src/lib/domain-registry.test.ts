@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ENGLISH_HOOK_RULE, findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "./domain-registry";
 import { checkQuality } from "./quality-gate";
+import { scoreThreadsPostAlgorithmic } from "./threads-algorithm-scorer";
 
 describe("Domain Intelligence Registry", () => {
   it("resolves product_growth preset cleanly", () => {
@@ -168,6 +169,13 @@ describe("ecommerce_d2c batch keeps one claim per formula", () => {
     expect(twelveDraft.length).toBeLessThan(450);
     for (const draft of [twelveDraft, compatibilityDraft]) {
       expect(checkQuality(draft, "ecommerce_d2c").pass).toBe(true);
+    }
+  });
+
+  // Drafts under the algorithm score are dropped, so a formula whose shape can't reach 80 would never post.
+  it("lets formula-shaped drafts clear the algorithm score", () => {
+    for (const draft of [twelveDraft, compatibilityDraft]) {
+      expect(scoreThreadsPostAlgorithmic(draft, "Which line hit closest?").totalScore).toBeGreaterThanOrEqual(80);
     }
   });
 

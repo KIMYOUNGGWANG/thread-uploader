@@ -1038,7 +1038,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
 
   let linkedCount = 0;
   const createdPosts = [];
-  for (const [index, result] of results.entries()) {
+  for (const result of results) {
     // Build 4 carousel card slides using multi-format bundle
     const bundle = buildMultiFormatContentBundle({
       postText: result.post,
@@ -1050,7 +1050,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     // English Threads audience responds to text-only posts; Korean brands keep card carousels.
     const carouselDataUrls = result.qualityProfile === "ecommerce_d2c" ? [] : bundle.carouselSvgs.map(svgToDataUri);
     const jitterMs = (Math.floor(Math.random() * 31) - 15) * 60 * 1000;
-    const scheduledTime = Math.max(now + 5 * 60 * 1000, baseTime + index * POST_INTERVAL_MS + jitterMs);
+    // Slots follow saved posts, so a dropped draft leaves no gap in the schedule.
+    const scheduledTime = Math.max(now + 5 * 60 * 1000, baseTime + createdPosts.length * POST_INTERVAL_MS + jitterMs);
 
     const rawPostContent = ensureMaxThreadsLength(result.post);
     const remediation = await remediatePostAlgorithmic(
@@ -1064,12 +1065,18 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       },
       config.minAlgorithmicScore ?? 80
     );
+    // Still under the algorithm score after rewrites: drop it rather than park it in the approval queue.
+    if (!remediation.pass) {
+      failedCount++;
+      console.warn(`[generate] algorithm score ${remediation.scoreResult.totalScore} under threshold, skipping ${result.formulaId}`);
+      continue;
+    }
 
     const postContent = remediation.content;
     const initialComment = remediation.firstComment;
     const threadParts = splitContentIntoThreadParts(postContent);
     // Auto-queue only gate-passing posts from proven formulas; the rest wait for human approval
-    const autoQueue = remediation.pass && result.qualityPass !== false && isAutopilotFormula(result.formulaId, growthMemory);
+    const autoQueue = result.qualityPass !== false && isAutopilotFormula(result.formulaId, growthMemory);
     const postStatus = autoQueue ? "PENDING" : "NEEDS_REVIEW";
 
     const post = await prisma.post.create({
