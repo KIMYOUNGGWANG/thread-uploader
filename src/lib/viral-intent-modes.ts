@@ -32,10 +32,11 @@ export interface ViralModeFidelityResult {
 }
 
 export const FORMAL_TONE_PATTERN = /(?:습니다|합니다|됩니다|입니다|하세요|십시오|인가요|셨나요|바랍니다)/;
-const HIERARCHY_PATTERN = /보다\s*센|보다|(?:^|\s)vs(?:\s|$)|[<>＜＞]/gi;
+// "A가 아니라 B" and "A일 뿐, 정작 B" count as comparisons: with "보다 센" banned as a template, drafts rank concepts this way.
+const HIERARCHY_PATTERN = /보다\s*센|보다|아니라|아니고|아님|뿐|정작|(?:^|\s)vs(?:\s|$)|[<>＜＞]/gi;
 export const IDENTITY_MARKER_PATTERN = /화개살?|도화살?|홍염살?|문창귀인|천을귀인|진술축미|(?:신금|경금|갑목|을목|병화|정화|무토|기토|임수|계수)\s*(?:일주|타입)/;
-const RELATIONSHIP_PATTERN = /연애|궁합|애인|남친|여친|헤어|손절|관계|재회|전남친|전여친/;
-const RELATIONSHIP_CONTRAST_PATTERN = /절대|vs|대비|만나면|헤어지|망|놓치|파멸|귀인|원진|상극/;
+const RELATIONSHIP_PATTERN = /연애|궁합|애인|남친|여친|헤어|손절|관계|재회|전남친|전여친|썸|고백|설렘|결혼|이별|연락/;
+const RELATIONSHIP_CONTRAST_PATTERN = /절대|vs|대비|만나면|헤어지|망|놓치|파멸|귀인|원진|상극|보다|아니라|아니고|아님/;
 
 function extractOpeningLines(content: string, lineCount = 2): string {
   const lines = content.split("\n").map((line) => line.trim());
