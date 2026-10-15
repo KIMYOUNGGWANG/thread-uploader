@@ -73,7 +73,7 @@ function buildCopy(props: PromoProps): Copy {
     ...REPORT_UI[lang], question: topic.question, forkA: topic.forkA, forkB: topic.forkB, pair: buildPair(props),
     cards: [
       { title: titles[0], body: lang === "ko" ? `첫 실행 적합 구간: ${peak}` : `First-move window: ${peak}` },
-      { title: titles[1], body: `${topic.experiment[0]} → ${topic.experiment[3]}` },
+      { title: titles[1], body: topic.experiment[0] },
       { title: titles[2], body: topic.ifThen.join("\n") },
       { title: titles[3], body: topic.stopRule, tone: "danger" },
     ],
@@ -269,7 +269,7 @@ const ForkRow: React.FC<{ copy: Copy }> = ({ copy }) => (
 
 const Phone: React.FC<{ copy: Copy; active: number }> = ({ copy, active }) => {
   const frame = useCurrentFrame();
-  const scroll = interpolate(frame, [60, 200], [0, -110], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) });
+  const scroll = interpolate(frame, [60, 200], [0, -170], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) });
   return (
     <div style={{ width: 800, height: 1360, borderRadius: 70, padding: 22, background: "#1c1915", border: `3px solid ${C.gold}66`, boxShadow: `0 40px 140px rgba(0,0,0,0.8), 0 0 90px ${C.gold}22` }}>
       <div style={{ width: "100%", height: "100%", borderRadius: 52, overflow: "hidden", background: C.bg, position: "relative" }}>
