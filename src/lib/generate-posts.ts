@@ -977,10 +977,13 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
               : pickRandom(formulaPool)
           ));
       pickedFormulaIds.push(formula.id);
+      // Outside the lean sprint the mode rotates by batch index, so a 4-post global refill gave every
+      // formula the same Type A/B/C self-check. A formula mapped to its own mode keeps that mode.
+      const formulaMode = isLeanSprint ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
 
       const topic = topics[batchIndex % topics.length];
       const experiment = buildExperiment(
-        formula, topic, config, activeCampaign, batchIndex, viralIntentMode,
+        formula, topic, config, activeCampaign, batchIndex, formulaMode,
         useRelationshipContext ? "saju_relationship" : undefined,
         contextOffset
       );

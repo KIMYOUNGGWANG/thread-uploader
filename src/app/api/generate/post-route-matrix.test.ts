@@ -74,6 +74,34 @@ vi.mock("@/lib/anti-repeat-memory", async (importOriginal) => {
 vi.mock("@/lib/brand-access", () => ({
   accessErrorResponse: () => null,
   requireBrandForCurrentUser: vi.fn(async (brandId?: string) => {
+    if (brandId === "cosmicpath-global") {
+      return {
+        brand: {
+          id: "brand_global",
+          slug: "cosmicpath-global",
+          brandConfig: JSON.stringify({
+            systemPrompt: "Write concise CosmicPath Global posts.",
+            topics: ["2027 Fire Goat"],
+            targets: ["Western 22-36 zodiac readers"],
+            situations: ["Checking a yearly forecast"],
+            websiteUrl: "cosmicpath.app",
+            // Mirrors production: the global brand runs the career campaign with the English profile.
+            campaigns: [{
+              id: "career_timing_wedge_399",
+              name: "Career timing wedge",
+              mode: "landing-test",
+              qualityProfile: "ecommerce_d2c",
+              formulas: [{ id: "self_classification", name: "Self-check", weight: 3, instruction: "Self-check A/B/C." }],
+            }],
+            activeCampaignId: "career_timing_wedge_399",
+            qualityProfile: "ecommerce_d2c",
+          }),
+          formulaWeights: "{}",
+          growthMemory: "{}",
+          viralMemory: "{}",
+        },
+      };
+    }
     if (brandId === "cmqpj5tjf0002eize6v2ui2lg" || brandId === "cosmicpath") {
       return {
         brand: {
@@ -363,6 +391,32 @@ describe("POST /api/generate viral sprint matrix", () => {
       state.remediationPass = true;
     }
   }, 10000);
+
+  // A 4-post global refill rotated every draft into self_classification (Type A/B/C), whatever the formula.
+  it("gives each global formula its own viral mode instead of the batch-index rotation", async () => {
+    state.createdPosts.length = 0;
+    state.prompts.length = 0;
+    const { POST } = await import("@/app/api/generate/route");
+    const { getDomainPreset } = await import("@/lib/domain-registry");
+    const { normalizeViralIntentModeId } = await import("@/lib/viral-intent-modes");
+    const formulaIdByName = new Map(Object.values(getDomainPreset("ecommerce_d2c").trackFormulas).flat().map((f) => [f.name, f.id]));
+
+    await POST(new Request("http://localhost/api/generate", {
+      method: "POST",
+      body: JSON.stringify({ brandId: "cosmicpath-global", count: 4 }),
+    }) as never);
+
+    const pairs = state.prompts.map((raw) => {
+      const prompt = String((JSON.parse(raw) as { messages: Array<{ content: string }> }).messages[0].content);
+      const formulaName = /\[Formula: ([^\]\n]+)\]/.exec(prompt)?.[1] ?? "";
+      return { formulaId: formulaIdByName.get(formulaName), modeId: /\nid: (\w+)/.exec(prompt)?.[1] };
+    });
+    expect(pairs.length).toBeGreaterThan(0);
+    for (const { formulaId, modeId } of pairs) {
+      expect(formulaId).toBeDefined();
+      expect(modeId).toBe(normalizeViralIntentModeId(formulaId));
+    }
+  }, 20000);
 
   it("sends CosmicPath prompts without the copied hierarchy hook or confession comment example", async () => {
     state.createdPosts.length = 0;
