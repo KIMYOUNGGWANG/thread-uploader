@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BANNED_PHRASES, HOOKS, TOPIC_COPY, UI_COPY,
-  buildCaption, buildCommentTemplate, hookLines, landingPathFor,
+  buildCaption, buildCommentTemplate, hookLines, landingPathFor, ziweiNote,
 } from "./copy.ts";
 import { pickPromoVariant, FORMATS, TOPICS } from "./rotation.ts";
 import type { PromoLang, PromoVariant } from "./types.ts";
@@ -58,5 +58,21 @@ describe("promo copy", () => {
   it("sends the match format to the love funnel and the rest to /start", () => {
     expect(landingPathFor("match")).toBe("/start?context=love");
     for (const format of ["reportTour", "race", "experiment"] as const) expect(landingPathFor(format)).toBe("/start");
+  });
+});
+
+describe("ziweiNote", () => {
+  it("names the topic palace, its main stars and the Power transformation", () => {
+    expect(ziweiNote("ko", "career", { palace: "관록궁", meaningKo: "직업", meaningEn: "Career", stars: ["천기"], quan: true }))
+      .toBe("이직 질문 → 관록궁(직업) · 천기 화권");
+    expect(ziweiNote("en", "career", { palace: "관록궁", meaningKo: "직업", meaningEn: "Career", stars: ["Tian Ji"], quan: true }))
+      .toBe("Job question → Career palace · Tian Ji (Power)");
+  });
+
+  it("drops the separator when the palace has no main star", () => {
+    expect(ziweiNote("ko", "contact", { palace: "부처궁", meaningKo: "연애·배우자", meaningEn: "Spouse", stars: [], quan: false }))
+      .toBe("연락 질문 → 부처궁(연애·배우자)");
+    expect(ziweiNote("en", "contact", { palace: "부처궁", meaningKo: "연애·배우자", meaningEn: "Spouse", stars: [], quan: false }))
+      .toBe("Texting question → Spouse palace");
   });
 });

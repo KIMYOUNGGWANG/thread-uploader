@@ -1,10 +1,12 @@
-// PromoReportTour.tsx — "what the paid report tells you" scenes for PromoViral.
-// Every chart value is read from src/data/promo-report-data.json, a snapshot of the
-// real cosmicpath engines for a fictional persona (scripts/extract-report-data.ts).
+// ReportTourScenes.tsx — "what the paid report tells you" scenes for the PromoReportTour format.
+// Every chart value comes from the PromoSnapshot prop, produced by the real cosmicpath engines
+// for a fictional persona (scripts/extract-report-data.ts).
 // Only section titles/labels are copy; no number here is typed by hand.
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
-import data from "../data/promo-report-data.json";
+import type { PromoSnapshot } from "../promo/snapshot.ts";
+import type { PromoTopic } from "../promo/types.ts";
+import { ziweiNote } from "../promo/copy.ts";
 import { C, textBase, useEnter, useExit, type PromoLang } from "./PromoKit";
 
 type Element = "wood" | "fire" | "earth" | "metal" | "water";
@@ -69,7 +71,7 @@ const TourHeader: React.FC<{ lang: PromoLang; index: number; title: string }> = 
   );
 };
 
-type TourProps = { lang: PromoLang; len: number };
+type TourProps = { lang: PromoLang; len: number; snapshot: PromoSnapshot; topic: PromoTopic };
 
 // ── 01 Four pillars + element balance ────────────────────────────────────────
 const PILLAR_ORDER = [
@@ -89,18 +91,18 @@ const GlyphBox: React.FC<{ glyph: string; element: Element; delay: number }> = (
   );
 };
 
-function elementCounts(): Record<Element, number> {
+function elementCounts(snapshot: PromoSnapshot): Record<Element, number> {
   const counts: Record<Element, number> = { wood: 0, fire: 0, earth: 0, metal: 0, water: 0 };
-  for (const e of data.saju.elements) {
+  for (const e of snapshot.saju.elements) {
     counts[e.stem as Element] += 1;
     counts[e.branch as Element] += 1;
   }
   return counts;
 }
 
-const ElementBars: React.FC<{ lang: PromoLang }> = ({ lang }) => {
+const ElementBars: React.FC<{ lang: PromoLang; snapshot: PromoSnapshot }> = ({ lang, snapshot }) => {
   const frame = useCurrentFrame();
-  const counts = elementCounts();
+  const counts = elementCounts(snapshot);
   return (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: 34, height: 260 }}>
       {(Object.keys(counts) as Element[]).map((el, i) => {
@@ -117,7 +119,7 @@ const ElementBars: React.FC<{ lang: PromoLang }> = ({ lang }) => {
   );
 };
 
-export const SajuTourScene: React.FC<TourProps> = ({ lang, len }) => {
+export const SajuTourScene: React.FC<TourProps> = ({ lang, len, snapshot }) => {
   const title = lang === "ko" ? "타고난 구조: 사주 4주 · 오행" : "Four Pillars · Elements";
   const label = lang === "ko" ? "8글자 중 오행 분포" : "Element count across 8 characters";
   return (
@@ -125,8 +127,8 @@ export const SajuTourScene: React.FC<TourProps> = ({ lang, len }) => {
       <TourHeader lang={lang} index={1} title={title} />
       <div style={{ position: "absolute", top: 470, width: "100%", display: "flex", justifyContent: "center", gap: 26, perspective: 1200 }}>
         {PILLAR_ORDER.map((p, i) => {
-          const pillar = data.saju.pillars[p.key];
-          const el = data.saju.elements[p.elementIndex];
+          const pillar = snapshot.saju.pillars[p.key];
+          const el = snapshot.saju.elements[p.elementIndex];
           return (
             <div key={p.key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
               <div style={{ ...textBase, fontSize: 34, fontWeight: 700, color: p.key === "day" ? C.goldHi : C.dim }}>{p[lang]}</div>
@@ -138,7 +140,7 @@ export const SajuTourScene: React.FC<TourProps> = ({ lang, len }) => {
       </div>
       <div style={{ position: "absolute", top: 1150, width: "100%" }}>
         <div style={{ ...textBase, fontSize: 34, color: C.dim, marginBottom: 30 }}>{label}</div>
-        <ElementBars lang={lang} />
+        <ElementBars lang={lang} snapshot={snapshot} />
       </div>
     </AbsoluteFill>
   );
@@ -155,9 +157,9 @@ function peakAndLow(timeline: { action: number }[]): { peak: number; low: number
   return { peak, low };
 }
 
-const FlowBar: React.FC<{ point: { label: string; action: number }; index: number; tone: string | null }> = ({ point, index, tone }) => {
-  const year = data.heatmap.months[index]?.year;
-  const prevYear = data.heatmap.months[index - 1]?.year;
+type FlowBarProps = { point: { label: string; action: number }; index: number; tone: string | null; year: number | undefined; prevYear: number | undefined };
+
+const FlowBar: React.FC<FlowBarProps> = ({ point, index, tone, year, prevYear }) => {
   const frame = useCurrentFrame();
   const grow = clamp01(frame, 20 + index * 4, 44 + index * 4);
   const color = tone ?? "rgba(245,241,232,0.28)";
@@ -171,32 +173,32 @@ const FlowBar: React.FC<{ point: { label: string; action: number }; index: numbe
   );
 };
 
-export const FlowTourScene: React.FC<TourProps> = ({ lang, len }) => {
+export const FlowTourScene: React.FC<TourProps> = ({ lang, len, snapshot }) => {
   const frame = useCurrentFrame();
-  const s = data.scenario[lang];
+  const s = snapshot.scenario;
+  const months = snapshot.heatmap.months;
   const { peak, low } = peakAndLow(s.timeline);
   const headline = useEnter(80, 12);
   const title = lang === "ko" ? "다음 12개월, 언제 움직일지" : "When to move, by month";
   const axis = lang === "ko" ? "월별 행동 지수 · A안 vs B안" : "Monthly action index · A vs B";
-  const verdict = lang === "ko" ? s.headline : `Option A shows the stronger flow — watch ${s.peakLabel ?? ""}`;
   return (
     <AbsoluteFill style={{ opacity: useExit(len) }}>
       <TourHeader lang={lang} index={2} title={title} />
       <div style={{ position: "absolute", top: 420, width: "100%", ...textBase, fontSize: 30, color: C.dim, opacity: clamp01(frame, 10, 20) }}>{axis}</div>
       <div style={{ position: "absolute", top: 480, width: "100%", display: "flex", justifyContent: "center", gap: 14 }}>
         {s.timeline.map((p, i) => (
-          <FlowBar key={p.label} point={p} index={i} tone={i === peak ? C.goldHi : i === low ? C.rose : null} />
+          <FlowBar key={p.label} point={p} index={i} year={months[i]?.year} prevYear={months[i - 1]?.year} tone={i === peak ? C.goldHi : i === low ? C.rose : null} />
         ))}
       </div>
       <div style={{ position: "absolute", top: 1250, width: "100%", padding: "0 70px", opacity: headline, transform: `scale(${0.85 + headline * 0.15})` }}>
-        <div style={{ ...textBase, fontSize: 50, fontWeight: 900, color: C.goldHi, lineHeight: 1.3 }}>{verdict}</div>
+        <div style={{ ...textBase, fontSize: 50, fontWeight: 900, color: C.goldHi, lineHeight: 1.3 }}>{s.headline}</div>
       </div>
     </AbsoluteFill>
   );
 };
 
 // ── 03 Timing heatmap: month phases + best day ───────────────────────────────
-const MonthTile: React.FC<{ lang: PromoLang; index: number; month: (typeof data.heatmap.months)[number] }> = ({ lang, index, month }) => {
+const MonthTile: React.FC<{ lang: PromoLang; index: number; month: PromoSnapshot["heatmap"]["months"][number] }> = ({ lang, index, month }) => {
   const p = useEnter(10 + index * 3, 13);
   const phase = month.phase as Phase;
   const color = PHASE_COLOR[phase];
@@ -209,8 +211,8 @@ const MonthTile: React.FC<{ lang: PromoLang; index: number; month: (typeof data.
   );
 };
 
-export const HeatmapTourScene: React.FC<TourProps> = ({ lang, len }) => {
-  const best = data.heatmap.bestDay;
+export const HeatmapTourScene: React.FC<TourProps> = ({ lang, len, snapshot }) => {
+  const best = snapshot.heatmap.bestDay;
   const pin = useEnter(62, 11);
   const title = lang === "ko" ? "좋은 날, 조심할 날까지" : "Good days, risky days";
   const bestLabel = lang === "ko" ? "가장 강한 날" : "Strongest day";
@@ -219,7 +221,7 @@ export const HeatmapTourScene: React.FC<TourProps> = ({ lang, len }) => {
     <AbsoluteFill style={{ opacity: useExit(len) }}>
       <TourHeader lang={lang} index={3} title={title} />
       <div style={{ position: "absolute", top: 420, left: 60, width: 960, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 18 }}>
-        {data.heatmap.months.map((m, i) => (
+        {snapshot.heatmap.months.map((m, i) => (
           <MonthTile key={`${m.year}-${m.month}`} lang={lang} index={i} month={m} />
         ))}
       </div>
@@ -241,12 +243,20 @@ const BRANCH_CELL: Record<string, [number, number]> = {
   卯: [2, 0], 戌: [2, 3], 寅: [3, 0], 丑: [3, 1], 子: [3, 2], 亥: [3, 3],
 };
 const CELL = 236;
-const FOCUS_PALACE = "관록궁"; // career — the question in the video is about a job move
+// The palace each question topic is about; 관록궁 = career, 부처궁 = spouse/romance.
+const FOCUS_PALACE_BY_TOPIC: Record<PromoTopic, string> = {
+  career: "관록궁", sideJob: "재백궁", partnership: "노복궁", contact: "부처궁", confession: "부처궁", marriage: "부처궁",
+};
+const PALACE_MEANING: Record<string, { ko: string; en: string }> = {
+  관록궁: { ko: "직업", en: "Career" }, 재백궁: { ko: "돈", en: "Wealth" }, 노복궁: { ko: "동료·파트너", en: "Partners" }, 부처궁: { ko: "연애·배우자", en: "Spouse" },
+};
 
-const PalaceCell: React.FC<{ lang: PromoLang; index: number; palace: (typeof data.ziwei.palaces)[number] }> = ({ lang, index, palace }) => {
+type PalaceCellProps = { lang: PromoLang; index: number; palace: PromoSnapshot["ziwei"]["palaces"][number]; focusPalace: string };
+
+const PalaceCell: React.FC<PalaceCellProps> = ({ lang, index, palace, focusPalace }) => {
   const frame = useCurrentFrame();
   const p = useEnter(8 + index * 3, 14);
-  const focus = palace.name === FOCUS_PALACE && frame > 60;
+  const focus = palace.name === focusPalace && frame > 60;
   const [row, col] = BRANCH_CELL[palace.branch] ?? [0, 0];
   const mains = palace.stars.filter((s) => s.category === "main").map((s) => s[lang]);
   return (
@@ -258,23 +268,22 @@ const PalaceCell: React.FC<{ lang: PromoLang; index: number; palace: (typeof dat
   );
 };
 
-export const ZiweiTourScene: React.FC<TourProps> = ({ lang, len }) => {
+export const ZiweiTourScene: React.FC<TourProps> = ({ lang, len, snapshot, topic }) => {
   const callout = useEnter(64, 12);
-  const z = data.ziwei;
+  const z = snapshot.ziwei;
+  const focusPalace = FOCUS_PALACE_BY_TOPIC[topic];
+  const meaning = PALACE_MEANING[focusPalace] ?? { ko: "", en: "" };
   const title = lang === "ko" ? "삶의 12영역: 자미두수 명반" : "Ziwei: 12 life areas";
   const center = lang === "ko" ? [`명궁 ${z.mingGongBranch}`, z.wuxingJu] : [`Life palace ${z.mingGongBranch}`, `${z.wuxingJuEn} bureau`];
-  const focus = z.palaces.find((p) => p.name === FOCUS_PALACE);
-  const stars = (focus?.stars ?? []).filter((s) => s.category === "main").map((s) => s[lang]).join(", ");
-  const hasQuan = z.siHua.화권.palace === FOCUS_PALACE;
-  const note = lang === "ko"
-    ? `이직 질문 → 관록궁(직업) · ${stars}${hasQuan ? " 화권" : ""}`
-    : `Job question → Career palace · ${stars}${hasQuan ? " (Power)" : ""}`;
+  const focus = z.palaces.find((p) => p.name === focusPalace);
+  const stars = (focus?.stars ?? []).filter((s) => s.category === "main").map((s) => s[lang]);
+  const note = ziweiNote(lang, topic, { palace: focusPalace, meaningKo: meaning.ko, meaningEn: meaning.en, stars, quan: z.quanPalace === focusPalace });
   return (
     <AbsoluteFill style={{ opacity: useExit(len) }}>
       <TourHeader lang={lang} index={4} title={title} />
       <div style={{ position: "absolute", top: 420, left: (1080 - (CELL * 4 + 24)) / 2, width: CELL * 4 + 24, height: CELL * 4 + 24 }}>
         {z.palaces.map((p, i) => (
-          <PalaceCell key={p.name} lang={lang} index={i} palace={p} />
+          <PalaceCell key={p.name} lang={lang} index={i} palace={p} focusPalace={focusPalace} />
         ))}
         <div style={{ position: "absolute", left: CELL + 8, top: CELL + 8, width: CELL * 2 + 8, height: CELL * 2 + 8, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
           <div style={{ ...textBase, fontSize: 52, fontWeight: 900, color: "#c4b5fd" }}>{center[0]}</div>

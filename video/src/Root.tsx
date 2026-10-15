@@ -11,7 +11,9 @@ import { Shorts } from "./compositions/Shorts";
 import { Explainer } from "./compositions/Explainer";
 import { Demo } from "./compositions/Demo";
 import { TikTokExplainer } from "./compositions/TikTokExplainer";
-import { PromoViral, PROMO_DURATION, PROMO_FPS } from "./compositions/PromoViral";
+import { PromoReportTour } from "./compositions/PromoReportTour";
+import { previewProps } from "./promo/preview.ts";
+import { FORMAT_FRAMES, PROMO_FPS } from "./promo/types.ts";
 import {
   RenderSpecSchema,
   PLACEHOLDER_RENDER_SPEC,
@@ -31,18 +33,15 @@ const calculateMetadata: CalculateMetadataFunction<RenderSpec> = ({ props }) => 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
-      {(["ko", "en"] as const).map((lang) => (
-        <Composition
-          key={lang}
-          id={lang === "ko" ? "PromoViralKo" : "PromoViralEn"}
-          component={PromoViral}
-          defaultProps={{ lang }}
-          width={1080}
-          height={1920}
-          fps={PROMO_FPS}
-          durationInFrames={PROMO_DURATION}
-        />
-      ))}
+      <Composition
+        id="PromoReportTour"
+        component={PromoReportTour}
+        defaultProps={previewProps("reportTour")}
+        width={1080}
+        height={1920}
+        fps={PROMO_FPS}
+        durationInFrames={FORMAT_FRAMES.reportTour}
+      />
       <Composition
         id="TikTokExplainer"
         component={TikTokExplainer}

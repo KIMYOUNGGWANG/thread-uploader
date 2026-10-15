@@ -245,3 +245,15 @@ export function personaLine(lang: PromoLang, persona: Persona): string {
   const date = persona.birthDate.replaceAll("-", ".");
   return lang === "ko" ? `가상 인물 · ${date} ${persona.birthTime} · 서울` : `Fictional sample · ${date} ${persona.birthTime} · Seoul`;
 }
+
+export interface ZiweiFocus { palace: string; meaningKo: string; meaningEn: string; stars: readonly string[]; quan: boolean }
+
+// A palace may have no main star (it borrows from the opposite palace); then the star part is dropped.
+export function ziweiNote(lang: PromoLang, topic: PromoTopic, focus: ZiweiFocus): string {
+  const head = lang === "ko"
+    ? `${TOPIC_LABEL.ko[topic]} 질문 → ${focus.palace}(${focus.meaningKo})`
+    : `${TOPIC_LABEL.en[topic]} question → ${focus.meaningEn} palace`;
+  if (focus.stars.length === 0) return head;
+  const power = focus.quan ? (lang === "ko" ? " 화권" : " (Power)") : "";
+  return `${head} · ${focus.stars.join(", ")}${power}`;
+}
