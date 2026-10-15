@@ -344,7 +344,7 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
   },
   saveable_tool: {
     label: "Saveable Decision Tool",
-    instruction: "Structure as a 3-4 row checklist, scorecard, or sequence guide worth bookmarking.",
+    instruction: "Structure as a checklist, scorecard, or sequence guide worth bookmarking; the formula sets how many rows.",
     rules: [
       "Craft it like a utility the reader wants to save or screenshot.",
       "Provide actionable decision criteria rather than vague future predictions.",

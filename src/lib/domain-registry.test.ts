@@ -172,6 +172,16 @@ describe("ecommerce_d2c batch keeps one claim per formula", () => {
     }
   });
 
+  // Dry run 2026-10-15: hooks that follow ENGLISH_HOOK_RULE (not / isn't) failed as "weak hook" + "no contrast".
+  it("accepts the not/isn't hooks the shared hook rule asks for", () => {
+    const hooks = ["The Rat isn't the one leaking money in 2027.", "In 2027, the money fight isn’t about money.", "Your zodiac animal is not your money sign."];
+    for (const hook of hooks) {
+      const result = checkQuality(`${hook}\n\nYour Chinese zodiac animal is one pillar of four.\n\nSend this to your Rat.`, "ecommerce_d2c");
+      expect(result.reasons.filter((reason) => /훅|Contrast|용어/.test(reason))).toEqual([]);
+      expect(result.pass).toBe(true);
+    }
+  });
+
   // Drafts under the algorithm score are dropped, so a formula whose shape can't reach 80 would never post.
   it("lets formula-shaped drafts clear the algorithm score", () => {
     for (const draft of [twelveDraft, compatibilityDraft]) {

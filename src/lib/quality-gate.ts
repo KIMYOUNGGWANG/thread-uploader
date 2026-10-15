@@ -315,7 +315,7 @@ const ENGLISH_ASTRO_TERMS = [
   /astrology|horoscope|birth chart|natal chart/i,
   /sun sign|moon sign|rising|midheaven|ascendant/i,
   /saturn return|mercury retrograde|ephemeris|transit/i,
-  /saju|bazi|four pillars|day master|eastern metaphysics/i,
+  /saju|bazi|four pillars|day master|eastern metaphysics|zodiac|pillar/i,
   /synastry|aspect|conjunction|opposition|trine|square/i,
   /house|10th house|6th house|8th house|7th house|4th house/i,
 ];
@@ -330,7 +330,8 @@ const ENGLISH_HOOK_PATTERNS = [
   /most\s+people/i,
   /^\d+\s+(reasons|mistakes|signs|steps)/i,
   /\?/,                                                    // question anywhere in line 1
-  /\b(probably|wrong|myth)\b/i,                           // correction hooks
+  // ENGLISH_HOOK_RULE tells the model to flip with not / isn't / instead; the gate must accept what the rule asks for.
+  /\b(probably|wrong|myth|not|instead)\b|n['’]t\b/i,      // correction hooks
   /^(born|to\s+(?:every|all))\b/i,                         // boundary / identity call-outs
   /your\s+(zodiac|animal|sign|day\s*master|real)/i,
 ];
@@ -364,7 +365,7 @@ function checkEcommerceD2CQuality(post: string): QualityResult {
   }
 
   // Check 3: Contrarian / Insight structure (contains vs, or, but, however, not, instead)
-  const hasContrastOrConflict = /(vs\.|instead|demolishes|dilute|invisible|trap|truth|mismatch|collapse|lie|myth|actually|wrong|not\s+(?:your|the|january)|differently)/i.test(post);
+  const hasContrastOrConflict = /(vs\.|instead|demolishes|dilute|invisible|trap|truth|mismatch|collapse|lie|myth|actually|wrong|\bnot\b|n['’]t\b|differently)/i.test(post);
   if (hasContrastOrConflict) {
     score++;
   } else {
