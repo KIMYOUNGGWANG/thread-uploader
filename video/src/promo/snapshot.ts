@@ -108,3 +108,15 @@ export function parsePromoProps(value: unknown): PromoProps {
   }
   return { lang: value.lang, variant: value.variant, snapshot: parsePromoSnapshot(value.snapshot) };
 }
+
+// Highest/lowest action month by value (first wins on ties). Not getPeakActionPoint(): that is the
+// engine's earliest golden window ("first-move window"), which is not always the strongest month.
+export function timelineExtremes(timeline: PromoSnapshot["scenario"]["timeline"]): { strongest: number; weakest: number } {
+  let strongest = 0;
+  let weakest = 0;
+  timeline.forEach((point, index) => {
+    if (point.action > (timeline[strongest]?.action ?? -Infinity)) strongest = index;
+    if (point.action < (timeline[weakest]?.action ?? Infinity)) weakest = index;
+  });
+  return { strongest, weakest };
+}

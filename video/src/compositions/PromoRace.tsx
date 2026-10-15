@@ -7,6 +7,7 @@ import { ensurePretendard } from "../load-fonts";
 import { C, Starfield, textBase, useEnter, useExit } from "../components/PromoKit";
 import { HookScene, OutroScene, QuestionScene, SampleNote } from "../components/PromoScenes";
 import { TOPIC_COPY, UI_COPY, hookLines, personaLine } from "../promo/copy.ts";
+import { timelineExtremes } from "../promo/snapshot.ts";
 import type { PromoProps } from "../promo/types.ts";
 
 void ensurePretendard();
@@ -64,12 +65,18 @@ const VerdictScene: React.FC<PromoProps & { len: number }> = ({ lang, snapshot, 
   const ui = UI_COPY[lang].race;
   const peak = useEnter(0, 11);
   const ask = useEnter(36, 12);
+  const { timeline } = snapshot.scenario;
+  const { strongest, weakest } = timelineExtremes(timeline);
+  const top = timeline[strongest];
+  const bottom = timeline[weakest];
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: 70, opacity: useExit(len) }}>
       <div style={{ ...textBase, fontSize: 40, color: C.gold, opacity: peak }}>{ui.peak}</div>
-      <div style={{ ...textBase, fontSize: 120, fontWeight: 900, color: C.goldHi, transform: `scale(${0.6 + peak * 0.4})` }}>{snapshot.scenario.peakLabel}</div>
+      <div style={{ ...textBase, fontSize: 110, fontWeight: 900, color: C.goldHi, transform: `scale(${0.6 + peak * 0.4})` }}>{top?.label} · {top?.action}</div>
+      <div style={{ ...textBase, fontSize: 36, color: "#fda4af", marginTop: 16, opacity: peak }}>{ui.low}: {bottom?.label} · {bottom?.action}</div>
       <div style={{ ...textBase, fontSize: 44, fontWeight: 800, marginTop: 40, lineHeight: 1.3, opacity: peak }}>{snapshot.scenario.headline}</div>
       <div style={{ ...textBase, fontSize: 60, fontWeight: 900, marginTop: 80, opacity: ask, transform: `translateY(${(1 - ask) * 40}px)` }}>{ui.ask}</div>
+      <SampleNote lang={lang} top={1700} />
     </AbsoluteFill>
   );
 };

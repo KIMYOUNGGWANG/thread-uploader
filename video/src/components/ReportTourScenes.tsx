@@ -4,7 +4,7 @@
 // Only section titles/labels are copy; no number here is typed by hand.
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
-import type { PromoSnapshot } from "../promo/snapshot.ts";
+import { timelineExtremes, type PromoSnapshot } from "../promo/snapshot.ts";
 import type { PromoTopic } from "../promo/types.ts";
 import { ziweiNote } from "../promo/copy.ts";
 import { C, textBase, useEnter, useExit, type PromoLang } from "./PromoKit";
@@ -147,16 +147,6 @@ export const SajuTourScene: React.FC<TourProps> = ({ lang, len, snapshot }) => {
 };
 
 // ── 02 A vs B, next 12 months ────────────────────────────────────────────────
-function peakAndLow(timeline: { action: number }[]): { peak: number; low: number } {
-  let peak = 0;
-  let low = 0;
-  timeline.forEach((t, i) => {
-    if (t.action > (timeline[peak]?.action ?? 0)) peak = i;
-    if (t.action < (timeline[low]?.action ?? 100)) low = i;
-  });
-  return { peak, low };
-}
-
 type FlowBarProps = { point: { label: string; action: number }; index: number; tone: string | null; year: number | undefined; prevYear: number | undefined };
 
 const FlowBar: React.FC<FlowBarProps> = ({ point, index, tone, year, prevYear }) => {
@@ -177,7 +167,7 @@ export const FlowTourScene: React.FC<TourProps> = ({ lang, len, snapshot }) => {
   const frame = useCurrentFrame();
   const s = snapshot.scenario;
   const months = snapshot.heatmap.months;
-  const { peak, low } = peakAndLow(s.timeline);
+  const { strongest: peak, weakest: low } = timelineExtremes(s.timeline);
   const headline = useEnter(80, 12);
   const title = lang === "ko" ? "다음 12개월, 언제 움직일지" : "When to move, by month";
   const axis = lang === "ko" ? "월별 행동 지수 · A안 vs B안" : "Monthly action index · A vs B";

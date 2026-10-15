@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePromoProps, parsePromoSnapshot, validateSnapshot, type PromoSnapshot } from "./snapshot.ts";
+import { parsePromoProps, parsePromoSnapshot, timelineExtremes, validateSnapshot, type PromoSnapshot } from "./snapshot.ts";
 import { pickPromoVariant } from "./rotation.ts";
 
 const months = Array.from({ length: 12 }, (_, i) => ({ year: 2026, month: i + 1, nameEn: "Jan", average: 40 + i * 3, phase: "NEGOTIATE" }));
@@ -75,5 +75,17 @@ describe("parse guards", () => {
     const variant = pickPromoVariant("2026-10-19", "ko");
     expect(parsePromoProps({ lang: "ko", variant, snapshot: makeSnapshot() }).variant.format).toBe(variant.format);
     expect(() => parsePromoProps({ lang: "ko", variant: { ...variant, format: "vlog" }, snapshot: makeSnapshot() })).toThrow(/props/);
+  });
+});
+
+describe("timelineExtremes", () => {
+  it("returns the index of the highest and lowest action month", () => {
+    const timeline = [44, 76, 30, 94, 51].map((action, i) => ({ label: `m${i}`, action, best: "EQUAL" as const }));
+    expect(timelineExtremes(timeline)).toEqual({ strongest: 3, weakest: 2 });
+  });
+
+  it("keeps the first month on ties", () => {
+    const timeline = [60, 60, 40, 40].map((action, i) => ({ label: `m${i}`, action, best: "EQUAL" as const }));
+    expect(timelineExtremes(timeline)).toEqual({ strongest: 0, weakest: 2 });
   });
 });
