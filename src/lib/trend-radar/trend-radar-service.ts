@@ -22,11 +22,21 @@ const MAX_PAUSE_RESUMES = 3;
 const MAX_TRANSPOSITIONS = 6;
 const THREADS_RESULTS_PER_KEYWORD = 25;
 
+// Surfaced in the cron response: keyword_search failures are otherwise invisible (web search still fills the run).
+export interface ThreadsSearchStats {
+  calls: number;
+  failed: number;
+  posts: number;
+  firstError?: string;
+  skipped?: string;
+}
+
 export interface TrendRadarRunResult {
   slug: string;
   skeletons: number;
   saved: number;
   skipped?: string;
+  threadsSearch?: ThreadsSearchStats;
 }
 
 function createWebSearchQuery(client: Anthropic) {
@@ -60,12 +70,13 @@ function createTextQuery(client: Anthropic) {
 
 // Threads is the channel we publish on, so what is hot there outranks generic web results.
 // Missing/expired token degrades to web-search-only instead of failing the run.
-async function createThreadsSamplesFn(brandId: string, now: Date) {
+async function createThreadsSamplesFn(brandId: string, now: Date, stats: ThreadsSearchStats) {
   let accessToken: string;
   try {
     accessToken = (await getFreshBrandCredentials(brandId)).accessToken;
   } catch (error) {
-    console.warn("[trend-radar] Threads search skipped:", error instanceof Error ? error.message : error);
+    stats.skipped = error instanceof Error ? error.message : String(error);
+    console.warn("[trend-radar] Threads search skipped:", stats.skipped);
     return undefined;
   }
   return async (domain: TargetDomainCategory): Promise<ThreadsTrendSample[]> => {
@@ -73,16 +84,23 @@ async function createThreadsSamplesFn(brandId: string, now: Date) {
     const settled = await Promise.allSettled(
       keywords.map((keyword) => searchThreadsByKeyword(accessToken, keyword, THREADS_RESULTS_PER_KEYWORD))
     );
-    const results = settled.flatMap((result, index) =>
-      result.status === "fulfilled" ? [{ keyword: keywords[index], posts: result.value }] : []
-    );
+    const results = settled.flatMap((result, index) => {
+      stats.calls += 1;
+      if (result.status === "fulfilled") {
+        stats.posts += result.value.length;
+        return [{ keyword: keywords[index], posts: result.value }];
+      }
+      stats.failed += 1;
+      stats.firstError ??= result.reason instanceof Error ? result.reason.message : String(result.reason);
+      return [];
+    });
     return selectThreadsTrendSamples(results, now);
   };
 }
 
-async function harvestAllDomains(client: Anthropic, brandId: string, now: Date): Promise<AbstractedTrendSkeleton[]> {
+async function harvestAllDomains(client: Anthropic, brandId: string, now: Date, stats: ThreadsSearchStats): Promise<AbstractedTrendSkeleton[]> {
   const queryFn = createWebSearchQuery(client);
-  const threadsSamplesFn = await createThreadsSamplesFn(brandId, now);
+  const threadsSamplesFn = await createThreadsSamplesFn(brandId, now, stats);
   // One domain per call, in parallel, to stay inside the route's maxDuration.
   const perDomain = await Promise.all(
     DOMAINS.map((domain) => harvestTemporalTrends({ domains: [domain], referenceDate: now, queryFn, threadsSamplesFn }))
@@ -107,14 +125,15 @@ export async function refreshBrandTrendRadar(brand: { id: string; slug: string; 
 
   const client = new Anthropic({ apiKey, timeout: 240_000, maxRetries: 1 });
   const now = new Date();
-  const skeletons = await harvestAllDomains(client, brand.id, now);
+  const threadsSearch: ThreadsSearchStats = { calls: 0, failed: 0, posts: 0 };
+  const skeletons = await harvestAllDomains(client, brand.id, now, threadsSearch);
   const candidates = await transposeAll(client, skeletons, profile);
-  if (candidates.length === 0) return { slug: brand.slug, skeletons: skeletons.length, saved: 0, skipped: "no trends transposed" };
+  if (candidates.length === 0) return { slug: brand.slug, skeletons: skeletons.length, saved: 0, skipped: "no trends transposed", threadsSearch };
 
   const trendRadar = toTrendRadarMemory(candidates, now);
   await prisma.brand.update({
     where: { id: brand.id },
     data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, { trendRadar }) },
   });
-  return { slug: brand.slug, skeletons: skeletons.length, saved: trendRadar.items.length };
+  return { slug: brand.slug, skeletons: skeletons.length, saved: trendRadar.items.length, threadsSearch };
 }
