@@ -17,7 +17,7 @@ async function main() {
       orderBy: { publishedAt: "asc" },
       select: {
         id: true, threadsId: true, content: true, firstComment: true, imageUrls: true,
-        publishedAt: true, metricsAt: true, views: true, likes: true, replies: true, reposts: true,
+        createdAt: true, publishedAt: true, metricsAt: true, views: true, likes: true, replies: true, reposts: true,
         clicks: true, conversions: true, performanceScore: true,
         formulaId: true, topic: true, targetAudience: true, situation: true, hookType: true, ctaType: true,
         postCategory: true, campaignId: true, linkUrl: true, threadTotalParts: true,
