@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   prompts: [] as string[],
   checkStructureRepeat: vi.fn<
-    (content: string, firstComment: string | null | undefined, recentPosts: Array<{ firstComment?: string | null }>) => { isDuplicate: boolean; similarityScore: number }
+    (content: string, firstComment: string | null | undefined, recentPosts: Array<{ firstComment?: string | null }>) => { isDuplicate: boolean; similarityScore: number; reason?: string }
   >(() => ({ isDuplicate: false, similarityScore: 0 })),
   createdPosts: [] as Array<{
     id: string;
@@ -387,8 +387,29 @@ describe("POST /api/generate viral sprint matrix", () => {
       expect(response.status).toBe(200);
       expect(body).toMatchObject({ success: true, count: 0, failedCount: 3 });
       expect(state.createdPosts).toHaveLength(0);
+      expect(body.failureReasons).toHaveLength(3);
+      expect(body.failureReasons[0]).toContain("algorithm score 60");
     } finally {
       state.remediationPass = true;
+    }
+  }, 10000);
+
+  // A refill that came back short only reported failedCount, so nobody could tell why drafts were dropped.
+  it("reports why a draft was dropped after failing the quality retries", async () => {
+    state.createdPosts.length = 0;
+    state.checkStructureRepeat.mockImplementation(() => ({ isDuplicate: true, similarityScore: 1, reason: "틀 반복 테스트 사유" }));
+    try {
+      const { POST } = await import("@/app/api/generate/route");
+      const response = await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 4, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      const body = await response.json();
+
+      expect(body).toMatchObject({ success: true, count: 3, failedCount: 1 });
+      expect(body.failureReasons).toEqual([expect.stringContaining("틀 반복 테스트 사유")]);
+    } finally {
+      state.checkStructureRepeat.mockImplementation(() => ({ isDuplicate: false, similarityScore: 0 }));
     }
   }, 10000);
 

@@ -868,9 +868,16 @@ export interface GeneratePostsInput {
 export interface GeneratePostsSummary {
   count: number;
   failedCount: number;
+  // Why each dropped draft failed, so a refill that comes back short can be diagnosed from its response.
+  failureReasons: string[];
   linkedCount: number;
   campaignId: string | null;
   auditSummary: { total: number; passed: number; needsReview: number };
+}
+
+function describeFailure(reason: unknown): string {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  return message.slice(0, 300);
 }
 
 export type GeneratePostsResult = { ok: false; error: string } | { ok: true; summary: GeneratePostsSummary };
@@ -940,7 +947,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   // Formulas picked so far, including the current in-flight batch, for anti-repeat.
   const pickedFormulaIds: string[] = [];
 
-  let failedCount = 0;
+  const failureReasons: string[] = [];
   for (let i = 0; i < count; i += BATCH) {
     const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
       const batchIndex = i + j;
@@ -1007,7 +1014,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     for (const settled of await Promise.allSettled(batch)) {
       if (settled.status === "fulfilled") results.push(settled.value);
       else {
-        failedCount++;
+        failureReasons.push(describeFailure(settled.reason));
         console.error("[generate] draft failed, skipping:", settled.reason);
       }
     }
@@ -1070,7 +1077,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     );
     // Still under the algorithm score after rewrites: drop it rather than park it in the approval queue.
     if (!remediation.pass) {
-      failedCount++;
+      failureReasons.push(`algorithm score ${remediation.scoreResult.totalScore} under threshold (${result.formulaId})`);
       console.warn(`[generate] algorithm score ${remediation.scoreResult.totalScore} under threshold, skipping ${result.formulaId}`);
       continue;
     }
@@ -1199,7 +1206,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     ok: true,
     summary: {
       count: createdPosts.length,
-      failedCount,
+      failedCount: failureReasons.length,
+      failureReasons,
       linkedCount,
       campaignId: activeCampaign?.id ?? null,
       auditSummary: {
