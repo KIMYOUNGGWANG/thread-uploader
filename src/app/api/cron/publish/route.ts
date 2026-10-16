@@ -225,12 +225,15 @@ export async function GET(request: NextRequest) {
             });
           }
         } else {
-          const pendingWhere = { brandId: brand.id, status: "PENDING", scheduledAt: { lte: now }, qualityPass: true };
+          const queuedWhere = { brandId: brand.id, status: "PENDING", qualityPass: true };
+          const pendingWhere = { ...queuedWhere, scheduledAt: { lte: now } };
           const lengthExperiment = await loadLengthExperimentState(brand.id, brandConfig, now);
           if (lengthExperiment) {
             // The pre-registered S/L sequence decides this slot's length; never fill it with the other arm.
+            // scheduledAt only orders here: slots, cooldown and quota already pace publishing, and waiting on it
+            // left the queue idle behind pre-start drafts that never publish during the experiment.
             const candidates = await prisma.post.findMany({
-              where: pendingWhere,
+              where: queuedWhere,
               orderBy: { scheduledAt: "asc" },
               take: LENGTH_EXPERIMENT_CANDIDATES,
             });

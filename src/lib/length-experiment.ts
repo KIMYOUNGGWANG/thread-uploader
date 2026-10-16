@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { MAX_REFILL_PER_RUN } from "@/lib/queue-refill";
+import { THREADS_CONTENT_MAX_LENGTH } from "@/lib/threads-limits";
 import type { BrandConfig } from "@/types/brand";
 import type { LengthArm, LengthExperimentConfig } from "@/types/length-experiment";
 
@@ -61,6 +62,16 @@ export function planLengthArms(pending: Record<LengthArm, number>, nextArm: Leng
   });
 }
 
+/** Fisher-Yates: formula, intent mode and link cadence are picked by batch index, so arms must not follow it. */
+export function shuffleArms(arms: LengthArm[], random: () => number = Math.random): LengthArm[] {
+  const shuffled = [...arms];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 export function planExperimentRefillCount(pending: Record<LengthArm, number>, target: number, maxPerRun: number = MAX_REFILL_PER_RUN): number {
   const perArm = Math.ceil(target / 2);
   return Math.min(maxPerRun, Math.max(0, perArm - pending.S) + Math.max(0, perArm - pending.L));
@@ -98,8 +109,10 @@ export async function loadLengthExperimentState(
 
 const TARGET_RANGE: Record<LengthArm, string> = { S: "140~240자", L: "400~450자" };
 
+/** Generation-side band check. L is also capped at one post: past 500 chars it publishes as a split thread. */
 export function lengthGateReason(content: string, target: LengthArm, config: LengthExperimentConfig): string | null {
-  if (classifyLength(content, config) === target) return null;
+  const overSinglePost = target === "L" && content.length > THREADS_CONTENT_MAX_LENGTH;
+  if (classifyLength(content, config) === target && !overSinglePost) return null;
   return `길이 실험 ${target} 범위 밖: ${content.length}자 (목표 ${TARGET_RANGE[target]})`;
 }
 

@@ -8,6 +8,7 @@ import {
   pickPublishCandidate,
   planExperimentRefillCount,
   planLengthArms,
+  shuffleArms,
   sequencePosition,
   type ExperimentPostShape,
 } from "@/lib/length-experiment";
@@ -119,6 +120,13 @@ describe("planLengthArms", () => {
   });
 });
 
+describe("shuffleArms", () => {
+  it("decouples arm order from batch index while keeping the planned counts", () => {
+    expect(shuffleArms(["S", "S", "L"], () => 0)).toEqual(["S", "L", "S"]);
+    expect(shuffleArms(["L", "L", "L", "S"]).filter((arm) => arm === "L")).toHaveLength(3);
+  });
+});
+
 describe("planExperimentRefillCount", () => {
   it("tops each arm to half the target", () => {
     expect(planExperimentRefillCount({ S: 5, L: 0 }, 10)).toBe(5);
@@ -133,5 +141,12 @@ describe("lengthGateReason", () => {
     const reason = lengthGateReason("가".repeat(300), "L", config);
     expect(reason).toContain("L 범위 밖");
     expect(reason).toContain("300자");
+  });
+
+  it("rejects an L draft over the single-post limit, since longer posts split into a thread", () => {
+    expect(lengthGateReason("가".repeat(500), "L", config)).toBeNull();
+    const reason = lengthGateReason("가".repeat(520), "L", config);
+    expect(reason).toContain("L 범위 밖");
+    expect(reason).toContain("520자");
   });
 });

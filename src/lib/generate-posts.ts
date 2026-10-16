@@ -48,7 +48,7 @@ import { findSaturatedTopics, formatSaturationReason } from "@/lib/topic-saturat
 import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
-import { classifyLength, lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms } from "@/lib/length-experiment";
+import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import type { LengthArm } from "@/types/length-experiment";
 
 const client = new Anthropic({
@@ -976,7 +976,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   const failureReasons: string[] = [];
   // Live length experiment: each draft gets the arm the queue is shortest on, so publish slots never wait long.
   const lengthExperiment = await loadLengthExperimentState(brandId, config, new Date());
-  const lengthArms = lengthExperiment ? planLengthArms(lengthExperiment.pending, lengthExperiment.arm, count) : [];
+  const lengthArms = lengthExperiment ? shuffleArms(planLengthArms(lengthExperiment.pending, lengthExperiment.arm, count)) : [];
   for (let i = 0; i < count; i += BATCH) {
     const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
       const batchIndex = i + j;
@@ -1123,7 +1123,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       continue;
     }
     // Belt and braces after rewrites: a draft outside its arm's band never reaches the experiment queue.
-    if (result.lengthTarget && lengthExperiment && classifyLength(reconciled.content, lengthExperiment.config) !== result.lengthTarget) {
+    if (result.lengthTarget && lengthExperiment && lengthGateReason(reconciled.content, result.lengthTarget, lengthExperiment.config)) {
       failureReasons.push(`length experiment ${result.lengthTarget} mismatch (${result.formulaId})`);
       continue;
     }

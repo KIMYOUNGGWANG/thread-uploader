@@ -95,6 +95,17 @@ describe("GET /api/cron/publish under a length experiment", () => {
     expect(body.published.map((item) => item.postId)).toEqual(["promo"]);
   });
 
+  it("considers matching drafts before their scheduled time so a fresh experiment queue is not idle", async () => {
+    state.candidates = [row("new-L", 420)];
+    const { prisma } = await import("@/lib/prisma");
+
+    await runPublish();
+
+    const candidateQuery = vi.mocked(prisma.post.findMany).mock.calls.map(([args]) => args).find((args) => args?.take);
+    expect(candidateQuery?.where).not.toHaveProperty("scheduledAt");
+    expect(candidateQuery?.orderBy).toEqual({ scheduledAt: "asc" });
+  });
+
   it("falls back to the normal oldest-first pick after the sequence is used up", async () => {
     state.published = [row("pub-L", 420), row("pub-S", 200)];
     state.candidates = [row("new-S", 200)];

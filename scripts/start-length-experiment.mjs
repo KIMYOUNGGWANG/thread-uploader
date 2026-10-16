@@ -25,7 +25,7 @@ async function main() {
     return;
   }
   await prisma.brand.update({ where: { id: brand.id }, data: { brandConfig: JSON.stringify({ ...stored, lengthExperiment }) } });
-  console.log(`started: ${lengthExperiment.startAt} — record this as 시작일 in docs/experiments/2026-10-16-post-length.md`);
+  console.log(`started: ${lengthExperiment.startAt} — record this exact ISO as 시작 시각(startAt) in docs/experiments/2026-10-16-post-length.md and pass it as --from when judging`);
 }
 
 main()

@@ -208,8 +208,9 @@ function formulaMix(posts) {
 function judgeLengthExperiment(snapshot, { slug, from, shortMax, longMin, plannedN, minAgeDays }) {
   const brand = snapshot.brands.find((b) => b.slug === slug);
   if (!brand) throw new Error(`brand ${slug} not in snapshot`);
-  const { sample, overflow } = experimentSample(measuredPosts(brand), { from, shortMax, longMin, total: plannedN * 2 });
-  const aged = sample.filter((p) => p.ageDays >= minAgeDays);
+  // Cut first, measure second: a post missing metrics shows up as a shortfall instead of letting a later post in.
+  const { sample, overflow } = experimentSample(brand.posts.filter((p) => p.publishedAt), { from, shortMax, longMin, total: plannedN * 2 });
+  const aged = measuredPosts({ posts: sample }).filter((p) => p.ageDays >= minAgeDays);
   aged.forEach((p) => { p.detrended = p.logViews; });
   const short = aged.filter((p) => p.content.length <= shortMax);
   const long = aged.filter((p) => p.content.length >= longMin);
@@ -254,6 +255,13 @@ function selfTest() {
   const { sample, overflow } = experimentSample([...extras, ...fake], { from, shortMax: 260, longMin: 390, total: 90 });
   assert(sample.length === 90 && overflow === 2, `experiment sample cutoff ${sample.length}/${overflow}`);
   assert(sample.at(-1).publishedAt === fake[89].publishedAt, "sample keeps the first 90 by publish time");
+  // An unmeasured post inside the first 90 must leave a gap, not pull the post-experiment 91st into the sample.
+  const measured = fake.map((p, i) => ({
+    ...p, id: `p${i}`, firstComment: null, views: 100, likes: 0, replies: 0, reposts: 0,
+    metricsAt: i === 4 ? null : new Date(Date.parse(p.publishedAt) + 8 * 864e5).toISOString(),
+  }));
+  const verdict = judgeLengthExperiment({ brands: [{ slug: "x", posts: measured }] }, { slug: "x", from, shortMax: 260, longMin: 390, plannedN: 45, minAgeDays: 7 });
+  assert(verdict.includes("짧은 글 44/45"), "cutoff applies before the measurement filter");
   console.log("self-test ok");
 }
 
@@ -267,7 +275,7 @@ if (args.includes("--self-test")) {
   if (experiment) {
     console.log(judgeLengthExperiment(snapshot, {
       slug: experiment,
-      from: flag("from", null) ?? (() => { throw new Error("--from=YYYY-MM-DD required"); })(),
+      from: flag("from", null) ?? (() => { throw new Error("--from=<startAt ISO, e.g. 2026-10-20T03:14:15.926Z> required"); })(),
       shortMax: Number(flag("short-max", 260)),
       longMin: Number(flag("long-min", 390)),
       plannedN: Number(flag("planned-n", 45)),
