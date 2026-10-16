@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   perPostLinks: true,
+  prompts: [] as string[],
+  checkStructureRepeat: vi.fn<
+    (content: string, firstComment: string | null | undefined, recentPosts: Array<{ firstComment?: string | null }>) => { isDuplicate: boolean; similarityScore: number; reason?: string }
+  >(() => ({ isDuplicate: false, similarityScore: 0 })),
   createdPosts: [] as Array<{
     id: string;
     campaignFormulaId: string | null;
@@ -11,6 +15,7 @@ const state = vi.hoisted(() => ({
     ctaType?: string | null;
     targetAudience?: string | null;
   }>,
+  remediationPass: true,
 }));
 
 const DIVERSE_POST_BODIES = [
@@ -48,7 +53,8 @@ let mockPostCallCounter = 0;
 vi.mock("@anthropic-ai/sdk", () => ({
   default: class MockAnthropic {
     messages = {
-      create: vi.fn(async () => {
+      create: vi.fn(async (request: unknown) => {
+        state.prompts.push(JSON.stringify(request));
         const body = DIVERSE_POST_BODIES[mockPostCallCounter % DIVERSE_POST_BODIES.length];
         const count = mockPostCallCounter++;
         return {
@@ -62,9 +68,42 @@ vi.mock("@anthropic-ai/sdk", () => ({
   },
 }));
 
+vi.mock("@/lib/anti-repeat-memory", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/anti-repeat-memory")>();
+  return { ...actual, checkStructureRepeat: state.checkStructureRepeat };
+});
+
 vi.mock("@/lib/brand-access", () => ({
   accessErrorResponse: () => null,
   requireBrandForCurrentUser: vi.fn(async (brandId?: string) => {
+    if (brandId === "cosmicpath-global") {
+      return {
+        brand: {
+          id: "brand_global",
+          slug: "cosmicpath-global",
+          brandConfig: JSON.stringify({
+            systemPrompt: "Write concise CosmicPath Global posts.",
+            topics: ["2027 Fire Goat"],
+            targets: ["Western 22-36 zodiac readers"],
+            situations: ["Checking a yearly forecast"],
+            websiteUrl: "cosmicpath.app",
+            // Mirrors production: the global brand runs the career campaign with the English profile.
+            campaigns: [{
+              id: "career_timing_wedge_399",
+              name: "Career timing wedge",
+              mode: "landing-test",
+              qualityProfile: "ecommerce_d2c",
+              formulas: [{ id: "self_classification", name: "Self-check", weight: 3, instruction: "Self-check A/B/C." }],
+            }],
+            activeCampaignId: "career_timing_wedge_399",
+            qualityProfile: "ecommerce_d2c",
+          }),
+          formulaWeights: "{}",
+          growthMemory: "{}",
+          viralMemory: "{}",
+        },
+      };
+    }
     if (brandId === "cmqpj5tjf0002eize6v2ui2lg" || brandId === "cosmicpath") {
       return {
         brand: {
@@ -210,6 +249,19 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// The heuristic scorer isn't under test here; each case sets whether drafts clear it.
+vi.mock("@/lib/remediation-engine", () => ({
+  remediatePostAlgorithmic: vi.fn(async (content: string, firstComment: string | null) => ({
+    content,
+    firstComment,
+    pass: state.remediationPass,
+    scoreResult: { totalScore: state.remediationPass ? 90 : 60, dimensions: {} },
+    method: state.remediationPass ? "INITIAL_PASS" : "FAILED_QUARANTINED",
+    rewriteCount: 0,
+    actionableFixes: [],
+  })),
+}));
+
 vi.mock("@/lib/quality-gate", () => ({
   checkQuality: vi.fn(() => ({
     pass: true,
@@ -222,6 +274,7 @@ vi.mock("@/lib/quality-gate", () => ({
 
 describe("POST /api/generate viral sprint matrix", () => {
   it("persists 28 generated campaign posts into four 7-post viral mode buckets", async () => {
+    state.checkStructureRepeat.mockClear();
     state.createdPosts.length = 0;
     const { POST } = await import("@/app/api/generate/route");
 
@@ -249,9 +302,12 @@ describe("POST /api/generate viral sprint matrix", () => {
       quiet_contrarian: 7,
       friend_share: 7,
     });
+    // career_decision drafts must never go through the Korean saju skeleton check
+    expect(state.checkStructureRepeat).not.toHaveBeenCalled();
   }, 10000);
 
   it("persists a 4:4:4:3 CosmicPath sprint with tracked links only on every third post", async () => {
+    state.checkStructureRepeat.mockClear();
     state.createdPosts.length = 0;
     const { POST } = await import("@/app/api/generate/route");
 
@@ -291,6 +347,117 @@ describe("POST /api/generate viral sprint matrix", () => {
     ]);
     expect(state.createdPosts.filter((post) => post.linkUrl)).toHaveLength(5);
     expect(state.createdPosts.filter((post) => post.utmContent)).toHaveLength(5);
+
+    const lastRecentPosts = state.checkStructureRepeat.mock.calls.at(-1)?.[2] ?? [];
+    const commentNumber = (comment: string | null | undefined) => /북마크 (\d+)/.exec(comment ?? "")?.[1];
+    expect(lastRecentPosts.length).toBeGreaterThan(1);
+    // Short one-line saju comments must survive instead of being swapped for the fixed admission comment
+    expect(state.createdPosts.every((post) => post.firstComment?.startsWith("북마크"))).toBe(true);
+    expect(lastRecentPosts.every((post) => commentNumber(post.firstComment) !== undefined)).toBe(true);
+    // The window must start at the newest in-batch draft, not the oldest
+    expect(lastRecentPosts.map((post) => commentNumber(post.firstComment)))
+      .toEqual(state.createdPosts.slice(0, lastRecentPosts.length).map((post) => commentNumber(post.firstComment)).reverse());
+  }, 10000);
+
+  it("gives each 2-post dashboard chunk fresh personas instead of repeating the same pair", async () => {
+    state.createdPosts.length = 0;
+    const { POST } = await import("@/app/api/generate/route");
+
+    for (let chunk = 0; chunk < 2; chunk++) {
+      const response = await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 2, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      expect(response.status).toBe(200);
+    }
+
+    expect(state.createdPosts).toHaveLength(4);
+    expect(new Set(state.createdPosts.map((post) => post.targetAudience)).size).toBe(4);
+  }, 10000);
+
+  // Drafts under the algorithm score used to be saved as NEEDS_REVIEW and filled the approval queue.
+  it("drops drafts that stay under the algorithm score instead of queueing them", async () => {
+    state.createdPosts.length = 0;
+    state.remediationPass = false;
+    try {
+      const { POST } = await import("@/app/api/generate/route");
+      const response = await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 3, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({ success: true, count: 0, failedCount: 3 });
+      expect(state.createdPosts).toHaveLength(0);
+      expect(body.failureReasons).toHaveLength(3);
+      expect(body.failureReasons[0]).toContain("algorithm score 60");
+    } finally {
+      state.remediationPass = true;
+    }
+  }, 10000);
+
+  // A refill that came back short only reported failedCount, so nobody could tell why drafts were dropped.
+  it("reports why a draft was dropped after failing the quality retries", async () => {
+    state.createdPosts.length = 0;
+    state.checkStructureRepeat.mockImplementation(() => ({ isDuplicate: true, similarityScore: 1, reason: "틀 반복 테스트 사유" }));
+    try {
+      const { POST } = await import("@/app/api/generate/route");
+      const response = await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 4, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      const body = await response.json();
+
+      expect(body).toMatchObject({ success: true, count: 3, failedCount: 1 });
+      expect(body.failureReasons).toEqual([expect.stringContaining("틀 반복 테스트 사유")]);
+    } finally {
+      state.checkStructureRepeat.mockImplementation(() => ({ isDuplicate: false, similarityScore: 0 }));
+    }
+  }, 10000);
+
+  // A 4-post global refill rotated every draft into self_classification (Type A/B/C), whatever the formula.
+  it("gives each global formula its own viral mode instead of the batch-index rotation", async () => {
+    state.createdPosts.length = 0;
+    state.prompts.length = 0;
+    const { POST } = await import("@/app/api/generate/route");
+    const { getDomainPreset } = await import("@/lib/domain-registry");
+    const { normalizeViralIntentModeId } = await import("@/lib/viral-intent-modes");
+    const formulaIdByName = new Map(Object.values(getDomainPreset("ecommerce_d2c").trackFormulas).flat().map((f) => [f.name, f.id]));
+
+    await POST(new Request("http://localhost/api/generate", {
+      method: "POST",
+      body: JSON.stringify({ brandId: "cosmicpath-global", count: 4 }),
+    }) as never);
+
+    const pairs = state.prompts.map((raw) => {
+      const prompt = String((JSON.parse(raw) as { messages: Array<{ content: string }> }).messages[0].content);
+      const formulaName = /\[Formula: ([^\]\n]+)\]/.exec(prompt)?.[1] ?? "";
+      return { formulaId: formulaIdByName.get(formulaName), modeId: /\nid: (\w+)/.exec(prompt)?.[1] };
+    });
+    expect(pairs.length).toBeGreaterThan(0);
+    for (const { formulaId, modeId } of pairs) {
+      expect(formulaId).toBeDefined();
+      expect(modeId).toBe(normalizeViralIntentModeId(formulaId));
+    }
+  }, 20000);
+
+  it("sends CosmicPath prompts without the copied hierarchy hook or confession comment example", async () => {
+    state.createdPosts.length = 0;
+    state.prompts.length = 0;
+    const { POST } = await import("@/app/api/generate/route");
+
+    const response = await POST(new Request("http://localhost/api/generate", {
+      method: "POST",
+      body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 3, campaignId: "cosmicpath_lean_sprint" }),
+    }) as never);
+    const prompts = state.prompts.join("\n");
+
+    expect(response.status).toBe(200);
+    expect(prompts).not.toContain("A보다 센 B보다 센");
+    expect(prompts).not.toContain("난 솔직히 2번");
+    expect(prompts).not.toContain("첫 줄에 물음표(?)를 넣어");
+    expect(prompts).toContain("'난 솔직히'로 시작하지 않으며");
   }, 10000);
 
   it("attaches no per-post links and no link CTA when the campaign runs in bio-only mode", async () => {

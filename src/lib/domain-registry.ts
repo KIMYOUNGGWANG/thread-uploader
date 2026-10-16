@@ -24,11 +24,35 @@ export interface DomainFormulaConfig {
 
 // Hangul stays blocked on the English account; "Saju" is allowed because it is the product's differentiator.
 const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
-const GLOBAL_HYBRID_RULE =
+// Shared with the remediation rewrite checklist so generation and rewrite can't drift apart again.
+// No example sentence: every formula copied the old one ("Your zodiac animal is probably wrong.") into the same post.
+export const ENGLISH_HOOK_RULE =
+  "line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim that flips an assumption about this post's own subject: no question mark, no 'vs' (use a word like wrong, not, isn't, instead plus probably, might or most people)";
+const GLOBAL_FRAME_RULE =
   "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul. " +
-  "Format for a phone feed: line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim that flips an assumption: no question mark, no 'vs' (e.g. 'Your zodiac animal is probably wrong.'; use a word like wrong, not, isn't, instead plus probably, might or most people). " +
+  "Leave the zodiac year boundary (when the animal year starts, January or early February birthdays) out unless this formula is about it.";
+// Body length and ending are per formula. One shared A/B ending made the 12-line list and the
+// send-it-to-them post collapse into the same generic A/B post, and the rewrite enforced it again.
+const DEFAULT_ENGLISH_SHAPE =
   "Then one sentence per line, a blank line between ideas, 200-420 characters in total. " +
-  "End with two options on their own lines starting 'A) ' and 'B) ', then the line 'Which one are you?'. The first comment must end with a question.";
+  "End with two options on their own lines starting 'A) ' and 'B) ', then the line 'Which one are you?'.";
+const ENGLISH_FORMULA_SHAPES: Record<string, string> = {
+  all_twelve_series:
+    "Then a blank line and exactly 12 lines in zodiac order (Rat, Ox, Tiger, Rabbit, Dragon, Snake, Horse, Goat, Monkey, Rooster, Dog, Pig), each 'Animal: verdict' under 30 characters. " +
+    "Then a blank line and one closing line asking readers to save this and find their animal. Whole post under 450 characters. No 'A) ' or 'B) ' option lines.",
+  two_birthday_compatibility:
+    "Then one sentence per line, a blank line between ideas, 200-420 characters in total. " +
+    "The last line asks the reader to send this to that person. No 'A) ' or 'B) ' option lines.",
+};
+
+export function englishShapeRule(formulaId: string): string {
+  return ENGLISH_FORMULA_SHAPES[formulaId] ?? DEFAULT_ENGLISH_SHAPE;
+}
+
+function globalHybridRule(formulaId: string): string {
+  return `${GLOBAL_FRAME_RULE} Format for a phone feed: ${ENGLISH_HOOK_RULE}. ${englishShapeRule(formulaId)} ` +
+    "This length and ending override any generic length, list or ending rule later in the prompt. The first comment must end with a question.";
+}
 
 export interface DomainPresetConfig {
   domainId: string;
@@ -91,7 +115,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "개념 서열 비교 & 극단적 앵커 훅 (12만 뷰 검증)",
           track: "track_a",
           weight: 7,
-          instruction: "대중이 흔히 아는 개념(A)보다 더 센 B, C를 비교하여('도화보다 센 홍염보다 센 게 뭔지 알아? 바로 화개야') 상식을 깨고, 극단적 1줄 앵커('스님도 파계시킴')와 독자 투사('너한테 그런 치명적 매력이 있을 수도')로 140~200자 내로 압축 작성한다. 본문 링크 절대 금지, 첫 댓글에 분기점 판정 기준표 결핍 브릿지를 배치한다.",
+          instruction: "대중이 흔히 아는 개념보다 본질적인 사주 개념 2~3개(살·십신·일주)를 서열이나 대비로 비교해 상식을 깨고, 극단적 1줄 앵커와 독자 투사로 140~200자 내로 압축 작성한다. 같은 비교 문장 틀을 반복하지 않는다. 본문 링크 절대 금지.",
           hookArchetype: "개념 서열 훅",
           forbiddenKeywords: ["사기", "상담비", "반박시 니 말", "AI한테 생년월일"],
         },
@@ -291,7 +315,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "Trending Zodiac Headline Correction",
           track: "track_a",
           weight: 5,
-          instruction: `Take a trending zodiac headline (e.g. Fire Horse 2026, Fire Goat 2027) and correct it with what Korean saju actually says. Line 1 names what the headlines claim, line 2 contradicts it. Calm, specific, no CTA. ${GLOBAL_HYBRID_RULE}`,
+          instruction: `Take a trending zodiac headline (e.g. Fire Horse 2026, Fire Goat 2027) and correct it with what Korean saju actually says. Line 1 names what the headlines claim, line 2 contradicts it. Calm, specific, no CTA. ${globalHybridRule("trend_correction")}`,
           hookArchetype: "Headline Correction Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -300,7 +324,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "Your Real Sign May Be Different",
           track: "track_a",
           weight: 5,
-          instruction: `Show why the reader's zodiac animal or chart may be wrong: January to early February births vs Ipchun (Feb 4) and Lunar New Year, birth time and time zone shifts. End with one concrete self-check the reader can do right now. No CTA. ${GLOBAL_HYBRID_RULE}`,
+          instruction: `Show why the reader's zodiac animal or chart may be wrong: January to early February births vs ipchun (Feb 4; always spell it 'ipchun') and Lunar New Year, birth time and time zone shifts. End with one concrete self-check the reader can do right now. No CTA. ${globalHybridRule("real_sign_boundary")}`,
           hookArchetype: "Hidden Mistake Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -309,7 +333,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "Zodiac Animal / Day Master Identity Call-Out",
           track: "track_a",
           weight: 4,
-          instruction: `Call out one zodiac animal or Day Master type with one sharp, relatable behavior at work, in dating, or with money (e.g. "To every Yang Fire Day Master: ..."). Line 2 reveals what saju says sits underneath it. No theory lecture, no CTA. ${GLOBAL_HYBRID_RULE}`,
+          instruction: `Call out one zodiac animal or Day Master type with one sharp, relatable behavior at work, in dating, or with money (e.g. "To every Yang Fire Day Master: ..."). Line 2 reveals what saju says sits underneath it. No theory lecture, no CTA. ${globalHybridRule("identity_callout")}`,
           hookArchetype: "Identity Call-Out Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -320,7 +344,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "All 12 Animals Series",
           track: "track_b",
           weight: 4,
-          instruction: `Cover one theme (love, money, or career in the coming year) for all 12 zodiac animals, one short line each, so readers search for their own and save the post. Open with a one-line promise of what they will find. ${GLOBAL_HYBRID_RULE}`,
+          instruction: `Cover one theme (love, money, or career in the coming year) for all 12 zodiac animals, one short line each, so readers search for their own and save the post. Line 1 is the hook and hints at what they will find. ${globalHybridRule("all_twelve_series")}`,
           hookArchetype: "Find Your Animal Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -329,7 +353,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "Two-Birthday Compatibility",
           track: "track_b",
           weight: 4,
-          instruction: `Describe what happens when two specific elements or zodiac animals date or work together: the pull, the friction, the tell-tale moment. Close by asking the reader to send it to that person. Profile-link mention only, no URL. ${GLOBAL_HYBRID_RULE}`,
+          instruction: `Describe what happens when two specific elements or zodiac animals date or work together: the pull, the friction, the tell-tale moment. Close by asking the reader to send it to that person. Profile-link mention only, no URL. ${globalHybridRule("two_birthday_compatibility")}`,
           hookArchetype: "Send-It-To-Them Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -340,7 +364,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "25-Page Couple Synastry Blueprint Offer (Ch 6 & 7)",
           track: "track_c",
           weight: 4,
-          instruction: `Present a concrete case study or checklist comparing a surface-level dating dilemma with the deep 25-page couple synastry dossier on Etsy ($44.99). Honest, resigned, zero-hype recommendation. ${GLOBAL_HYBRID_RULE}`,
+          instruction: `Present a concrete case study or checklist comparing a surface-level dating dilemma with the deep 25-page couple synastry dossier on Etsy ($44.99). Honest, resigned, zero-hype recommendation. ${globalHybridRule("synastry_blueprint_offer")}`,
           hookArchetype: "Couple Synastry Offer Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -349,7 +373,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "15-20 Page Master Dossier Decision Offer (Ch 2, 4, 5, 8)",
           track: "track_c",
           weight: 3,
-          instruction: `Present a high-stakes life decision dilemma (career pivot, wealth defense, relational timing) solved by the 15-20 page Master Life Intelligence Dossier on Etsy ($29.99). Direct soft CTA. ${GLOBAL_HYBRID_RULE}`,
+          instruction: `Present a high-stakes life decision dilemma (career pivot, wealth defense, relational timing) solved by the 15-20 page Master Life Intelligence Dossier on Etsy ($29.99). Direct soft CTA. ${globalHybridRule("d2c_etsy_offer")}`,
           hookArchetype: "Master Dossier Offer Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -422,4 +446,35 @@ export function getDomainPreset(domainOrQualityProfile?: string): DomainPresetCo
     return DOMAIN_PRESETS.ecommerce_d2c;
   }
   return DOMAIN_PRESETS.saju_viral;
+}
+
+// The year-boundary claim belongs to one formula. On 2026-10-15 three formulas in one parallel batch
+// all wrote it, and siblings in a batch can't see each other, so ownership is checked per formula.
+const YEAR_BOUNDARY_OWNER = "real_sign_boundary";
+const YEAR_BOUNDARY_PATTERN = /\b(?:ip[\s-]?chun|li[\s-]?chun|feb(?:ruary)?\.?\s+4(?:th)?|born in (?:january|early february)|before lunar new year)\b/i;
+
+export function findBorrowedYearBoundaryClaim(formulaId: string, post: string): string | null {
+  if (formulaId === YEAR_BOUNDARY_OWNER || !YEAR_BOUNDARY_PATTERN.test(post)) return null;
+  return `Off-formula claim: the ipchun year-boundary angle belongs to ${YEAR_BOUNDARY_OWNER}. Write what the ${formulaId} formula asks for, without ipchun or January/February birthdays.`;
+}
+
+const ZODIAC_ANIMAL_PATTERNS = [/\brats?\b/i, /\box(?:en)?\b/i, /\btigers?\b/i, /\brabbits?\b/i, /\bdragons?\b/i, /\bsnakes?\b/i, /\bhorses?\b/i, /\b(?:goat|sheep|ram)s?\b/i, /\bmonkeys?\b/i, /\b(?:rooster|chicken)s?\b/i, /\bdogs?\b/i, /\b(?:pig|boar)s?\b/i];
+// ponytail: 10 of 12 tolerates a missed or renamed animal; tighten to 12 if drafts start dropping lines.
+const MIN_ANIMALS_NAMED = 10;
+const AB_OPTION_LINE = /^\s*[AB]\)\s/m;
+
+/** Minimal shape check for formulas whose shape differs from the shared A/B post. */
+export function findFormulaShapeViolation(formulaId: string, post: string): string | null {
+  if (!ENGLISH_FORMULA_SHAPES[formulaId]) return null;
+  if (AB_OPTION_LINE.test(post)) return `Off-shape: ${formulaId} does not end with 'A) ' / 'B) ' options. ${englishShapeRule(formulaId)}`;
+  if (formulaId === "all_twelve_series") {
+    const named = ZODIAC_ANIMAL_PATTERNS.filter((pattern) => pattern.test(post)).length;
+    return named >= MIN_ANIMALS_NAMED ? null : `Off-shape: all_twelve_series named ${named} of 12 animals. ${englishShapeRule(formulaId)}`;
+  }
+  return /\b(?:send|forward)\s+(?:this|it)\b/i.test(post) ? null : `Off-shape: ${formulaId} must close by asking the reader to send this to that person.`;
+}
+
+// One romanization for 입춘 on the English account (Korean RR, not the Chinese "lichun").
+export function normalizeIpchunSpelling(text: string): string {
+  return text.replace(/\bli[\s-]?chun\b/gi, (match) => (match[0] === "L" ? "Ipchun" : "ipchun"));
 }

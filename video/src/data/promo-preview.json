@@ -1,0 +1,479 @@
+{
+  "lang": "ko",
+  "variant": {
+    "date": "2026-10-26",
+    "lang": "ko",
+    "slot": 2,
+    "format": "match",
+    "topic": "contact",
+    "hookIndex": 0,
+    "persona": {
+      "birthDate": "1998-04-28",
+      "birthTime": "11:30",
+      "gender": "female"
+    },
+    "guest": {
+      "birthDate": "1998-06-15",
+      "birthTime": "20:30",
+      "gender": "male"
+    }
+  },
+  "snapshot": {
+    "asOf": "2026-10-26",
+    "lang": "ko",
+    "persona": {
+      "birthDate": "1998-04-28",
+      "birthTime": "11:30",
+      "gender": "female"
+    },
+    "guest": {
+      "birthDate": "1998-06-15",
+      "birthTime": "20:30",
+      "gender": "male"
+    },
+    "saju": {
+      "dayMaster": "을",
+      "pillars": {
+        "hour": {
+          "stem": "신",
+          "branch": "사"
+        },
+        "day": {
+          "stem": "을",
+          "branch": "사"
+        },
+        "month": {
+          "stem": "병",
+          "branch": "진"
+        },
+        "year": {
+          "stem": "무",
+          "branch": "인"
+        }
+      },
+      "elements": [
+        {
+          "stem": "earth",
+          "branch": "wood"
+        },
+        {
+          "stem": "fire",
+          "branch": "earth"
+        },
+        {
+          "stem": "wood",
+          "branch": "fire"
+        },
+        {
+          "stem": "metal",
+          "branch": "fire"
+        }
+      ]
+    },
+    "heatmap": {
+      "bestDay": {
+        "date": "2026-11-04",
+        "score": 90,
+        "reasonKo": "임오일 정인: 서류·자격·조언 확보",
+        "reasonEn": "Ren Wu day (Direct Resource): documents, credentials, advice"
+      },
+      "months": [
+        {
+          "year": 2026,
+          "month": 10,
+          "nameEn": "October",
+          "average": 35,
+          "phase": "DEFEND"
+        },
+        {
+          "year": 2026,
+          "month": 11,
+          "nameEn": "November",
+          "average": 39,
+          "phase": "DEFEND"
+        },
+        {
+          "year": 2026,
+          "month": 12,
+          "nameEn": "December",
+          "average": 48,
+          "phase": "DEFEND"
+        },
+        {
+          "year": 2027,
+          "month": 1,
+          "nameEn": "January",
+          "average": 33,
+          "phase": "DEFEND"
+        },
+        {
+          "year": 2027,
+          "month": 2,
+          "nameEn": "February",
+          "average": 89,
+          "phase": "ATTACK"
+        },
+        {
+          "year": 2027,
+          "month": 3,
+          "nameEn": "March",
+          "average": 77,
+          "phase": "ATTACK"
+        },
+        {
+          "year": 2027,
+          "month": 4,
+          "nameEn": "April",
+          "average": 60,
+          "phase": "NEGOTIATE"
+        },
+        {
+          "year": 2027,
+          "month": 5,
+          "nameEn": "May",
+          "average": 70,
+          "phase": "HARVEST"
+        },
+        {
+          "year": 2027,
+          "month": 6,
+          "nameEn": "June",
+          "average": 50,
+          "phase": "NEGOTIATE"
+        },
+        {
+          "year": 2027,
+          "month": 7,
+          "nameEn": "July",
+          "average": 55,
+          "phase": "NEGOTIATE"
+        },
+        {
+          "year": 2027,
+          "month": 8,
+          "nameEn": "August",
+          "average": 48,
+          "phase": "DEFEND"
+        },
+        {
+          "year": 2027,
+          "month": 9,
+          "nameEn": "September",
+          "average": 36,
+          "phase": "DEFEND"
+        }
+      ]
+    },
+    "scenario": {
+      "headline": "두 선택지가 팽팽 — 내년 2월, 3월 전까지 조건 확인 후 재비교",
+      "peakLabel": "2월 ('27)",
+      "timeline": [
+        {
+          "label": "10월",
+          "action": 35,
+          "best": "B"
+        },
+        {
+          "label": "11월",
+          "action": 39,
+          "best": "B"
+        },
+        {
+          "label": "12월",
+          "action": 48,
+          "best": "EQUAL"
+        },
+        {
+          "label": "1월 ('27)",
+          "action": 33,
+          "best": "B"
+        },
+        {
+          "label": "2월 ('27)",
+          "action": 89,
+          "best": "A"
+        },
+        {
+          "label": "3월 ('27)",
+          "action": 77,
+          "best": "A"
+        },
+        {
+          "label": "4월 ('27)",
+          "action": 60,
+          "best": "EQUAL"
+        },
+        {
+          "label": "5월 ('27)",
+          "action": 70,
+          "best": "A"
+        },
+        {
+          "label": "6월 ('27)",
+          "action": 50,
+          "best": "EQUAL"
+        },
+        {
+          "label": "7월 ('27)",
+          "action": 55,
+          "best": "EQUAL"
+        },
+        {
+          "label": "8월 ('27)",
+          "action": 48,
+          "best": "EQUAL"
+        },
+        {
+          "label": "9월 ('27)",
+          "action": 36,
+          "best": "B"
+        }
+      ]
+    },
+    "ziwei": {
+      "mingGongBranch": "亥",
+      "wuxingJu": "수이국",
+      "wuxingJuEn": "Water",
+      "quanPalace": "전택궁",
+      "palaces": [
+        {
+          "name": "명궁",
+          "nameEn": "Life",
+          "branch": "亥",
+          "stars": [
+            {
+              "ko": "무곡",
+              "en": "Wu Qu",
+              "category": "main"
+            },
+            {
+              "ko": "파군",
+              "en": "Po Jun",
+              "category": "main"
+            }
+          ]
+        },
+        {
+          "name": "형제궁",
+          "nameEn": "Siblings",
+          "branch": "戌",
+          "stars": [
+            {
+              "ko": "천동",
+              "en": "Tian Tong",
+              "category": "main"
+            },
+            {
+              "ko": "문곡",
+              "en": "Wen Qu",
+              "category": "auxiliary"
+            }
+          ]
+        },
+        {
+          "name": "부처궁",
+          "nameEn": "Spouse",
+          "branch": "酉",
+          "stars": []
+        },
+        {
+          "name": "자녀궁",
+          "nameEn": "Children",
+          "branch": "申",
+          "stars": [
+            {
+              "ko": "천마",
+              "en": "Tian Ma",
+              "category": "auxiliary"
+            }
+          ]
+        },
+        {
+          "name": "재백궁",
+          "nameEn": "Wealth",
+          "branch": "未",
+          "stars": [
+            {
+              "ko": "염정",
+              "en": "Lian Zhen",
+              "category": "main"
+            },
+            {
+              "ko": "칠살",
+              "en": "Qi Sha",
+              "category": "main"
+            },
+            {
+              "ko": "좌보",
+              "en": "Zuo Fu",
+              "category": "auxiliary"
+            },
+            {
+              "ko": "우필",
+              "en": "You Bi",
+              "category": "auxiliary"
+            },
+            {
+              "ko": "천월",
+              "en": "Tian Yue",
+              "category": "auxiliary"
+            },
+            {
+              "ko": "화성",
+              "en": "Huo Xing",
+              "category": "malefic"
+            }
+          ]
+        },
+        {
+          "name": "질액궁",
+          "nameEn": "Health",
+          "branch": "午",
+          "stars": [
+            {
+              "ko": "천량",
+              "en": "Tian Liang",
+              "category": "main"
+            },
+            {
+              "ko": "경양",
+              "en": "Qing Yang",
+              "category": "malefic"
+            }
+          ]
+        },
+        {
+          "name": "천이궁",
+          "nameEn": "Travel",
+          "branch": "巳",
+          "stars": [
+            {
+              "ko": "천상",
+              "en": "Tian Xiang",
+              "category": "main"
+            },
+            {
+              "ko": "록존",
+              "en": "Lu Cun",
+              "category": "auxiliary"
+            },
+            {
+              "ko": "지공",
+              "en": "Di Kong",
+              "category": "malefic"
+            },
+            {
+              "ko": "지겁",
+              "en": "Di Jie",
+              "category": "malefic"
+            }
+          ]
+        },
+        {
+          "name": "노복궁",
+          "nameEn": "Friends",
+          "branch": "辰",
+          "stars": [
+            {
+              "ko": "거문",
+              "en": "Ju Men",
+              "category": "main"
+            },
+            {
+              "ko": "문창",
+              "en": "Wen Chang",
+              "category": "auxiliary"
+            },
+            {
+              "ko": "타라",
+              "en": "Tuo Luo",
+              "category": "malefic"
+            },
+            {
+              "ko": "영성",
+              "en": "Ling Xing",
+              "category": "malefic"
+            }
+          ]
+        },
+        {
+          "name": "관록궁",
+          "nameEn": "Career",
+          "branch": "卯",
+          "stars": [
+            {
+              "ko": "자미",
+              "en": "Zi Wei",
+              "category": "main"
+            },
+            {
+              "ko": "탐랑",
+              "en": "Tan Lang",
+              "category": "main"
+            }
+          ]
+        },
+        {
+          "name": "전택궁",
+          "nameEn": "Property",
+          "branch": "寅",
+          "stars": [
+            {
+              "ko": "천기",
+              "en": "Tian Ji",
+              "category": "main"
+            },
+            {
+              "ko": "태음",
+              "en": "Tai Yin",
+              "category": "main"
+            }
+          ]
+        },
+        {
+          "name": "복덕궁",
+          "nameEn": "Fortune",
+          "branch": "丑",
+          "stars": [
+            {
+              "ko": "천부",
+              "en": "Tian Fu",
+              "category": "main"
+            },
+            {
+              "ko": "천괴",
+              "en": "Tian Kui",
+              "category": "auxiliary"
+            }
+          ]
+        },
+        {
+          "name": "부모궁",
+          "nameEn": "Parents",
+          "branch": "子",
+          "stars": [
+            {
+              "ko": "태양",
+              "en": "Tai Yang",
+              "category": "main"
+            }
+          ]
+        }
+      ]
+    },
+    "match": {
+      "overall": 56,
+      "saju": 60,
+      "astro": 50,
+      "num": 60,
+      "hostElement": "목",
+      "guestElement": "수",
+      "hostSign": "Taurus",
+      "guestSign": "Gemini",
+      "hostDayMaster": "을",
+      "guestDayMaster": "계",
+      "tianganHe": false,
+      "dizhiChong": false
+    }
+  }
+}

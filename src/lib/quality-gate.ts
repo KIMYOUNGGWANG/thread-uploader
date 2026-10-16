@@ -315,7 +315,7 @@ const ENGLISH_ASTRO_TERMS = [
   /astrology|horoscope|birth chart|natal chart/i,
   /sun sign|moon sign|rising|midheaven|ascendant/i,
   /saturn return|mercury retrograde|ephemeris|transit/i,
-  /saju|bazi|four pillars|day master|eastern metaphysics/i,
+  /saju|bazi|four pillars|day master|eastern metaphysics|zodiac|pillar/i,
   /synastry|aspect|conjunction|opposition|trine|square/i,
   /house|10th house|6th house|8th house|7th house|4th house/i,
 ];
@@ -330,7 +330,8 @@ const ENGLISH_HOOK_PATTERNS = [
   /most\s+people/i,
   /^\d+\s+(reasons|mistakes|signs|steps)/i,
   /\?/,                                                    // question anywhere in line 1
-  /\b(probably|wrong|myth)\b/i,                           // correction hooks
+  // ENGLISH_HOOK_RULE tells the model to flip with not / isn't / instead; the gate must accept what the rule asks for.
+  /\b(probably|wrong|myth|not|instead)\b|n['’]t\b/i,      // correction hooks
   /^(born|to\s+(?:every|all))\b/i,                         // boundary / identity call-outs
   /your\s+(zodiac|animal|sign|day\s*master|real)/i,
 ];
@@ -364,7 +365,7 @@ function checkEcommerceD2CQuality(post: string): QualityResult {
   }
 
   // Check 3: Contrarian / Insight structure (contains vs, or, but, however, not, instead)
-  const hasContrastOrConflict = /(vs\.|instead|demolishes|dilute|invisible|trap|truth|mismatch|collapse|lie|myth|actually|wrong|not\s+(?:your|the|january)|differently)/i.test(post);
+  const hasContrastOrConflict = /(vs\.|instead|demolishes|dilute|invisible|trap|truth|mismatch|collapse|lie|myth|actually|wrong|\bnot\b|n['’]t\b|differently)/i.test(post);
   if (hasContrastOrConflict) {
     score++;
   } else {
@@ -447,35 +448,25 @@ function checkSajuViralQuality(post: string, context: ProductQualityContext): Qu
     reasons.push("사주 전문 용어 없음 — generic 콘텐츠 의심");
   }
 
-  // Check 2: 첫 줄 훅 구조
-  const hasHook = HOOK_PATTERNS.some((p) => p.test(firstLine));
-  if (hasHook) {
-    score++;
-  } else {
-    reasons.push(`훅 없는 첫 줄: "${firstLine.slice(0, 40)}"`);
-  }
-
-  // Check 3: 참여 유도 요소
-  const hasEngagement = ENGAGEMENT_PATTERNS.some((p) => p.test(post));
-  if (hasEngagement) {
-    score++;
-  } else {
-    reasons.push("참여 유도 요소 없음 (선택지/시리즈/질문 필요)");
-  }
+  // Check 2 & 3: hook and engagement only raise the score. Reported as reasons, they reach the retry prompt
+  // as must-fix items and push drafts back into the question-plus-numbered-choices template.
+  if (HOOK_PATTERNS.some((p) => p.test(firstLine))) score++;
+  if (ENGAGEMENT_PATTERNS.some((p) => p.test(post))) score++;
 
   const fidelity = context.viralIntentModeId
     ? checkViralModeFidelity(post, context.viralIntentModeId)
     : { pass: true, failureCodes: [] };
   reasons.push(...fidelity.failureCodes.map(formatViralModeFidelityFailure));
 
-  // A saju_viral post without any saju term is off-campaign no matter how well hook + engagement score.
-  return { pass: hasSajuTerm && score >= 2 && fidelity.pass, score, profile: "saju_viral", reasons };
+  // A saju_viral post without any saju term is off-campaign. Hook and engagement only inform the score:
+  // requiring them pushed every post into the same question-plus-numbered-choices template.
+  return { pass: hasSajuTerm && fidelity.pass, score, profile: "saju_viral", reasons };
 }
 
 const VIRAL_MODE_FAILURE_MESSAGES: Record<ViralModeFidelityFailureCode, string> = {
   formal_tone: "바이럴 모드에 맞지 않는 존댓말/전문가 문체",
   missing_three_choices: "3지선다 모드에 번호 선택지 1/2/3 없음",
-  missing_hierarchy: "개념 서열 모드에 2단계 이상 비교 구조 없음",
+  missing_hierarchy: "개념 서열 모드에 비교 구조 없음",
   missing_identity_marker: "기질 프로파일 모드에 구체적 살/일주/글자 없음",
   missing_relationship_contrast: "관계 텐션 모드에 관계 키워드와 대비 구조 없음",
 };

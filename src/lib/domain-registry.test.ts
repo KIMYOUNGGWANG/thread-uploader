@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { getDomainPreset } from "./domain-registry";
+import { ENGLISH_HOOK_RULE, findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "./domain-registry";
+import { checkQuality } from "./quality-gate";
+import { scoreThreadsPostAlgorithmic } from "./threads-algorithm-scorer";
 
 describe("Domain Intelligence Registry", () => {
   it("resolves product_growth preset cleanly", () => {
@@ -79,5 +81,115 @@ describe("Domain Intelligence Registry", () => {
     expect(preset.forbiddenCrossDomainTerms).toContain("32분");
     expect(preset.forbiddenCrossDomainTerms).toContain("바넘 효과");
   });
+
+  it("describes the saju hierarchy formula without the copied viral sentence or a comment bridge", () => {
+    const formulas = Object.values(getDomainPreset("saju_viral").trackFormulas).flat();
+    const hierarchy = formulas.find((formula) => formula.id === "concept_hierarchy");
+
+    expect(hierarchy?.instruction).toContain("2~3개");
+    expect(hierarchy?.instruction).not.toContain("보다 센 홍염보다 센");
+    expect(hierarchy?.instruction).not.toContain("브릿지");
+  });
 });
 
+describe("ecommerce_d2c batch keeps one claim per formula", () => {
+  // The 2026-10-15 refill: three formulas in one batch all wrote this same year-boundary claim.
+  const yearBoundaryDraft = "Your zodiac animal is probably wrong.\n\nSaju changes the year at Ipchun (Feb 4), not January 1.\n\nBorn in January? You may be the previous year's animal.";
+  const globalFormulas = Object.values(getDomainPreset("ecommerce_d2c").trackFormulas).flat();
+
+  it("lets only real_sign_boundary use the ipchun year-boundary claim", () => {
+    expect(findBorrowedYearBoundaryClaim("real_sign_boundary", yearBoundaryDraft)).toBeNull();
+    const borrowers = globalFormulas.filter((formula) => formula.id !== "real_sign_boundary");
+    expect(borrowers.length).toBeGreaterThan(0);
+    for (const formula of borrowers) {
+      expect(findBorrowedYearBoundaryClaim(formula.id, yearBoundaryDraft)).toContain("real_sign_boundary");
+    }
+  });
+
+  it("catches the lichun spelling and passes a post on its own formula", () => {
+    expect(findBorrowedYearBoundaryClaim("all_twelve_series", "Saju starts the year at lichun.")).not.toBeNull();
+    const compatibility = "A Fire Horse and a Water Rat fall fast.\n\nThe pull is real; so is the friction.\n\nSend this to your Rat.";
+    expect(findBorrowedYearBoundaryClaim("two_birthday_compatibility", compatibility)).toBeNull();
+  });
+
+  it("does not seed a concrete claim in the hook rule every formula shares", () => {
+    expect(ENGLISH_HOOK_RULE).not.toMatch(/zodiac|animal|ipchun/i);
+    for (const formula of globalFormulas) {
+      expect(formula.instruction).not.toMatch(/lichun/i);
+    }
+  });
+
+  // 2026-10-15: every formula shared one 200-420 char A/B ending, so the 12-line list and the
+  // send-it-to-them post came out as the same generic A/B post.
+  const twelveDraft = [
+    "Your 2027 money luck probably isn't your animal's.",
+    "",
+    "Rat: collect old debts.",
+    "Ox: the slow raise lands.",
+    "Tiger: pitch once, big.",
+    "Rabbit: side income wins.",
+    "Dragon: cancel 3 subs.",
+    "Snake: late-year payout.",
+    "Horse: wait 48h to buy.",
+    "Goat: help first, paid later.",
+    "Monkey: switch jobs, not fields.",
+    "Rooster: savings finally stick.",
+    "Dog: have the family talk.",
+    "Pig: cap your giving.",
+    "",
+    "Saju reads it by element. Save this and find yours.",
+  ].join("\n");
+  const compatibilityDraft = "A Fire Horse and a Water Rat probably won't burn out.\n\nThe pull is instant. The friction shows up in plans, not feelings.\n\nSaju calls it a clash that still builds.\n\nSend this to your Rat.";
+  const abDraft = "Your 2027 money luck probably isn't your animal's.\n\nSaju reads it by element.\n\nA) I save\nB) I spend\nWhich one are you?";
+  const formulaById = new Map(globalFormulas.map((formula) => [formula.id, formula]));
+
+  it("gives the 12-line and compatibility formulas their own length and ending", () => {
+    for (const id of ["all_twelve_series", "two_birthday_compatibility"]) {
+      const instruction = formulaById.get(id)?.instruction ?? "";
+      expect(instruction).toContain(ENGLISH_HOOK_RULE);
+      expect(instruction).not.toContain("Which one are you?");
+      expect(instruction).not.toMatch(/200-420 characters[\s\S]*'A\) '[\s\S]*Which one/);
+    }
+    expect(formulaById.get("all_twelve_series")?.instruction).toMatch(/exactly 12 lines/);
+    expect(formulaById.get("two_birthday_compatibility")?.instruction).toMatch(/send this to that person/);
+    expect(formulaById.get("trend_correction")?.instruction).toContain("Which one are you?");
+  });
+
+  it("fails drafts that fall back to the generic A/B post", () => {
+    expect(findFormulaShapeViolation("all_twelve_series", twelveDraft)).toBeNull();
+    expect(findFormulaShapeViolation("all_twelve_series", abDraft)).toContain("Off-shape");
+    expect(findFormulaShapeViolation("all_twelve_series", "Rat, Ox and Tiger lead 2027.\n\nSave this.")).toContain("3 of 12");
+    expect(findFormulaShapeViolation("two_birthday_compatibility", compatibilityDraft)).toBeNull();
+    expect(findFormulaShapeViolation("two_birthday_compatibility", abDraft)).toContain("Off-shape");
+    expect(findFormulaShapeViolation("two_birthday_compatibility", compatibilityDraft.replace("Send this to your Rat.", "Which one are you?"))).toContain("send this");
+    expect(findFormulaShapeViolation("trend_correction", abDraft)).toBeNull();
+  });
+
+  it("lets formula-shaped drafts through the English quality gate", () => {
+    expect(twelveDraft.length).toBeLessThan(450);
+    for (const draft of [twelveDraft, compatibilityDraft]) {
+      expect(checkQuality(draft, "ecommerce_d2c").pass).toBe(true);
+    }
+  });
+
+  // Dry run 2026-10-15: hooks that follow ENGLISH_HOOK_RULE (not / isn't) failed as "weak hook" + "no contrast".
+  it("accepts the not/isn't hooks the shared hook rule asks for", () => {
+    const hooks = ["The Rat isn't the one leaking money in 2027.", "In 2027, the money fight isn’t about money.", "Your zodiac animal is not your money sign."];
+    for (const hook of hooks) {
+      const result = checkQuality(`${hook}\n\nYour Chinese zodiac animal is one pillar of four.\n\nSend this to your Rat.`, "ecommerce_d2c");
+      expect(result.reasons.filter((reason) => /훅|Contrast|용어/.test(reason))).toEqual([]);
+      expect(result.pass).toBe(true);
+    }
+  });
+
+  // Drafts under the algorithm score are dropped, so a formula whose shape can't reach 80 would never post.
+  it("lets formula-shaped drafts clear the algorithm score", () => {
+    for (const draft of [twelveDraft, compatibilityDraft]) {
+      expect(scoreThreadsPostAlgorithmic(draft, "Which line hit closest?").totalScore).toBeGreaterThanOrEqual(80);
+    }
+  });
+
+  it("normalizes lichun to ipchun", () => {
+    expect(normalizeIpchunSpelling("Lichun (Feb 4) vs li-chun vs ipchun")).toBe("Ipchun (Feb 4) vs ipchun vs ipchun");
+  });
+});

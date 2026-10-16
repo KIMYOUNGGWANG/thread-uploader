@@ -23,7 +23,7 @@ describe("checkQuality", () => {
     expect(result.pass).toBe(false);
   });
 
-  it("rejects a concept hierarchy without two comparison steps", () => {
+  it("rejects a concept hierarchy without any comparison", () => {
     const result = checkQuality(
       "동기 연봉이 오르면 왜 불안한지 알아?\n사주 대운이 흔들릴 때 보는 기준이야. 저장해.",
       "saju_viral",
@@ -31,6 +31,9 @@ describe("checkQuality", () => {
     );
 
     expect(result.pass).toBe(false);
+    // The retry prompt quotes this reason, so it must not ask for a two-step comparison again
+    expect(result.reasons.join(" ")).toContain("비교 구조 없음");
+    expect(result.reasons.join(" ")).not.toContain("2단계");
   });
 
   it("rejects an identity profile without a concrete natal marker", () => {
@@ -95,6 +98,37 @@ describe("checkQuality", () => {
     expect(checkQuality(postWithHeader, "saju_viral", {
       viralIntentModeId: "identity_profile",
     }).pass).toBe(true);
+  });
+
+  const IDENTITY_POST_WITHOUT_CHOICES = [
+    "신금 일주는 끊을 때 칼이 아니라 정으로 베임.",
+    "판단은 빠른데 인정은 제일 늦게 하는 타입이라, 이미 끝난 관계를 1년씩 끌고 감.",
+    "",
+    "강점은 한 번 정한 기준을 끝까지 지키는 거고, 맹점은 그 기준이 상대 사정을 못 봄.",
+    "",
+    "너는 지금 누구를 정 때문에 붙잡고 있음?",
+  ].join("\n");
+  const FACT_POST_WITHOUT_QUESTION_HOOK = [
+    "한국인 10명 중 7명은 자기 시주를 잘못 알고 있음.",
+    "",
+    "출생 시각을 표준시로만 넣으면 진태양시랑 30분 넘게 어긋나는 경우가 많아서, 일주는 맞아도 시주 글자가 통째로 바뀜.",
+    "",
+    "시주가 바뀌면 말년운 해석이랑 자식 궁 읽는 기준이 전부 달라짐.",
+    "",
+    "너는 태어난 시간 정확히 알고 있음?",
+  ].join("\n");
+
+  it("accepts an identity post that ends with a direct question instead of numbered choices", () => {
+    const result = checkQuality(IDENTITY_POST_WITHOUT_CHOICES, "saju_viral", { viralIntentModeId: "identity_profile" });
+
+    expect(result.pass).toBe(true);
+    // Missing hook or engagement only lowers the score; as a reason it would push retries back to the template
+    expect(result.reasons.join(" ")).not.toContain("참여 유도 요소 없음");
+    expect(result.reasons.join(" ")).not.toContain("훅 없는 첫 줄");
+  });
+
+  it("accepts a fact hook without a question mark, hierarchy phrase, or choices", () => {
+    expect(checkQuality(FACT_POST_WITHOUT_QUESTION_HOOK, "saju_viral").pass).toBe(true);
   });
 
   it("preserves saju viral pass and fail behavior", () => {

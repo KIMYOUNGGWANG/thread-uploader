@@ -23,6 +23,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         topic: post.topic ?? undefined,
         targetAudience: post.targetAudience ?? undefined,
         productProfile: config.productProfile ? JSON.stringify(config.productProfile) : undefined,
+        formulaId: post.formulaId ?? undefined,
       },
       targetThreshold
     );

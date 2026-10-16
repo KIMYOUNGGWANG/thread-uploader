@@ -4,12 +4,15 @@
  * Inspired by autoTHREADS recent-post anti-repeat memory.
  */
 
+import { IDENTITY_MARKER_PATTERN } from "@/lib/viral-intent-modes";
+
 export interface RecentPostSummary {
   content: string;
   topic?: string | null;
   hookType?: string | null;
   ctaType?: string | null;
   campaignFormulaId?: string | null;
+  firstComment?: string | null;
 }
 
 export interface SimilarityCheckResult {
@@ -149,4 +152,91 @@ export function checkAntiRepeatSimilarity(
     isDuplicate: false,
     similarityScore: 0,
   };
+}
+
+export interface StructureSignature {
+  opener: "hierarchy" | "question" | "callout" | "statement";
+  hasNumberedChoices: boolean;
+  closer: "save" | "ask" | "other";
+  commentOpener: string | null;
+}
+
+function contentLines(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.replace(/^\[.*?\]\s*/, "").replace(/^#+\s*/, "").trim())
+    .filter((line) => line.length > 0);
+}
+
+function classifyOpener(lines: string[]): StructureSignature["opener"] {
+  const firstLine = lines[0] ?? "";
+  const openingComparisons = lines.slice(0, 2).join(" ").match(/보다/g)?.length ?? 0;
+  if (openingComparisons >= 2) return "hierarchy";
+  if (firstLine.includes("?")) return "question";
+  if (IDENTITY_MARKER_PATTERN.test(firstLine)) return "callout";
+  return "statement";
+}
+
+function classifyCloser(lastLine: string): StructureSignature["closer"] {
+  if (lastLine.includes("저장해")) return "save";
+  if (lastLine.includes("어때?")) return "ask";
+  return "other";
+}
+
+/**
+ * Reduces a post to the template it follows, so rewordings of the same skeleton still match.
+ */
+export function extractStructureSignature(content: string, firstComment?: string | null): StructureSignature {
+  const lines = contentLines(content);
+  const commentWords = (firstComment ?? "").trim().split(/\s+/).filter((word) => word.length > 0).slice(0, 2);
+  return {
+    opener: classifyOpener(lines),
+    hasNumberedChoices: /^\s*1[.)]\s/m.test(content),
+    closer: classifyCloser(lines[lines.length - 1] ?? ""),
+    commentOpener: commentWords.length > 0 ? commentWords.join(" ") : null,
+  };
+}
+
+type TemplateMark = "opener:hierarchy" | "closer:save" | "closer:ask";
+
+const TEMPLATE_MARK_LABELS: Record<TemplateMark, string> = {
+  "opener:hierarchy": "'X보다 센 건 Y' 서열 첫 줄",
+  "closer:save": "'저장해' 마무리",
+  "closer:ask": "'어때?' 마무리",
+};
+
+// Only the old template features count. Clean skeletons repeat naturally across modes and are not a problem;
+// counting them forced retries whose easiest escape was re-adding a template feature.
+function templateMarks(signature: StructureSignature): TemplateMark[] {
+  const marks: TemplateMark[] = [];
+  if (signature.opener === "hierarchy") marks.push("opener:hierarchy");
+  if (signature.closer === "save") marks.push("closer:save");
+  if (signature.closer === "ask") marks.push("closer:ask");
+  return marks;
+}
+
+/**
+ * Flags a candidate that reuses a template feature or the first-comment opener of the most recent posts.
+ */
+export function checkStructureRepeat(
+  candidateContent: string,
+  candidateFirstComment: string | null | undefined,
+  recentPosts: RecentPostSummary[],
+  options?: { window?: number; maxSame?: number }
+): SimilarityCheckResult {
+  const candidate = extractStructureSignature(candidateContent, candidateFirstComment);
+  const recent = recentPosts
+    .slice(0, options?.window ?? 5)
+    .map((post) => extractStructureSignature(post.content, post.firstComment));
+  const maxSame = options?.maxSame ?? 1;
+  const repeatedMark = templateMarks(candidate).find(
+    (mark) => recent.filter((signature) => templateMarks(signature).includes(mark)).length > maxSame
+  );
+  if (repeatedMark) {
+    return { isDuplicate: true, similarityScore: 1, reason: `최근 글들과 같은 틀(${TEMPLATE_MARK_LABELS[repeatedMark]}) 반복: 이번엔 그 틀 없이 써라. 물음표·번호 선택지·'저장해'/'어때?'를 덧붙여 피하지 말고 첫 줄 시작 방식(숫자·통념 반박·호명)을 바꿔라` };
+  }
+  if (candidate.commentOpener && recent.some((signature) => signature.commentOpener === candidate.commentOpener)) {
+    return { isDuplicate: true, similarityScore: 1, reason: `첫 댓글 첫마디 "${candidate.commentOpener}"가 최근 글과 같음: 다른 말로 시작해라` };
+  }
+  return { isDuplicate: false, similarityScore: 0 };
 }

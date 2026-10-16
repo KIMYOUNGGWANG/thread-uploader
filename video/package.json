@@ -7,7 +7,8 @@
   "scripts": {
     "render": "remotion render src/index.ts",
     "typecheck": "tsc --noEmit",
-    "render-job": "node scripts/render-job.mjs"
+    "render-job": "node scripts/render-job.mjs",
+    "render-promo": "node scripts/render-promo-job.mjs"
   },
   "dependencies": {
     "@remotion/captions": "4.0.380",

@@ -9,6 +9,7 @@ import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
 import { checkQuality, type QualityResult } from "@/lib/quality-gate";
 import {
   checkAntiRepeatSimilarity,
+  checkStructureRepeat,
   formatAntiRepeatContext,
   type RecentPostSummary,
 } from "@/lib/anti-repeat-memory";
@@ -39,7 +40,7 @@ import {
 import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
-import { getDomainPreset } from "@/lib/domain-registry";
+import { findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
 import { resolveDynamicContext } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
@@ -151,7 +152,7 @@ function cleanGeneratedContentLabels(content: string): string {
   // If still starts with **본문** or similar standalone line
   cleaned = cleaned.replace(/^\s*\*\*본문\*\*\s*\n+/gi, "").trim();
 
-  return cleaned;
+  return normalizeIpchunSpelling(cleaned);
 }
 
 function hasGeneratedMetaText(content: string): boolean {
@@ -241,7 +242,9 @@ async function generateOne(
       const parsed = parseStructuredPostOutput(raw);
       const post = cleanGeneratedContentLabels(parsed.content);
       let firstComment = cleanGeneratedContentLabels(parsed.firstComment);
-      if (!firstComment || firstComment.length < 15) {
+      // Korean one-line questions are often under 15 characters; only a near-empty saju comment needs the fallback.
+      const minimumCommentLength = experiment.qualityProfile === "saju_viral" ? 5 : 15;
+      if (!firstComment || firstComment.length < minimumCommentLength) {
         firstComment = buildAdmissionFirstComment(post, {
           topic: experiment.topic,
           voiceProfile: config.voiceProfile,
@@ -298,6 +301,9 @@ async function generateWithQuality(
   const qualityContext = buildProductQualityContext(config, experiment.viralIntentMode?.id);
 
   // One gate for the first draft, every retry, and the post-remediation re-check.
+  // Word overlap and a shared skeleton both count as a repeat; the skeleton rules are Korean saju templates,
+  // so other profiles only get the word-overlap check.
+  const checkStructure = experiment.qualityProfile === "saju_viral";
   const runQualityGate = (post: string, firstComment: string): QualityResult => {
     let gate: QualityResult = enforceGeneratedSurfaceSafety(
       checkQuality(post, experiment.qualityProfile, qualityContext),
@@ -309,15 +315,24 @@ async function generateWithQuality(
     if (prohibitedHits.length > 0) {
       gate = { ...gate, pass: false, reasons: [`학습된 금지 문구 포함: ${prohibitedHits.join(", ")}`, ...gate.reasons] };
     }
+    // Per-formula checks: batch siblings generate in parallel and can't see each other, so a claim owned by
+    // another formula fails per draft; a draft that dropped its formula's own shape fails too.
+    const formulaViolation = findBorrowedYearBoundaryClaim(experiment.formula.id, post) ?? findFormulaShapeViolation(experiment.formula.id, post);
+    if (formulaViolation) {
+      gate = { ...gate, pass: false, reasons: [formulaViolation, ...gate.reasons] };
+    }
     // One angle must not take over the account (learnings 2026-09-03)
     const saturated = findSaturatedTopics(post, recentPosts.map((recent) => recent.content));
     if (saturated.length > 0) {
       gate = { ...gate, pass: false, reasons: [...saturated.map(formatSaturationReason), ...gate.reasons] };
     }
     if (recentPosts.length > 0) {
-      const similarity = checkAntiRepeatSimilarity(post, recentPosts);
-      if (similarity.isDuplicate && similarity.reason) {
-        gate = { ...gate, pass: false, reasons: [similarity.reason, ...gate.reasons] };
+      const repeat = [
+        checkAntiRepeatSimilarity(post, recentPosts),
+        ...(checkStructure ? [checkStructureRepeat(post, firstComment, recentPosts)] : []),
+      ].find((check) => check.isDuplicate && check.reason);
+      if (repeat?.reason) {
+        gate = { ...gate, pass: false, reasons: [repeat.reason, ...gate.reasons] };
       }
     }
     return gate;
@@ -475,13 +490,13 @@ function buildGenerationPrompt(
         `- 본문 목표 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(이상적 범위: 140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하)로 극도로 압축한다.`,
         `- 상단 100자(피드 접히기 전 Fold)에서 스크롤을 멈추게 해야 한다. 지루한 배경 설명, 훈계조 사주 강의, 불필요한 증상 나열(□)은 절대 금지한다.`,
         `- [Charlie Hills 2-Line Contrast Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내의 반전/대립각(Contrast)으로 상식을 뒤집는다.`,
-        `- [12만 뷰 서열화/극단적 앵커 훅]: 대중이 아는 통념/기운보다 상위 티어를 비교('A보다 센 B보다 센 게 뭔지 알아? 바로 C야')하거나, 한 문장으로 끝나는 극단적 비유('스님도 파계시킴')와 독자 자신에게 투사시키는 인정 욕구('너한테 그런 치명적 매력이 숨겨져 있을 수도')를 활용한다.`,
+        "- [첫 줄 스크롤 멈춤]: 첫 줄은 구체 숫자(예: 10명 중 7명), 특정 살·일주 호명, 통념 반박 중 하나로 스크롤을 멈추게 한다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
         "- [Single-Point Razor]: 원문이나 여러 주제를 요약/나열하지 말고, 상식을 뒤집는 단 하나의 반직관적 주장(Contrarian Insight)에만 모든 문장을 집중할 것.",
         "- [Focused Conflict]: 타겟과 상황에 제시된 페르소나의 실전 마찰 1개만 깊게 파고들고, 여러 갈등이나 딜레마를 백화점식으로 나열하지 말 것.",
         "- [No Factual Hallucination]: 프롬프트에 제공되지 않은 가짜 개인 일화나 날조된 매출/사례 숫자를 지어내지 말고, 구조적 관찰과 냉철한 논리로 설득할 것.",
         "- [Zero-in-body URL]: 본문에는 절대 링크/URL을 넣지 않는다 (알고리즘 노출 패널티 방지).",
         "- [AI Slop 절대 금지]: 'AI한테 생년월일 넣었더니', '반박시 니 말이 맞음', '끝. 더 이상 설명 안 함', '핵심만 말해줌', '□ 나열 체크박스' 등 복제된 클리셰 문구는 즉시 품질 탈락 처리된다.",
-        `- [Zero-Promo Conversation Igniter 첫 댓글]: 첫 댓글은 구분자(${SEPARATOR}) 바로 아래에 1~2줄로 작성한다. **[치명적 금지 규칙]** 첫 댓글에 '프로필 링크', '리포트', '판정표', '진단', 링크, 상업적 유도 문구를 절대 쓰지 마라 (Meta 알고리즘이 즉각 스팸 봇으로 판정하여 조회수를 0으로 락을 건다). 첫 댓글은 오직 작성자 본인의 솔직한 찌질한 경험담/실수 고백 또는 독자가 댓글을 달 수밖에 없게 만드는 날것의 도발적 질문(Conversation Igniter)으로만 작성한다. (예: "난 솔직히 2번 고르고 1년 존버했다가 번아웃 오고 퇴직금 다 날렸음. 너넨 몇 번이냐?")`,
+        `- [Zero-Promo Conversation Igniter 첫 댓글]: 첫 댓글은 구분자(${SEPARATOR}) 바로 아래에 1~2줄로 작성한다. **[치명적 금지 규칙]** 첫 댓글에 '프로필 링크', '리포트', '판정표', '진단', 링크, 상업적 유도 문구를 절대 쓰지 마라 (Meta 알고리즘이 즉각 스팸 봇으로 판정하여 조회수를 0으로 락을 건다). 첫 댓글 방향은 바이럴 모드의 '첫 댓글:' 규칙을 따르고, '난 솔직히'로 시작하지 않으며 최근 글의 첫 댓글과 다른 말로 시작한다.`,
         "- [메타 텍스트 및 체크리스트 출력 절대 금지]: 글자 수 확인, 자수 체크, 초안, Threads 본문 같은 메타 텍스트를 절대 출력하지 않는다. 제목(# 제목), 구분선(---), '생성 완료', '포맷 체크', '본문/첫댓글 안내' 등 기획서용 메타 텍스트를 본문이나 첫 댓글에 단 한 줄도 출력하지 마라.",
       ];
 
@@ -709,9 +724,8 @@ function formatCampaignPrompt(experiment: GrowthExperiment): string[] {
 const SAJU_VIRAL_REQUIREMENTS = [
   "[필수 조건 — 하나라도 빠지면 품질 게이트에서 폐기됨]",
   "- 본문에 사주 용어를 최소 1개 넣는다 (예: 일간, 일주, 재성, 관성, 비겁, 식상, 도화살, 역마살, 화개살, 궁합, 대운).",
-  "- 첫 줄에 물음표(?)를 넣어 질문으로 시작하거나, 'A보다 센 B' 비교로 시작한다. 물음표도 '보다 센'도 없는 평서문 첫 줄은 폐기된다.",
-  "- 끝에 줄 시작이 '1.' '2.' 형태인 번호 선택지를 넣고, 마지막 줄에 '저장해' 또는 '어때?' 같은 참여 문장을 둔다. '1)' 형식은 인식되지 않는다.",
   "- 100% 반말/독백체(~임, ~했음, ~야)로 쓰고 ~습니다/~하세요 같은 존댓말은 쓰지 않는다.",
+  "- 첫 줄 모양과 끝맺음은 바이럴 모드 규칙을 따른다. 모든 글을 질문이나 번호 선택지로 끝낼 필요는 없다.",
 ];
 
 function formatCareerCampaignPrompt(experiment: CampaignGrowthExperiment): string[] {
@@ -859,9 +873,16 @@ export interface GeneratePostsInput {
 export interface GeneratePostsSummary {
   count: number;
   failedCount: number;
+  // Why each dropped draft failed, so a refill that comes back short can be diagnosed from its response.
+  failureReasons: string[];
   linkedCount: number;
   campaignId: string | null;
   auditSummary: { total: number; passed: number; needsReview: number };
+}
+
+function describeFailure(reason: unknown): string {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  return message.slice(0, 300);
 }
 
 export type GeneratePostsResult = { ok: false; error: string } | { ok: true; summary: GeneratePostsSummary };
@@ -911,6 +932,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     take: RECENT_POST_AVOIDANCE_COUNT,
     select: {
       content: true,
+      firstComment: true,
       topic: true,
       hookType: true,
       ctaType: true,
@@ -934,7 +956,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   // Formulas picked so far, including the current in-flight batch, for anti-repeat.
   const pickedFormulaIds: string[] = [];
 
-  let failedCount = 0;
+  const failureReasons: string[] = [];
   for (let i = 0; i < count; i += BATCH) {
     const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
       const batchIndex = i + j;
@@ -971,16 +993,20 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
               : pickRandom(formulaPool)
           ));
       pickedFormulaIds.push(formula.id);
+      // Outside the lean sprint the mode rotates by batch index, so a 4-post global refill gave every
+      // formula the same Type A/B/C self-check. A formula mapped to its own mode keeps that mode.
+      const formulaMode = isLeanSprint ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
 
       const topic = topics[batchIndex % topics.length];
       const experiment = buildExperiment(
-        formula, topic, config, activeCampaign, batchIndex, viralIntentMode,
+        formula, topic, config, activeCampaign, batchIndex, formulaMode,
         useRelationshipContext ? "saju_relationship" : undefined,
         contextOffset,
         linkOffset
       );
+      // Newest first, so the anti-repeat windows look at the latest drafts.
       const inBatchPosts: RecentPostSummary[] = [
-        ...results.map((r) => ({ content: r.post, topic: r.topic, hookType: r.hookType })),
+        ...[...results].reverse().map((result) => ({ content: result.post, topic: result.topic, hookType: result.hookType, firstComment: result.firstComment })),
         ...recentPosts,
       ];
       return generateWithQuality(
@@ -998,7 +1024,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     for (const settled of await Promise.allSettled(batch)) {
       if (settled.status === "fulfilled") results.push(settled.value);
       else {
-        failedCount++;
+        failureReasons.push(describeFailure(settled.reason));
         console.error("[generate] draft failed, skipping:", settled.reason);
       }
     }
@@ -1032,7 +1058,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
 
   let linkedCount = 0;
   const createdPosts = [];
-  for (const [index, result] of results.entries()) {
+  for (const result of results) {
     // Build 4 carousel card slides using multi-format bundle
     const bundle = buildMultiFormatContentBundle({
       postText: result.post,
@@ -1044,7 +1070,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     // English Threads audience responds to text-only posts; Korean brands keep card carousels.
     const carouselDataUrls = result.qualityProfile === "ecommerce_d2c" ? [] : bundle.carouselSvgs.map(svgToDataUri);
     const jitterMs = (Math.floor(Math.random() * 31) - 15) * 60 * 1000;
-    const scheduledTime = Math.max(now + 5 * 60 * 1000, baseTime + index * POST_INTERVAL_MS + jitterMs);
+    // Slots follow saved posts, so a dropped draft leaves no gap in the schedule.
+    const scheduledTime = Math.max(now + 5 * 60 * 1000, baseTime + createdPosts.length * POST_INTERVAL_MS + jitterMs);
 
     const rawPostContent = ensureMaxThreadsLength(result.post);
     const algorithmicThreshold = config.minAlgorithmicScore ?? 80;
@@ -1055,6 +1082,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         topic: result.topic,
         targetAudience: result.targetAudience,
         productProfile: config.productProfile ? JSON.stringify(config.productProfile) : undefined,
+        formulaId: result.formulaId,
       },
       algorithmicThreshold
     );
@@ -1067,12 +1095,19 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       threshold: algorithmicThreshold,
     });
     const remediation = reconciled.remediation;
+    // Still under the algorithm score after rewrites: drop it rather than park it in the approval queue.
+    if (!remediation.pass) {
+      failureReasons.push(`algorithm score ${remediation.scoreResult.totalScore} under threshold (${result.formulaId})`);
+      console.warn(`[generate] algorithm score ${remediation.scoreResult.totalScore} under threshold, skipping ${result.formulaId}`);
+      continue;
+    }
+
     const postContent = reconciled.content;
     const initialComment = reconciled.firstComment;
     const qualityReasons = [...result.qualityReasons, ...reconciled.extraReasons];
     const threadParts = splitContentIntoThreadParts(postContent);
     // Auto-queue only gate-passing posts from proven formulas; the rest wait for human approval
-    const autoQueue = remediation.pass && result.qualityPass !== false && isAutopilotFormula(result.formulaId, growthMemory);
+    const autoQueue = result.qualityPass !== false && isAutopilotFormula(result.formulaId, growthMemory);
     const postStatus = autoQueue ? "PENDING" : "NEEDS_REVIEW";
 
     const post = await prisma.post.create({
@@ -1192,7 +1227,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     ok: true,
     summary: {
       count: createdPosts.length,
-      failedCount,
+      failedCount: failureReasons.length,
+      failureReasons,
       linkedCount,
       campaignId: activeCampaign?.id ?? null,
       auditSummary: {

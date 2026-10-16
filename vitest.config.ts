@@ -9,6 +9,6 @@ export default defineConfig({
   },
   test: {
     globals: false,
-    include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts", "video/src/promo/**/*.test.ts"],
   },
 });

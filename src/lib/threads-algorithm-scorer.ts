@@ -13,7 +13,7 @@
 
 import { validateAntiSlop, validateBurstiness } from "@/lib/marketing-skills";
 import { checkMetaPolicySafety } from "@/lib/meta-policy-guard";
-import { hasFortuneOverclaim, hasReplyBurdenPromise } from "@/lib/viral-intent-modes";
+import { IDENTITY_MARKER_PATTERN, hasFortuneOverclaim, hasReplyBurdenPromise } from "@/lib/viral-intent-modes";
 
 export interface AlgorithmicDimensionScore {
   name: string;
@@ -52,6 +52,10 @@ const HOOK_CONTRAST_PATTERNS = [
   /차이/,
   /반전/,
   /착각/,
+  // Korean contrarian framing the generation prompt asks for ("통념 반박")
+  /반대/,
+  /통념/,
+  /아니라/,
   /\b(wrong|myth|not\s+your|isn't|actually|really|instead|different)\b/i,
 ];
 
@@ -66,6 +70,9 @@ const HOOK_CURIOSITY_PATTERNS = [
   /왜\s*그럴까/,
   /충격/,
   /\b(probably|might|nobody|most\s+people|here's\s+why|born\s+in|to\s+(?:every|all))\b/i,
+  /\d+\s*(?:명|%|년|개월|개|번|만|억|살|시간)/,
+  IDENTITY_MARKER_PATTERN,
+  /(?:^|\s)너(?:는|가|넨|네|희)?(?=[\s,.?!]|$)/,
 ];
 
 const CONVERSATION_CHOICE_PATTERNS = [
@@ -88,7 +95,10 @@ const CONVERSATION_INVITATION_PATTERNS = [
   /어느\s*쪽/,
   /의견/,
   /공감/,
+  // Korean questions often end in -인가/-일까/-할까 without a question mark
+  /(?:인가|일까|할까)[.!]?\s*$/m,
   /\b(which\s+one|are\s+you|comment|send\s+this|tag\s+(?:a|your)|drop\s+your)\b/i,
+  /(?:^|\s)너(?:는|넨|네|희|가)?\s[^\n]*\?/,
 ];
 
 const URL_PATTERN = /https?:\/\/[^\s]+/i;
@@ -130,7 +140,7 @@ export function scoreThreadsPostAlgorithmic(
 
   if (!hasContrast && !hasCuriosity) {
     hookWeaknesses.push("첫 문장에 긴장감(대비/호기심 갭)이 부족함");
-    actionableFixes.push("첫 줄에 'A보다 센 B' 또는 의문/상식 뒤집기 구조를 적용하십시오.");
+    actionableFixes.push("첫 줄에 구체 숫자, 특정 살/일주 호명, 통념 반박 중 하나를 넣으십시오.");
   }
   hookScore = Math.max(0, Math.min(25, hookScore));
 
@@ -143,7 +153,8 @@ export function scoreThreadsPostAlgorithmic(
 
   const hasChoice = CONVERSATION_CHOICE_PATTERNS.some((p) => p.test(content));
   const hasInvitation = CONVERSATION_INVITATION_PATTERNS.some((p) => p.test(content));
-  const hasFirstCommentPrompt = firstComment && (firstComment.includes("?") || firstComment.includes("댓글"));
+  // "한 줄로 적어줘" style asks invite a reply as much as a question mark does
+  const hasFirstCommentPrompt = firstComment && /\?|댓글|적어|알려줘|말해줘/.test(firstComment);
 
   if (hasChoice) {
     convScore += 9;
@@ -160,7 +171,7 @@ export function scoreThreadsPostAlgorithmic(
 
   if (!hasChoice && !hasInvitation) {
     convWeaknesses.push("독자가 1초 만에 답변할 수 있는 쉬운 대화 유발 장치 부재");
-    actionableFixes.push("본문 말미에 1번/2번 선택형 질문 또는 구체적 되물음을 추가하십시오.");
+    actionableFixes.push("본문 끝에 독자에게 직접 묻는 한 문장을 두십시오.");
   }
   convScore = Math.max(0, Math.min(25, convScore));
 
@@ -234,7 +245,7 @@ export function scoreThreadsPostAlgorithmic(
   if (charCount < 80) {
     formatScore -= 5;
     formatWeaknesses.push("분량이 너무 짧아 정보 가치 부족 (-5)");
-    actionableFixes.push("최소 100자 이상으로 맥락과 선택지를 보강하십시오.");
+    actionableFixes.push("최소 100자 이상으로 맥락을 보강하십시오.");
   } else if (charCount > 450) {
     formatScore -= 4;
     formatWeaknesses.push("모바일 피드 스크롤 피로 유발 분량 (-4)");

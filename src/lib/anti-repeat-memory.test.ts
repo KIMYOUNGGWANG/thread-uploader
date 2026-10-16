@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   calculateJaccardSimilarity,
   checkAntiRepeatSimilarity,
+  checkStructureRepeat,
   extractFirstSentence,
+  extractStructureSignature,
   formatAntiRepeatContext,
 } from "./anti-repeat-memory";
 
@@ -64,5 +66,81 @@ describe("anti-repeat-memory", () => {
     const check = checkAntiRepeatSimilarity(distinctCandidate, recentPosts);
 
     expect(check.isDuplicate).toBe(false);
+  });
+});
+
+describe("structure repeat", () => {
+  const hierarchyPost = "궁합 점수보다 센 게 일간이고, 일간보다 센 건 잠드는 리듬임.\n1. 맞춘다\n2. 버틴다\n저장해";
+  const recentHierarchy = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({
+      content: hierarchyPost.replace("궁합", `궁합${index}`),
+      firstComment: `기록 ${index}`,
+    }));
+
+  it("classifies a post's skeleton", () => {
+    expect(extractStructureSignature(hierarchyPost, "난 솔직히 1번 골랐다가 망함. 너넨?")).toEqual({
+      opener: "hierarchy",
+      hasNumberedChoices: true,
+      closer: "save",
+      commentOpener: "난 솔직히",
+    });
+    expect(extractStructureSignature("[연애] 신금 일주는 끊을 때 정으로 베임.\n너는 누구 붙잡고 있음?", null)).toEqual({
+      opener: "callout",
+      hasNumberedChoices: false,
+      closer: "other",
+      commentOpener: null,
+    });
+  });
+
+  it("does not call a single incidental comparison a hierarchy", () => {
+    expect(extractStructureSignature("남들보다 답장이 늦는 너, 문창귀인 타입임.\n너는 몇 시간 넘으면 서운함?").opener).toBe("callout");
+  });
+
+  it("rejects a third post with the same skeleton within the last five", () => {
+    const result = checkStructureRepeat(hierarchyPost, "새 댓글 하나", recentHierarchy(2));
+    expect(result.isDuplicate).toBe(true);
+    expect(result.reason).toContain("같은 틀");
+  });
+
+  it("allows a skeleton that appears only once in the last five", () => {
+    expect(checkStructureRepeat(hierarchyPost, "새 댓글 하나", recentHierarchy(1)).isDuplicate).toBe(false);
+  });
+
+  it("ignores matches older than the window", () => {
+    const newer = Array.from({ length: 5 }, (_, index) => ({ content: `신금 일주 이야기 ${index}.\n너는 어떻게 봄`, firstComment: `다른 ${index}` }));
+    expect(checkStructureRepeat(hierarchyPost, "새 댓글 하나", [...newer, ...recentHierarchy(2)]).isDuplicate).toBe(false);
+  });
+
+  it("rejects a first comment that opens like a recent one", () => {
+    const recentPosts = [{ content: "신금 일주는 정으로 베임.\n너는?", firstComment: "난 솔직히 3일 삐졌음" }];
+    const result = checkStructureRepeat("한국인 10명 중 7명은 시주를 잘못 앎.\n너는 알고 있음?", "난 솔직히 몰랐음", recentPosts);
+    expect(result.isDuplicate).toBe(true);
+    expect(result.reason).toContain("난 솔직히");
+  });
+
+  it("does not count clean skeletons as a repeat", () => {
+    const clean = (index: number) => ({ content: `신금 일주는 정으로 베임 ${index}.\n너는 누구 붙잡고 있음?`, firstComment: `다른 ${index}` });
+    const result = checkStructureRepeat("문창귀인 타입은 답장이 늦음.\n너는 몇 시간 넘으면 서운함?", "새 댓글", [clean(0), clean(1), clean(2)]);
+    expect(result.isDuplicate).toBe(false);
+  });
+
+  it("rejects a third '어때?' closer even when the opener changes", () => {
+    const askPost = (opener: string) => `${opener}\n갈리는 지점이 있음.\n어때?`;
+    const recentPosts = [
+      { content: askPost("신금 일주는 정으로 베임."), firstComment: "가 댓글" },
+      { content: askPost("한국인 10명 중 7명은 시주를 모름."), firstComment: "나 댓글" },
+    ];
+    expect(checkStructureRepeat(askPost("도화살 있는 사람은 답장이 빠름?"), "다 댓글", recentPosts).isDuplicate).toBe(true);
+  });
+
+  it("explains a template repeat in plain words without the internal key", () => {
+    const result = checkStructureRepeat(hierarchyPost, "새 댓글 하나", recentHierarchy(2));
+    expect(result.reason).not.toContain("|");
+    expect(result.reason).toContain("물음표");
+  });
+
+  it("does not treat two missing first comments as the same opener", () => {
+    const recentPosts = [{ content: "신금 일주는 정으로 베임.\n너는?", firstComment: null }];
+    expect(checkStructureRepeat("한국인 10명 중 7명은 시주를 잘못 앎.\n너는 알고 있음?", null, recentPosts).isDuplicate).toBe(false);
   });
 });

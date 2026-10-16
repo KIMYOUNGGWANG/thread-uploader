@@ -32,10 +32,11 @@ export interface ViralModeFidelityResult {
 }
 
 export const FORMAL_TONE_PATTERN = /(?:습니다|합니다|됩니다|입니다|하세요|십시오|인가요|셨나요|바랍니다)/;
-const HIERARCHY_PATTERN = /보다\s*센|보다|(?:^|\s)vs(?:\s|$)|[<>＜＞]/gi;
-const IDENTITY_MARKER_PATTERN = /화개살?|도화살?|홍염살?|문창귀인|천을귀인|진술축미|(?:신금|경금|갑목|을목|병화|정화|무토|기토|임수|계수)\s*(?:일주|타입)/;
-const RELATIONSHIP_PATTERN = /연애|궁합|애인|남친|여친|헤어|손절|관계|재회|전남친|전여친/;
-const RELATIONSHIP_CONTRAST_PATTERN = /절대|vs|대비|만나면|헤어지|망|놓치|파멸|귀인|원진|상극/;
+// "A가 아니라 B" and "A일 뿐, 정작 B" count as comparisons: with "보다 센" banned as a template, drafts rank concepts this way.
+const HIERARCHY_PATTERN = /보다\s*센|보다|아니라|아니고|아님|뿐|정작|(?:^|\s)vs(?:\s|$)|[<>＜＞]/gi;
+export const IDENTITY_MARKER_PATTERN = /화개살?|도화살?|홍염살?|문창귀인|천을귀인|진술축미|(?:신금|경금|갑목|을목|병화|정화|무토|기토|임수|계수)\s*(?:일주|타입)/;
+const RELATIONSHIP_PATTERN = /연애|궁합|애인|남친|여친|헤어|손절|관계|재회|전남친|전여친|썸|고백|설렘|결혼|이별|연락/;
+const RELATIONSHIP_CONTRAST_PATTERN = /절대|vs|대비|만나면|헤어지|망|놓치|파멸|귀인|원진|상극|보다|아니라|아니고|아님/;
 
 function extractOpeningLines(content: string, lineCount = 2): string {
   const lines = content.split("\n").map((line) => line.trim());
@@ -81,7 +82,8 @@ export function checkViralModeFidelity(
     ? /better than|worse than|(?:^|\s)vs(?:\s|$)|[<>＜＞]|higher than|over/gi
     : HIERARCHY_PATTERN;
 
-  if (modeId === "concept_hierarchy" && (opening.match(hierarchyPattern)?.length ?? 0) < 2) {
+  // One comparison is enough; demanding two produced the same "X보다 센 건 Y고, Y보다 센 건 Z" opener every time.
+  if (modeId === "concept_hierarchy" && (opening.match(hierarchyPattern)?.length ?? 0) < 1) {
     failureCodes.push("missing_hierarchy");
   }
 
@@ -199,10 +201,11 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
     primaryMetric: "saves",
     instruction: "대중이 아는 통념적 개념(A)보다 더 본질적인 B, C를 비교하여 상식을 깨고 극단적 1줄 앵커로 저장과 인게이지먼트를 유도한다.",
     rules: [
-      "첫 문장은 'A보다 센 B보다 센 게 뭔지 알아?' 식의 극단적 대비 서열 구조로 연다.",
+      "실제 사주 개념 2~3개(살·십신·일주)를 서열이나 대비로 비교한다. 최근 글에 쓰인 비교 문장 틀은 반복하지 않는다.",
       "근거 없는 미신이나 공포 조장 금지. 결정론적/구조적 프레임으로 설명.",
-      "본문 내 직접 링크 노출 금지, 첫 댓글에 무료 판정 기준표/브릿지 배치.",
+      "본문 내 직접 링크 노출 금지.",
       "단순 A/B/C 자가분류 댓글 강요 금지.",
+      "첫 댓글: 독자 원국에 이 개념이 있는지 묻는 한 줄로 쓴다. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
   {
@@ -214,6 +217,7 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
       "도입부는 '자, 상상해봐', '만약 ~라면' 같이 1초 안에 머릿속 시뮬레이션이 도는 상황 제시로 시작한다 (같은 문장 반복은 최근 글 회피 규칙이 잡는다).",
       "1초 만에 선택 가능한 직관적이고 극단적인 3개 번호 선택지를 제시한다.",
       "구구절절한 설명 문장을 배제하고 선택지만 명확히 남겨 댓글 참여 마찰력을 최소화한다.",
+      "첫 댓글: 각 선택지를 고른 이유를 묻는 한 줄로 쓴다. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
   {
@@ -224,7 +228,9 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
     rules: [
       "특정 글자, 살, 일주를 1줄에 직설적으로 호명하여 스크롤을 멈추게 한다.",
       "두루뭉술한 위로 대신 날카로운 양면성(치명적 무기 vs 발목 잡는 덫)을 짚는다.",
-      "본문 링크 금지, 첫 댓글에 5대 엔진 내 원국 확인 브릿지를 배치한다.",
+      "본문 링크 금지.",
+      "번호 선택지를 쓰지 않고, 독자에게 직접 묻는 한 문장으로 끝낸다.",
+      "첫 댓글: 독자가 자기 일주나 살을 꺼내게 하는 한 줄로 쓴다. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
   {
@@ -235,7 +241,8 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
     rules: [
       "감정적 연애 상담이 아니라 구조적 기질 궁합의 충돌 원리를 설명한다.",
       "단정적 미래 확정 대신 리스크 헷징 관점을 제시한다.",
-      "첫 댓글에 궁합/관계 결핍 해소 브릿지를 배치한다.",
+      "번호 선택지를 쓰지 않고, 독자에게 직접 묻는 한 문장으로 끝낸다.",
+      "첫 댓글: 상대와 지금 어떤 상황인지 묻는 한 줄로 쓴다. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
 ];
@@ -338,7 +345,7 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
   },
   saveable_tool: {
     label: "Saveable Decision Tool",
-    instruction: "Structure as a 3-4 row checklist, scorecard, or sequence guide worth bookmarking.",
+    instruction: "Structure as a checklist, scorecard, or sequence guide worth bookmarking; the formula sets how many rows.",
     rules: [
       "Craft it like a utility the reader wants to save or screenshot.",
       "Provide actionable decision criteria rather than vague future predictions.",
