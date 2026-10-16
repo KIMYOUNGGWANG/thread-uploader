@@ -58,11 +58,10 @@ describe("learnBrandGrowth", () => {
   });
 
   it("under the default reach goal, a paid conversion on a low-view formula does not make it the winner", async () => {
+    // Growth memory needs 5+ posts per formula before it names a winner.
     mocks.findPosts.mockResolvedValue([
-      post("1", "winner", 5000),
-      post("2", "winner", 4000),
-      { ...post("3", "loser", 100), manualPaidConversions: 1 },
-      { ...post("4", "loser", 120), manualPaidConversions: 1 },
+      ...[5000, 4000, 4500, 4800, 4200].map((views, index) => post(`w${index}`, "winner", views)),
+      ...[100, 120, 110, 90, 130].map((views, index) => ({ ...post(`l${index}`, "loser", views), manualPaidConversions: 1 })),
     ]);
 
     const result = await learnBrandGrowth("brand_1");

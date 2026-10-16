@@ -100,15 +100,18 @@ describe("Multi-Brand Zero-Contamination Isolation Verification", () => {
         },
       ];
 
-      const memoryA = buildGrowthMemory(brandAPosts);
-      const memoryB = buildGrowthMemory(brandBPosts);
+      // Growth memory needs 5+ posts per formula, so each brand's two posts are repeated into five.
+      const fivePosts = <T extends { id: string }>(posts: T[]) =>
+        Array.from({ length: 5 }, (_, index) => ({ ...posts[index % posts.length], id: `${posts[index % posts.length].id}_${index}` }));
+      const memoryA = buildGrowthMemory(fivePosts(brandAPosts));
+      const memoryB = buildGrowthMemory(fivePosts(brandBPosts));
 
       // Brand A memory has controversy_stunt as winner
-      expect(memoryA.winners.some((w) => w.value === "controversy_stunt")).toBe(true);
+      expect(memoryA.formulaWinners).toContain("controversy_stunt");
 
       // Brand B memory is completely clean of controversy_stunt
-      expect(memoryB.winners.some((w) => w.value === "controversy_stunt")).toBe(false);
-      expect(memoryB.winners.some((w) => w.value === "b2b_pain_poll")).toBe(true);
+      expect(memoryB.formulaWinners).not.toContain("controversy_stunt");
+      expect(memoryB.formulaWinners).toContain("b2b_pain_poll");
     });
   });
 

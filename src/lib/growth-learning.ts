@@ -60,21 +60,26 @@ export function parseStoredGrowthMemory(raw: string): GrowthMemory {
   return parseGrowthMemory(raw);
 }
 
+// Post views are long-tailed: one breakout carries a mean (42,329 + 115 views "averaged" 21k),
+// so patterns are judged by median and need this many posts before they count as evidence.
+const MIN_PATTERN_POSTS = 5;
+
 export function buildGrowthMemory(posts: GrowthPostInput[]): GrowthMemory {
   const scoredPosts = posts.filter((post) => getPostScore(post) !== null);
   if (scoredPosts.length === 0) return EMPTY_GROWTH_MEMORY;
 
   const scores = scoredPosts.map((post) => getPostScore(post) ?? 0);
   const avgScore = average(scores);
-  const patterns = buildAllPatternSummaries(scoredPosts);
-  const winners = patterns.filter((pattern) => pattern.count >= 2).slice(0, 5);
-  const weakSignals = [...patterns]
-    .filter((pattern) => pattern.count >= 2)
-    .sort((a, b) => a.avgScore - b.avgScore)
+  const brandMedian = median(scores);
+  const proven = buildAllPatternSummaries(scoredPosts).filter((pattern) => pattern.count >= MIN_PATTERN_POSTS);
+  const winners = proven.filter((pattern) => pattern.medianScore > brandMedian).slice(0, 5);
+  const weakSignals = proven
+    .filter((pattern) => pattern.medianScore < brandMedian)
+    .sort((a, b) => a.medianScore - b.medianScore)
     .slice(0, 5);
   // Mixed top-5 winners are usually hooks/topics, so formulas get their own proven list.
-  const formulaWinners = patterns
-    .filter((pattern) => pattern.dimension === "formula" && pattern.count >= 2 && pattern.avgScore >= avgScore)
+  const formulaWinners = proven
+    .filter((pattern) => pattern.dimension === "formula" && pattern.medianScore >= brandMedian)
     .map((pattern) => pattern.value);
 
   return {
@@ -108,7 +113,7 @@ export function buildGrowthReport(posts: GrowthPostInput[], memory: GrowthMemory
     sampleSize: scoredPosts.length,
     memory,
     topPatterns: patterns.slice(0, 8),
-    weakPatterns: [...patterns].sort((a, b) => a.avgScore - b.avgScore).slice(0, 8),
+    weakPatterns: [...patterns].sort((a, b) => a.medianScore - b.medianScore).slice(0, 8),
     recentPosts,
   };
 }
@@ -120,10 +125,10 @@ export function formatGrowthPromptContext(memory: GrowthMemory): string {
 
   const winners = memory.winners
     .slice(0, 4)
-    .map((pattern) => `- 잘 먹힌 패턴: ${labelPattern(pattern)} (평균 ${pattern.avgScore}점)`);
+    .map((pattern) => `- 잘 먹힌 패턴: ${labelPattern(pattern)} (중앙값 ${pattern.medianScore}점, ${pattern.count}개)`);
   const weakSignals = memory.weakSignals
     .slice(0, 3)
-    .map((pattern) => `- 약한 패턴: ${labelPattern(pattern)} (평균 ${pattern.avgScore}점)`);
+    .map((pattern) => `- 약한 패턴: ${labelPattern(pattern)} (중앙값 ${pattern.medianScore}점, ${pattern.count}개)`);
 
   return [
     `최근 ${memory.sampleSize}개 성과 학습 결과:`,
@@ -140,7 +145,7 @@ function buildAllPatternSummaries(posts: GrowthPostInput[]): GrowthPattern[] {
     ...buildPatternSummaries(posts, "topic", "topic"),
     ...buildPatternSummaries(posts, "target", "targetAudience"),
     ...buildPatternSummaries(posts, "cta", "ctaType"),
-  ].sort((a, b) => b.avgScore - a.avgScore);
+  ].sort((a, b) => b.medianScore - a.medianScore);
 }
 
 function buildPatternSummaries(
@@ -160,6 +165,7 @@ function buildPatternSummaries(
     value,
     count: group.length,
     avgScore: average(group.map((post) => getPostScore(post) ?? 0)),
+    medianScore: median(group.map((post) => getPostScore(post) ?? 0)),
     avgViews: average(group.map((post) => post.views ?? 0)),
     avgLikes: average(group.map((post) => post.likes ?? 0)),
     avgReplies: average(group.map((post) => post.replies ?? 0)),
@@ -205,6 +211,13 @@ function getPostScore(post: GrowthPostInput): number | null {
 function average(values: number[]): number {
   if (values.length === 0) return 0;
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return Math.round(sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]);
 }
 
 // Autopilot: only formulas that already proved themselves (formula winner in growth memory)
