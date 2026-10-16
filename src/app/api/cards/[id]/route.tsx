@@ -33,9 +33,10 @@ export async function GET(
       return new Response("Post not found", { status: 404 });
     }
 
-    const { hook, sub, items, totalSlides, isCarouselDetail } = parsePostForSlide(post.content, slideIndex);
+    const { hook, sub, items, totalSlides, isCarouselDetail, oracleTag } = parsePostForSlide(post.content, slideIndex);
     const brandName = post.brand?.name || "CosmicPath";
     const topic = post.topic || "대운 & 커리어 타이밍";
+    const displayHeader = oracleTag ? `${oracleTag.toUpperCase()} · ${topic}` : `${brandName.toUpperCase()} · ${topic}`;
     const slideTag = totalSlides && totalSlides > 1 ? `SLIDE ${slideIndex + 1}/${totalSlides}` : "CRITICAL TIMING CHECK";
 
     return new ImageResponse(
@@ -77,7 +78,7 @@ export async function GET(
                 }}
               />
               <span style={{ fontSize: "24px", fontWeight: "700", color: "#E0E7FF", letterSpacing: "1px" }}>
-                {brandName.toUpperCase()} · {topic}
+                {displayHeader}
               </span>
             </div>
             <span style={{ fontSize: "24px", color: isCarouselDetail ? "#38BDF8" : "#64748B", fontWeight: "700" }}>
