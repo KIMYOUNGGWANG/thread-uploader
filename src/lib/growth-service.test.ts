@@ -40,6 +40,12 @@ function post(id: string, formulaId: string, views: number) {
   };
 }
 
+// Learning only ranks formulas with 5+ posts, so every fixture formula gets five.
+const HIGH_VIEWS = [5000, 4000, 4500, 4800, 4200];
+const LOW_VIEWS = [100, 120, 110, 90, 130];
+const posts = (prefix: string, formulaId: string, views: number[]) =>
+  views.map((count, index) => post(`${prefix}${index}`, formulaId, count));
+
 describe("learnBrandGrowth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -50,18 +56,15 @@ describe("learnBrandGrowth", () => {
       brandConfig: "{}",
     });
     mocks.findPosts.mockResolvedValue([
-      post("1", "winner", 5000),
-      post("2", "winner", 4000),
-      post("3", "loser", 100),
-      post("4", "loser", 120),
+      ...posts("w", "winner", HIGH_VIEWS),
+      ...posts("l", "loser", LOW_VIEWS),
     ]);
   });
 
   it("under the default reach goal, a paid conversion on a low-view formula does not make it the winner", async () => {
-    // Growth memory needs 5+ posts per formula before it names a winner.
     mocks.findPosts.mockResolvedValue([
-      ...[5000, 4000, 4500, 4800, 4200].map((views, index) => post(`w${index}`, "winner", views)),
-      ...[100, 120, 110, 90, 130].map((views, index) => ({ ...post(`l${index}`, "loser", views), manualPaidConversions: 1 })),
+      ...posts("w", "winner", HIGH_VIEWS),
+      ...posts("l", "loser", LOW_VIEWS).map((lowPost) => ({ ...lowPost, manualPaidConversions: 1 })),
     ]);
 
     const result = await learnBrandGrowth("brand_1");
@@ -74,10 +77,8 @@ describe("learnBrandGrowth", () => {
   it("under the conversion goal, the paying formula wins", async () => {
     mocks.findBrand.mockResolvedValue({ id: "brand_1", formulaWeights: "{}", brandConfig: JSON.stringify({ optimizationGoal: "conversion" }) });
     mocks.findPosts.mockResolvedValue([
-      post("1", "reach", 5000),
-      post("2", "reach", 4000),
-      { ...post("3", "money", 100), manualPaidConversions: 1 },
-      { ...post("4", "money", 120), manualPaidConversions: 1 },
+      ...posts("r", "reach", HIGH_VIEWS),
+      ...posts("m", "money", LOW_VIEWS).map((lowPost) => ({ ...lowPost, manualPaidConversions: 1 })),
     ]);
 
     const result = await learnBrandGrowth("brand_1");

@@ -62,7 +62,7 @@ export function parseStoredGrowthMemory(raw: string): GrowthMemory {
 
 // Post views are long-tailed: one breakout carries a mean (42,329 + 115 views "averaged" 21k),
 // so patterns are judged by median and need this many posts before they count as evidence.
-const MIN_PATTERN_POSTS = 5;
+export const MIN_PATTERN_POSTS = 5;
 
 export function buildGrowthMemory(posts: GrowthPostInput[]): GrowthMemory {
   const scoredPosts = posts.filter((post) => getPostScore(post) !== null);
@@ -213,7 +213,7 @@ function average(values: number[]): number {
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
-function median(values: number[]): number {
+export function median(values: number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);

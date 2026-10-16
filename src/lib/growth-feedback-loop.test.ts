@@ -99,6 +99,25 @@ describe("computeAdaptiveFormulaWeights", () => {
     expect(result.demotedFormulas).toHaveLength(0);
     expect(result.updatedWeights["formula_single"]).toBe(3);
   });
+
+  // Regression: on 2026-10 cosmicpath data the mean promoted controversy_stunt (42,329 + 115 views, 2 posts).
+  it("by default ranks by median and ignores formulas carried by one breakout or under 5 posts", () => {
+    const scored = (formulaId: string, scores: number[]): PostPerformanceRecord[] =>
+      scores.map((performanceScore, index) => ({ id: `${formulaId}-${index}`, formulaId, performanceScore, views: null, replies: null, reposts: null }));
+    const posts = [
+      ...scored("stunt", [8466, 23, 16, 12, 10]),
+      ...scored("steady", [30, 30, 30, 30, 30]),
+      ...scored("cold", [5, 5, 5, 5, 5]),
+      ...scored("lucky", [1800, 1600]),
+    ];
+
+    const result = computeAdaptiveFormulaWeights({}, posts, ["stunt", "steady", "cold", "lucky"]);
+
+    expect(result.promotedFormulas).toEqual(["steady"]);
+    expect(result.demotedFormulas).toEqual(["cold"]);
+    expect(result.updatedWeights.stunt).toBe(3);
+    expect(result.updatedWeights.lucky).toBe(3);
+  });
 });
 
 describe("computeAdaptiveContextWeights", () => {
@@ -169,5 +188,18 @@ describe("computeAdaptiveContextWeights", () => {
     expect(result.demotedFrictions).toContain("보고서 결재만 5단계인 보수 조직");
     expect(result.frictionWeights["성과 가로채기와 사내 정치"]).toBe(4);
     expect(result.frictionWeights["보고서 결재만 5단계인 보수 조직"]).toBe(2);
+  });
+
+  it("does not promote a persona whose mean rests on one breakout post", () => {
+    const scored = (persona: string, scores: number[]): PostPerformanceRecord[] =>
+      scores.map((performanceScore, index) => ({
+        id: `${persona}-${index}`, formulaId: "f1", targetAudience: persona, performanceScore, views: null, replies: null, reposts: null,
+      }));
+    const posts = [...scored("브레이크아웃 1회", [5000, 10, 10, 10, 10]), ...scored("꾸준형", [100, 100, 100, 100, 100])];
+
+    const result = computeAdaptiveContextWeights({}, {}, posts, ["브레이크아웃 1회", "꾸준형"], []);
+
+    expect(result.promotedPersonas).toEqual(["꾸준형"]);
+    expect(result.demotedPersonas).toEqual(["브레이크아웃 1회"]);
   });
 });
