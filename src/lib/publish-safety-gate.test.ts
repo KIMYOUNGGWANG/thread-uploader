@@ -29,6 +29,33 @@ describe("getPublishSafetyBlockReasons", () => {
     expect(reasons).toContain("generated meta text 포함");
   });
 
+  // Regression: both drafts below went live (cosmicpath 2026-09-30, cosmicpath-global 2026-09-04)
+  // with the model's own framing still attached.
+  it.each([
+    [
+      "Korean self-description and char-count label",
+      "자기분류 셀프체크형 포스트입니다. 실제 투자/이직 결정 타이밍을 앞둔 독자가 혼자 본문 안에서 자신의 상태를 4가지로 판정하고 저장하게 만드는 구조입니다.\n\n---\n\n**본문 (482자)**\n\n복채 수십만 원 주고 받은 사주가 진태양시 30분도 못 맞춘다는 거, 알았어?",
+    ],
+    [
+      "English draft title header",
+      "# Threads Post: Dropping the Corporate Mask at 28-32\n\nYour burnout isn't weakness—it's your chart finally rebelling against a decade of borrowed ambition.",
+    ],
+    ["English char-count label", "Your Saturn return is a reboot, not a crisis. (480 chars)"],
+  ])("blocks leaked draft framing: %s", (_label, content) => {
+    const reasons = getPublishSafetyBlockReasons({ content, firstComment: null });
+
+    expect(reasons).toContain("generated meta text 포함");
+  });
+
+  it("keeps oracle tags, bold lines, dividers and plain 'Here's what' copy publishable", () => {
+    const reasons = getPublishSafetyBlockReasons({
+      content: "[Oracle Lyra]\n**결산 끝나고 입사했는데 3개월 뒤 팀장이 넌 스케이프고트라고 박았다.**\n\n---\n\nHere's what nobody tells you: 이건 내 경험담이야.\n\n저장해두고 봐.",
+      firstComment: "1단계는 시주 30분 오차 수정이야.",
+    });
+
+    expect(reasons).not.toContain("generated meta text 포함");
+  });
+
   it("allows multi-part threads over 500 chars up to 2400 chars", () => {
     const longPost = "이직 고민과 퇴사 타이밍에 대한 상세한 인사이트입니다.\n\n".repeat(20); // ~700 chars
     expect(longPost.length).toBeGreaterThan(500);

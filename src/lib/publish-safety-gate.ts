@@ -18,6 +18,11 @@ const GENERATED_META_PATTERNS = [
   /500자\s*이하\s*통과/,
   /Threads\s*본문/,
   /초안\s*작성/,
+  // The model describing its own draft ("셀프체크형 포스트입니다"), a char-count label ("본문 (482자)"),
+  // or a draft title line ("# Threads Post: ..."). Each matched only leaked posts in 291 published ones.
+  /(포스트|게시물)입니다/,
+  /\(\s*\d{2,4}\s*(자|chars?|characters)\s*\)/i,
+  /^\s*#*\s*(threads?\s+post|post\s+draft|draft)\s*[:：]/im,
 ];
 
 export interface PublishSafetyPost {
