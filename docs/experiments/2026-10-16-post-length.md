@@ -47,7 +47,8 @@ H1: 260자 이하 글(S)은 390자 이상 글(L)보다 발행 7일 시점의 조
 81-90: L S L S L S S L S L
 ```
 
-- **시작 시각(`startAt`):** `____` (시작 스크립트가 출력한 ISO 시각을 초 단위까지 그대로 적고 커밋해. 날짜만 적으면 판정 표본이 어긋나.)
+- **시작 시각(`startAt`):** `2026-10-16T13:34:44.704Z` (KST 2026-10-16 22:34). 판정 때 `--from`에 이 값을 그대로 넣어. 날짜만 넣으면 판정 표본이 어긋나.
+  - 기록 근거: `start-length-experiment.mjs` 실행 직후 `--dry-run`을 다시 돌려 "already started"를 확인했어. 운영 배포는 main `904c516`(Vercel Production success, 2026-10-16 12:35 UTC)이야.
 - **시작 방법:** 실행 기능(`docs/superpowers/specs/2026-10-16-length-experiment-design.md`)이 배포된 뒤 아래를 실행해. cosmicpath `brandConfig.lengthExperiment`에 시퀀스와 `startAt`이 기록돼. 이미 시작했으면 아무것도 바꾸지 않아.
   ```bash
   node --env-file=.env scripts/start-length-experiment.mjs --dry-run
