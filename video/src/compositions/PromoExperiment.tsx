@@ -1,9 +1,9 @@
 // PromoExperiment.tsx — format ④: a 7-day experiment checklist (20s), built to be saved.
 // Only the "when" window and strongest day are engine values; the steps are labelled as a sample screen.
 import React from "react";
-import { AbsoluteFill, Sequence } from "remotion";
+import { AbsoluteFill } from "remotion";
 import { ensurePretendard } from "../load-fonts";
-import { C, Starfield, textBase, useEnter, useExit } from "../components/PromoKit";
+import { C, Shot, Backdrop, textBase, useEnter, useExit } from "../components/PromoKit";
 import { HookScene, OutroScene, QuestionScene, SampleNote } from "../components/PromoScenes";
 import { TOPIC_COPY, UI_COPY, hookLines, personaLine } from "../promo/copy.ts";
 import type { PromoProps } from "../promo/types.ts";
@@ -69,13 +69,13 @@ const SaveScene: React.FC<{ text: string; len: number }> = ({ text, len }) => {
 
 export const PromoExperiment: React.FC<PromoProps> = (props) => (
   <AbsoluteFill style={{ backgroundColor: C.bg }}>
-    <Starfield />
-    <Sequence from={0} durationInFrames={70} name="hook"><HookScene lines={hookLines(props.variant)} len={70} /></Sequence>
-    <Sequence from={70} durationInFrames={50} name="question">
+    <Backdrop />
+    <Shot from={0} durationInFrames={70} name="hook"><HookScene lines={hookLines(props.variant)} len={70} /></Shot>
+    <Shot from={70} durationInFrames={50} name="question">
       <QuestionScene label={UI_COPY[props.lang].questionLabel} question={TOPIC_COPY[props.lang][props.variant.topic].question} persona={personaLine(props.lang, props.variant.persona)} len={50} />
-    </Sequence>
-    <Sequence from={120} durationInFrames={300} name="checklist"><ChecklistScene {...props} len={300} /></Sequence>
-    <Sequence from={420} durationInFrames={90} name="save"><SaveScene text={UI_COPY[props.lang].experiment.save} len={90} /></Sequence>
-    <Sequence from={510} durationInFrames={90} name="outro"><OutroScene lang={props.lang} match={false} /></Sequence>
+    </Shot>
+    <Shot from={120} durationInFrames={300} name="checklist"><ChecklistScene {...props} len={300} /></Shot>
+    <Shot from={420} durationInFrames={90} name="save"><SaveScene text={UI_COPY[props.lang].experiment.save} len={90} /></Shot>
+    <Shot from={510} durationInFrames={90} name="outro"><OutroScene lang={props.lang} match={false} /></Shot>
   </AbsoluteFill>
 );

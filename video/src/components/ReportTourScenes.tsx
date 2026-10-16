@@ -51,7 +51,7 @@ export const TourKicker: React.FC<{ lang: PromoLang; index: number }> = ({ lang,
   const p = useEnter(0);
   return (
     <div style={{ position: "absolute", top: 96, width: "100%", display: "flex", justifyContent: "center", opacity: p }}>
-      <div style={{ ...textBase, fontSize: 30, fontWeight: 700, color: C.gold, padding: "10px 26px", borderRadius: 999, border: `2px solid ${C.gold}66` }}>
+      <div style={{ ...textBase, fontSize: 34, fontWeight: 700, color: C.gold, padding: "12px 30px", borderRadius: 999, border: `2px solid ${C.gold}66` }}>
         {TOUR_UI[lang].kicker} · {String(index).padStart(2, "0")}/{String(TOUR_TOTAL).padStart(2, "0")}
       </div>
     </div>
@@ -65,7 +65,7 @@ const TourHeader: React.FC<{ lang: PromoLang; index: number; title: string }> = 
       <TourKicker lang={lang} index={index} />
       <div style={{ position: "absolute", top: 176, width: "100%", opacity: p, transform: `translateY(${(1 - p) * 40}px)` }}>
         <div style={{ ...textBase, fontSize: 72, fontWeight: 900, padding: "0 60px" }}>{title}</div>
-        <div style={{ ...textBase, fontSize: 28, color: C.dim, marginTop: 18 }}>{TOUR_UI[lang].sample}</div>
+        <div style={{ ...textBase, fontSize: 32, color: C.dim, marginTop: 18 }}>{TOUR_UI[lang].sample}</div>
       </div>
     </>
   );
@@ -139,7 +139,7 @@ export const SajuTourScene: React.FC<TourProps> = ({ lang, len, snapshot }) => {
         })}
       </div>
       <div style={{ position: "absolute", top: 1150, width: "100%" }}>
-        <div style={{ ...textBase, fontSize: 34, color: C.dim, marginBottom: 30 }}>{label}</div>
+        <div style={{ ...textBase, fontSize: 38, color: C.dim, marginBottom: 30 }}>{label}</div>
         <ElementBars lang={lang} snapshot={snapshot} />
       </div>
     </AbsoluteFill>
@@ -157,8 +157,8 @@ const FlowBar: React.FC<FlowBarProps> = ({ point, index, tone, year, prevYear })
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", width: 66, height: 640 }}>
       {tone ? <div style={{ ...textBase, fontSize: 40, fontWeight: 900, color: tone, opacity: grow, marginBottom: 10 }}>{point.action}</div> : null}
       <div style={{ width: 46, height: point.action * 5.4 * grow, borderRadius: 12, background: color, boxShadow: tone ? `0 0 40px ${tone}88` : "none" }} />
-      <div style={{ ...textBase, fontSize: 26, color: tone ?? C.dim, marginTop: 12, whiteSpace: "nowrap", fontWeight: tone ? 800 : 500 }}>{point.label.split(" ")[0]}</div>
-      <div style={{ ...textBase, fontSize: 22, color: C.gold, marginTop: 6, height: 26 }}>{year !== prevYear ? `'${String(year).slice(2)}` : ""}</div>
+      <div style={{ ...textBase, fontSize: 30, color: tone ?? C.dim, marginTop: 12, whiteSpace: "nowrap", fontWeight: tone ? 800 : 500 }}>{point.label.split(" ")[0]}</div>
+      <div style={{ ...textBase, fontSize: 26, color: C.gold, marginTop: 6, height: 30 }}>{year !== prevYear ? `'${String(year).slice(2)}` : ""}</div>
     </div>
   );
 };
@@ -174,14 +174,14 @@ export const FlowTourScene: React.FC<TourProps> = ({ lang, len, snapshot }) => {
   return (
     <AbsoluteFill style={{ opacity: useExit(len) }}>
       <TourHeader lang={lang} index={2} title={title} />
-      <div style={{ position: "absolute", top: 420, width: "100%", ...textBase, fontSize: 30, color: C.dim, opacity: clamp01(frame, 10, 20) }}>{axis}</div>
+      <div style={{ position: "absolute", top: 420, width: "100%", ...textBase, fontSize: 36, color: C.dim, opacity: clamp01(frame, 10, 20) }}>{axis}</div>
       <div style={{ position: "absolute", top: 480, width: "100%", display: "flex", justifyContent: "center", gap: 14 }}>
         {s.timeline.map((p, i) => (
           <FlowBar key={p.label} point={p} index={i} year={months[i]?.year} prevYear={months[i - 1]?.year} tone={i === peak ? C.goldHi : i === low ? C.rose : null} />
         ))}
       </div>
       <div style={{ position: "absolute", top: 1250, width: "100%", padding: "0 70px", opacity: headline, transform: `scale(${0.85 + headline * 0.15})` }}>
-        <div style={{ ...textBase, fontSize: 50, fontWeight: 900, color: C.goldHi, lineHeight: 1.3 }}>{s.headline}</div>
+        <div style={{ ...textBase, fontSize: 56, fontWeight: 900, color: C.goldHi, lineHeight: 1.3 }}>{s.headline}</div>
       </div>
     </AbsoluteFill>
   );
@@ -219,7 +219,7 @@ export const HeatmapTourScene: React.FC<TourProps> = ({ lang, len, snapshot }) =
         <div style={{ position: "absolute", top: 1220, left: 90, width: 900, padding: "36px 40px", borderRadius: 32, background: C.card, border: `4px solid ${C.goldHi}`, boxShadow: `0 0 80px ${C.gold}66`, opacity: pin, transform: `translateY(${(1 - pin) * 120}px)` }}>
           <div style={{ ...textBase, fontSize: 30, color: C.gold, fontWeight: 700 }}>{bestLabel}</div>
           <div style={{ ...textBase, fontSize: 60, fontWeight: 900, marginTop: 8 }}>{best.date} · {best.score}</div>
-          <div style={{ ...textBase, fontSize: 32, color: C.dim, marginTop: 12 }}>{reason}</div>
+          <div style={{ ...textBase, fontSize: 36, color: C.dim, marginTop: 12 }}>{reason}</div>
         </div>
       ) : null}
     </AbsoluteFill>
@@ -281,7 +281,7 @@ export const ZiweiTourScene: React.FC<TourProps> = ({ lang, len, snapshot, topic
         </div>
       </div>
       <div style={{ position: "absolute", top: 1440, width: "100%", padding: "0 60px", opacity: callout, transform: `translateY(${(1 - callout) * 40}px)` }}>
-        <div style={{ ...textBase, fontSize: 42, fontWeight: 900, color: C.goldHi, lineHeight: 1.3 }}>{note}</div>
+        <div style={{ ...textBase, fontSize: 48, fontWeight: 900, color: C.goldHi, lineHeight: 1.3 }}>{note}</div>
       </div>
     </AbsoluteFill>
   );
