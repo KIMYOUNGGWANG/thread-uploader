@@ -215,13 +215,15 @@ function judgeLengthExperiment(snapshot, { slug, from, shortMax, longMin, planne
   const short = aged.filter((p) => p.content.length <= shortMax);
   const long = aged.filter((p) => p.content.length >= longMin);
   const out = [`# 길이 실험 판정: ${slug} (${from}~, 짧은 글 ≤${shortMax}자 vs 긴 글 ≥${longMin}자)`, "",
-    `- 실험 표본 ${sample.length}/${plannedN * 2}개(시작 후 처음 발행된 실험 대상 S/L 글), 컷오프 이후 제외 ${overflow}개, 측정 시점 ${minAgeDays}일 이상 ${aged.length}개`,
-    `- 짧은 글 ${short.length}/${plannedN}개 · 조회수 중앙값 ${n0(median(short.map((p) => p.views)))} · 공식 구성: ${formulaMix(short)}`,
-    `- 긴 글 ${long.length}/${plannedN}개 · 조회수 중앙값 ${n0(median(long.map((p) => p.views)))} · 공식 구성: ${formulaMix(long)}`];
+    `- 실험 표본 ${sample.length}/${plannedN * 2}개(시작 후 처음 발행된 실험 대상 S/L 글), 컷오프 이후 제외 ${overflow}개, 측정 시점 ${minAgeDays}일 이상 ${aged.length}개`];
+  // Held = progress check only. Medians or formula mix here would let a mid-experiment peek steer the run.
   if (short.length < plannedN || long.length < plannedN) {
-    out.push("", "판정 보류: 사전에 정한 글 수에 못 미쳐. 중간에 결과를 보고 멈추면 안 돼.");
+    out.push(`- 짧은 글 ${short.length}/${plannedN}개 · 긴 글 ${long.length}/${plannedN}개 (측정 시점 ${minAgeDays}일 이상 기준)`, "",
+      "판정 보류: 사전에 정한 글 수에 못 미쳐. 결과 수치는 다 찼을 때만 보여줘. 중간에 결과를 보고 멈추면 안 돼.");
     return out.join("\n");
   }
+  out.push(`- 짧은 글 ${short.length}/${plannedN}개 · 조회수 중앙값 ${n0(median(short.map((p) => p.views)))} · 공식 구성: ${formulaMix(short)}`,
+    `- 긴 글 ${long.length}/${plannedN}개 · 조회수 중앙값 ${n0(median(long.map((p) => p.views)))} · 공식 구성: ${formulaMix(long)}`);
   const reach = compareReach(short, long);
   const eng = compareEngagement(short, long);
   out.push(`- 도달 배수 ${x(reach.ratio)} [95% CI ${x(reach.lo)}, ${x(reach.hi)}] · 순열 p ${reach.p.toFixed(3)}`,
@@ -262,6 +264,11 @@ function selfTest() {
   }));
   const verdict = judgeLengthExperiment({ brands: [{ slug: "x", posts: measured }] }, { slug: "x", from, shortMax: 260, longMin: 390, plannedN: 45, minAgeDays: 7 });
   assert(verdict.includes("짧은 글 44/45"), "cutoff applies before the measurement filter");
+  // A held verdict is a progress check: running it mid-experiment must not leak interim results.
+  assert(verdict.includes("판정 보류") && !verdict.includes("중앙값") && !verdict.includes("공식 구성"), "held verdict hides interim results");
+  const complete = measured.map((p) => ({ ...p, metricsAt: p.metricsAt ?? measured[0].metricsAt }));
+  const finalVerdict = judgeLengthExperiment({ brands: [{ slug: "x", posts: complete }] }, { slug: "x", from, shortMax: 260, longMin: 390, plannedN: 45, minAgeDays: 7 });
+  assert(finalVerdict.includes("짧은 글 45/45개 · 조회수 중앙값") && finalVerdict.includes("판정:"), "complete experiment shows the verdict");
   console.log("self-test ok");
 }
 
