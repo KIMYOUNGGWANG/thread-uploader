@@ -58,3 +58,17 @@ describe("AI_SLOP_PATTERNS", () => {
     expect(AI_SLOP_PATTERNS.some((entry) => entry.pattern.test(opener))).toBe(false);
   });
 });
+
+describe("evaluateTargetUser fold penalty", () => {
+  // 432 chars, no classification or save trigger: the fold rule alone drops it below the 75 pass line.
+  const longPost = "진태양시는 출생 시간을 다시 계산하는 방법이야.\n".repeat(16);
+
+  it("skips the fold penalty when ignoreFoldLength is set", () => {
+    const penalized = evaluateTargetUser(longPost);
+    const exempt = evaluateTargetUser(longPost, { ignoreFoldLength: true });
+
+    expect(exempt.score - penalized.score).toBe(10);
+    expect(penalized.flags.join(" ")).toContain("Fold");
+    expect(exempt.flags.join(" ")).not.toContain("Fold");
+  });
+});

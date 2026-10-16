@@ -387,15 +387,15 @@ export function checkQuality(
 ): QualityResult {
   const isEnglish = profile === "ecommerce_d2c" || Boolean(context.isEnglish);
   if (profile === "ecommerce_d2c") {
-    return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkEcommerceD2CQuality(post)), isEnglish);
+    return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkEcommerceD2CQuality(post)), isEnglish, context.ignoreFoldLength);
   }
   if (profile === "career_decision") {
-    return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkCareerDecisionQuality(post)), isEnglish);
+    return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkCareerDecisionQuality(post)), isEnglish, context.ignoreFoldLength);
   }
   if (profile === "product_growth") {
-    return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkProductGrowthQuality(post, context)), isEnglish);
+    return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkProductGrowthQuality(post, context)), isEnglish, context.ignoreFoldLength);
   }
-  return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkSajuViralQuality(post, context)), isEnglish);
+  return enforceSafetyRules(post, enforceThreadsContentLimit(post, checkSajuViralQuality(post, context)), isEnglish, context.ignoreFoldLength);
 }
 
 function enforceThreadsContentLimit(post: string, result: QualityResult): QualityResult {
@@ -408,7 +408,7 @@ function enforceThreadsContentLimit(post: string, result: QualityResult): Qualit
   };
 }
 
-function enforceSafetyRules(post: string, result: QualityResult, isEnglish = false): QualityResult {
+function enforceSafetyRules(post: string, result: QualityResult, isEnglish = false, ignoreFoldLength = false): QualityResult {
   const reasons = [...result.reasons];
   if (isEnglish && /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(post)) {
     reasons.unshift("영문 프로필에 한글 문자 포함 (Zero Hangul 위반)");
@@ -422,7 +422,7 @@ function enforceSafetyRules(post: string, result: QualityResult, isEnglish = fal
     reasons.unshift(...antiSlop.issues);
   }
 
-  const expertEvaluation = evaluateContentWithExpertPanel(post);
+  const expertEvaluation = evaluateContentWithExpertPanel(post, { ignoreFoldLength });
   if (!expertEvaluation.pass && expertEvaluation.blockingReasons.length > 0) {
     reasons.unshift(...expertEvaluation.blockingReasons);
   }

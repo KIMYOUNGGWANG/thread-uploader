@@ -10,6 +10,8 @@ export interface ProductQualityContext {
   ctaTerms?: string[];
   isEnglish?: boolean;
   readonly viralIntentModeId?: ViralIntentModeId;
+  // Length experiment drafts skip the expert panel's fold-length penalty.
+  ignoreFoldLength?: boolean;
 }
 
 const GENERIC_SELF_HELP_PATTERNS = [

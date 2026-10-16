@@ -29,6 +29,8 @@ export interface EvaluationContext {
   productName?: string;
   offerPromise?: string;
   qualityProfile?: string;
+  // Length experiment drafts: length is the treatment, so the fold rule must not filter them.
+  ignoreFoldLength?: boolean;
 }
 
 // 30 AI Slop and artificial phrasing patterns
@@ -148,7 +150,7 @@ export function evaluateTargetUser(content: string, context?: EvaluationContext)
   // 4. Fold optimization check:
   // Korean folds around 260~280 chars, but English threads target ~450 chars
   const foldThreshold = isEnglish ? 450 : 280;
-  if (content.length > foldThreshold) {
+  if (!context?.ignoreFoldLength && content.length > foldThreshold) {
     score -= 10;
     flags.push(`글이 ${foldThreshold}자를 초과하여 모바일 Fold 아래로 접혀 즉각적 스크롤 스토핑 효과가 감소함`);
   }
