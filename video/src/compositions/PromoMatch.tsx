@@ -1,9 +1,9 @@
 // PromoMatch.tsx — format ③ (Korean only): two fictional birthdays through the real /match calculator.
 // Scores, elements, signs and 천간합/지지충 come from match-calculator.calculateCompatibility.
 import React from "react";
-import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { ensurePretendard } from "../load-fonts";
-import { C, Starfield, textBase, useEnter, useExit } from "../components/PromoKit";
+import { C, Shot, Backdrop, textBase, useEnter, useExit } from "../components/PromoKit";
 import { HookScene, OutroScene, SampleNote } from "../components/PromoScenes";
 import { UI_COPY, hookLines } from "../promo/copy.ts";
 import type { Persona, PromoLang, PromoProps } from "../promo/types.ts";
@@ -84,10 +84,10 @@ export const PromoMatch: React.FC<PromoProps> = ({ lang, variant, snapshot }) =>
   }
   return (
     <AbsoluteFill style={{ backgroundColor: C.bg }}>
-      <Starfield />
-      <Sequence from={0} durationInFrames={70} name="hook"><HookScene lines={hookLines(variant)} len={70} /></Sequence>
-      <Sequence from={70} durationInFrames={360} name="match"><MatchScene lang={lang} match={match} host={snapshot.persona} guest={guest} len={360} /></Sequence>
-      <Sequence from={430} durationInFrames={170} name="outro"><OutroScene lang={lang} match /></Sequence>
+      <Backdrop />
+      <Shot from={0} durationInFrames={70} name="hook"><HookScene lines={hookLines(variant)} len={70} /></Shot>
+      <Shot from={70} durationInFrames={360} name="match"><MatchScene lang={lang} match={match} host={snapshot.persona} guest={guest} len={360} /></Shot>
+      <Shot from={430} durationInFrames={170} name="outro"><OutroScene lang={lang} match /></Shot>
     </AbsoluteFill>
   );
 };

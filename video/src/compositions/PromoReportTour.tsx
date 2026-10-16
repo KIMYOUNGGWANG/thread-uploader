@@ -3,9 +3,9 @@
 // cosmicpath engines). Copy rules (cosmicpath docs/product.md): no fabricated scores/percentages,
 // no "판정/직답/권고", price only $9.99. The 궁합 pair scene is Korean-only; other cuts show /review.
 import React from "react";
-import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { ensurePretendard } from "../load-fonts";
-import { C, Rise, Starfield, textBase, useEnter, useExit } from "../components/PromoKit";
+import { C, Shot, Rise, Backdrop, textBase, useEnter, useExit } from "../components/PromoKit";
 import { HookScene, OutroScene, QuestionScene } from "../components/PromoScenes";
 import { FlowTourScene, HeatmapTourScene, SajuTourScene, TourKicker, TOUR_TOTAL, ZiweiTourScene } from "../components/ReportTourScenes";
 import { TOPIC_COPY, UI_COPY, hookLines, personaLine } from "../promo/copy.ts";
@@ -109,7 +109,7 @@ const PainRow: React.FC<{ label: string; index: number }> = ({ label, index }) =
       style={{
         position: "relative",
         margin: "18px 0",
-        padding: "34px 40px",
+        padding: "40px 40px",
         borderRadius: 28,
         background: C.card,
         border: `2px solid ${C.border}`,
@@ -117,7 +117,7 @@ const PainRow: React.FC<{ label: string; index: number }> = ({ label, index }) =
         transform: `translateX(${(1 - enter) * (index % 2 ? 300 : -300)}px)`,
       }}
     >
-      <div style={{ ...textBase, fontSize: 50, fontWeight: 700, color: strike > 50 ? C.dim : C.text }}>{label}</div>
+      <div style={{ ...textBase, fontSize: 58, fontWeight: 800, color: strike > 50 ? C.dim : C.text }}>{label}</div>
       <div
         style={{
           position: "absolute",
@@ -134,9 +134,9 @@ const PainRow: React.FC<{ label: string; index: number }> = ({ label, index }) =
 };
 
 const PainsScene: React.FC<{ copy: Copy; len: number }> = ({ copy, len }) => (
-  <AbsoluteFill style={{ justifyContent: "center", padding: 80, opacity: useExit(len) }}>
+  <AbsoluteFill style={{ justifyContent: "center", padding: 60, opacity: useExit(len) }}>
     <Rise>
-      <div style={{ ...textBase, fontSize: 60, fontWeight: 800, marginBottom: 40 }}>{copy.painTitle}</div>
+      <div style={{ ...textBase, fontSize: 80, fontWeight: 900, marginBottom: 50 }}>{copy.painTitle}</div>
     </Rise>
     {copy.pains.map((p, i) => (
       <PainRow key={p} label={p} index={i} />
@@ -387,13 +387,13 @@ export const PromoReportTour: React.FC<PromoProps> = (props) => {
   const copy = buildCopy(props);
   return (
     <AbsoluteFill style={{ backgroundColor: C.bg }}>
-      <Starfield />
+      <Backdrop />
       {SCENES.map((s) => {
         const SceneComponent = SCENE_COMPONENTS[s.id];
         return (
-          <Sequence key={s.id} from={s.from} durationInFrames={s.len} name={s.id}>
+          <Shot key={s.id} from={s.from} durationInFrames={s.len} name={s.id}>
             <SceneComponent copy={copy} props={props} len={s.len} />
-          </Sequence>
+          </Shot>
         );
       })}
     </AbsoluteFill>
