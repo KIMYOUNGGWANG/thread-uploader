@@ -78,6 +78,25 @@ describe("refreshBrandTrendRadar", () => {
 
     expect(result.saved).toBe(3);
     expect(mocks.searchThreads).not.toHaveBeenCalled();
+    expect(result.threadsSearch?.skipped).toBe("token expired");
+  });
+
+  it("reports keyword search failures in the run result instead of dropping them", async () => {
+    mocks.searchThreads.mockRejectedValue(new Error("Threads discovery failed: missing permission"));
+    mocks.create.mockImplementation(async (params: { tools?: unknown[] }) =>
+      textMessage(params.tools ? harvestJson : transposedJson)
+    );
+    const { refreshBrandTrendRadar } = await import("./trend-radar-service");
+
+    const result = await refreshBrandTrendRadar({ id: "b1", slug: "cosmicpath", name: "CosmicPath", brandConfig: "{}" });
+
+    const calls = mocks.searchThreads.mock.calls.length;
+    expect(result.threadsSearch).toEqual({
+      calls,
+      failed: calls,
+      posts: 0,
+      firstError: "Threads discovery failed: missing permission",
+    });
   });
 
   it("resumes a paused web search and stores transposed hooks on brandConfig", async () => {
@@ -89,7 +108,7 @@ describe("refreshBrandTrendRadar", () => {
 
     const result = await refreshBrandTrendRadar({ id: "b1", slug: "cosmicpath", name: "CosmicPath", brandConfig: '{"topics":["커리어"]}' });
 
-    expect(result).toEqual({ slug: "cosmicpath", skeletons: 3, saved: 3 });
+    expect(result).toMatchObject({ slug: "cosmicpath", skeletons: 3, saved: 3 });
     const savedArgs = mocks.updateBrand.mock.calls[0]?.[0];
     if (!savedArgs) throw new Error("brand.update was not called");
     const saved = JSON.parse(savedArgs.data.brandConfig);
