@@ -5,7 +5,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 const prisma = new PrismaClient();
-const outPath = process.argv[2] ?? `.data/analysis/post-metrics-${new Date().toISOString().slice(0, 10)}.json`;
+// Local date (sv-SE = YYYY-MM-DD), so the name matches `$(date +%Y-%m-%d)`; UTC lags a day before 09:00 KST.
+const outPath = process.argv[2] ?? `.data/analysis/post-metrics-${new Date().toLocaleDateString("sv-SE")}.json`;
 
 async function main() {
   const brands = await prisma.brand.findMany({ select: { id: true, slug: true, growthMemory: true } });
