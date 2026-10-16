@@ -25,8 +25,8 @@ describe("isAutopilotFormula", () => {
   const memory = {
     ...EMPTY_GROWTH_MEMORY,
     winners: [
-      { dimension: "formula" as const, value: "dilemma", count: 3, avgScore: 900, avgViews: 0, avgLikes: 0, avgReplies: 0, avgReposts: 0 },
-      { dimension: "hook" as const, value: "new_formula", count: 3, avgScore: 900, avgViews: 0, avgLikes: 0, avgReplies: 0, avgReposts: 0 },
+      { dimension: "formula" as const, value: "dilemma", count: 5, avgScore: 900, medianScore: 900, avgViews: 0, avgLikes: 0, avgReplies: 0, avgReposts: 0 },
+      { dimension: "hook" as const, value: "new_formula", count: 5, avgScore: 900, medianScore: 900, avgViews: 0, avgLikes: 0, avgReplies: 0, avgReposts: 0 },
     ],
   };
 
@@ -64,20 +64,37 @@ describe("formulaWinners", () => {
     id, formulaId, hookType, topic: hookType, targetAudience: null, ctaType: null,
     views, likes: 0, replies: 0, reposts: 0, performanceScore: null,
   });
-  // The formula averages its hot and cold posts; three hook+topic pairs above that
-  // average (6 patterns) push every formula out of the mixed top-5 winners.
+  const repeat = (count: number, formulaId: string, hookType: string, views: number) =>
+    Array.from({ length: count }, (_, index) => post(`${formulaId}-${hookType}-${index}`, formulaId, hookType, views));
+  // "steady" has more cold than hot posts, so its median (40) beats the brand median (20) but
+  // three hot hook+topic pairs above it (6 patterns) push every formula out of the mixed top-5 winners.
   const posts: GrowthPostInput[] = [
-    post("1", "steady", "h1", 2000), post("2", "steady", "h1", 2000),
-    post("3", "steady", "h2", 1800), post("4", "steady", "h2", 1800),
-    post("5", "steady", "h3", 1600), post("6", "steady", "h3", 1600),
-    post("7", "steady", "h4", 200), post("8", "steady", "h4", 200),
-    post("9", "steady", "h5", 100), post("10", "steady", "h5", 100),
-    post("11", "weak", "h6", 10), post("12", "weak", "h6", 10),
+    ...repeat(5, "steady", "h1", 2000), ...repeat(5, "steady", "h2", 1800), ...repeat(5, "steady", "h3", 1700),
+    ...repeat(8, "steady", "h4", 200), ...repeat(8, "steady", "h5", 100),
+    ...repeat(20, "weak", "h6", 10),
   ];
 
-  it("lists formulas with 2+ posts scoring at or above the brand average", () => {
+  it("lists formulas with 5+ posts at or above the brand median", () => {
     const memory = buildGrowthMemory(posts);
     expect(memory.formulaWinners).toEqual(["steady"]);
+  });
+
+  // Regression: 2026-10 cosmicpath crowned controversy_stunt (42,329 + 115 views) and a CTA whose
+  // mean was 6,123 views but median 79. One breakout or two lucky posts must not prove a pattern.
+  it("ignores patterns carried by one breakout post or too few posts", () => {
+    const memory = buildGrowthMemory([
+      ...repeat(10, "steady", "x", 150),
+      post("s1", "stunt", "x", 42329), post("s2", "stunt", "x", 115), post("s3", "stunt", "x", 80),
+      post("s4", "stunt", "x", 60), post("s5", "stunt", "x", 50),
+      post("l1", "lucky", "x", 9000), post("l2", "lucky", "x", 8000),
+    ]);
+
+    expect(memory.formulaWinners).toEqual(["steady"]);
+    expect(memory.winners.map((winner) => winner.value)).not.toContain("stunt");
+    expect(memory.winners.map((winner) => winner.value)).not.toContain("lucky");
+    expect(memory.weakSignals.map((weak) => weak.value)).toContain("stunt");
+    expect(isAutopilotFormula("stunt", memory)).toBe(false);
+    expect(isAutopilotFormula("lucky", memory)).toBe(false);
   });
 
   it("auto-queues a formula winner even when mixed winners are all hooks", () => {

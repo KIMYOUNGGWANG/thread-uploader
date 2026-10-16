@@ -4,7 +4,10 @@
  * 최근 게시된 포스트의 Threads 성과(조회수, 답글, 리포스트, 클릭/전환)를 분석하여
  * 상위 20% 및 하위 20% 공식(GenerationFormula)을 판별하고,
  * Brand의 formulaWeights(공식 가중치)를 점진적·적응형(Adaptive)으로 조정한다.
+ * 조회수는 롱테일이라 대박 글 하나가 평균을 끌어올리므로, 순위는 중앙값으로 매긴다.
  */
+
+import { median, MIN_PATTERN_POSTS } from "@/lib/growth-learning";
 
 export interface PostPerformanceRecord {
   id: string;
@@ -22,7 +25,7 @@ export interface WeightAdjustmentResult {
   updatedWeights: Record<string, number>;
   promotedFormulas: string[];
   demotedFormulas: string[];
-  formulaScores: Record<string, { count: number; avgScore: number }>;
+  formulaScores: Record<string, { count: number; avgScore: number; medianScore: number }>;
 }
 
 export interface GrowthFeedbackLoopOptions {
@@ -34,7 +37,7 @@ export interface GrowthFeedbackLoopOptions {
 }
 
 const DEFAULT_OPTIONS: Required<GrowthFeedbackLoopOptions> = {
-  minSamplesPerFormula: 2,
+  minSamplesPerFormula: MIN_PATTERN_POSTS,
   promotionStep: 1,
   demotionStep: 1,
   minWeight: 1,
@@ -42,7 +45,7 @@ const DEFAULT_OPTIONS: Required<GrowthFeedbackLoopOptions> = {
 };
 
 /**
- * Calculates formula performance averages and updates formula weights.
+ * Ranks formulas by median performance and updates formula weights.
  * - Formulas in the top 20% get weight incremented (capped at maxWeight)
  * - Formulas in the bottom 20% get weight decremented (floored at minWeight)
  */
@@ -63,32 +66,28 @@ export function computeAdaptiveFormulaWeights(
   }
 
   // Group performance by formulaId
-  const formulaStats: Record<string, { totalScore: number; count: number }> = {};
+  const formulaStats: Record<string, number[]> = {};
   for (const post of posts) {
     if (!post.formulaId || post.performanceScore === null || post.performanceScore === undefined) {
       continue;
     }
-    if (!formulaStats[post.formulaId]) {
-      formulaStats[post.formulaId] = { totalScore: 0, count: 0 };
-    }
-    formulaStats[post.formulaId].totalScore += post.performanceScore;
-    formulaStats[post.formulaId].count += 1;
+    (formulaStats[post.formulaId] ??= []).push(post.performanceScore);
   }
 
-  const formulaScores: Record<string, { count: number; avgScore: number }> = {};
-  const qualifiedFormulas: Array<{ formulaId: string; avgScore: number; count: number }> = [];
+  const formulaScores: WeightAdjustmentResult["formulaScores"] = {};
+  const qualifiedFormulas: Array<{ formulaId: string; medianScore: number; count: number }> = [];
 
-  for (const [fId, stat] of Object.entries(formulaStats)) {
-    const avgScore = stat.count > 0 ? Math.round(stat.totalScore / stat.count) : 0;
-    formulaScores[fId] = { count: stat.count, avgScore };
+  for (const [fId, scores] of Object.entries(formulaStats)) {
+    const avgScore = Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
+    const medianScore = median(scores);
+    formulaScores[fId] = { count: scores.length, avgScore, medianScore };
 
-    if (stat.count >= opts.minSamplesPerFormula) {
-      qualifiedFormulas.push({ formulaId: fId, avgScore, count: stat.count });
+    if (scores.length >= opts.minSamplesPerFormula) {
+      qualifiedFormulas.push({ formulaId: fId, medianScore, count: scores.length });
     }
   }
 
-  // Sort qualified formulas by avgScore descending
-  qualifiedFormulas.sort((a, b) => b.avgScore - a.avgScore);
+  qualifiedFormulas.sort((a, b) => b.medianScore - a.medianScore);
 
   const promotedFormulas: string[] = [];
   const demotedFormulas: string[] = [];
@@ -155,8 +154,8 @@ export function computeAdaptiveContextWeights(
     if (updatedFrictionWeights[f] === undefined) updatedFrictionWeights[f] = 3;
   }
 
-  const personaStats: Record<string, { totalScore: number; count: number }> = {};
-  const frictionStats: Record<string, { totalScore: number; count: number }> = {};
+  const personaStats: Record<string, number[]> = {};
+  const frictionStats: Record<string, number[]> = {};
 
   for (const post of posts) {
     if (post.performanceScore === null || post.performanceScore === undefined) continue;
@@ -166,29 +165,19 @@ export function computeAdaptiveContextWeights(
 
     for (const p of knownPersonas) {
       if (postAudience.includes(p) || postTopic.includes(p)) {
-        if (!personaStats[p]) personaStats[p] = { totalScore: 0, count: 0 };
-        personaStats[p].totalScore += post.performanceScore;
-        personaStats[p].count += 1;
+        (personaStats[p] ??= []).push(post.performanceScore);
       }
     }
 
     for (const f of knownFrictions) {
       if (postSituation.includes(f) || postTopic.includes(f)) {
-        if (!frictionStats[f]) frictionStats[f] = { totalScore: 0, count: 0 };
-        frictionStats[f].totalScore += post.performanceScore;
-        frictionStats[f].count += 1;
+        (frictionStats[f] ??= []).push(post.performanceScore);
       }
     }
   }
 
   // Adjust persona weights
-  const qualifiedPersonas: Array<{ key: string; avgScore: number; count: number }> = [];
-  for (const [p, stat] of Object.entries(personaStats)) {
-    if (stat.count >= opts.minSamplesPerFormula) {
-      qualifiedPersonas.push({ key: p, avgScore: Math.round(stat.totalScore / stat.count), count: stat.count });
-    }
-  }
-  qualifiedPersonas.sort((a, b) => b.avgScore - a.avgScore);
+  const qualifiedPersonas = rankQualifiedByMedian(personaStats, opts.minSamplesPerFormula);
 
   const promotedPersonas: string[] = [];
   const demotedPersonas: string[] = [];
@@ -211,13 +200,7 @@ export function computeAdaptiveContextWeights(
   }
 
   // Adjust friction weights
-  const qualifiedFrictions: Array<{ key: string; avgScore: number; count: number }> = [];
-  for (const [f, stat] of Object.entries(frictionStats)) {
-    if (stat.count >= opts.minSamplesPerFormula) {
-      qualifiedFrictions.push({ key: f, avgScore: Math.round(stat.totalScore / stat.count), count: stat.count });
-    }
-  }
-  qualifiedFrictions.sort((a, b) => b.avgScore - a.avgScore);
+  const qualifiedFrictions = rankQualifiedByMedian(frictionStats, opts.minSamplesPerFormula);
 
   const promotedFrictions: string[] = [];
   const demotedFrictions: string[] = [];
@@ -247,4 +230,11 @@ export function computeAdaptiveContextWeights(
     promotedFrictions,
     demotedFrictions,
   };
+}
+
+function rankQualifiedByMedian(scoresByKey: Record<string, number[]>, minSamples: number) {
+  return Object.entries(scoresByKey)
+    .filter(([, scores]) => scores.length >= minSamples)
+    .map(([key, scores]) => ({ key, medianScore: median(scores), count: scores.length }))
+    .sort((a, b) => b.medianScore - a.medianScore);
 }

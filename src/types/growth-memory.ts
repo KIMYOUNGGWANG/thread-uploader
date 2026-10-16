@@ -5,6 +5,8 @@ export interface GrowthPattern {
   value: string;
   count: number;
   avgScore: number;
+  // Ranking key: one breakout post skews avgScore, so winners/weak signals are picked by median.
+  medianScore: number;
   avgViews: number;
   avgLikes: number;
   avgReplies: number;
@@ -19,7 +21,7 @@ export interface GrowthMemory {
   winners: GrowthPattern[];
   weakSignals: GrowthPattern[];
   recommendations: string[];
-  // Formula ids proven at or above the brand average (2+ posts). Drives auto-queue; optional for old rows.
+  // Formula ids with 5+ posts whose median is at or above the brand median. Drives auto-queue; optional for old rows.
   formulaWinners?: string[];
 }
 
@@ -63,6 +65,8 @@ function normalizeGrowthPatterns(input: unknown): GrowthPattern[] {
       value: pattern.value,
       count: normalizeNumber(pattern.count),
       avgScore: normalizeNumber(pattern.avgScore),
+      // Rows learned before medianScore existed keep their mean until the next daily learn run.
+      medianScore: normalizeNumber(pattern.medianScore ?? pattern.avgScore),
       avgViews: normalizeNumber(pattern.avgViews),
       avgLikes: normalizeNumber(pattern.avgLikes),
       avgReplies: normalizeNumber(pattern.avgReplies),
