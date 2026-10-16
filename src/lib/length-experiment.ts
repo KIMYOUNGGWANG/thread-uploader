@@ -1,4 +1,6 @@
+import { prisma } from "@/lib/prisma";
 import { MAX_REFILL_PER_RUN } from "@/lib/queue-refill";
+import type { BrandConfig } from "@/types/brand";
 import type { LengthArm, LengthExperimentConfig } from "@/types/length-experiment";
 
 // One definition of "experiment post" for publish, generation, refill and
@@ -62,6 +64,36 @@ export function planLengthArms(pending: Record<LengthArm, number>, nextArm: Leng
 export function planExperimentRefillCount(pending: Record<LengthArm, number>, target: number, maxPerRun: number = MAX_REFILL_PER_RUN): number {
   const perArm = Math.ceil(target / 2);
   return Math.min(maxPerRun, Math.max(0, perArm - pending.S) + Math.max(0, perArm - pending.L));
+}
+
+export interface LengthExperimentState {
+  config: LengthExperimentConfig;
+  position: number;
+  arm: LengthArm;
+  pending: Record<LengthArm, number>;
+}
+
+const EXPERIMENT_POST_SELECT = { content: true, postCategory: true, formulaId: true, createdAt: true } as const;
+
+/** Null (and no DB reads) unless the brand has a live experiment: started and not yet through its sequence. */
+export async function loadLengthExperimentState(
+  brandId: string,
+  brandConfig: Pick<BrandConfig, "lengthExperiment">,
+  now: Date
+): Promise<LengthExperimentState | null> {
+  const config = brandConfig.lengthExperiment;
+  if (!config || now.getTime() < Date.parse(config.startAt)) return null;
+
+  const [published, pending] = await Promise.all([
+    prisma.post.findMany({
+      where: { brandId, status: "PUBLISHED", publishedAt: { gte: new Date(config.startAt) } },
+      select: EXPERIMENT_POST_SELECT,
+    }),
+    prisma.post.findMany({ where: { brandId, status: "PENDING", qualityPass: true }, select: EXPERIMENT_POST_SELECT }),
+  ]);
+  const position = sequencePosition(published, config);
+  const arm = currentArm(config, position, now);
+  return arm ? { config, position, arm, pending: countPendingByArm(pending, config) } : null;
 }
 
 const TARGET_RANGE: Record<LengthArm, string> = { S: "140~240자", L: "400~450자" };

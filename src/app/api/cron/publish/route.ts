@@ -15,6 +15,7 @@ import { resolveAccountTrustTier, startOfPublishDay, TIER_DAILY_QUOTAS } from "@
 import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 import { sendSystemAlert } from "@/lib/alert-service";
 import { isMetricsCollectionStale } from "@/lib/metrics-selection";
+import { loadLengthExperimentState, pickPublishCandidate } from "@/lib/length-experiment";
 import {
   checkCircuitBreaker,
   recordCircuitBreakerFailure,
@@ -25,6 +26,8 @@ const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 // GitHub schedules run hours late, so the scheduler calls hourly and a slot stays open this long.
 const SLOT_WINDOW_HOURS = 3;
+// ponytail: scans the oldest 50 due drafts for the slot's arm; raise if the queue grows past that
+const LENGTH_EXPERIMENT_CANDIDATES = 50;
 
 export const maxDuration = 300; // video containers can take minutes to process
 
@@ -222,15 +225,23 @@ export async function GET(request: NextRequest) {
             });
           }
         } else {
-          post = await prisma.post.findFirst({
-            where: {
-              brandId: brand.id,
-              status: "PENDING",
-              scheduledAt: { lte: now },
-              qualityPass: true,
-            },
-            orderBy: { scheduledAt: "asc" },
-          });
+          const pendingWhere = { brandId: brand.id, status: "PENDING", scheduledAt: { lte: now }, qualityPass: true };
+          const lengthExperiment = await loadLengthExperimentState(brand.id, brandConfig, now);
+          if (lengthExperiment) {
+            // The pre-registered S/L sequence decides this slot's length; never fill it with the other arm.
+            const candidates = await prisma.post.findMany({
+              where: pendingWhere,
+              orderBy: { scheduledAt: "asc" },
+              take: LENGTH_EXPERIMENT_CANDIDATES,
+            });
+            post = pickPublishCandidate(candidates, lengthExperiment.config, lengthExperiment.arm);
+            if (!post) {
+              skipped.push({ brandId: brand.id, brandName: brand.name, reason: `length_experiment_waiting_${lengthExperiment.arm}` });
+              continue;
+            }
+          } else {
+            post = await prisma.post.findFirst({ where: pendingWhere, orderBy: { scheduledAt: "asc" } });
+          }
         }
       }
 
