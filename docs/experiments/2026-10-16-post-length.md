@@ -47,7 +47,15 @@ H1: 260자 이하 글(S)은 390자 이상 글(L)보다 발행 7일 시점의 조
 81-90: L S L S L S S L S L
 ```
 
-- **시작일:** `____-__-__` (첫 실험 글의 발행일. 정하면 여기 적고 커밋해.)
+- **시작 시각(`startAt`):** `____` (시작 스크립트가 출력한 ISO 시각을 초 단위까지 그대로 적고 커밋해. 날짜만 적으면 판정 표본이 어긋나.)
+- **시작 방법:** 실행 기능(`docs/superpowers/specs/2026-10-16-length-experiment-design.md`)이 배포된 뒤 아래를 실행해. cosmicpath `brandConfig.lengthExperiment`에 시퀀스와 `startAt`이 기록돼. 이미 시작했으면 아무것도 바꾸지 않아.
+  ```bash
+  node --env-file=.env scripts/start-length-experiment.mjs --dry-run
+  node --env-file=.env scripts/start-length-experiment.mjs
+  ```
+  - 실행 중에는 발행 cron이 슬롯마다 시퀀스의 등급(S/L)에 맞는 실험 초안만 발행해. 맞는 초안이 없으면 그 슬롯은 `length_experiment_waiting_S` 또는 `length_experiment_waiting_L`로 건너뛰어.
+  - 실험 대상은 `startAt` 이후 생성된 GROWTH 글이야. 홍보 영상(`video:`) 글과 WARMUP 글은 제외해.
+  - 90칸을 다 쓰면 발행과 생성이 평소대로 돌아가.
 
 ## 측정과 판정
 
@@ -56,8 +64,9 @@ H1: 260자 이하 글(S)은 390자 이상 글(L)보다 발행 7일 시점의 조
    ```bash
    node --env-file=.env scripts/export-post-metrics.mjs
    node scripts/analyze-post-response.mjs .data/analysis/post-metrics-<판정일>.json \
-     --experiment=cosmicpath --from=<시작일> --short-max=260 --long-min=390 --planned-n=45 --min-age-days=7
+     --experiment=cosmicpath --from=<startAt ISO 그대로> --short-max=260 --long-min=390 --planned-n=45 --min-age-days=7
    ```
+   - 판정 표본은 `startAt` 이후 처음 발행된 실험 대상 S/L 글 90개야. 그 뒤에 발행된 글은 섞이지 않아. 판정 모드가 이 컷오프와 S·L별 공식 구성을 함께 출력해. 가설과 판정 기준은 그대로야.
 3. 판정 기준:
    - **통과:** S가 L의 몇 배인지(도달 배수)의 부트스트랩 95% CI 하한이 1보다 크면 통과야. 이후 생성 기본 길이를 260자 이하로 바꿔.
    - **효과 확인 못 함:** CI가 1을 포함하면 가설을 버리고 다음 가설로 넘어가.

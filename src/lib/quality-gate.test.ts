@@ -395,3 +395,12 @@ describe("checkQuality ecommerce_d2c english hooks", () => {
     expect(result.reasons.join(" ")).not.toMatch(/첫 줄 훅 약함|대비\(Contrast\)/);
   });
 });
+
+describe("checkQuality length experiment drafts", () => {
+  const longPost = "진태양시는 출생 시간을 다시 계산하는 방법이야.\n".repeat(16);
+
+  it("forwards ignoreFoldLength to the expert panel", () => {
+    expect(checkQuality(longPost, "saju_viral").reasons.join(" ")).toContain("Fold");
+    expect(checkQuality(longPost, "saju_viral", { ignoreFoldLength: true }).reasons.join(" ")).not.toContain("Fold");
+  });
+});

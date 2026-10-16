@@ -48,6 +48,8 @@ import { findSaturatedTopics, formatSaturationReason } from "@/lib/topic-saturat
 import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
+import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
+import type { LengthArm } from "@/types/length-experiment";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -72,6 +74,8 @@ const GENERATED_META_PATTERNS = [
 ];
 
 interface GrowthExperiment {
+  // Pre-registered length experiment arm for this draft (docs/experiments/2026-10-16-post-length.md).
+  lengthTarget?: LengthArm;
   formula: GenerationFormula;
   topic: string;
   targetAudience: string;
@@ -292,13 +296,17 @@ async function generateWithQuality(
   campaignFormulaId: string | null;
   careerDecisionType: string | null;
   shouldLink: boolean;
+  lengthTarget?: LengthArm;
   regate: (post: string, firstComment: string) => QualityResult;
 }> {
   const isEnglish =
     experiment.qualityProfile === "ecommerce_d2c" ||
     config.voiceProfile?.language === "en" ||
     Boolean(config.productProfile?.productName?.toLowerCase().includes("global"));
-  const qualityContext = buildProductQualityContext(config, experiment.viralIntentMode?.id);
+  const qualityContext = {
+    ...buildProductQualityContext(config, experiment.viralIntentMode?.id),
+    ignoreFoldLength: Boolean(experiment.lengthTarget),
+  };
 
   // One gate for the first draft, every retry, and the post-remediation re-check.
   // Word overlap and a shared skeleton both count as a repeat; the skeleton rules are Korean saju templates,
@@ -334,6 +342,13 @@ async function generateWithQuality(
       if (repeat?.reason) {
         gate = { ...gate, pass: false, reasons: [repeat.reason, ...gate.reasons] };
       }
+    }
+    // A miss retries the same formula with the arm's band as feedback, and makes a too-short rewrite revert.
+    const lengthReason = experiment.lengthTarget && config.lengthExperiment
+      ? lengthGateReason(post, experiment.lengthTarget, config.lengthExperiment)
+      : null;
+    if (lengthReason) {
+      gate = { ...gate, pass: false, reasons: [lengthReason, ...gate.reasons] };
     }
     return gate;
   };
@@ -377,6 +392,7 @@ async function generateWithQuality(
     campaignFormulaId: experiment.campaignFormulaId,
     careerDecisionType: qualityResult.careerDecisionType ?? null,
     shouldLink: experiment.shouldLink,
+    lengthTarget: experiment.lengthTarget,
     regate: runQualityGate,
   };
 }
@@ -442,6 +458,7 @@ function buildGenerationPrompt(
     Boolean(config.productProfile?.productName?.toLowerCase().includes("global"));
 
   const creatorPatternContext = formatCreatorPatternContext(experiment.hookType, experiment.ctaType);
+  const lengthLines = experiment.lengthTarget ? lengthPromptLines(experiment.lengthTarget) : null;
   const viralIntentMode = experiment.viralIntentMode
     ?? resolveViralIntentMode(experiment.campaignFormulaId ?? experiment.formula.id, 0);
   const marketingSkillsContext = experiment.qualityProfile === "product_growth"
@@ -487,7 +504,7 @@ function buildGenerationPrompt(
       ]
     : [
         "[Threads 압축 바이럴 규격 및 12만 뷰 검증 구조]",
-        `- 본문 목표 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(이상적 범위: 140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하)로 극도로 압축한다.`,
+        lengthLines?.rule ?? `- 본문 목표 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(이상적 범위: 140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하)로 극도로 압축한다.`,
         `- 상단 100자(피드 접히기 전 Fold)에서 스크롤을 멈추게 해야 한다. 지루한 배경 설명, 훈계조 사주 강의, 불필요한 증상 나열(□)은 절대 금지한다.`,
         `- [Charlie Hills 2-Line Contrast Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내의 반전/대립각(Contrast)으로 상식을 뒤집는다.`,
         "- [첫 줄 스크롤 멈춤]: 첫 줄은 구체 숫자(예: 10명 중 7명), 특정 살·일주 호명, 통념 반박 중 하나로 스크롤을 멈추게 한다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
@@ -583,7 +600,7 @@ function buildGenerationPrompt(
         `[최근 생성 글 회피]\n${recentPostContext}`,
         ...formatQualityFeedback(qualityFeedback, false),
         "",
-        `위 실험 조건을 조합해서 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하) Threads 포스트 1개를 작성해줘. 작성 후 ${SEPARATOR} 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.`,
+        `${lengthLines?.request ?? `위 실험 조건을 조합해서 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하) Threads 포스트 1개를 작성해줘.`} 작성 후 ${SEPARATOR} 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.`,
         "본문과 첫 댓글에 실제 URL은 쓰지 마. 시스템이 저장 후 필요한 경우 UTM 링크를 붙인다.",
       ];
 
@@ -957,6 +974,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   const pickedFormulaIds: string[] = [];
 
   const failureReasons: string[] = [];
+  // Live length experiment: each draft gets the arm the queue is shortest on, so publish slots never wait long.
+  const lengthExperiment = await loadLengthExperimentState(brandId, config, new Date());
+  const lengthArms = lengthExperiment ? shuffleArms(planLengthArms(lengthExperiment.pending, lengthExperiment.arm, count)) : [];
   for (let i = 0; i < count; i += BATCH) {
     const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
       const batchIndex = i + j;
@@ -1004,6 +1024,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         contextOffset,
         linkOffset
       );
+      experiment.lengthTarget = lengthArms[batchIndex];
       // Newest first, so the anti-repeat windows look at the latest drafts.
       const inBatchPosts: RecentPostSummary[] = [
         ...[...results].reverse().map((result) => ({ content: result.post, topic: result.topic, hookType: result.hookType, firstComment: result.firstComment })),
@@ -1099,6 +1120,11 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     if (!remediation.pass) {
       failureReasons.push(`algorithm score ${remediation.scoreResult.totalScore} under threshold (${result.formulaId})`);
       console.warn(`[generate] algorithm score ${remediation.scoreResult.totalScore} under threshold, skipping ${result.formulaId}`);
+      continue;
+    }
+    // Belt and braces after rewrites: a draft outside its arm's band never reaches the experiment queue.
+    if (result.lengthTarget && lengthExperiment && lengthGateReason(reconciled.content, result.lengthTarget, lengthExperiment.config)) {
+      failureReasons.push(`length experiment ${result.lengthTarget} mismatch (${result.formulaId})`);
       continue;
     }
 

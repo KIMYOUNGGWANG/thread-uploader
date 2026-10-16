@@ -188,18 +188,36 @@ function analyzeBrand(brand, minAgeDays) {
 
 // Pre-registered verdict for a randomized length experiment (docs/experiments/2026-10-16-post-length.md).
 // Randomized within one window, so raw log views are compared without period detrending.
+// Mirrors isExperimentDraft/classifyLength in src/lib/length-experiment.ts: GROWTH, not a promo video,
+// created at/after the start, S or L. Only the first `total` by publish time are the experiment; later ones are not.
+// Snapshots exported before createdAt was added fall back to publishedAt.
+function experimentSample(posts, { from, shortMax, longMin, total }) {
+  const eligible = posts
+    .filter((p) => p.postCategory === "GROWTH" && !(p.formulaId ?? "").startsWith("video:"))
+    .filter((p) => Date.parse(p.createdAt ?? p.publishedAt) >= Date.parse(from) && Date.parse(p.publishedAt) >= Date.parse(from))
+    .filter((p) => p.content.length <= shortMax || p.content.length >= longMin)
+    .sort((a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt));
+  return { sample: eligible.slice(0, total), overflow: Math.max(0, eligible.length - total) };
+}
+
+function formulaMix(posts) {
+  const counts = Object.entries(groupBy(posts, (p) => p.formulaId ?? "-")).map(([id, ps]) => [id, ps.length]).sort((a, b) => b[1] - a[1]);
+  return counts.slice(0, 5).map(([id, n]) => `${id} ${Math.round((n / posts.length) * 100)}%`).join(", ") || "-";
+}
+
 function judgeLengthExperiment(snapshot, { slug, from, shortMax, longMin, plannedN, minAgeDays }) {
   const brand = snapshot.brands.find((b) => b.slug === slug);
   if (!brand) throw new Error(`brand ${slug} not in snapshot`);
-  const window = measuredPosts(brand).filter((p) => new Date(p.publishedAt) >= new Date(from));
-  const aged = window.filter((p) => p.ageDays >= minAgeDays);
+  // Cut first, measure second: a post missing metrics shows up as a shortfall instead of letting a later post in.
+  const { sample, overflow } = experimentSample(brand.posts.filter((p) => p.publishedAt), { from, shortMax, longMin, total: plannedN * 2 });
+  const aged = measuredPosts({ posts: sample }).filter((p) => p.ageDays >= minAgeDays);
   aged.forEach((p) => { p.detrended = p.logViews; });
   const short = aged.filter((p) => p.content.length <= shortMax);
   const long = aged.filter((p) => p.content.length >= longMin);
   const out = [`# 길이 실험 판정: ${slug} (${from}~, 짧은 글 ≤${shortMax}자 vs 긴 글 ≥${longMin}자)`, "",
-    `- 실험 기간 측정 글 ${window.length}개, 측정 시점 ${minAgeDays}일 이상 ${aged.length}개, 중간 길이 제외 ${aged.length - short.length - long.length}개`,
-    `- 짧은 글 ${short.length}/${plannedN}개 · 조회수 중앙값 ${n0(median(short.map((p) => p.views)))}`,
-    `- 긴 글 ${long.length}/${plannedN}개 · 조회수 중앙값 ${n0(median(long.map((p) => p.views)))}`];
+    `- 실험 표본 ${sample.length}/${plannedN * 2}개(시작 후 처음 발행된 실험 대상 S/L 글), 컷오프 이후 제외 ${overflow}개, 측정 시점 ${minAgeDays}일 이상 ${aged.length}개`,
+    `- 짧은 글 ${short.length}/${plannedN}개 · 조회수 중앙값 ${n0(median(short.map((p) => p.views)))} · 공식 구성: ${formulaMix(short)}`,
+    `- 긴 글 ${long.length}/${plannedN}개 · 조회수 중앙값 ${n0(median(long.map((p) => p.views)))} · 공식 구성: ${formulaMix(long)}`];
   if (short.length < plannedN || long.length < plannedN) {
     out.push("", "판정 보류: 사전에 정한 글 수에 못 미쳐. 중간에 결과를 보고 멈추면 안 돼.");
     return out.join("\n");
@@ -225,6 +243,25 @@ function selfTest() {
   assert(Math.abs(r.ratio - 1) < 1e-9 && r.lo <= 1 && r.hi >= 1 && r.p > 0.5, "identical groups show no effect");
   const shifted = same.map((p) => ({ detrended: p.detrended + 1 }));
   assert(compareReach(shifted, same).lo > 1, "shifted group detected");
+  const from = "2026-10-20T00:00:00.000Z";
+  const fake = Array.from({ length: 92 }, (_, i) => ({
+    content: "가".repeat(i % 2 ? 420 : 200), postCategory: "GROWTH", formulaId: "f",
+    createdAt: from, publishedAt: new Date(Date.parse(from) + (i + 1) * 3600e3).toISOString(),
+  }));
+  const extras = [
+    { ...fake[0], postCategory: "WARMUP" }, { ...fake[0], formulaId: "video:promo" },
+    { ...fake[0], createdAt: "2026-10-19T00:00:00.000Z" }, { ...fake[0], content: "가".repeat(300) },
+  ];
+  const { sample, overflow } = experimentSample([...extras, ...fake], { from, shortMax: 260, longMin: 390, total: 90 });
+  assert(sample.length === 90 && overflow === 2, `experiment sample cutoff ${sample.length}/${overflow}`);
+  assert(sample.at(-1).publishedAt === fake[89].publishedAt, "sample keeps the first 90 by publish time");
+  // An unmeasured post inside the first 90 must leave a gap, not pull the post-experiment 91st into the sample.
+  const measured = fake.map((p, i) => ({
+    ...p, id: `p${i}`, firstComment: null, views: 100, likes: 0, replies: 0, reposts: 0,
+    metricsAt: i === 4 ? null : new Date(Date.parse(p.publishedAt) + 8 * 864e5).toISOString(),
+  }));
+  const verdict = judgeLengthExperiment({ brands: [{ slug: "x", posts: measured }] }, { slug: "x", from, shortMax: 260, longMin: 390, plannedN: 45, minAgeDays: 7 });
+  assert(verdict.includes("짧은 글 44/45"), "cutoff applies before the measurement filter");
   console.log("self-test ok");
 }
 
@@ -238,7 +275,7 @@ if (args.includes("--self-test")) {
   if (experiment) {
     console.log(judgeLengthExperiment(snapshot, {
       slug: experiment,
-      from: flag("from", null) ?? (() => { throw new Error("--from=YYYY-MM-DD required"); })(),
+      from: flag("from", null) ?? (() => { throw new Error("--from=<startAt ISO, e.g. 2026-10-20T03:14:15.926Z> required"); })(),
       shortMax: Number(flag("short-max", 260)),
       longMin: Number(flag("long-min", 390)),
       plannedN: Number(flag("planned-n", 45)),
