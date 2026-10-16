@@ -34,6 +34,7 @@ const PRODUCT_GROWTH_BASELINE = {
   dailyPostTarget: 3,
   linkCadenceEvery: 3,
   linkPlacement: "firstComment",
+  perPostLinks: true,
   formulas: [
     {
       id: "comment_diagnosis",

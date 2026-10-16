@@ -4,6 +4,8 @@ import {
   getAccountTrustProfile,
   isFeatureAllowedForTier,
   verifyAccountPublishEligibility,
+  startOfPublishDay,
+  TIER_DAILY_QUOTAS,
 } from "./account-trust-ramp";
 
 describe("account-trust-ramp", () => {
@@ -71,6 +73,17 @@ describe("account-trust-ramp", () => {
       publishedTodayCount: 2,
     });
     expect(result3.eligible).toBe(false);
+
+    // Established matches the 5 daily KR slots; authority leaves headroom above that
+    expect(TIER_DAILY_QUOTAS.established).toBe(5);
+    expect(TIER_DAILY_QUOTAS.authority).toBe(8);
+    expect(verifyAccountPublishEligibility({ tier: "established", publishedTodayCount: 4 }).eligible).toBe(true);
+  });
+
+  it("starts the publish day at KST midnight", () => {
+    // 2026-10-13T20:00Z is 2026-10-14 05:00 KST → day started at 2026-10-13T15:00Z
+    expect(startOfPublishDay(new Date("2026-10-13T20:00:00Z")).toISOString()).toBe("2026-10-13T15:00:00.000Z");
+    expect(startOfPublishDay(new Date("2026-10-13T10:00:00Z")).toISOString()).toBe("2026-10-12T15:00:00.000Z");
   });
 
   it("blocks body links and newbie comment links", () => {

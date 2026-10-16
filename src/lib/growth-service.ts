@@ -20,6 +20,7 @@ import {
   updateThompsonPriors,
   type FormulaPerformanceObservation,
 } from "@/lib/thompson-sampling-router";
+import { calculateGoalReward, calculateLearningScore, medianViews, resolveOptimizationGoal } from "@/lib/optimization-goal";
 
 export async function learnBrandGrowth(brandId: string) {
   const brand = await prisma.brand.findUnique({
@@ -44,13 +45,17 @@ export async function learnBrandGrowth(brandId: string) {
 
   // Score with current metrics before learning, so weights never use last run's stale scores
   const posts = fetchedPosts.map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
+  const config = parseBrandConfig(brand?.brandConfig ?? "{}");
+  const goal = resolveOptimizationGoal(config);
 
   // Filter out promotional / subsidized campaigns from organic formula weights to prevent data poisoning
   const organicPosts = posts.filter(
     (post) => !post.campaignId || !post.campaignId.toLowerCase().includes("promo")
   );
 
-  const learningPosts = organicPosts.length > 0 ? organicPosts : posts;
+  // Learning ranks by the brand's goal (reach = views); the stored performanceScore stays revenue-based for display.
+  const learningPosts = (organicPosts.length > 0 ? organicPosts : posts)
+    .map((post) => ({ ...post, performanceScore: calculateLearningScore(goal, post) }));
   const memory = buildGrowthMemory(learningPosts);
 
   let updatedWeights: Record<string, number> | undefined;
@@ -60,7 +65,6 @@ export async function learnBrandGrowth(brandId: string) {
   let contextWeightResult: ContextWeightAdjustmentResult | undefined;
 
   if (brand) {
-    const config = parseBrandConfig(brand.brandConfig);
     const domainPreset = getDomainPreset(config.qualityProfile);
     const domainFormulaIds = Object.values(domainPreset.trackFormulas).flatMap((formulas) => formulas.map((f) => f.id));
     const campaignFormulaIds = config.campaigns.flatMap((c) => c.formulas.map((f) => f.id));
@@ -75,16 +79,9 @@ export async function learnBrandGrowth(brandId: string) {
       ...postFormulaIds,
     ]));
 
-    let currentWeights: Record<string, number> = {};
-    try {
-      currentWeights = brand.formulaWeights && brand.formulaWeights !== "{}"
-        ? JSON.parse(brand.formulaWeights)
-        : {};
-    } catch {
-      currentWeights = {};
-    }
-
-    const weightResult = computeAdaptiveFormulaWeights(currentWeights, learningPosts, knownFormulaIds);
+    // Rebuild from the default weight every run: the 300-post window is re-read daily,
+    // so stacking ±1 on the stored value walked top formulas to the ceiling without new evidence.
+    const weightResult = computeAdaptiveFormulaWeights({}, learningPosts, knownFormulaIds);
     updatedWeights = weightResult.updatedWeights;
     promotedFormulas = weightResult.promotedFormulas;
     demotedFormulas = weightResult.demotedFormulas;
@@ -115,7 +112,10 @@ export async function learnBrandGrowth(brandId: string) {
 
     // Rebuild from defaults every run: the 300-post window already covers history,
     // so stacking on stored priors would re-count the same posts daily and freeze exploration.
-    const updatedPriors = updateThompsonPriors(DEFAULT_INFORMATIVE_PRIORS, observations);
+    const rewardContext = { medianViews: medianViews(observations.map((observation) => observation.views)) };
+    const updatedPriors = updateThompsonPriors(DEFAULT_INFORMATIVE_PRIORS, observations, {
+      reward: (observation) => calculateGoalReward(goal, observation, rewardContext),
+    });
 
     updatedBrandConfig = {
       ...config,

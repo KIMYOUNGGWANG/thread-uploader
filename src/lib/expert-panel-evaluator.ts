@@ -60,7 +60,6 @@ export const AI_SLOP_PATTERNS: Array<{ pattern: RegExp; penalty: number; reason:
   { pattern: /AI한테\s*생년월일\s*넣었더니|AI가\s*(데이터로\s*)?분석하더니|알고리즘\s*무섭네/, penalty: 25, reason: "식상한 AI 프롬프트 핑계 도입" },
   { pattern: /반박시\s*니\s*말(이)?\s*맞음/, penalty: 20, reason: "복제된 클리셰 방어 문구 (반박시 니 말 맞음)" },
   { pattern: /끝\.\s*더\s*이상\s*설명\s*안\s*함/, penalty: 20, reason: "상투적 시니컬 클리셰 (끝. 더 이상 설명 안 함)" },
-  { pattern: /자,\s*상상해봐\./, penalty: 20, reason: "기계적으로 반복되는 상상 유도 클리셰" },
   { pattern: /🔥\s*핵심만\s*말해줌/, penalty: 20, reason: "식상한 정보성 어그로 도입" },
   { pattern: /□\s*.*\n□\s*.*\n□\s*/, penalty: 20, reason: "기계적 나열식 체크리스트 남발 (글 늘리기용)" },
 ];

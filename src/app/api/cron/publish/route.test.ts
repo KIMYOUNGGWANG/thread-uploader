@@ -163,6 +163,43 @@ describe("GET /api/cron/publish", () => {
       })
     );
   });
+  it("skips without touching the post when the daily tier quota is already reached", async () => {
+    mocks.findBrands.mockResolvedValue([
+      { id: "brand_quota", name: "QuotaBrand", brandConfig: JSON.stringify({ accountTrustTier: "newbie" }) },
+    ]);
+    mocks.findPost.mockImplementation(async ({ where }) => {
+      if (where?.status === "PARTIAL_FAILED" || where?.status === "PUBLISHED") return null;
+      return {
+        id: "post_quota",
+        brandId: "brand_quota",
+        status: "PENDING",
+        qualityPass: true,
+        content: "이직할지 버틸지 고민될 때 3가지 기준부터 나눠봐.",
+        firstComment: null,
+        imageUrls: "[]",
+      };
+    });
+    const { prisma } = await import("@/lib/prisma");
+    // Newbie quota is 1: the 24h safety counter and the day counter both see 1 published post
+    vi.mocked(prisma.post.count).mockResolvedValue(1);
+    mocks.updatePost.mockClear();
+
+    try {
+      const { GET } = await import("@/app/api/cron/publish/route");
+      const response = await GET({
+        headers: new Headers(),
+        nextUrl: new URL("http://localhost/api/cron/publish"),
+      } as never);
+      const body = await response.json();
+
+      expect(body.skipped).toEqual([{ brandId: "brand_quota", brandName: "QuotaBrand", reason: "daily_quota_reached" }]);
+      expect(mocks.updatePost).not.toHaveBeenCalled();
+      expect(mocks.publishPostWithCredentials).not.toHaveBeenCalled();
+    } finally {
+      vi.mocked(prisma.post.count).mockResolvedValue(0);
+    }
+  });
+
   describe("?slots= publish windows", () => {
     const callWithSlots = async (slots: string) => {
       const { GET } = await import("@/app/api/cron/publish/route");

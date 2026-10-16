@@ -95,3 +95,8 @@ export function tagBrandLinks(text: string, postId: string, brandUrls: string[])
     }
   });
 }
+
+/** Profile-link URL for bio-only mode: aggregate attribution (ref=threads_bio), no per-post pid. */
+export function buildBioLinkUrl(landingUrl: string): string {
+  return buildTrackedUrl(landingUrl, { source: "threads_bio", track: "track_c", formulaId: "profile_hub" });
+}

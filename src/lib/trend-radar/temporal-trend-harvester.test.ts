@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   buildTemporalSearchPrompt,
   parseAbstractedTrendResponse,
+  DOMAIN_THREADS_KEYWORDS,
   harvestTemporalTrends,
+  selectThreadsTrendSamples,
   type TargetDomainCategory,
 } from "./temporal-trend-harvester";
 
@@ -16,6 +18,59 @@ describe("temporal-trend-harvester", () => {
     expect(prompt).toContain("CAREER_CONFLICT");
     expect(prompt).toContain("심리적 결핍");
     expect(prompt).toContain("3지선다");
+    expect(prompt).not.toContain("Threads 실제 게시물");
+  });
+
+  it("embeds Threads samples so the model abstracts from real posts, not only web search", () => {
+    const prompt = buildTemporalSearchPrompt("CAREER_CONFLICT", new Date("2026-10-06T12:00:00Z"), [
+      { text: "대기업 이직 1년 만에 권고사직 당함. 다들 어떻게 버팀?", username: "u1", timestamp: "2026-10-05T10:00:00+0000" },
+    ]);
+
+    expect(prompt).toContain("Threads 실제 게시물 1개");
+    expect(prompt).toContain("권고사직 당함");
+    expect(prompt).not.toContain("@u1");
+  });
+
+  it("keeps only posts from the last 72 hours and trims long text", () => {
+    const now = new Date("2026-10-06T12:00:00Z");
+    const samples = selectThreadsTrendSamples([{ keyword: "이직", posts: [
+      { id: "old", text: "오래된 글", timestamp: "2026-10-01T00:00:00+0000" },
+      { id: "fresh", text: "ㄱ".repeat(500), timestamp: "2026-10-05T12:00:00+0000" },
+      { id: "empty", text: "", timestamp: "2026-10-06T00:00:00+0000" },
+    ] }], now);
+
+    expect(samples.map((sample) => sample.text.length)).toEqual([280]);
+  });
+
+  it("searches at least 8 unique keywords per domain with no overlap across domains", () => {
+    const all = Object.values(DOMAIN_THREADS_KEYWORDS).flat();
+    for (const keywords of Object.values(DOMAIN_THREADS_KEYWORDS)) {
+      expect(keywords.length).toBeGreaterThanOrEqual(8);
+      expect(new Set(keywords).size).toBe(keywords.length);
+    }
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it("ranks by TOP-search placement and keyword overlap, not by recency", () => {
+    const now = new Date("2026-10-06T12:00:00Z");
+    const fresh = "2026-10-06T11:00:00+0000";
+    const older = "2026-10-04T11:00:00+0000";
+    const samples = selectThreadsTrendSamples([
+      { keyword: "이직", posts: [
+        { id: "newest-but-buried", text: "최신인데 검색 20위", timestamp: fresh },
+        ...Array.from({ length: 18 }, (_, index) => ({ id: `filler-${index}`, text: `채움 ${index}`, timestamp: older })),
+        { id: "overlap", text: "두 키워드에서 다 잡힌 글", timestamp: older },
+      ] },
+      { keyword: "퇴사", posts: [
+        { id: "top-replies", text: "퇴사 검색 1위, 댓글 달림", timestamp: older, has_replies: true },
+        { id: "overlap", text: "두 키워드에서 다 잡힌 글", timestamp: older },
+      ] },
+    ], now);
+
+    const texts = samples.map((sample) => sample.text);
+    expect(texts[0]).toBe("두 키워드에서 다 잡힌 글");
+    expect(texts[1]).toBe("퇴사 검색 1위, 댓글 달림");
+    expect(texts.indexOf("최신인데 검색 20위")).toBeGreaterThan(1);
   });
 
   it("parses JSON response into AbstractedTrendSkeleton array", () => {

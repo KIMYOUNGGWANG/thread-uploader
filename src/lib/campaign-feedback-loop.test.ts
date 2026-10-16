@@ -68,3 +68,18 @@ describe("campaign-feedback-loop", () => {
     expect(topPerformers[0].hook).toContain("Post p19");
   });
 });
+
+describe("evaluate72hFeedbackLoop scorePost option", () => {
+  it("ranks top performers with the supplied score", () => {
+    const old = new Date(Date.now() - 100 * 60 * 60 * 1000);
+    const base = { content: "훅\n본문", campaignFormulaId: "m", publishedAt: old, metricsAt: old, replies: 0, reposts: 0, conversions: 0 };
+    const posts: MaturePostMetric[] = [
+      { ...base, id: "views", views: 9000 },
+      { ...base, id: "paid", views: 100, manualPaidConversions: 2 },
+    ];
+    const byViews = evaluate72hFeedbackLoop(posts, { scorePost: (post) => post.views ?? 0 });
+    const byRevenue = evaluate72hFeedbackLoop(posts);
+    expect(byViews.topPerformers[0].id).toBe("views");
+    expect(byRevenue.topPerformers[0].id).toBe("paid");
+  });
+});

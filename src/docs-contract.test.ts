@@ -43,7 +43,7 @@ describe("portfolio docs contract", () => {
     expect(apiSpec).toContain("linkUrl: string | null");
     expect(apiSpec).toContain("utmContent: string | null");
     expect(apiSpec).toContain("replies: 40");
-    expect(apiSpec).toContain("clicksConversions: 15");
+    expect(apiSpec).toContain("manualPaidConversions: 2500");
     expect(apiSpec).not.toContain("hasLink: boolean");
   });
 });

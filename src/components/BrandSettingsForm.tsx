@@ -8,7 +8,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast, Toaster } from "sonner";
-import type { BrandConfig, BrandFormula, CampaignConfig, QualityProfileId, ViralDiscoveryConfig } from "@/types/brand";
+import type { BrandConfig, BrandFormula, CampaignConfig, OptimizationGoal, QualityProfileId, ViralDiscoveryConfig } from "@/types/brand";
+import { parseOptimizationGoal } from "@/types/brand";
+import { buildBioLinkUrl } from "@/lib/tracking-url";
 import type { ViralAdapterId } from "@/types/viral";
 import { ProductSettingsTab } from "@/components/ProductSettingsTab";
 
@@ -58,6 +60,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
   const [campaigns, setCampaigns] = useState<CampaignConfig[]>(initialData.config.campaigns);
   const [activeCampaignId, setActiveCampaignId] = useState(initialData.config.activeCampaignId ?? initialData.config.campaigns[0]?.id ?? "");
   const [qualityProfile, setQualityProfile] = useState<QualityProfileId>(initialData.config.qualityProfile);
+  const [optimizationGoal, setOptimizationGoal] = useState<OptimizationGoal>(initialData.config.optimizationGoal ?? "reach");
 
   // 트렌딩 토픽
   const [trendingTopics, setTrendingTopics] = useState<string[]>(
@@ -105,6 +108,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             campaigns,
             activeCampaignId,
             qualityProfile,
+            optimizationGoal,
             trendingTopics,
             productProfile,
             activeExperiment,
@@ -128,7 +132,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     } finally {
       setIsSaving(false);
     }
-  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, router]);
+  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, optimizationGoal, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, router]);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "basic", label: "기본 정보", icon: <Key className="w-4 h-4" /> },
@@ -244,6 +248,8 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             setActiveCampaignId={setActiveCampaignId}
             qualityProfile={qualityProfile}
             setQualityProfile={setQualityProfile}
+            optimizationGoal={optimizationGoal}
+            setOptimizationGoal={setOptimizationGoal}
           />
         )}
         {activeTab === "topics" && (
@@ -441,6 +447,8 @@ function CampaignTab({
   setActiveCampaignId,
   qualityProfile,
   setQualityProfile,
+  optimizationGoal,
+  setOptimizationGoal,
 }: {
   campaigns: CampaignConfig[];
   setCampaigns: (items: CampaignConfig[]) => void;
@@ -448,6 +456,8 @@ function CampaignTab({
   setActiveCampaignId: (value: string) => void;
   qualityProfile: QualityProfileId;
   setQualityProfile: (value: QualityProfileId) => void;
+  optimizationGoal: OptimizationGoal;
+  setOptimizationGoal: (value: OptimizationGoal) => void;
 }) {
   const activeCampaign = campaigns.find((campaign) => campaign.id === activeCampaignId) ?? campaigns[0];
 
@@ -496,6 +506,16 @@ function CampaignTab({
               ))}
             </select>
           </Field>
+          <Field label="학습 목표">
+            <select
+              value={optimizationGoal}
+              onChange={(event) => setOptimizationGoal(parseOptimizationGoal(event.target.value) ?? "reach")}
+              className={INPUT_CLASS}
+            >
+              <option value="reach">조회수 우선 (공식 승격·자동 승인·샘플링을 조회수로 판단)</option>
+              <option value="conversion">전환 우선 (클릭·전환·결제 가중 점수로 판단)</option>
+            </select>
+          </Field>
           <Field label="Quality profile">
             <select
               value={qualityProfile}
@@ -533,6 +553,16 @@ function CampaignTab({
               className={INPUT_CLASS}
             />
           </Field>
+          <Field label="글 링크" hint="끄면 모든 글에서 링크와 '링크 확인' CTA가 빠지고 프로필 링크로만 유도">
+            <select
+              value={activeCampaign.perPostLinks ? "on" : "off"}
+              onChange={(event) => updateCampaign({ perPostLinks: event.target.value === "on" })}
+              className={INPUT_CLASS}
+            >
+              <option value="on">첫 댓글에 N개 중 1개 삽입 (글 단위 귀속)</option>
+              <option value="off">넣지 않음 (bio 링크만)</option>
+            </select>
+          </Field>
           <Field label="링크 cadence" hint="3이면 3개 중 1개">
             <input
               type="number"
@@ -541,12 +571,20 @@ function CampaignTab({
               value={activeCampaign.linkCadenceEvery}
               onChange={(event) => updateCampaign({ linkCadenceEvery: clampNumberInput(event.target.value, 1, 12, 3) })}
               className={INPUT_CLASS}
+              disabled={!activeCampaign.perPostLinks}
             />
           </Field>
         </div>
-        <p className="text-xs text-slate-500 mt-3">
-          UTM: utm_source=threads · utm_campaign={activeCampaign.utmCampaign} · utm_content=postId
-        </p>
+        {activeCampaign.perPostLinks ? (
+          <p className="text-xs text-slate-500 mt-3">
+            UTM: utm_source=threads · utm_campaign={activeCampaign.utmCampaign} · utm_content=postId
+          </p>
+        ) : (
+          <p className="text-xs text-slate-500 mt-3 break-all">
+            Threads 프로필 링크에 붙여넣기: <span className="font-mono text-slate-300">{buildBioLinkUrl(activeCampaign.landingUrl || "/")}</span>
+            <br />글 단위 귀속은 불가. 랜딩 쪽 분석에서 ref=threads_bio 합계로만 측정.
+          </p>
+        )}
       </SectionCard>
 
       <SectionCard title="3종 포스트 공식" description="캠페인 생성 시 이 공식들만 회전시키며 테스트합니다.">

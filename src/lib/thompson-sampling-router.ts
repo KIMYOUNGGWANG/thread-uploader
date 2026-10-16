@@ -63,6 +63,8 @@ export const DEFAULT_INFORMATIVE_PRIORS: Record<string, BetaPrior> = {
   career_mismatch: { alpha: 12, beta: 8 },              // 60% prior mean
   self_classification: { alpha: 12, beta: 8 },          // 60% prior mean
   imagination_dilemma: { alpha: 11, beta: 9 },          // 55% prior mean
+  identity_profile: { alpha: 12, beta: 8 },             // 22k verified profiling post (60% prior mean)
+  relationship_tension: { alpha: 12, beta: 8 },         // 23k verified relationship post (60% prior mean)
   cost_loss_punch: { alpha: 10, beta: 10 },             // 50% prior mean
 
   // Mid-of-Funnel Authority & Fact Bombs (Track B)
@@ -161,10 +163,12 @@ export function updateThompsonPriors(
   options: {
     minViewsForUpdate?: number;
     decayFactor?: number; // Decay past evidence (0.9 ~ 0.98) to adapt to shifting trends
+    reward?: (observation: FormulaPerformanceObservation) => number; // 0..1 success; defaults to the revenue-first blend
   } = {}
 ): Record<string, BetaPrior> {
   const minViews = options.minViewsForUpdate ?? 200; // Ignore tiny noisy samples (<200 views)
   const decay = options.decayFactor ?? 0.95;
+  const reward = options.reward ?? ((observation: FormulaPerformanceObservation) => calculateBlendedPerformance(observation).blendedScore);
 
   const updated: Record<string, BetaPrior> = {};
 
@@ -191,7 +195,7 @@ export function updateThompsonPriors(
     let failureAddition = 0;
 
     for (const obs of obsList) {
-      const { blendedScore } = calculateBlendedPerformance(obs);
+      const blendedScore = Math.min(1, Math.max(0, reward(obs)));
       // Pseudo-count evidence update scaled by sample confidence (up to 5 pseudo-counts per qualified post)
       const evidenceScale = Math.min(5, Math.log10(obs.views));
       successAddition += blendedScore * evidenceScale;

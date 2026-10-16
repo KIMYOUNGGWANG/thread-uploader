@@ -1,7 +1,7 @@
 # API Spec — Portfolio Growth OS
 
 - **Version**: v2.1 (Internal Product Portfolio Growth)
-- **Updated**: 2026-06-04
+- **Updated**: 2026-10-13
 - **Base URL**: `/api`
 
 ---
@@ -499,6 +499,7 @@ const CAREER_TIMING_WEDGE_399: CampaignConfig = {
   dailyPostTarget: 3,
   linkCadenceEvery: 3,
   linkPlacement: "firstComment",
+  perPostLinks: true, // false = bio-only: 글 링크·"링크 확인" CTA 없음, 프로필 링크(ref=threads_bio)로만 유도
   formulas: [
     {
       id: "self_classification",
@@ -574,6 +575,7 @@ const PRODUCT_GROWTH_BASELINE: CampaignConfig = {
 
 ### Link Cadence
 
+- `perPostLinks: false` turns the campaign into bio-only mode: no post gets a link, the "링크 확인" CTA is never chosen, and `linkCadenceEvery` is ignored. Attribution then exists only in aggregate via the profile link (`buildBioLinkUrl`: `ref=threads_bio&track=track_c&fid=profile_hub`).
 - In each campaign batch, only 1 of every 3 posts receives a landing link.
 - Links are placed in `firstComment`, not the main body.
 - For 21 generated posts, exactly 7 should include links.
@@ -694,11 +696,13 @@ interface CampaignSummaryResponse {
     conversions: number;
     manualPaidConversions: number;
   };
-  scoreWeights: {
+  scoreWeights: {            // 건당 점수 = PERFORMANCE_SCORE_WEIGHTS (growth-learning)
+    views: 0.2;
     replies: 40;
     reposts: 25;
-    views: 20;
-    clicksConversions: 15;
+    clicks: 50;
+    conversions: 300;
+    manualPaidConversions: 2500;
   };
   // scope=campaign only. A mature measurement requires metrics captured at least 72h after publish.
   experimentReadiness?: {
@@ -934,6 +938,7 @@ The score stays separate from Threads `performanceScore` until cross-channel lea
 |:-------|:-----|:------------|
 | `GET` | `/api/growth?brandId=xxx` | 브랜드 성장 학습 리포트 조회 |
 | `POST` | `/api/growth/learn` | 수집된 메트릭으로 growthMemory 재학습 |
+| `GET` | `/api/growth/scorecard?brandId=xxx&weeks=4` | 주간 스코어카드: 7일 버킷별 발행/측정/중앙값 뷰/1만뷰 돌파율/퍼널/링크 비교, 공식별 표, 병목 진단과 next action. `weeks`는 1~12 (기본 4) |
 
 ```typescript
 interface GrowthPattern {
@@ -955,6 +960,7 @@ interface GrowthMemory {
   winners: GrowthPattern[];
   weakSignals: GrowthPattern[];
   recommendations: string[];
+  formulaWinners?: string[]; // 공식 차원에서 2개 이상·브랜드 평균 이상인 id. 생성 시 PENDING 자동 승인 기준
 }
 
 interface GrowthReportResponse {
@@ -964,7 +970,45 @@ interface GrowthReportResponse {
   topPatterns: GrowthPattern[];
   weakPatterns: GrowthPattern[];
 }
+
+// GET /api/growth/scorecard
+interface WeekBucket {
+  label: string;                 // "최근 7일", "8~14일 전", ...
+  startsAt: string; endsAt: string;
+  published: number;
+  measured: number;              // metricsAt ≥ publishedAt + 72h 이고 views != null
+  medianViews: number | null;    // measured 기준
+  breakoutCount: number;         // views ≥ 10,000
+  breakoutRate: number;          // % (measured 기준)
+  funnel: { views: number; clicks: number; conversions: number; paid: number };
+  clicksPer1kViews: number | null;
+  conversionsPerClickPct: number | null;
+  linked: { posts: number; medianViews: number | null; clicks: number };
+  unlinked: { posts: number; medianViews: number | null };
+}
+
+interface ScorecardFormulaRow {
+  formulaId: string; posts: number; medianViews: number | null;
+  breakoutRate: number; clicks: number; conversions: number; paid: number;
+}
+
+interface WeeklyScorecardResponse {
+  brandId: string;
+  generatedAt: string;
+  weeks: WeekBucket[];                 // 최신 주 먼저
+  formulas: ScorecardFormulaRow[];     // 측정 2개 이상, 중앙값 뷰 순, 최대 8행
+  bottleneck: "sample" | "ops" | "reach" | "conversion" | "none";  // 이 순서로 첫 매치
+  nextAction: string;
+  queue: { review: number; pending: number };
+}
 ```
+
+병목 진단 규칙 (최근 2주 기준, 순서대로 첫 매치):
+1. `sample`: measured 합 < 5
+2. `ops`: NEEDS_REVIEW ≥ 10
+3. `reach`: 1만뷰 돌파 0건이고 중앙값 뷰 < 300
+4. `conversion`: views ≥ 1,000이고 (1천뷰당 클릭 < 5 또는 클릭 ≥ 10인데 전환 0)
+5. `none`
 
 ---
 
@@ -1084,15 +1128,19 @@ interface ViralAdapterResult {
 |:-------|:-----|:------------|
 | `GET` | `/api/cron/publish` | 모든 active 제품 순회 → 각 1개 FIFO 발행. `?brands=slug1,slug2`로 제품 제한. `?slots=0,12`(UTC 시, 0-23)를 주면 열린 슬롯(시작 후 3시간)마다 1회만 발행하고, 슬롯 밖이면 `outside_publish_slot`, 이미 발행했으면 `slot_already_served`로 건너뜀. 형식 오류는 400 |
 | `GET` | `/api/cron/refresh-token` | 모든 제품의 Threads 토큰 상태 확인 및 갱신 |
-| `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자) |
+| `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자). formulaWeights와 thompsonPriors 모두 저장값에 누적하지 않고 최근 300개 창에서 기본값부터 재계산 |
 | `GET` | `/api/cron/feedback?apply=true` | 72h 성숙 글 기준 viralMemory topPerformers + 금지 표현 학습 (formulaWeights는 쓰지 않음) |
 | `GET` | `/api/cron/viral` | 모든 제품 viral discovery → 미분석 상위 10개 Claude 분석(`rawMetrics.llmAnalyzedAt`, `whyItWorks`) → viralMemory 재학습. `topPerformers`/`nextHookCandidates`는 feedback cron 소유라 보존. 외부 글 점수에 TOP 검색 순위·키워드 중복·반복 노출(`rawMetrics.searchRank`/`keywordHits`/`timesSeen`) 가산 |
 | `GET` | `/api/cron/refill?brand=slug&target=N` | `brand`, `target`(1-50) 필수. 대기열(PENDING+NEEDS_REVIEW)이 target 미만이면 부족분을 최대 6개까지 `generatePostsForBrand`로 생성. `approvedCampaignStart`는 항상 false. 대기열이 차 있으면 `skipped: "backlog_full"` |
-| `GET` | `/api/cron/trends?brands=slug` | `brands` 필수(없으면 400). 한국어 제품만 대상. Claude 웹 검색으로 최근 72시간 커리어·재테크·관계 갈등 수집 → 브랜드 훅으로 변환 → `brandConfig.trendRadar = { harvestedAt, items[≤6] }` 저장. 생성 시 4일 이내 레이더만 프롬프트에 주입 |
+| `GET` | `/api/cron/trends?brands=slug` | `brands` 필수(없으면 400). 한국어 제품만 대상. 도메인별 키워드로 브랜드 토큰의 Threads 키워드 검색(최근 72시간 글 중 TOP 검색 순위·키워드 중복 노출·댓글 유무로 점수화해 도메인당 상위 12개, 작성자 제거) + Claude(Sonnet) 웹 검색으로 커리어·재테크·관계 갈등 수집. 토큰이 없거나 만료면 웹 검색만으로 진행 → 브랜드 훅으로 변환 → `brandConfig.trendRadar = { harvestedAt, items[≤6] }` 저장. 생성 시 4일 이내 레이더만 프롬프트에 주입 |
 | `POST` | `/api/cron/promo-posts` | 홍보 영상 로테이션 등록 (CI `render-promo-job.mjs` 전용, `Authorization: Bearer CRON_SECRET`). 본문 `{ date: "YYYY-MM-DD", items: [{ brandSlug, videoUrl, content, commentTemplate, landingPath, format, topic }] }`. 검증: `videoUrl` https + `.mp4`, `content` 1–480자, `commentTemplate`에 `{{link}}`, `landingPath`는 `/start`로 시작, items 1–4개 — 위반 시 400. item마다 `formulaId = video:promo:<date>`로 브랜드당 1개만 만들고(이미 있으면 `skipped: "already_queued"`, 브랜드 없으면 `skipped: "brand_not_found"`), `NEEDS_REVIEW` Post(`imageUrls=[videoUrl]`, `topic="<format>:<topic>"`) 생성 후 `linkUrl = https://cosmicpath.app<landingPath>` + `utm_source=threads&utm_campaign=promo-rotation&utm_content=<postId>`, `firstComment`는 `{{link}}` 치환. 응답 `{ results }` |
 
 학습 루프 규칙:
-- 보상 정의는 `calculatePerformanceScore` 하나 (조회 0.2 · 클릭 50 · 전환 300 · 유료전환 2500). Thompson 보상은 전환 0.6 / 반응 0.4.
+- 학습 목표 `brandConfig.optimizationGoal`: `"reach"`(기본, 조회수 우선) 또는 `"conversion"`. reach면 공식 승격·`formulaWinners` 자동 승인·feedback top performer·Thompson 보상이 **조회수**로 계산된다 (Thompson 보상 = min(1, views / (브랜드 중앙값 뷰 × 2))). conversion이면 아래 revenue 점수를 쓴다. 저장되는 `performanceScore`/`performanceTier`는 목표와 무관하게 revenue 점수(표시용).
+- 표시 점수 정의는 `calculatePerformanceScore` 하나 (조회 0.2 · 댓글 40 · 리포스트 25 · 클릭 50 · 전환 300 · 유료전환 2500). Thompson 보상은 전환 0.6 / 반응 0.4.
+- 생성 품질 게이트에 토픽 포화 가드가 있다: 최근 10개 글 중 같은 마커 그룹(`birth_time_offset`: 진태양시/30분 오차/32분/동경시/서머타임)이 상한(1개)에 도달하면 후보 글이 그 소재를 쓸 때 실패 처리하고 재시도 프롬프트에 사유를 넣는다.
+- remediation 리라이트 결과는 품질 게이트를 다시 통과해야 하며, 실패하면 원문(이미 통과)으로 되돌리고 `qualityReasons`에 `remediation_reverted: …`를 남긴다.
+- 캠페인 링크 cadence는 캠페인의 기존 글 수를 오프셋으로 더해 `(offset + index + 1) % linkCadenceEvery === 0`으로 결정한다 (청크 요청에서도 1/N 유지). 링크 없는 글에는 "링크 확인" CTA를 쓰지 않는다.
 - `thompsonPriors`는 매 실행마다 `DEFAULT_INFORMATIVE_PRIORS`에서 최근 300개 글로 재계산 (중복 학습 방지).
 - CosmicPath lean sprint는 priors가 있으면 4개 viral mode 중 Thompson 샘플링으로 선택, 없으면 고정 배분.
 
@@ -1126,7 +1174,7 @@ interface CronPublishResponse {
   skipped: Array<{
     brandId: string;
     brandName: string;
-    reason: "no_pending" | "quality_blocked" | "publish_failed";
+    reason: "no_pending" | "quality_blocked" | "publish_failed" | "daily_quota_reached"; // daily_quota_reached: 등급 일일 쿼터(KST 자정 기준) 도달, 글 상태는 바꾸지 않음
   }>;
 }
 ```
@@ -1150,6 +1198,32 @@ interface AnalyticsResponse {
   collectedAt: string;
 }
 ```
+
+---
+
+## Conversion Webhook
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `POST` | `/api/webhooks/conversion` | 랜딩/제품 쪽에서 글 귀속 전환 이벤트 수신. `postId`(또는 `pid`)로 글에 귀속하고 Post 카운터를 원자적으로 증가시킨 뒤 performanceScore를 재계산 |
+
+```typescript
+interface ConversionWebhookRequest {
+  postId?: string; pid?: string;      // 둘 중 하나 필수
+  eventType: string;                  // 아래 표로 정규화
+  amount?: number;
+  sessionId?: string;                 // 중복 제거 키 (idempotencyKey가 없을 때)
+  idempotencyKey?: string;
+}
+```
+
+| 정규화 | 원본 eventType | 인증 | 증가 컬럼 |
+|---|---|---|---|
+| `click` | `click`, `landing_view` | 없음 | `clicks` |
+| `conversion` | `test_start`, `first_result_view`, `conversion`, `analysis_start`, `decision_question_submit`, `ritual_action_viewed`, `signup`, `checkout_intent`, `match_created`, `match_create` | 없음 | `conversions` |
+| `paid_conversion` | `paid_conversion`, `checkout_success`, `payment`, `order_complete` | `x-webhook-secret` 또는 `Authorization: Bearer <CONVERSION_WEBHOOK_SECRET>` | `manualPaidConversions` |
+
+그 외 eventType은 `{ success: true, ignored: true }`로 응답하고 아무것도 기록하지 않는다. `match_created`는 CosmicPath 북극성 지표(월 궁합 생성 수)다.
 
 ---
 

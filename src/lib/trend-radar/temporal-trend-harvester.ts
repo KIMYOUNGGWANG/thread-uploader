@@ -1,3 +1,5 @@
+import { calculateSearchSignalScore } from "@/lib/viral-analysis";
+
 export type TargetDomainCategory = "CAREER_CONFLICT" | "WEALTH_PANIC" | "RELATIONSHIP_TOXICITY";
 
 export interface AbstractedTrendSkeleton {
@@ -11,6 +13,76 @@ export interface AbstractedTrendSkeleton {
   harvestedAt: string;
 }
 
+export interface ThreadsTrendSample {
+  text: string;
+  username?: string;
+  timestamp?: string;
+}
+
+const SAMPLE_WINDOW_MS = 72 * 60 * 60 * 1000;
+const MAX_SAMPLES_PER_DOMAIN = 12;
+const MAX_SAMPLE_CHARS = 280;
+const REPLIES_BONUS = 5;
+
+// Threads keyword search terms per domain; searched with the brand's own token.
+// 8 per domain: enough for the keyword-overlap signal to mean something, 24 calls a day in total.
+// Keep terms unique across domains so one post does not count as "overlap" in two domains.
+export const DOMAIN_THREADS_KEYWORDS: Record<TargetDomainCategory, string[]> = {
+  CAREER_CONFLICT: ["이직", "퇴사", "번아웃", "권고사직", "수습 탈락", "연봉 협상", "이직 실패", "퇴사 고민"],
+  WEALTH_PANIC: ["손절", "영끌", "코인", "물타기", "하우스푸어", "청산", "존버", "전재산"],
+  RELATIONSHIP_TOXICITY: ["잠수이별", "회피형", "가스라이팅", "환승이별", "재회", "썸 타이밍", "친구 손절", "헌신"],
+};
+
+export interface ThreadsKeywordResult {
+  keyword: string;
+  posts: Array<{ id: string; text?: string; username?: string; timestamp?: string; has_replies?: boolean }>;
+}
+
+/**
+ * Picks the posts that are actually travelling, not merely the newest ones.
+ * Threads search returns no engagement counts, so the same proxy as the viral cron is used:
+ * TOP-search rank per keyword, overlap across keywords, plus a small bump for posts that drew replies.
+ * Only posts from the last 72h qualify; text is trimmed so the prompt stays bounded.
+ */
+export function selectThreadsTrendSamples(results: ThreadsKeywordResult[], now: Date = new Date()): ThreadsTrendSample[] {
+  const cutoff = now.getTime() - SAMPLE_WINDOW_MS;
+  const byId = new Map<string, { post: ThreadsKeywordResult["posts"][number]; bestRank: number; keywordHits: number }>();
+  for (const { posts } of results) {
+    posts.forEach((post, index) => {
+      if (!post.text?.trim()) return;
+      const parsedAt = Date.parse(post.timestamp ?? "");
+      if (!Number.isFinite(parsedAt) || parsedAt < cutoff || parsedAt > now.getTime()) return;
+      const rank = index + 1;
+      const seen = byId.get(post.id);
+      byId.set(post.id, {
+        post,
+        bestRank: Math.min(seen?.bestRank ?? rank, rank),
+        keywordHits: (seen?.keywordHits ?? 0) + 1,
+      });
+    });
+  }
+
+  return Array.from(byId.values())
+    .map((entry) => ({
+      ...entry,
+      score: calculateSearchSignalScore({ searchRank: entry.bestRank, keywordHits: entry.keywordHits }) + (entry.post.has_replies ? REPLIES_BONUS : 0),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_SAMPLES_PER_DOMAIN)
+    .map(({ post }) => ({ text: post.text!.trim().slice(0, MAX_SAMPLE_CHARS), username: post.username, timestamp: post.timestamp }));
+}
+
+function formatThreadsSamples(samples: ThreadsTrendSample[]): string {
+  if (samples.length === 0) return "";
+  // Usernames stay out of the prompt: we want the tension, never the person.
+  const lines = samples.map((sample, index) => `${index + 1}. ${sample.text.replace(/\s+/g, " ")}`);
+  return [
+    `[Threads 실제 게시물 ${samples.length}개 (최근 72시간, 키워드 검색 TOP)]`,
+    "아래 글들은 실제 Threads에서 지금 반응이 나오는 글이다. 웹 검색 결과와 함께 근거로 삼되, 작성자나 고유명사는 절대 추출하지 마라.",
+    ...lines,
+  ].join("\n");
+}
+
 const DOMAIN_ANCHOR_PROMPTS: Record<TargetDomainCategory, string> = {
   CAREER_CONFLICT:
     "대기업/유명 스타트업 네임밸류 믿고 이직 후 1년 내 번아웃, 결산 직후 권고사직, 동기 대비 연봉 격차, 수습 평가 탈락",
@@ -22,17 +94,19 @@ const DOMAIN_ANCHOR_PROMPTS: Record<TargetDomainCategory, string> = {
 
 export function buildTemporalSearchPrompt(
   domain: TargetDomainCategory,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  threadsSamples: ThreadsTrendSample[] = []
 ): string {
   const dateStr = referenceDate.toISOString().slice(0, 10);
   const anchorTheme = DOMAIN_ANCHOR_PROMPTS[domain];
+  const threadsBlock = formatThreadsSamples(threadsSamples);
 
   return `
 [기준일자: ${dateStr}]
-최근 72시간 이내 한국 2030 직장인/청년 커뮤니티(블라인드, 직장인 포럼, 재테크 커뮤니티)에서 높은 댓글 논쟁과 공감을 일으킨 '${domain}' 관련 사례를 심층 조사하라.
+최근 72시간 이내 한국 2030 직장인/청년 커뮤니티(Threads, 블라인드, 직장인 포럼, 재테크 커뮤니티)에서 높은 댓글 논쟁과 공감을 일으킨 '${domain}' 관련 사례를 심층 조사하라.
 
 주요 테마: ${anchorTheme}
-
+${threadsBlock ? `\n${threadsBlock}\n` : ""}
 [출력 요구사항 (반드시 JSON 형식)]
 단순 사건 뉴스나 고유명사 텍스트는 버리고, 대중의 '심리적 결핍'과 '3지선다 선택지 구조'만 추출하여 아래 JSON 규격으로 반환하라:
 \`\`\`json
@@ -116,13 +190,15 @@ export async function harvestTemporalTrends(options: {
   domains?: TargetDomainCategory[];
   referenceDate?: Date;
   queryFn: (prompt: string) => Promise<string>;
+  threadsSamplesFn?: (domain: TargetDomainCategory) => Promise<ThreadsTrendSample[]>;
 }): Promise<AbstractedTrendSkeleton[]> {
   const domains = options.domains || ["CAREER_CONFLICT", "WEALTH_PANIC", "RELATIONSHIP_TOXICITY"];
   const refDate = options.referenceDate || new Date();
   const allResults: AbstractedTrendSkeleton[] = [];
 
   for (const domain of domains) {
-    const prompt = buildTemporalSearchPrompt(domain, refDate);
+    const samples = options.threadsSamplesFn ? await options.threadsSamplesFn(domain) : [];
+    const prompt = buildTemporalSearchPrompt(domain, refDate, samples);
     try {
       const response = await options.queryFn(prompt);
       const skeletons = parseAbstractedTrendResponse(response, domain, DOMAIN_ANCHOR_PROMPTS[domain], refDate);

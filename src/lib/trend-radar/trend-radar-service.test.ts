@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   updateBrand: vi.fn<(args: { data: { brandConfig: string } }) => Promise<object>>(async () => ({})),
+  getCredentials: vi.fn(),
+  searchThreads: vi.fn(),
 }));
 
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -11,6 +13,10 @@ vi.mock("@anthropic-ai/sdk", () => ({
   },
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { brand: { update: mocks.updateBrand } } }));
+vi.mock("@/lib/threads-api", () => ({
+  getFreshBrandCredentials: mocks.getCredentials,
+  searchThreadsByKeyword: mocks.searchThreads,
+}));
 
 const textMessage = (text: string, stopReason = "end_turn") => ({
   content: [{ type: "text", text }],
@@ -36,6 +42,42 @@ describe("refreshBrandTrendRadar", () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
     mocks.create.mockReset();
     mocks.updateBrand.mockClear();
+    mocks.getCredentials.mockReset().mockResolvedValue({ accessToken: "token", userId: "u" });
+    mocks.searchThreads.mockReset().mockResolvedValue([]);
+  });
+
+  it("searches Threads per domain keyword and feeds fresh posts into the harvest prompt with Sonnet", async () => {
+    mocks.searchThreads.mockResolvedValue([
+      { id: "t1", text: "이직 1년 만에 권고사직 당했는데 다들 어떻게 버팀", timestamp: new Date().toISOString() },
+    ]);
+    const prompts: string[] = [];
+    mocks.create.mockImplementation(async (params: { model: string; tools?: unknown[]; messages: Array<{ content: unknown }> }) => {
+      if (!params.tools) return textMessage(transposedJson);
+      expect(params.model).toBe("claude-sonnet-5-5");
+      prompts.push(String(params.messages[0]?.content));
+      return textMessage(harvestJson);
+    });
+    const { refreshBrandTrendRadar } = await import("./trend-radar-service");
+
+    const result = await refreshBrandTrendRadar({ id: "b1", slug: "cosmicpath", name: "CosmicPath", brandConfig: "{}" });
+
+    expect(result.saved).toBe(3);
+    expect(mocks.searchThreads).toHaveBeenCalledWith("token", expect.any(String), expect.any(Number));
+    expect(mocks.searchThreads.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(prompts.every((prompt) => prompt.includes("권고사직 당했는데"))).toBe(true);
+  });
+
+  it("falls back to web search only when Threads credentials are unavailable", async () => {
+    mocks.getCredentials.mockRejectedValue(new Error("token expired"));
+    mocks.create.mockImplementation(async (params: { tools?: unknown[] }) =>
+      textMessage(params.tools ? harvestJson : transposedJson)
+    );
+    const { refreshBrandTrendRadar } = await import("./trend-radar-service");
+
+    const result = await refreshBrandTrendRadar({ id: "b1", slug: "cosmicpath", name: "CosmicPath", brandConfig: "{}" });
+
+    expect(result.saved).toBe(3);
+    expect(mocks.searchThreads).not.toHaveBeenCalled();
   });
 
   it("resumes a paused web search and stores transposed hooks on brandConfig", async () => {

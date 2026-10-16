@@ -35,7 +35,7 @@ export function buildThreadsAuthorizationUrl(input: AuthorizationUrlInput): stri
     client_id: input.appId,
     redirect_uri: input.redirectUri,
     response_type: "code",
-    scope: "threads_basic,threads_content_publish",
+    scope: "threads_basic,threads_content_publish,threads_keyword_search",
     state: input.state,
   });
 

@@ -47,7 +47,14 @@ describe("Expert Panel Evaluator", () => {
     expect(overall.pass).toBe(false);
   });
 
-  it("has exactly 30 AI slop patterns configured", () => {
-    expect(AI_SLOP_PATTERNS.length).toBe(30);
+  it("has exactly 29 AI slop patterns configured", () => {
+    expect(AI_SLOP_PATTERNS.length).toBe(29);
+  });
+});
+
+describe("AI_SLOP_PATTERNS", () => {
+  it("does not penalize the proven imagination-dilemma opener", () => {
+    const opener = "자, 상상해봐. 오늘 퇴근길에 산 로또가 1등 당첨됐어.";
+    expect(AI_SLOP_PATTERNS.some((entry) => entry.pattern.test(opener))).toBe(false);
   });
 });

@@ -63,4 +63,31 @@ C. 세번째 옵션 설명`;
     const slide2 = parsePostForSlide(content, 2);
     expect(slide2.hook).toContain("B. 두번째 옵션");
   });
+
+  it("extracts oracle master tag and uses line 1 as hook", () => {
+    const content = `[Oracle Lyra]
+솔직히 대기업 네임밸류 믿고 이직했다가 1년 만에 번아웃 와서 퇴사하는 시니어들 너무 많이 봄.
+실력이 모자란 게 아님. 사주와 점성술이 동시에 경고함.`;
+
+    const parsed = parsePostForCard(content);
+    expect(parsed.oracleTag).toBe("Oracle Lyra");
+    expect(parsed.hook).toBe("솔직히 대기업 네임밸류 믿고 이직했다가 1년 만에 번아웃 와서 퇴사하는 시니어들 너무 많이 봄.");
+    expect(parsed.sub).toContain("실력이 모자란 게 아님.");
+  });
+
+  it("keeps oracle tag on detail slides", () => {
+    const listContent = `[Oracle Midas]
+손절 못 하는 사람 특징 3가지
+A. 첫번째
+B. 두번째`;
+    expect(parsePostForSlide(listContent, 1).oracleTag).toBe("Oracle Midas");
+
+    const sectionContent = `[Oracle Lyra]
+표지 훅
+
+---
+
+두번째 슬라이드 훅`;
+    expect(parsePostForSlide(sectionContent, 1).oracleTag).toBe("Oracle Lyra");
+  });
 });

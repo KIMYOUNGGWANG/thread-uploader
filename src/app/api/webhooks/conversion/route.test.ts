@@ -95,8 +95,15 @@ describe("POST /api/webhooks/conversion", () => {
   });
 
   it("ignores unknown event types without counting", async () => {
-    const res = await webhook({ postId: "post_1", eventType: "signup" });
+    const res = await webhook({ postId: "post_1", eventType: "page_scroll" });
     expect((await res.json()).ignored).toBe(true);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each(["signup", "checkout_intent", "match_created"])("counts %s as a conversion", async (eventType) => {
+    const res = await webhook({ postId: "post_1", eventType, sessionId: `s-${eventType}` });
+    expect(res.status).toBe(200);
+    expect((await res.json()).eventType).toBe("conversion");
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
   });
 });

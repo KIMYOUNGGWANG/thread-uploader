@@ -5,16 +5,21 @@ export interface ParsedCardData {
   slideIndex: number;
   totalSlides?: number;
   isCarouselDetail?: boolean;
+  oracleTag?: string;
 }
 
 export function parsePostForCard(content: string): ParsedCardData {
   const lines = content.split("\n").map((l) => l.trim()).filter(Boolean);
-  const hook = lines[0] || "운명과 타이밍의 법칙";
+  const oracleMatch = lines[0]?.match(/^\[(Oracle\s+[^\]]+)\]/i);
+  const oracleTag = oracleMatch?.[1];
+  const startIndex = oracleMatch ? 1 : 0;
+
+  const hook = lines[startIndex] || "운명과 타이밍의 법칙";
 
   const items: string[] = [];
   let sub = "";
 
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = startIndex + 1; i < lines.length; i++) {
     const line = lines[i];
     if (/^[▶\-\*•]?\s*[A-C]\./i.test(line) || /^[A-C]\s*[\:\.]/i.test(line)) {
       items.push(line.replace(/^[▶\-\*•]\s*/, ""));
@@ -23,7 +28,7 @@ export function parsePostForCard(content: string): ParsedCardData {
     }
   }
 
-  return { hook, sub, items: items.slice(0, 3), slideIndex: 0 };
+  return { hook, sub, items: items.slice(0, 3), slideIndex: 0, oracleTag };
 }
 
 export function parsePostForSlide(content: string, slideIndex: number): ParsedCardData {
@@ -38,6 +43,7 @@ export function parsePostForSlide(content: string, slideIndex: number): ParsedCa
     const parsed = parsePostForCard(targetSection);
     return {
       ...parsed,
+      oracleTag: parsePostForCard(sections[0]).oracleTag,
       slideIndex,
       totalSlides: sections.length,
       isCarouselDetail: slideIndex > 0,
@@ -67,5 +73,6 @@ export function parsePostForSlide(content: string, slideIndex: number): ParsedCa
     slideIndex,
     totalSlides: baseCard.items.length + 1,
     isCarouselDetail: true,
+    oracleTag: baseCard.oracleTag,
   };
 }

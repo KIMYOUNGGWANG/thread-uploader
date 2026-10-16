@@ -14,6 +14,6 @@ describe("buildThreadsAuthorizationUrl", () => {
     expect(url.searchParams.get("client_id")).toBe("2440826109698658");
     expect(url.searchParams.get("redirect_uri")).toBe("https://thread-uploader.vercel.app/api/oauth/threads/callback");
     expect(url.searchParams.get("state")).toBe("state_123");
-    expect(url.searchParams.get("scope")).toBe("threads_basic,threads_content_publish");
+    expect(url.searchParams.get("scope")).toBe("threads_basic,threads_content_publish,threads_keyword_search");
   });
 });

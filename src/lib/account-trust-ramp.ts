@@ -39,12 +39,22 @@ export interface EligibilityResult {
   currentCount: number;
 }
 
-const TIER_DAILY_QUOTAS: Record<AccountTrustTier, number> = {
+// established = the 5 daily KR publish slots in .github/workflows/cron.yml; a lower quota demoted real posts.
+export const TIER_DAILY_QUOTAS: Record<AccountTrustTier, number> = {
   newbie: 1,
   warming: 2,
-  established: 3,
-  authority: 5,
+  established: 5,
+  authority: 8,
 };
+
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/** Daily quota resets at KST midnight, not the server's (UTC) midnight. */
+export function startOfPublishDay(now: Date): Date {
+  const kst = new Date(now.getTime() + KST_OFFSET_MS);
+  kst.setUTCHours(0, 0, 0, 0);
+  return new Date(kst.getTime() - KST_OFFSET_MS);
+}
 
 /**
  * Resolves the account trust tier based on account age in days and optional trust score.

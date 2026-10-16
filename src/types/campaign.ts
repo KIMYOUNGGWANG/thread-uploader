@@ -31,6 +31,8 @@ export interface CampaignConfig {
   dailyPostTarget: number;
   linkCadenceEvery: number;
   linkPlacement: "bio" | "firstComment";
+  // false = bio-only mode: no per-post tracked link, no "링크 확인" CTA; readers are sent to the profile link.
+  perPostLinks: boolean;
   formulas: CampaignFormula[];
   replyPlaybook: ReplyPlaybook;
 }
@@ -47,6 +49,7 @@ export const CAREER_TIMING_WEDGE_399: CampaignConfig = {
   dailyPostTarget: 3,
   linkCadenceEvery: 3,
   linkPlacement: "bio",
+  perPostLinks: true,
   formulas: [
     {
       id: "self_classification",
@@ -87,6 +90,7 @@ export const PRODUCT_GROWTH_BASELINE: CampaignConfig = {
   dailyPostTarget: 3,
   linkCadenceEvery: 3,
   linkPlacement: "bio",
+  perPostLinks: true,
   formulas: [
     {
       id: "self_classification",
@@ -149,6 +153,7 @@ function normalizeCampaign(input: Record<string, unknown>): CampaignConfig {
     dailyPostTarget: clampNumber(input.dailyPostTarget, 1, 12, defaults.dailyPostTarget),
     linkCadenceEvery: clampNumber(input.linkCadenceEvery, 1, 12, defaults.linkCadenceEvery),
     linkPlacement: input.linkPlacement === "firstComment" ? "firstComment" : "bio",
+    perPostLinks: input.perPostLinks !== false,
     formulas: normalizeCampaignFormulas(input.formulas, defaults.formulas),
     replyPlaybook: normalizeReplyPlaybook(input.replyPlaybook, defaults.replyPlaybook),
   };

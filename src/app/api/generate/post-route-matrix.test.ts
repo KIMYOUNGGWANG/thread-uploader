@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
+  perPostLinks: true,
   prompts: [] as string[],
   checkStructureRepeat: vi.fn<
     (content: string, firstComment: string | null | undefined, recentPosts: Array<{ firstComment?: string | null }>) => { isDuplicate: boolean; similarityScore: number; reason?: string }
@@ -11,6 +12,7 @@ const state = vi.hoisted(() => ({
     firstComment?: string | null;
     linkUrl?: string | null;
     utmContent?: string | null;
+    ctaType?: string | null;
     targetAudience?: string | null;
   }>,
   remediationPass: true,
@@ -129,6 +131,7 @@ vi.mock("@/lib/brand-access", () => ({
               dailyPostTarget: 3,
               linkCadenceEvery: 3,
               linkPlacement: "firstComment",
+              perPostLinks: state.perPostLinks,
               formulas: [
                 {
                   id: "imagination_dilemma",
@@ -455,5 +458,40 @@ describe("POST /api/generate viral sprint matrix", () => {
     expect(prompts).not.toContain("난 솔직히 2번");
     expect(prompts).not.toContain("첫 줄에 물음표(?)를 넣어");
     expect(prompts).toContain("'난 솔직히'로 시작하지 않으며");
+  }, 10000);
+
+  it("attaches no per-post links and no link CTA when the campaign runs in bio-only mode", async () => {
+    state.createdPosts.length = 0;
+    state.perPostLinks = false;
+    try {
+      const { POST } = await import("@/app/api/generate/route");
+      const response = await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 6, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+
+      expect(response.status).toBe(200);
+      expect(state.createdPosts).toHaveLength(6);
+      expect(state.createdPosts.filter((post) => post.linkUrl)).toHaveLength(0);
+      expect(state.createdPosts.every((post) => post.ctaType !== "링크 확인")).toBe(true);
+    } finally {
+      state.perPostLinks = true;
+    }
+  }, 10000);
+
+  it("gives each 2-post dashboard chunk fresh personas instead of repeating the same pair", async () => {
+    state.createdPosts.length = 0;
+    const { POST } = await import("@/app/api/generate/route");
+
+    for (let chunk = 0; chunk < 2; chunk++) {
+      const response = await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 2, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      expect(response.status).toBe(200);
+    }
+
+    expect(state.createdPosts).toHaveLength(4);
+    expect(new Set(state.createdPosts.map((post) => post.targetAudience)).size).toBe(4);
   }, 10000);
 });

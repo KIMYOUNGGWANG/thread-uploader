@@ -146,6 +146,14 @@ export interface BrandConfig {
   minAlgorithmicScore?: number;
   creatorHandle?: string;
   circuitBreaker?: CircuitBreakerState;
+  // What learn/feedback optimize for. Unset = reach (views first).
+  optimizationGoal?: OptimizationGoal;
+}
+
+export type OptimizationGoal = "reach" | "conversion";
+
+export function parseOptimizationGoal(input: unknown): OptimizationGoal | undefined {
+  return input === "reach" || input === "conversion" ? input : undefined;
 }
 
 export interface BrandResponse {
@@ -253,6 +261,7 @@ export function parseBrandConfig(raw: string): BrandConfig {
       minAlgorithmicScore: typeof parsed.minAlgorithmicScore === "number" ? parsed.minAlgorithmicScore : undefined,
       creatorHandle: typeof parsed.creatorHandle === "string" ? parsed.creatorHandle : undefined,
       circuitBreaker: isRecord(parsed.circuitBreaker) ? (parsed.circuitBreaker as unknown as CircuitBreakerState) : undefined,
+      optimizationGoal: parseOptimizationGoal(parsed.optimizationGoal),
     };
   } catch {
     return DEFAULT_BRAND_CONFIG;

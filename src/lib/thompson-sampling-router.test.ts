@@ -120,3 +120,25 @@ describe("revenue-first reward", () => {
     expect(paying.blendedScore).toBeGreaterThan(viralOnly.blendedScore);
   });
 });
+
+describe("DEFAULT_INFORMATIVE_PRIORS", () => {
+  it("gives every lean sprint mode an informative prior", () => {
+    for (const id of ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension"]) {
+      const prior = DEFAULT_INFORMATIVE_PRIORS[id];
+      expect(prior, id).toBeDefined();
+      expect(prior.alpha + prior.beta, id).toBeGreaterThanOrEqual(20);
+    }
+  });
+});
+
+describe("updateThompsonPriors reward option", () => {
+  it("uses the supplied reward instead of the blended revenue score", () => {
+    const observations: FormulaPerformanceObservation[] = [
+      { formulaId: "reach", views: 20000, likes: 0, replies: 0, reposts: 0 },
+      { formulaId: "money", views: 300, likes: 0, replies: 0, reposts: 0, paidConversions: 3 },
+    ];
+    const priors = updateThompsonPriors({}, observations, { reward: (obs) => Math.min(1, obs.views / 10000) });
+    const mean = (prior: BetaPrior) => prior.alpha / (prior.alpha + prior.beta);
+    expect(mean(priors.reach)).toBeGreaterThan(mean(priors.money));
+  });
+});

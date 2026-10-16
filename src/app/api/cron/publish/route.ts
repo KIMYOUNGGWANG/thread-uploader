@@ -11,7 +11,7 @@ import {
   findOpenPublishSlot,
   parseSlotHours,
 } from "@/lib/behavioral-jitter";
-import { resolveAccountTrustTier } from "@/lib/account-trust-ramp";
+import { resolveAccountTrustTier, startOfPublishDay, TIER_DAILY_QUOTAS } from "@/lib/account-trust-ramp";
 import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 import { sendSystemAlert } from "@/lib/alert-service";
 import { isMetricsCollectionStale } from "@/lib/metrics-selection";
@@ -251,11 +251,14 @@ export async function GET(request: NextRequest) {
 
       // 5. Account Trust Ramp Calculation (Defaults to 'established' for existing accounts)
       const tier = brandConfig.accountTrustTier || (brandConfig.accountCreatedAt ? resolveAccountTrustTier(new Date(brandConfig.accountCreatedAt), now) : "established");
-      const startOfDay = new Date(now);
-      startOfDay.setHours(0, 0, 0, 0);
       const publishedTodayCount = await prisma.post.count({
-        where: { brandId: brand.id, status: "PUBLISHED", publishedAt: { gte: startOfDay } },
+        where: { brandId: brand.id, status: "PUBLISHED", publishedAt: { gte: startOfPublishDay(now) } },
       });
+      // Quota is a timing limit, not a content defect: wait for tomorrow instead of demoting the post to review.
+      if (publishedTodayCount >= TIER_DAILY_QUOTAS[tier]) {
+        skipped.push({ brandId: brand.id, brandName: brand.name, reason: "daily_quota_reached" });
+        continue;
+      }
       const accountTrustOption = { tier, publishedTodayCount };
 
       const safetyReasons = getPublishSafetyBlockReasons(post, {
