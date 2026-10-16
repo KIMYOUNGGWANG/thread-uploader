@@ -21,6 +21,7 @@ import type {
   ActiveExperiment,
   ProductProfile,
 } from "@/types/product-profile";
+import { parseLengthExperiment, type LengthExperimentConfig } from "@/types/length-experiment";
 import type {
   CampaignConfig,
   QualityProfileId,
@@ -148,6 +149,8 @@ export interface BrandConfig {
   circuitBreaker?: CircuitBreakerState;
   // What learn/feedback optimize for. Unset = reach (views first).
   optimizationGoal?: OptimizationGoal;
+  // Pre-registered S/L length experiment; unset or malformed = off.
+  lengthExperiment?: LengthExperimentConfig;
 }
 
 export type OptimizationGoal = "reach" | "conversion";
@@ -262,6 +265,7 @@ export function parseBrandConfig(raw: string): BrandConfig {
       creatorHandle: typeof parsed.creatorHandle === "string" ? parsed.creatorHandle : undefined,
       circuitBreaker: isRecord(parsed.circuitBreaker) ? (parsed.circuitBreaker as unknown as CircuitBreakerState) : undefined,
       optimizationGoal: parseOptimizationGoal(parsed.optimizationGoal),
+      lengthExperiment: parseLengthExperiment(parsed.lengthExperiment),
     };
   } catch {
     return DEFAULT_BRAND_CONFIG;
