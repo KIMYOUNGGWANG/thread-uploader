@@ -306,7 +306,7 @@ describe("POST /api/generate viral sprint matrix", () => {
     expect(state.checkStructureRepeat).not.toHaveBeenCalled();
   }, 10000);
 
-  it("persists a 4:4:4:3 CosmicPath sprint with tracked links only on every third post", async () => {
+  it("persists a 4:4:3:3:1 CosmicPath sprint with tracked links only on every third post", async () => {
     state.checkStructureRepeat.mockClear();
     state.createdPosts.length = 0;
     const { POST } = await import("@/app/api/generate/route");
@@ -334,8 +334,9 @@ describe("POST /api/generate viral sprint matrix", () => {
     expect(counts).toEqual({
       imagination_dilemma: 4,
       concept_hierarchy: 4,
-      identity_profile: 4,
+      identity_profile: 3,
       relationship_tension: 3,
+      beginner_qa: 1,
     });
 
     expect(state.createdPosts.map((post) => Boolean(post.linkUrl))).toEqual([

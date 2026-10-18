@@ -10,7 +10,7 @@ import {
 import { scoreThreadsPostAlgorithmic } from "./threads-algorithm-scorer";
 
 describe("Lean 14-Day Viral Sprint Architecture", () => {
-  it("enforces 15-post master verified ratio: 4 Scenario Dilemma (300k) : 4 Concept Hierarchy (120k) : 4 Identity Profile (22k) : 3 Relationship Tension (23k)", () => {
+  it("enforces 15-post master verified ratio: 4 Scenario Dilemma (300k) : 4 Concept Hierarchy (120k) : 3 Identity Profile (22k) : 3 Relationship Tension (23k) : 1 Beginner Q&A", () => {
     expect(LEAN_SPRINT_ALLOCATION).toHaveLength(15);
 
     const counts = LEAN_SPRINT_ALLOCATION.reduce<Record<string, number>>((acc, mode) => {
@@ -20,8 +20,9 @@ describe("Lean 14-Day Viral Sprint Architecture", () => {
 
     expect(counts.imagination_dilemma).toBe(4);
     expect(counts.concept_hierarchy).toBe(4);
-    expect(counts.identity_profile).toBe(4);
+    expect(counts.identity_profile).toBe(3);
     expect(counts.relationship_tension).toBe(3);
+    expect(counts.beginner_qa).toBe(1);
   });
 
   it("rotates accurately when sprintType is lean_15post or lean_14day", () => {

@@ -469,6 +469,7 @@ const VIRAL_MODE_FAILURE_MESSAGES: Record<ViralModeFidelityFailureCode, string> 
   missing_hierarchy: "개념 서열 모드에 비교 구조 없음",
   missing_identity_marker: "기질 프로파일 모드에 구체적 살/일주/글자 없음",
   missing_relationship_contrast: "관계 텐션 모드에 관계 키워드와 대비 구조 없음",
+  missing_beginner_question: "입문자 질문 모드인데 첫 줄에 질문이 없음",
 };
 
 function formatViralModeFidelityFailure(code: ViralModeFidelityFailureCode): string {

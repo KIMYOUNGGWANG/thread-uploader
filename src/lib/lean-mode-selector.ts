@@ -3,6 +3,7 @@ import {
   resolveViralIntentMode,
   selectViralIntentMode,
   type ViralIntentMode,
+  type ViralIntentModeId,
 } from "@/lib/viral-intent-modes";
 
 export interface GenerationFormula {
@@ -52,7 +53,13 @@ export function isLeanSprintRun(input: LeanSprintRunInput): boolean {
   );
 }
 
-const LEAN_MODE_COUNT = 4;
+const LEAN_ARM_IDS: readonly ViralIntentModeId[] = [
+  "imagination_dilemma",
+  "concept_hierarchy",
+  "identity_profile",
+  "relationship_tension",
+  "beginner_qa",
+];
 
 // Lean sprint picks its viral mode by Thompson sampling over learned priors, so the
 // learn cron actually steers CosmicPath output. Without priors it keeps the fixed allocation.
@@ -65,9 +72,7 @@ export function selectLeanViralMode(
   const fixedMode = selectViralIntentMode(batchIndex, { sprintType: "lean_15post" });
   if (!priors) return fixedMode;
 
-  const modes = Array.from({ length: LEAN_MODE_COUNT }, (_, index) => (
-    selectViralIntentMode(index, { sprintType: "lean_15post" })
-  ));
+  const modes = LEAN_ARM_IDS.map((id) => resolveViralIntentMode(id, 0));
   const armFormulaId = (mode: ViralIntentMode) => selectCampaignFormulaForViralMode(formulas, mode).id;
   const previous = recentFormulaIds[recentFormulaIds.length - 1];
   const candidates = modes.filter((mode) => armFormulaId(mode) !== previous);

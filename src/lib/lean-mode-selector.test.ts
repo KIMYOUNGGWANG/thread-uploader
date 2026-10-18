@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isLeanSprintRun, selectLeanViralMode } from "./lean-mode-selector";
 import { selectViralIntentMode } from "./viral-intent-modes";
 
-const LEAN_IDS = ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension"];
+const LEAN_IDS = ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension", "beginner_qa"];
 
 describe("selectLeanViralMode", () => {
   it("keeps the fixed lean allocation when no priors are learned yet", () => {
@@ -17,6 +17,12 @@ describe("selectLeanViralMode", () => {
     priors.relationship_tension = { alpha: 1000, beta: 1 };
     // Index 0 is imagination_dilemma in the fixed allocation; learning must override it.
     expect(selectLeanViralMode(0, [], priors, []).id).toBe("relationship_tension");
+  });
+
+  it("lets learned priors pick the beginner Q&A arm", () => {
+    const priors = Object.fromEntries(LEAN_IDS.map((id) => [id, { alpha: 1, beta: 1000 }]));
+    priors.beginner_qa = { alpha: 1000, beta: 1 };
+    expect(selectLeanViralMode(0, [], priors, []).id).toBe("beginner_qa");
   });
 
   it("never repeats the immediately previous arm", () => {
