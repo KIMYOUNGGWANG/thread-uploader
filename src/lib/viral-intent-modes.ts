@@ -9,7 +9,8 @@ export type ViralIntentModeId =
   | "concept_hierarchy"
   | "imagination_dilemma"
   | "identity_profile"
-  | "relationship_tension";
+  | "relationship_tension"
+  | "beginner_qa";
 
 export interface ViralIntentMode {
   readonly id: ViralIntentModeId;
@@ -24,7 +25,8 @@ export type ViralModeFidelityFailureCode =
   | "missing_three_choices"
   | "missing_hierarchy"
   | "missing_identity_marker"
-  | "missing_relationship_contrast";
+  | "missing_relationship_contrast"
+  | "missing_beginner_question";
 
 export interface ViralModeFidelityResult {
   readonly pass: boolean;
@@ -111,6 +113,10 @@ export function checkViralModeFidelity(
     && (!relPattern.test(opening) || !relContrastPattern.test(opening))
   ) {
     failureCodes.push("missing_relationship_contrast");
+  }
+
+  if (modeId === "beginner_qa" && !/[?？]/.test(opening)) {
+    failureCodes.push("missing_beginner_question");
   }
 
   return { pass: failureCodes.length === 0, failureCodes };
@@ -245,6 +251,19 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
       "첫 댓글: 상대와 지금 어떤 상황인지 묻는 한 줄로 쓴다. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
+  {
+    id: "beginner_qa",
+    label: "사주 입문자 질문 풀이",
+    primaryMetric: "replies",
+    instruction: "사주를 처음 보는 사람이 실제로 묻는 질문 하나를 첫 줄에 그대로 던지고, 짧고 쉽게 풀어준다.",
+    rules: [
+      "첫 줄은 입문자가 진짜 할 법한 질문 한 문장이다. 예: 태어난 시간 모르면 사주 못 봐? / 양력 음력 뭘로 넣어? / 대운이 뭔데?",
+      "답은 결론 먼저 한 줄, 이유는 사주 용어 1~2개를 쉬운 말로 풀어서 짧게 쓴다.",
+      "겁주거나 '모르면 큰일' 식으로 불안을 팔지 않는다.",
+      "번호 선택지를 쓰지 않고, 독자가 비슷하게 헷갈렸던 걸 묻는 한 문장으로 끝낸다.",
+      "첫 댓글: 다음엔 뭐가 궁금한지 가볍게 묻는 한 줄로 쓴다. 답글 약속, 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
 ];
 
 const SPRINT_GROUP_SIZE = 7;
@@ -283,7 +302,8 @@ export function normalizeViralIntentModeId(input: unknown): ViralIntentModeId | 
     input === "concept_hierarchy" ||
     input === "imagination_dilemma" ||
     input === "identity_profile" ||
-    input === "relationship_tension"
+    input === "relationship_tension" ||
+    input === "beginner_qa"
   ) {
     return input;
   }
@@ -294,8 +314,9 @@ export function normalizeViralIntentModeId(input: unknown): ViralIntentModeId | 
  * 15-Post Master Sprint Allocation (1,600 live posts ground truth):
  * - 4개: 29.9만 뷰 1등 imagination_dilemma (로또/현실 3지선다)
  * - 4개: 12.2만/4.0만/2.2만 뷰 2등 concept_hierarchy (도화vs홍염vs화개 서열)
- * - 4개: 2.2만/1.2만/1.1만 뷰 3등 identity_profile (화개살/문창귀인/신금일주)
+ * - 3개: 2.2만/1.2만/1.1만 뷰 3등 identity_profile (화개살/문창귀인/신금일주)
  * - 3개: 2.3만/9천 뷰 4등 relationship_tension (궁합/손절/관계 타이밍)
+ * - 1개: beginner_qa (입문자 질문 풀이, 아직 검증 전 — 학습 cron이 성과로 비중을 정한다)
  */
 export const LEAN_SPRINT_ALLOCATION: readonly ViralIntentModeId[] = [
   "imagination_dilemma", // 1. 30만 뷰 딜레마 (도달 펌핑)
@@ -312,7 +333,7 @@ export const LEAN_SPRINT_ALLOCATION: readonly ViralIntentModeId[] = [
   "relationship_tension",// 12. 2.3만 뷰 궁합/관계 텐션
   "imagination_dilemma", // 13. 30만 뷰 딜레마
   "concept_hierarchy",   // 14. 12만 뷰 개념 서열
-  "identity_profile",    // 15. 2.2만 뷰 살/일주 프로파일링
+  "beginner_qa",         // 15. 입문자 질문 풀이 (검증 전, 댓글 반응 테스트)
 ];
 
 export function selectViralIntentMode(
@@ -425,6 +446,16 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
       "Analyze structural trait collisions rather than superficial dating advice.",
       "Frame advice as emotional risk hedging rather than deterministic fortune-telling.",
       "Attach a relational timing / synastry bridge in the first comment.",
+    ],
+  },
+  beginner_qa: {
+    label: "Beginner Question Answered",
+    instruction: "Open with one question a first-time reader genuinely asks, then answer it briefly in plain words.",
+    rules: [
+      "The first line is the beginner's question itself, e.g. 'Can I get a reading without my birth time?'",
+      "Lead with the answer, then explain with one or two terms in plain language.",
+      "Never sell anxiety or imply something is wrong with the reader.",
+      "Close by asking what else confused them, not with numbered choices.",
     ],
   },
 };

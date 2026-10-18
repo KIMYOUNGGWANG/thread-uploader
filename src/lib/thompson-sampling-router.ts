@@ -65,6 +65,7 @@ export const DEFAULT_INFORMATIVE_PRIORS: Record<string, BetaPrior> = {
   imagination_dilemma: { alpha: 11, beta: 9 },          // 55% prior mean
   identity_profile: { alpha: 12, beta: 8 },             // 22k verified profiling post (60% prior mean)
   relationship_tension: { alpha: 12, beta: 8 },         // 23k verified relationship post (60% prior mean)
+  beginner_qa: { alpha: 12, beta: 8 },                  // untested; matches the verified tier so it gets explored, data takes over
   cost_loss_punch: { alpha: 10, beta: 10 },             // 50% prior mean
 
   // Mid-of-Funnel Authority & Fact Bombs (Track B)

@@ -67,7 +67,7 @@ describe("viral mode shapes", () => {
   });
 
   it("gives every lean mode a link-free first-comment direction instead of a bridge", () => {
-    for (const id of ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension"] as const) {
+    for (const id of ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension", "beginner_qa"] as const) {
       const rules = modeById.get(id)?.rules ?? [];
       expect(rules.find((rule) => rule.startsWith("첫 댓글:"))).toContain("링크·홍보 문구는 넣지 않는다");
       expect(rules.join(" ")).not.toContain("브릿지");
@@ -78,6 +78,14 @@ describe("viral mode shapes", () => {
     for (const id of ["identity_profile", "relationship_tension"] as const) {
       expect(modeById.get(id)?.rules).toContain("번호 선택지를 쓰지 않고, 독자에게 직접 묻는 한 문장으로 끝낸다.");
     }
+  });
+
+  it("requires the beginner Q&A opener to be the reader's question", () => {
+    const asked = checkViralModeFidelity("태어난 시간 모르면 사주 못 봐?\n결론부터, 볼 수 있음. 일주까지는 시간 없이 나옴.", "beginner_qa");
+    const told = checkViralModeFidelity("태어난 시간 몰라도 사주 볼 수 있음.\n일주까지는 시간 없이 나옴.", "beginner_qa");
+    expect(asked.pass).toBe(true);
+    expect(told.failureCodes).toContain("missing_beginner_question");
+    expect(normalizeViralIntentModeId("beginner_qa")).toBe("beginner_qa");
   });
 
   it("exports the identity marker pattern for scorer and anti-repeat reuse", () => {
