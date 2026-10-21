@@ -1174,7 +1174,9 @@ interface CronPublishResponse {
   skipped: Array<{
     brandId: string;
     brandName: string;
-    reason: "no_pending" | "quality_blocked" | "publish_failed" | "daily_quota_reached"; // daily_quota_reached: 등급 일일 쿼터(KST 자정 기준) 도달, 글 상태는 바꾸지 않음
+    reason: "no_pending" | "quality_blocked" | "awaiting_review" | "scheduled_later" | "publish_failed" | "daily_quota_reached"; // daily_quota_reached: 등급 일일 쿼터(KST 자정 기준) 도달, 글 상태는 바꾸지 않음
+    // awaiting_review: 발행할 글은 없고 NEEDS_REVIEW 글만 있음(refill은 이걸 backlog로 세서 생성도 멈춤) → 시스템 알림 발송
+    // scheduled_later: PENDING 글이 있지만 scheduledAt이 아직 미래
   }>;
 }
 ```

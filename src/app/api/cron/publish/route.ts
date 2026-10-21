@@ -38,6 +38,26 @@ const SAFE_WARMUP_TEMPLATES = [
   "실패를 두려워하지 않는 사람은 없습니다. 단지 그 두려움보다 앞으로 나아가고 싶은 열망이 조금 더 클 뿐이죠. 이번 주 스스로에게 가장 칭찬해주고 싶은 행동은 무엇인가요?",
 ];
 
+type UnpublishableQueue = { qualityBlocked: number; awaitingReview: number; scheduledLater: number };
+
+// Refill counts PENDING + NEEDS_REVIEW as backlog, so a queue that is empty here can look full there.
+// Naming why it is empty keeps that deadlock visible in the run log (Global sat idle 2026-10-16..21 as "no_pending").
+async function countUnpublishableQueue(brandId: string, now: Date): Promise<UnpublishableQueue> {
+  const [qualityBlocked, awaitingReview, scheduledLater] = await Promise.all([
+    prisma.post.count({ where: { brandId, status: "PENDING", qualityPass: false } }),
+    prisma.post.count({ where: { brandId, status: "NEEDS_REVIEW" } }),
+    prisma.post.count({ where: { brandId, status: "PENDING", qualityPass: true, scheduledAt: { gt: now } } }),
+  ]);
+  return { qualityBlocked, awaitingReview, scheduledLater };
+}
+
+function emptyQueueReason(queue: UnpublishableQueue): string {
+  if (queue.qualityBlocked > 0) return "quality_blocked";
+  if (queue.awaitingReview > 0) return "awaiting_review";
+  if (queue.scheduledLater > 0) return "scheduled_later";
+  return "no_pending";
+}
+
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -249,14 +269,17 @@ export async function GET(request: NextRequest) {
       }
 
       if (!post) {
-        const blockedCount = await prisma.post.count({
-          where: { brandId: brand.id, status: "PENDING", qualityPass: false },
-        });
-        skipped.push({
-          brandId: brand.id,
-          brandName: brand.name,
-          reason: blockedCount > 0 ? "quality_blocked" : "no_pending",
-        });
+        const queue = await countUnpublishableQueue(brand.id, now);
+        if (queue.awaitingReview > 0) {
+          // ponytail: repeats every in-slot run until reviewed — add a cooldown if it gets noisy.
+          await sendSystemAlert({
+            level: "warning",
+            title: "Publish queue waiting on review",
+            message: `${queue.awaitingReview} draft(s) in NEEDS_REVIEW and nothing publishable. Refill counts them as backlog, so nothing new is generated until they are approved or archived.`,
+            brandName: brand.name,
+          });
+        }
+        skipped.push({ brandId: brand.id, brandName: brand.name, reason: emptyQueueReason(queue) });
         continue;
       }
 

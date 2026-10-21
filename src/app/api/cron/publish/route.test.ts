@@ -6,7 +6,10 @@ const mocks = vi.hoisted(() => ({
   findPost: vi.fn(),
   updatePost: vi.fn(async ({ data }) => ({ id: "post_1", ...data })),
   publishPostWithCredentials: vi.fn(),
+  sendSystemAlert: vi.fn(async () => false),
 }));
+
+vi.mock("@/lib/alert-service", () => ({ sendSystemAlert: mocks.sendSystemAlert }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -198,6 +201,50 @@ describe("GET /api/cron/publish", () => {
     } finally {
       vi.mocked(prisma.post.count).mockResolvedValue(0);
     }
+  });
+
+  describe("empty publish queue", () => {
+    const runWithQueue = async (counts: { needsReview?: number; scheduledLater?: number }) => {
+      mocks.findBrands.mockResolvedValue([{ id: "brand_global", name: "CosmicPath Global" }]);
+      mocks.findPost.mockResolvedValue(null);
+      mocks.sendSystemAlert.mockClear();
+      const { prisma } = await import("@/lib/prisma");
+      vi.mocked(prisma.post.count).mockImplementation((async ({ where }: { where: Record<string, unknown> }) => {
+        if (where.status === "NEEDS_REVIEW") return counts.needsReview ?? 0;
+        if (where.status === "PENDING" && where.scheduledAt) return counts.scheduledLater ?? 0;
+        return 0;
+      }) as never);
+      try {
+        const { GET } = await import("@/app/api/cron/publish/route");
+        const response = await GET({ headers: new Headers(), nextUrl: new URL("http://localhost/api/cron/publish") } as never);
+        return (await response.json()).skipped;
+      } finally {
+        vi.mocked(prisma.post.count).mockReset().mockResolvedValue(0);
+      }
+    };
+
+    it("names drafts stuck in review and alerts, since refill counts them as a full backlog", async () => {
+      const skipped = await runWithQueue({ needsReview: 5 });
+
+      expect(skipped).toEqual([{ brandId: "brand_global", brandName: "CosmicPath Global", reason: "awaiting_review" }]);
+      expect(mocks.sendSystemAlert).toHaveBeenCalledWith(expect.objectContaining({
+        title: "Publish queue waiting on review",
+        brandName: "CosmicPath Global",
+        message: expect.stringContaining("5 draft(s)"),
+      }));
+    });
+
+    it("names future-scheduled drafts without alerting", async () => {
+      const skipped = await runWithQueue({ scheduledLater: 2 });
+
+      expect(skipped).toEqual([{ brandId: "brand_global", brandName: "CosmicPath Global", reason: "scheduled_later" }]);
+      expect(mocks.sendSystemAlert).not.toHaveBeenCalled();
+    });
+
+    it("keeps no_pending for a truly empty queue", async () => {
+      expect(await runWithQueue({})).toEqual([{ brandId: "brand_global", brandName: "CosmicPath Global", reason: "no_pending" }]);
+      expect(mocks.sendSystemAlert).not.toHaveBeenCalled();
+    });
   });
 
   describe("?slots= publish windows", () => {
