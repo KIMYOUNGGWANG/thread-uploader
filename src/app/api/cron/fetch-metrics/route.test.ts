@@ -41,4 +41,28 @@ describe("GET /api/cron/fetch-metrics", () => {
       data: expect.objectContaining({ views: 500, performanceScore: expected }),
     }));
   });
+
+  it("archives a post deleted on Threads so it stops topping the never-collected queue", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      error: { message: "Unsupported get request. Object with ID 't1' does not exist, cannot be loaded due to missing permissions, or does not support this operation" },
+    }), { status: 400 })));
+
+    const body = await (await GET(new NextRequest("http://localhost/api/cron/fetch-metrics"))).json();
+
+    expect(body).toMatchObject({ updated: 0, archived: 1, errors: [] });
+    expect(prisma.post.update).toHaveBeenCalledWith({
+      where: { id: "post_1" },
+      data: { status: "ARCHIVED", errorLog: expect.stringContaining("Deleted on Threads") },
+    });
+  });
+
+  it("keeps other insights failures as errors without touching the post", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "Rate limit" } }), { status: 429 })));
+
+    const body = await (await GET(new NextRequest("http://localhost/api/cron/fetch-metrics"))).json();
+
+    expect(body).toMatchObject({ updated: 0, archived: 0 });
+    expect(body.errors).toHaveLength(1);
+    expect(prisma.post.update).not.toHaveBeenCalled();
+  });
 });
