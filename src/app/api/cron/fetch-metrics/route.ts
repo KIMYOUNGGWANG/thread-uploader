@@ -17,6 +17,10 @@ const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
 const BATCH_SIZE = 40;
 const REQUEST_DELAY_MS = 300;
 
+// A post deleted on Threads answers 400 "does not exist". Never-collected posts sort first for 60 days,
+// so without archiving it the same dead post failed every run (cmtj7y2my…, 2026-09-02 → 10-21).
+class ThreadsPostGoneError extends Error {}
+
 async function fetchInsights(threadsId: string, accessToken: string) {
   const params = new URLSearchParams({
     metric: "views,likes,replies,reposts,quotes",
@@ -27,7 +31,9 @@ async function fetchInsights(threadsId: string, accessToken: string) {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(`Insights API error (${response.status}): ${data.error?.message ?? "Unknown"}`);
+    const message = `Insights API error (${response.status}): ${data.error?.message ?? "Unknown"}`;
+    if (response.status === 400 && /does not exist/i.test(message)) throw new ThreadsPostGoneError(message);
+    throw new Error(message);
   }
 
   const metrics: Record<string, number> = {};
@@ -70,6 +76,7 @@ export async function GET(request: NextRequest) {
 
   const credentialsByBrand = new Map<string, ThreadsCredentials>();
   let updated = 0;
+  let archived = 0;
   const errors: { id: string; error: string }[] = [];
 
   for (const post of posts) {
@@ -96,6 +103,15 @@ export async function GET(request: NextRequest) {
       });
       updated++;
     } catch (err) {
+      if (err instanceof ThreadsPostGoneError) {
+        // Archive instead of zero metrics: zeros would teach the learner this formula flopped.
+        await prisma.post.update({
+          where: { id: post.id },
+          data: { status: "ARCHIVED", errorLog: `Deleted on Threads: ${err.message}` },
+        });
+        archived++;
+        continue;
+      }
       errors.push({ id: post.id, error: err instanceof Error ? err.message : "Unknown error" });
     }
     await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
@@ -106,6 +122,7 @@ export async function GET(request: NextRequest) {
     totalEligible: eligible.length,
     selected: posts.length,
     updated,
+    archived,
     errors,
   });
 }
