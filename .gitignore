@@ -87,3 +87,6 @@ output/
 
 # Remotion compositor deps
 /video/node_modules
+
+# Local one-off triage notes and already-applied data scripts
+scratch/
