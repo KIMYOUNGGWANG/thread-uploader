@@ -42,8 +42,9 @@ const OptionCard: React.FC<{ option: PickCardOption; index: number; startFrame: 
         gap: 32,
         padding: "34px 36px",
         borderRadius: 28,
-        background: "rgba(255,255,255,0.07)",
-        border: "2px solid rgba(255,255,255,0.18)",
+        background: "rgba(11,13,20,0.55)",
+        backdropFilter: "blur(6px)",
+        border: "2px solid rgba(255,255,255,0.22)",
         opacity: enter.opacity,
         transform: `scale(${enter.scale})`,
       }}
@@ -93,12 +94,14 @@ export const PickCard: React.FC<PickCardProps> = ({ question, cards, cta, ctaAtS
           lineHeight: 1.25,
           letterSpacing: -1,
           wordBreak: "keep-all",
+          textShadow: "0 4px 24px rgba(0,0,0,0.8)",
           opacity: questionEnter.opacity,
           transform: `scale(${questionEnter.scale})`,
           transformOrigin: "left top",
         }}
       >
         {question}
+        <div style={{ width: 96, height: 6, borderRadius: 3, marginTop: 18, background: "linear-gradient(90deg, #fde68a, #a78bfa)" }} />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 30, marginTop: 70 }}>
         {cards.map((option, index) => (
@@ -110,12 +113,14 @@ export const PickCard: React.FC<PickCardProps> = ({ question, cards, cta, ctaAtS
           />
         ))}
       </div>
-      <div style={{ flex: 1 }} />
+      {/* CTA는 카드 바로 아래. 하단은 ReelsFrame의 브랜드 영역이 쓴다. */}
       <div
         style={{
+          marginTop: 56,
           padding: "30px 36px",
           borderRadius: 999,
           background: "#facc15",
+          boxShadow: "0 0 32px rgba(250,204,21,0.45)",
           color: "#0b0d14",
           fontSize: 40,
           fontWeight: 900,

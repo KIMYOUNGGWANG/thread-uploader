@@ -3,6 +3,7 @@
 import React from "react";
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { FONT_STACK } from "../load-fonts";
+import { elementColor } from "./ReelsFrame";
 
 export interface RankCardProps {
   title: string;
@@ -24,7 +25,8 @@ function useEnter(startFrame: number): { opacity: number; translateY: number } {
 
 const RankRow: React.FC<{ rank: number; text: string; startFrame: number }> = ({ rank, text, startFrame }) => {
   const enter = useEnter(startFrame);
-  const color = RANK_COLORS[rank - 1] ?? "#94a3b8";
+  // 일간 오행 색이 우선, 일간이 아니면 순위 색
+  const color = elementColor(text, RANK_COLORS[rank - 1] ?? "#94a3b8");
   return (
     <div
       style={{
@@ -33,8 +35,10 @@ const RankRow: React.FC<{ rank: number; text: string; startFrame: number }> = ({
         gap: 28,
         padding: "26px 32px",
         borderRadius: 24,
-        background: "rgba(255,255,255,0.06)",
-        border: `2px solid ${rank === 1 ? color : "rgba(255,255,255,0.14)"}`,
+        background: "rgba(11,13,20,0.55)",
+        backdropFilter: "blur(6px)",
+        border: `2px solid ${rank === 1 ? color : `${color}66`}`,
+        boxShadow: rank === 1 ? `0 0 28px ${color}55` : "none",
         opacity: enter.opacity,
         transform: `translateY(${enter.translateY}px)`,
       }}
@@ -70,11 +74,13 @@ export const RankCard: React.FC<RankCardProps> = ({ title, items }) => {
           letterSpacing: -1,
           wordBreak: "keep-all",
           marginBottom: 24,
+          textShadow: "0 4px 24px rgba(0,0,0,0.8)",
           opacity: titleEnter.opacity,
           transform: `translateY(${titleEnter.translateY}px)`,
         }}
       >
         {title}
+        <div style={{ width: 96, height: 6, borderRadius: 3, marginTop: 18, background: "linear-gradient(90deg, #fde68a, #a78bfa)" }} />
       </div>
       {items.map((text, index) => (
         <RankRow
