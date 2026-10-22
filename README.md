@@ -71,6 +71,8 @@ npm run build
 - `GET /api/cron/trends?brands=slug` (brands required) harvests the last 72h of Korean community tension from two sources — Threads keyword search with the brand's own token (per-domain keywords, 72h window, ranked by TOP-search placement and keyword overlap since the public API exposes no engagement counts, usernames stripped) and Claude (Sonnet) web search — transposes it into brand hooks, and stores `brandConfig.trendRadar`, which generation injects as timely material. GitHub Actions (`trends.yml`) runs it daily at KST 06:29 for `vars.TREND_BRAND_SLUGS` (default `cosmicpath`).
 - `GET /api/cron/refill?brand=slug&target=N` tops a product's backlog (PENDING + NEEDS_REVIEW) up to `target`, at most 6 drafts per run, through the same generation pipeline as the dashboard. Drafts from unproven formulas still land in NEEDS_REVIEW, and campaign starts are never auto-approved. GitHub Actions (`refill.yml`) runs it daily at KST 07:13, right after the trend radar.
 - `GET /api/cron/account-intelligence` refreshes 48-hour account insight snapshots, intended for a 2-hour cadence.
+- `GET /api/cron/shorts/discover?brands=slug1,slug2` harvests YouTube Shorts published in the last 48h for each product's `viralDiscovery.youtube` keywords (falls back to the first 3 product topics) and channel handles, keeping videos ≤ `maxDurationSec` (default 180s), and stores them as `ViralExample` rows with `source = youtube_shorts`. Without `?brands=` it runs every product whose `youtube_shorts` adapter is enabled. Costs ~620 quota units per product per run (search.list is 100 units; capped at 8 searches). GitHub Actions (`shorts.yml`) runs it every 6 hours at `:07` for `vars.SHORTS_BRAND_SLUGS` (default `cosmicpath`). Shorts never feed Threads learning: `learn`, `viral` analysis and the viral report exclude `source = youtube_shorts`.
+- `GET /api/cron/shorts/snapshot` re-reads statistics for shorts published in the last 72h (one `videos.list` per 50 ids), records an hourly `ViralExampleSnapshot`, recomputes `velocityScore` as views-per-hour over the last 6h window, and deletes shorts older than 7 days (YouTube API caching terms). GitHub Actions (`shorts.yml`) runs it hourly at `:37`. The feed is at `/brands/[slug]/shorts`, sorted by `velocityScore` with 24h/48h and 국내/해외 filters.
 
 Token refresh and account intelligence cadences are registered through `vercel.json` as daily Vercel Cron Jobs.
 The cron publish route refreshes tokens at the publish boundary via `getFreshBrandCredentials`. Vercel Cron only runs the daily feedback job (Hobby allows daily schedules only).
@@ -85,6 +87,7 @@ Copy `.env.example` to `.env` and configure:
 - `CRON_SECRET`
 - `ENCRYPTION_KEY` (required: session signing + token encryption, never reuse `CRON_SECRET`)
 - `CONVERSION_WEBHOOK_SECRET` (server-only; required for paid events sent to `/api/webhooks/conversion` via `x-webhook-secret` header. Browser tracker sends click/conversion only)
+- `YOUTUBE_API_KEY` — YouTube Data API v3 key for the shorts radar; optional, adapter is off by default.
 - Optional `APP_URL` GitHub repository variable for the manual account intelligence workflow fallback. Defaults to `https://thread-uploader.vercel.app`.
 - Use the manual GitHub workflow or another external scheduler for sub-daily account intelligence on Vercel Hobby.
 - Legacy fallback Threads settings if needed
