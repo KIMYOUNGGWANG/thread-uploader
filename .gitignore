@@ -94,3 +94,7 @@ scratch/
 # 스크립트가 재생성하는 디버그 산출물
 debug_audit.log
 test_apple_capture.png
+
+# Cloudflare wrangler local cache
+cloudflare/scheduler/.wrangler/
+cloudflare/scheduler/node_modules/

@@ -1,9 +1,51 @@
-# 외부 스케줄러 이전 (cron-job.org)
+# 외부 스케줄러 이전
 
-> 2026-10-22. GitHub Actions `schedule`은 몇 시간씩 밀리거나 빠진다(하루 3회만 돈 날이 있었음). Vercel Cron은 Hobby라 일 1회만 되고, DB는 Prisma Postgres라 pg_cron이 없다. 가장 간단한 이전은 cron-job.org(무료, 분 단위, 헤더 지원)다.
-> 그동안 `cron.yml`은 15분 간격으로 돌려 지연을 흡수한다. 모든 라우트가 멱등(발행은 슬롯당 1회, 답글은 DB로 중복 방지)이라 두 스케줄러가 겹쳐 돌아도 안전하다.
+> 2026-10-22. GitHub Actions `schedule`은 몇 시간씩 밀리거나 빠진다(하루 2~3회만 돈 날이 있었고, 15분 간격으로 늘려도 똑같았다). Vercel Cron은 Hobby라 일 1회만 되고, DB는 Prisma Postgres라 pg_cron이 없다.
+> 모든 라우트가 멱등(발행은 슬롯당 1회, 답글은 DB로 중복 방지)이라 스케줄러가 겹쳐 돌아도 안전하다.
+>
+> **선택지 A: Cloudflare Workers Cron (권장)** — 무료, 분 단위, 코드로 관리. 아래 "A" 절.
+> **선택지 B: cron-job.org** — 배포 없이 API로 등록. 가입이 봇 검증에 막히는 경우가 있다. 아래 "B" 절.
 
-## 설정 (5분)
+## A. Cloudflare Workers Cron
+
+코드는 `cloudflare/scheduler/`에 있다. `worker.js`가 `wrangler.toml`의 크론마다 깨어나 Vercel 라우트를 호출한다.
+
+| 크론 (UTC) | 호출 |
+|---|---|
+| `*/15 * * * *` | 발행 KR(`slots=0,3,9,12,14`, KST 09/12/18/21/23) + 발행 Global(`slots=0,12`) |
+| `17 * * * *` | 답글 루프 |
+| `0 */2 * * *` | 계정 분석(팔로워 수) |
+
+### 처음 한 번 (5분)
+
+1. https://dash.cloudflare.com 가입.
+2. 로그인 (브라우저가 열리고 승인 버튼 하나):
+
+```bash
+cd cloudflare/scheduler && npx wrangler login
+```
+
+3. 비밀값 등록. 프롬프트에 Vercel의 `CRON_SECRET` 값을 붙여넣는다(화면에 안 보이고 코드에도 안 남는다):
+
+```bash
+cd cloudflare/scheduler && npx wrangler secret put CRON_SECRET
+```
+
+4. 배포:
+
+```bash
+cd cloudflare/scheduler && npx wrangler deploy
+```
+
+배포가 끝나면 Cloudflare 대시보드 → Workers → `threads-uploader-scheduler` → Settings → Triggers에 크론 3개가 보인다. Logs 탭에서 `200 /api/cron/publish?...` 줄이 찍히면 끝.
+
+- 스케줄을 바꿀 때는 `wrangler.toml`의 `crons`와 `worker.js`의 `ROUTES`를 같이 고치고(테스트가 둘의 일치를 검사한다) 다시 `npx wrangler deploy`.
+- 테스트: `node --test cloudflare/scheduler/worker.test.mjs`
+- 무료 플랜의 실행당 시간 제한 때문에 호출은 25초에서 끊지만, Vercel은 연결이 끊겨도 라우트를 끝까지 돌린다.
+
+## B. cron-job.org
+
+### 설정 (5분)
 
 1. https://cron-job.org 가입 → Console → Settings → API → API 키 생성.
 2. `.env.local` 파일을 만들고 한 줄 추가 (git에 들어가지 않음). `CRON_SECRET`은 이미 `.env`에 있다:
@@ -22,7 +64,7 @@ node --env-file=.env --env-file=.env.local scripts/register-cronjobs.mjs --apply
 
 4. Console에서 각 잡을 "Run now"로 한 번 실행해 응답이 200인지 본다. 401이면 `CRON_SECRET`이 Vercel 값과 다른 것.
 
-### 등록되는 잡 (시간 민감한 것만)
+#### 등록되는 잡 (시간 민감한 것만)
 
 | 잡 | URL | 주기 (UTC) | 비고 |
 |---|---|---|---|
