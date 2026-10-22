@@ -2,7 +2,7 @@ import { decryptToken } from "@/lib/crypto";
 import type { Brand, Post, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
-import { fetchPostInsightsForBrand } from "@/lib/threads-api";
+import { fetchFollowersCountForBrand, fetchPostInsightsForBrand } from "@/lib/threads-api";
 import type {
   AccountInsightAction,
   AccountInsightMetrics,
@@ -41,7 +41,10 @@ export async function runAccountIntelligence(
     ? { attempted: 0, updated: 0, failed: 0 }
     : await refreshRecentMetrics(brand, windowStart);
   const posts = await loadWindowPosts(brand.id, windowStart, windowEnd);
-  const metrics = buildMetrics(posts, windowHours, metricsRefresh);
+  const followersCount = brand.accessToken && brand.threadsUserId
+    ? await fetchFollowersCountForBrand(brand.threadsUserId, decryptToken(brand.accessToken))
+    : null;
+  const metrics = { ...buildMetrics(posts, windowHours, metricsRefresh), followersCount };
   const actions = buildActions(posts, metrics);
   const summary = buildSummary(metrics, actions);
 
@@ -386,6 +389,7 @@ function emptyMetrics(): AccountInsightMetrics {
     totalClicks: 0,
     totalConversions: 0,
     avgPerformanceScore: 0,
+    followersCount: null,
     metricsRefresh: { attempted: 0, updated: 0, failed: 0 },
   };
 }
