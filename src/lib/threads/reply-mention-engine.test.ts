@@ -20,6 +20,7 @@ vi.mock("@/lib/prisma", () => ({
     threadReply: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -30,13 +31,15 @@ vi.mock("@/lib/threads-api", () => ({
   publishReplyWithRetryForBrand: vi.fn(),
 }));
 
+const llm = vi.hoisted(() => ({ fails: false }));
 vi.mock("@anthropic-ai/sdk", () => {
   return {
     default: class MockAnthropic {
       messages = {
-        create: vi.fn(async () => ({
-          content: [{ text: "반가워요! 댓글 감사합니다 :)" }],
-        })),
+        create: vi.fn(async () => {
+          if (llm.fails) throw new Error("overloaded");
+          return { content: [{ type: "text", text: "반가워요! 댓글 감사합니다 :)" }] };
+        }),
       };
     },
   };
@@ -50,7 +53,11 @@ describe("reply-mention-engine", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    llm.fails = false;
+    vi.mocked(prisma.threadReply.count).mockResolvedValue(0);
   });
+
+  const meOk = { ok: true, json: async () => ({ username: "cosmicpath.kr" }) };
 
   describe("fetchPostRepliesWithCap", () => {
     it("strictly truncates replies to maxCap (20-Cap) when post has excess comments", async () => {
@@ -146,6 +153,7 @@ describe("reply-mention-engine", () => {
 
       const mockFetch = vi.fn(async (url: string | URL | Request) => {
         const urlStr = url.toString();
+        if (urlStr.includes("/me?")) return meOk;
         if (urlStr.includes("/replies")) {
           return {
             ok: true,
@@ -161,6 +169,7 @@ describe("reply-mention-engine", () => {
 
       const result = await scanAndDraftRepliesForBrand("brand_1", credentials, {
         maxCapPerPost: 20,
+        maxDraftsPerRun: 20,
         fetchFn: mockFetch,
       });
 
@@ -299,9 +308,88 @@ describe("reply-mention-engine", () => {
           take: 3,
         })
       );
-      expect(result).toEqual({ brandId: "brand_1", published: 1, failed: 1, errors: ["d2: rate limited"] });
+      expect(result).toEqual({ brandId: "brand_1", published: 1, failed: 1, stuck: 0, errors: ["d2: rate limited"] });
       expect(prisma.threadReply.update).toHaveBeenCalledWith({ where: { id: "d1" }, data: { status: "PUBLISHED" } });
       expect(prisma.threadReply.update).toHaveBeenCalledWith({ where: { id: "d2" }, data: { status: "FAILED" } });
+    });
+  });
+
+  // PR #20 review: the three ways the auto-publish path could create spam signals.
+  describe("auto-reply safety (PR #20)", () => {
+    const readerReplies = [{ id: "reader", text: "나도 2번 ㅠ", username: "reader_1" }];
+    const fetchWith = (me: unknown) => vi.fn(async (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/me?")) return me;
+      if (urlStr.includes("/replies")) return { ok: true, json: async () => ({ data: readerReplies }) };
+      return { ok: false, status: 403, text: async () => "" };
+    }) as unknown as typeof fetch;
+
+    it("skips post replies for the run when /me fails instead of treating own comments as readers'", async () => {
+      vi.mocked(prisma.post.findMany).mockResolvedValue([
+        { id: "post_1", threadsId: "th_post_1", content: "원문", publishedAt: new Date() } as unknown as Post,
+      ]);
+      const result = await scanAndDraftRepliesForBrand("brand_1", credentials, { fetchFn: fetchWith({ ok: false, status: 401 }) });
+
+      expect(result.scannedPosts).toBe(0);
+      expect(result.draftsCreated).toBe(0);
+      expect(prisma.threadReply.create).not.toHaveBeenCalled();
+      expect(result.errors.join(" ")).toContain("Own username unavailable");
+    });
+
+    it("creates no row when the LLM fails, so nothing canned can be auto-posted and the comment retries next run", async () => {
+      llm.fails = true;
+      vi.mocked(prisma.post.findMany).mockResolvedValue([
+        { id: "post_1", threadsId: "th_post_1", content: "원문", publishedAt: new Date() } as unknown as Post,
+      ]);
+      vi.mocked(prisma.threadReply.findUnique).mockResolvedValue(null);
+      const result = await scanAndDraftRepliesForBrand("brand_1", credentials, { fetchFn: fetchWith(meOk) });
+
+      expect(result.draftsCreated).toBe(0);
+      expect(result.draftsSkipped).toBe(1);
+      expect(prisma.threadReply.create).not.toHaveBeenCalled();
+    });
+
+    it("caps new drafts per run so a comment burst cannot eat the route budget", async () => {
+      vi.mocked(prisma.post.findMany).mockResolvedValue([
+        { id: "post_1", threadsId: "th_post_1", content: "원문", publishedAt: new Date() } as unknown as Post,
+      ]);
+      vi.mocked(prisma.threadReply.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.threadReply.create).mockResolvedValue({ id: "d" } as unknown as ThreadReply);
+      const burst = Array.from({ length: 9 }, (_, index) => ({ id: `r${index}`, text: `댓글 ${index} 진짜 공감`, username: `u${index}` }));
+      const mockFetch = vi.fn(async (url: string | URL | Request) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/me?")) return meOk;
+        if (urlStr.includes("/replies")) return { ok: true, json: async () => ({ data: burst }) };
+        return { ok: false, status: 403, text: async () => "" };
+      }) as unknown as typeof fetch;
+
+      const result = await scanAndDraftRepliesForBrand("brand_1", credentials, { fetchFn: mockFetch });
+      expect(result.draftsCreated).toBe(5);
+      expect(prisma.threadReply.create).toHaveBeenCalledTimes(5);
+    });
+
+    it("claims the row as PUBLISHING before calling Threads, so an interrupted run cannot double-post", async () => {
+      vi.mocked(prisma.threadReply.findUnique).mockResolvedValue({
+        id: "d1", replyThreadsId: "c1", replyText: "답1",
+      } as unknown as ThreadReply);
+      vi.mocked(prisma.threadReply.update).mockResolvedValue({} as unknown as ThreadReply);
+      vi.mocked(threadsApi.publishReplyWithRetryForBrand).mockResolvedValue("pub_1");
+
+      await publishApprovedReply("d1", credentials);
+
+      const update = vi.mocked(prisma.threadReply.update);
+      const publish = vi.mocked(threadsApi.publishReplyWithRetryForBrand);
+      expect(update.mock.calls[0][0]).toEqual({ where: { id: "d1" }, data: { status: "PUBLISHING" } });
+      expect(update.mock.invocationCallOrder[0]).toBeLessThan(publish.mock.invocationCallOrder[0]);
+      expect(update.mock.calls[1][0]).toEqual({ where: { id: "d1" }, data: { status: "PUBLISHED" } });
+    });
+
+    it("reports rows stuck in PUBLISHING instead of retrying them", async () => {
+      vi.mocked(prisma.threadReply.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.threadReply.count).mockResolvedValue(2);
+      const result = await publishDueDraftReplies("brand_1", credentials);
+      expect(result.stuck).toBe(2);
+      expect(prisma.threadReply.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: "DRAFT" }) }));
     });
   });
 });

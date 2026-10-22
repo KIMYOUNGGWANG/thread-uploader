@@ -46,20 +46,20 @@ jobs:
           done
           exit $status
 
-  # 자동 답글 루프 비활성화 (2026-10-22): 자기 댓글 답글·동일 문구 반복·중복 답글 버그로 계정 정지 리스크가 있어 잠시 끔.
-  # 다시 켜려면 아래 주석을 풀고 src/lib/threads/reply-mention-engine.ts의 /me 실패 처리·고정 fallback 문구·타임아웃 중복 게시를 먼저 고칠 것.
-  # # Reader-reply loop: scan the last week's posts for new comments, draft, and auto-publish (≤5 per brand per run).
-  # # Hourly keeps the "answered within 24h" promise even with GitHub's schedule lag.
-  # replies:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Reply to reader comments via cron route
-  #       env:
-  #         APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
-  #         CRON_SECRET: ${{ secrets.CRON_SECRET }}
-  #       run: |
-  #         test -n "$APP_URL"
-  #         test -n "$CRON_SECRET"
-  #         curl --fail-with-body --show-error --silent --location --max-time 120 \
-  #           -H "Authorization: Bearer ${CRON_SECRET}" \
-  #           "${APP_URL%/}/api/cron/replies"
+  # Reader-reply loop: publish due drafts (≤3 per brand per run), then scan the last week's posts for new
+  # comments and draft (≤5 per run). Hourly keeps the "answered within 24h" promise even with GitHub's lag.
+  # Re-enabled 2026-10-22 after the PR #20 fixes: /me failure skips the scan, no canned fallback is posted,
+  # and a row is claimed (PUBLISHING) before the Threads call so an interrupted run cannot double-post.
+  replies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reply to reader comments via cron route
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --show-error --silent --location --max-time 120 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/replies"
