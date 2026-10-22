@@ -38,6 +38,16 @@ describe("calculateShortsVelocity", () => {
     ).toBe(0);
   });
 
+  it("floors the multi-snapshot denominator at one hour", () => {
+    expect(
+      calculateShortsVelocity({
+        snapshots: [at(0.1, 500), at(0, 1000)],
+        publishedAt: new Date(now.getTime() - 10 * 36e5),
+        now,
+      }),
+    ).toEqual({ velocity: 500, windowHours: 1 });
+  });
+
   it("never divides by less than one hour", () => {
     expect(
       calculateShortsVelocity({

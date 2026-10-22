@@ -16,8 +16,9 @@ const roundTenth = (value: number): number => Math.round(value * 10) / 10;
 
 function betweenSnapshots(oldest: Snapshot, newest: Snapshot): VelocityResult {
   const hours = (newest.capturedAt.getTime() - oldest.capturedAt.getTime()) / HOUR_MS;
-  const velocity = hours > 0 ? clampRound((newest.views - oldest.views) / hours) : 0;
-  return { velocity, windowHours: roundTenth(Math.max(1, hours)) };
+  const windowHours = Math.max(1, hours);
+  const velocity = clampRound((newest.views - oldest.views) / windowHours);
+  return { velocity, windowHours: roundTenth(windowHours) };
 }
 
 function sincePublish(newest: Snapshot | undefined, input: VelocityInput): VelocityResult {
