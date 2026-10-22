@@ -7,7 +7,7 @@ import { WeeklyScorecardPanel } from "@/components/WeeklyScorecardPanel";
 import { Button } from "@/components/ui/button";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
-import { parseExcelFile, parseMarkdownFile, ParsedPost, validatePost } from "@/lib/parser";
+import { parseMarkdownFile, ParsedPost, validatePost } from "@/lib/parser";
 import { generatePostsInChunks } from "@/lib/generate-client";
 import { Toaster, toast } from "sonner";
 import Link from "next/link";
@@ -507,9 +507,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     setIsLoading(true);
     try {
       let parsedPosts: ParsedPost[] = [];
-      if (file.name.endsWith(".xlsx")) {
-        parsedPosts = parseExcelFile(await file.arrayBuffer());
-      } else if (file.name.endsWith(".md")) {
+      if (file.name.endsWith(".md")) {
         parsedPosts = parseMarkdownFile(await file.text());
       }
       if (parsedPosts.length === 0) { toast.error("No posts found in file"); return; }
@@ -1371,7 +1369,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   </Button>
                 </div>
               </div>
-              <input type="file" accept=".xlsx,.md" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); }} />
+              <input type="file" accept=".md" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); }} />
             </div>
 
             {/* Posts Grid */}
