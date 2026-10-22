@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Upload, FileText, FileSpreadsheet } from "lucide-react";
+import { Upload, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FileDropzoneProps {
@@ -24,11 +24,10 @@ export function FileDropzone({ onFileSelect, isLoading }: FileDropzoneProps) {
 
     const isValidFile = (file: File): boolean => {
         const validTypes = [
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "text/markdown",
             "text/plain",
         ];
-        const validExtensions = [".xlsx", ".md"];
+        const validExtensions = [".md"];
 
         return (
             validTypes.includes(file.type) ||
@@ -82,7 +81,7 @@ export function FileDropzone({ onFileSelect, isLoading }: FileDropzoneProps) {
         >
             <input
                 type="file"
-                accept=".xlsx,.md"
+                accept=".md"
                 onChange={handleChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 disabled={isLoading}
@@ -110,10 +109,6 @@ export function FileDropzone({ onFileSelect, isLoading }: FileDropzoneProps) {
                 </div>
 
                 <div className="flex gap-4 mt-4">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-                        <FileSpreadsheet className="w-5 h-5 text-green-500" />
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">.xlsx</span>
-                    </div>
                     <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
                         <FileText className="w-5 h-5 text-blue-500" />
                         <span className="text-sm font-medium text-slate-600 dark:text-slate-300">.md</span>

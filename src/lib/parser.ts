@@ -1,37 +1,8 @@
-import * as XLSX from "xlsx";
-
 export interface ParsedPost {
     content: string;
     images: string[];
     scheduledAt: Date | null;
     firstComment?: string;
-}
-
-/**
- * Parse an Excel file (.xlsx) into an array of Posts
- * Expected columns: content, images (comma-separated), scheduledAt (YYYY-MM-DD HH:mm)
- */
-export function parseExcelFile(buffer: ArrayBuffer): ParsedPost[] {
-    const workbook = XLSX.read(buffer, { type: "array" });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-
-    // Convert to JSON array
-    const rows = XLSX.utils.sheet_to_json<{
-        content?: string;
-        images?: string;
-        scheduledAt?: string;
-    }>(worksheet);
-
-    return rows
-        .filter((row) => row.content && row.content.trim())
-        .map((row) => ({
-            content: row.content!.trim(),
-            images: row.images
-                ? row.images.split(",").map((img) => img.trim()).filter(Boolean)
-                : [],
-            scheduledAt: row.scheduledAt ? parseScheduleDate(row.scheduledAt) : null,
-        }));
 }
 
 /**
