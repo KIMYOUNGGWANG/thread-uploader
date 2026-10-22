@@ -5,8 +5,7 @@ import {
   normalizeViralIntentModeId,
   resolveViralIntentMode,
   selectViralIntentMode,
-  VIRAL_INTENT_MODES,
-} from "./viral-intent-modes";
+  VIRAL_INTENT_MODES, pickClosingFormat } from "./viral-intent-modes";
 
 describe("viral intent mode rotation", () => {
   it("cycles a 28-post sprint into four 7-post mode groups", () => {
@@ -90,5 +89,18 @@ describe("viral mode shapes", () => {
 
   it("exports the identity marker pattern for scorer and anti-repeat reuse", () => {
     expect(IDENTITY_MARKER_PATTERN.test("신금 일주는 정으로 베임")).toBe(true);
+  });
+});
+
+describe("pickClosingFormat", () => {
+  it("rotates closings so questions and choices outnumber plain statements", () => {
+    const formats = Array.from({ length: 12 }, (_, index) => pickClosingFormat(index, "concept_hierarchy"));
+    expect(formats.filter((format) => format === "question")).toHaveLength(6);
+    expect(formats.filter((format) => format === "statement")).toHaveLength(4);
+    expect(formats.filter((format) => format === "choices")).toHaveLength(2);
+  });
+
+  it("keeps the 3-choice dilemma on numbered choices whatever the slot", () => {
+    for (let index = 0; index < 6; index++) expect(pickClosingFormat(index, "imagination_dilemma")).toBe("choices");
   });
 });
