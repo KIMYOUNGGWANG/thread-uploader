@@ -6,19 +6,18 @@
 ## 설정 (5분)
 
 1. https://cron-job.org 가입 → Console → Settings → API → API 키 생성.
-2. `.env.local`에 두 줄 추가 (둘 다 git에 들어가지 않음):
+2. `.env.local` 파일을 만들고 한 줄 추가 (git에 들어가지 않음). `CRON_SECRET`은 이미 `.env`에 있다:
    - `CRONJOB_API_KEY=<방금 만든 키>`
-   - `CRON_SECRET=<Vercel → Project → Settings → Environment Variables의 CRON_SECRET 값>`
 3. 등록:
 
 ```bash
-node --env-file=.env.local scripts/register-cronjobs.mjs
+node --env-file=.env --env-file=.env.local scripts/register-cronjobs.mjs
 ```
 
 위는 드라이런이라 만들 잡만 출력한다. 확인 후 `--apply`를 붙여 실제로 만든다. 제목 기준으로 멱등이라 다시 돌려도 중복 생성되지 않는다.
 
 ```bash
-node --env-file=.env.local scripts/register-cronjobs.mjs --apply
+node --env-file=.env --env-file=.env.local scripts/register-cronjobs.mjs --apply
 ```
 
 4. Console에서 각 잡을 "Run now"로 한 번 실행해 응답이 200인지 본다. 401이면 `CRON_SECRET`이 Vercel 값과 다른 것.

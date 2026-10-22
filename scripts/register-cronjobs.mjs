@@ -2,9 +2,9 @@
 // The secret goes straight from your .env.local to cron-job.org; nothing is printed.
 //
 // Usage:
-//   node --env-file=.env.local scripts/register-cronjobs.mjs            # dry run: prints the jobs it would create
-//   node --env-file=.env.local scripts/register-cronjobs.mjs --apply    # creates missing jobs (idempotent by title)
-// Needs CRONJOB_API_KEY (cron-job.org Console → Settings → API) and CRON_SECRET (same value as Vercel). APP_URL optional.
+//   node --env-file=.env --env-file=.env.local scripts/register-cronjobs.mjs            # dry run: prints the jobs it would create
+//   node --env-file=.env --env-file=.env.local scripts/register-cronjobs.mjs --apply    # creates missing jobs (idempotent by title)
+// CRON_SECRET comes from .env (same value as Vercel); put CRONJOB_API_KEY (cron-job.org Console → Settings → API) in .env.local.
 
 const API = "https://api.cron-job.org";
 const APP_URL = (process.env.APP_URL ?? "https://thread-uploader.vercel.app").replace(/\/$/, "");
