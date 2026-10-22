@@ -1,9 +1,9 @@
 name: Account Intelligence
 
 on:
-  # 일시 중지 (2026-10-22): 11/17 글 길이 실험 판정 전까지 발행·채우기·지표 수집 외 자동화는 동결. 다시 켜려면 아래 schedule 주석 해제. workflow_dispatch 수동 실행은 그대로 가능.
-  # schedule:
-  #   - cron: '0 */2 * * *'
+  # 재개 (2026-10-22): 팔로워 수(metrics.followersCount, PR #21)가 이 크론에서만 기록돼 지표 수집으로 분류해 다시 켬. viral·trends·render 일시 중지는 그대로.
+  schedule:
+    - cron: '0 */2 * * *'
   workflow_dispatch:
 
 jobs:
