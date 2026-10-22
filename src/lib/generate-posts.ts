@@ -44,7 +44,7 @@ import { findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPres
 import { resolveDynamicContext } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
-import { findSaturatedTopics, formatSaturationReason } from "@/lib/topic-saturation-guard";
+import { findSaturatedTopics, formatSaturationReason, isSituationSaturated, SATURATION_WINDOW } from "@/lib/topic-saturation-guard";
 import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
@@ -406,7 +406,8 @@ function buildExperiment(
   viralIntentMode = selectViralIntentMode(index),
   contextDomainId?: string,
   contextOffset = 0,
-  linkOffset = 0
+  linkOffset = 0,
+  recentSituations: Array<string | null | undefined> = []
 ): GrowthExperiment {
   const qualityProfile = campaign?.qualityProfile ?? config.qualityProfile ?? "saju_viral";
   const shouldLink = campaign
@@ -419,14 +420,19 @@ function buildExperiment(
     .filter((ctaType) => !hasReplyBurdenPromise(ctaType));
   const ctaTypes = coupleCtaToLink(ctaTypeCandidates.length ? ctaTypeCandidates : defaultCtaTypes, shouldLink);
 
-  const dynamicContext = resolveDynamicContext({
+  const contextOptions = {
     domainId: contextDomainId ?? qualityProfile,
     index: index + contextOffset,
     baseTopic: topic,
     userTarget: config.targets?.length ? pickRandom(config.targets) : undefined,
     userSituation: config.situations?.length ? pickRandom(config.situations) : undefined,
-    contextWeights: config.contextWeights,
-  });
+  };
+  let dynamicContext = resolveDynamicContext({ ...contextOptions, contextWeights: config.contextWeights });
+  // A friction already used twice in the recent window steps through the unweighted permutation instead,
+  // so learned weights cannot turn one scenario into the whole feed.
+  for (let attempt = 1; attempt <= SATURATION_WINDOW && isSituationSaturated(dynamicContext.friction, recentSituations); attempt++) {
+    dynamicContext = resolveDynamicContext({ ...contextOptions, index: contextOptions.index + attempt });
+  }
 
   return {
     formula,
@@ -951,6 +957,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       content: true,
       firstComment: true,
       topic: true,
+      situation: true,
       hookType: true,
       ctaType: true,
       campaignFormulaId: true,
@@ -1018,11 +1025,13 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       const formulaMode = isLeanSprint ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
 
       const topic = topics[batchIndex % topics.length];
+      const recentSituations = [...[...results].reverse().map((result) => result.situation), ...recentPosts.map((recent) => recent.situation)];
       const experiment = buildExperiment(
         formula, topic, config, activeCampaign, batchIndex, formulaMode,
         useRelationshipContext ? "saju_relationship" : undefined,
         contextOffset,
-        linkOffset
+        linkOffset,
+        recentSituations
       );
       experiment.lengthTarget = lengthArms[batchIndex];
       // Newest first, so the anti-repeat windows look at the latest drafts.

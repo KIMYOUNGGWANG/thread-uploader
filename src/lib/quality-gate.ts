@@ -22,6 +22,21 @@ import { checkMetaPolicySafety } from "@/lib/meta-policy-guard";
  * 커리어 wedge 실험용 셀프체크/저장형 콘텐츠를 검증한다.
  */
 
+// Openers that presuppose the reader knows their own chart ("경금 일주에 화개살이 있으면") reach only readers
+// who do; the 42k/22k/9k posts all opened on a claim anyone can read (2026-10-22 metrics review).
+const FIRST_LINE_CHART_GATE_PATTERNS = [
+  /[갑을병정무기경신임계][목화토금수]?\s*일주/,
+  /일주[가는에이라]/,
+  /일간[이은의]/,
+  /(살|귀인)[이가]?\s*(있으면|있는|없으면|없는|붙)/,
+];
+
+export function findFirstLineChartGate(firstLine: string): string | null {
+  return FIRST_LINE_CHART_GATE_PATTERNS.some((pattern) => pattern.test(firstLine))
+    ? `첫 줄이 독자 사주를 전제함: "${firstLine.slice(0, 40)}" — 사주 모르는 사람도 읽히는 단언/질문으로 시작`
+    : null;
+}
+
 const SAJU_KEYWORDS = [
   // 살(煞) 계열
   "화개살", "도화살", "홍염살", "역마살", "원진살", "귀문관살",
@@ -458,9 +473,12 @@ function checkSajuViralQuality(post: string, context: ProductQualityContext): Qu
     : { pass: true, failureCodes: [] };
   reasons.push(...fidelity.failureCodes.map(formatViralModeFidelityFailure));
 
+  const chartGate = findFirstLineChartGate(firstLine);
+  if (chartGate) reasons.push(chartGate);
+
   // A saju_viral post without any saju term is off-campaign. Hook and engagement only inform the score:
   // requiring them pushed every post into the same question-plus-numbered-choices template.
-  return { pass: hasSajuTerm && fidelity.pass, score, profile: "saju_viral", reasons };
+  return { pass: hasSajuTerm && fidelity.pass && !chartGate, score, profile: "saju_viral", reasons };
 }
 
 const VIRAL_MODE_FAILURE_MESSAGES: Record<ViralModeFidelityFailureCode, string> = {

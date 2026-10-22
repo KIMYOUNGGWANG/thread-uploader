@@ -59,3 +59,8 @@
 - Recurring bug: prose-only guardrail — the "30분 오차" overfit cap lived only in prompt text while one formula instruction still mandated it — Prevention: guardrails that matter live in code (`topic-saturation-guard.ts`) and the instruction that contradicts them is edited in the same change.
 - Recurring bug: timing limit treated as content defect — trust-tier quota (3/day) below the slot plan (5/day) demoted approved posts to NEEDS_REVIEW every afternoon — Prevention: quota/cooldown style limits skip the run; only content reasons change post status.
 - What worked well: four parallel read-only explorations (learning / generation / conversion / ops) before any design made every fix root-cause rather than symptomatic.
+
+## [2026-10-22] Overfit Loop Audit (193 posts, median 117 views)
+- Recurring bug: learned signal fed back as prompt text — a 5-post `topic` at ~2x the brand median became a growthMemory "winner", the prompt told the model to reuse it, and 26 of the last 30 posts shared two scenarios — Prevention: prompt-facing winners need `MIN_WINNER_POSTS` (8) and `WINNER_MARGIN` (1.5x median); `growth-learning.test.ts` pins it.
+- Recurring bug: weighted picker without a cap — learned `frictionWeights` made `pickWeighted` return the same friction most ticks — Prevention: `isSituationSaturated` (2 of recent 10) steps the experiment through the unweighted permutation; any learned weight that drives selection needs a recent-window cap in code.
+- Recurring bug: openers gated on the reader's chart ("경금 일주에 화개살이 있으면") — half of recent first lines, none of the breakouts — Prevention: `findFirstLineChartGate` fails the saju_viral gate; the prompt rule alone was not enough.

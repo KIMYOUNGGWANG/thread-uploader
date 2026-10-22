@@ -101,8 +101,8 @@ describe("checkQuality", () => {
   });
 
   const IDENTITY_POST_WITHOUT_CHOICES = [
-    "신금 일주는 끊을 때 칼이 아니라 정으로 베임.",
-    "판단은 빠른데 인정은 제일 늦게 하는 타입이라, 이미 끝난 관계를 1년씩 끌고 감.",
+    "끝난 관계를 1년씩 끌고 가는 사람은 정이 많은 게 아님.",
+    "신금 일주는 끊을 때 칼이 아니라 정으로 베임. 판단은 빠른데 인정은 제일 늦게 함.",
     "",
     "강점은 한 번 정한 기준을 끝까지 지키는 거고, 맹점은 그 기준이 상대 사정을 못 봄.",
     "",
@@ -118,6 +118,21 @@ describe("checkQuality", () => {
     "너는 태어난 시간 정확히 알고 있음?",
   ].join("\n");
 
+  // 2026-10-22 metrics: 16 of the last 30 posts opened "경금 일주에 화개살이 있으면" and stayed under 200 views,
+  // while the 42k/22k/9k posts all opened on a claim anyone can read.
+  it("rejects a first line that presupposes the reader's chart", () => {
+    for (const opener of ["경금 일주에 화개살이 있으면, 재회 후 불안을 사랑으로 착각함.", "화개살 있는 사람은 동업 제안에 제일 먼저 짐.", "일간이 약한 사람은 썸에서 먼저 연락함."]) {
+      const result = checkQuality(`${opener}\n사주에서 재성은 돈이 아니라 통제력임.\n넌 지금 누구한테 끌려가고 있음?`, "saju_viral");
+      expect(result.pass).toBe(false);
+      expect(result.reasons.join(" ")).toContain("첫 줄이 독자 사주를 전제함");
+    }
+  });
+
+  it("keeps saju terms allowed from the second line and in universal first lines", () => {
+    const post = "혹시 '도화'보다 센 '홍염'보다 센 게 뭔지 알아? 바로 '화개'야.\n화개살이 있으면 스님도 파계시킴.\n너한테 그런 매력이 숨어 있을 수도.";
+    expect(checkQuality(post, "saju_viral").reasons.join(" ")).not.toContain("첫 줄이 독자 사주를 전제함");
+  });
+
   it("accepts an identity post that ends with a direct question instead of numbered choices", () => {
     const result = checkQuality(IDENTITY_POST_WITHOUT_CHOICES, "saju_viral", { viralIntentModeId: "identity_profile" });
 
@@ -132,7 +147,8 @@ describe("checkQuality", () => {
   });
 
   it("preserves saju viral pass and fail behavior", () => {
-    const passing = checkQuality("혹시 도화살 있는 사람? 솔직히 남들보다 감정 소모가 심한 편이야.\nA. 화개살 B. 도화살 C. 역마살 중 가까운 쪽 체크해봐. 저장해두고 기준 삼아봐.", "saju_viral");
+    // "혹시 도화살 있는 사람?" as an opener is the chart-gated self_classification shape (median 66 views); the term moves to line 2
+    const passing = checkQuality("남들보다 감정 소모가 심한 건 성격이 아니라 글자 문제임.\n혹시 도화살 있는 사람? A. 화개살 B. 도화살 C. 역마살 중 가까운 쪽 체크해봐. 저장해두고 기준 삼아봐.", "saju_viral");
     const failing = checkQuality("좋은 일이 올 거예요. 스스로를 믿으세요.", "saju_viral");
 
     expect(passing.pass).toBe(true);

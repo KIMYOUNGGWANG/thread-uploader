@@ -36,6 +36,14 @@ export function findSaturatedTopics(
   });
 }
 
+// Learned frictionWeights let one friction win most weighted picks (2026-10: 동업/재회 took 26 of 30 posts).
+export const SITUATION_MAX_IN_RECENT = 2;
+
+export function isSituationSaturated(friction: string, recentSituations: Array<string | null | undefined>): boolean {
+  const hits = recentSituations.slice(0, SATURATION_WINDOW).filter((situation) => situation?.includes(friction)).length;
+  return hits >= SITUATION_MAX_IN_RECENT;
+}
+
 export function formatSaturationReason(topic: SaturatedTopic): string {
   return `토픽 포화: ${topic.id} (최근 ${SATURATION_WINDOW}개 중 ${topic.recentHits}개, 허용 ${topic.maxInRecent}개) - 다른 소재로 작성`;
 }
