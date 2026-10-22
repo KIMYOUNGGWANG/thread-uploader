@@ -2,8 +2,11 @@ name: Scheduled Post Publisher
 
 on:
   schedule:
-    # GitHub runs schedules hours late, so call hourly (off the busy :00 mark) and let
-    # /api/cron/publish?slots= publish once per slot whenever a run lands in its window.
+    # GitHub delays or drops scheduled runs (2026-10-22: three runs in a day instead of 24, so 3 of 5 KR slots
+    # published). Every 15 minutes gives each 3-hour slot window up to 12 chances; /api/cron/publish?slots=
+    # publishes once per slot, so extra runs are no-ops (outside_publish_slot / slot_already_served).
+    - cron: '*/15 * * * *'
+    # The replies job keys off this one entry so the Threads scan stays hourly (API call budget).
     - cron: '17 * * * *'
   workflow_dispatch: # 수동 실행 버튼 활성화
 
@@ -51,6 +54,8 @@ jobs:
   # Re-enabled 2026-10-22 after the PR #20 fixes: /me failure skips the scan, no canned fallback is posted,
   # and a row is claimed (PUBLISHING) before the Threads call so an interrupted run cannot double-post.
   replies:
+    # Hourly only: the 15-minute entry exists for publish slot coverage, not for rescanning comments.
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 * * * *'
     runs-on: ubuntu-latest
     steps:
       - name: Reply to reader comments via cron route
