@@ -28,6 +28,34 @@ const client = new Anthropic({
   timeout: 15000,
 });
 
+// A reply loop that answers its own first comment or "맞팔" bots reads as spam; these never get a draft.
+const INELIGIBLE_REPLY_PATTERNS = [
+  /https?:\/\/|www\./i,
+  /맞팔|선팔|팔로우\s*(해|부탁|구해)|follow\s*(back|4|for)|f4f|dm\s*me/i,
+];
+
+export function isReaderReplyEligible(reply: RawThreadsReply, ownUsername?: string | null): boolean {
+  if (ownUsername && reply.username.replace(/^@/, "").toLowerCase() === ownUsername.replace(/^@/, "").toLowerCase()) return false;
+  const text = reply.text.trim();
+  if (text.length < 2) return false;
+  return !INELIGIBLE_REPLY_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/**
+ * The account's own handle, so the scan can drop the brand's first comments. Null when the lookup fails:
+ * the caller then skips drafting rather than risk replying to itself.
+ */
+export async function fetchOwnUsername(credentials: ThreadsCredentials, fetchFn = fetch): Promise<string | null> {
+  try {
+    const response = await fetchFn(`https://graph.threads.net/v1.0/me?fields=username&access_token=${credentials.accessToken}`);
+    if (!response.ok) return null;
+    const data: { username?: string } = await response.json();
+    return data.username ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetches replies for a given post from Meta Threads Graph API,
  * strictly enforcing the 20-Cap safety ceiling on unanswered replies.
@@ -123,9 +151,12 @@ export async function generateDraftReplyContent(
   authorUsername: string,
   commentText: string,
   postContext: string,
-  options?: { creatorHandle?: string; brandTone?: string }
+  options?: { creatorHandle?: string; brandTone?: string; language?: "ko" | "en" }
 ): Promise<string> {
   const isCreator = options?.creatorHandle && authorUsername.replace("@", "").toLowerCase() === options.creatorHandle.replace("@", "").toLowerCase();
+  const toneRule = options?.language === "en"
+    ? "[Rules]: Reply in casual English, 1-2 sentences. Answer the question first if there is one. No 'thanks for your comment' filler, no links, no promotion, no hashtags. Output only the reply."
+    : "[지침]: 글과 같은 반말 독백체(~임, ~더라, ~냐?)로 1~2문장(60~120자). 존댓말(~해요/~합니다) 금지. 질문이면 답부터, 아니면 한 번 더 궁금하게 만드는 되물음 하나. 기계적인 '감사합니다' 금지. 링크/홍보/해시태그 금지. 답글 텍스트만 출력.";
 
   const prompt = [
     `너는 Threads 게시물의 작가이자 계정 운영자다.`,
@@ -133,7 +164,7 @@ export async function generateDraftReplyContent(
     `[독자 댓글] (@${authorUsername}): "${commentText}"`,
     isCreator
       ? `[특수 지침: 제작자/관리자 본인 댓글] 더 반갑고 위트 있게 티키타카를 나눌 것.`
-      : `[지침]: 진정성 있고 짧고 경쾌하게 1~2문장(60~120자 내외)으로 답글을 작성하라. 기계적인 '감사합니다' 반복 금지. 친근한 구어체 사용.`,
+      : toneRule,
   ].join("\n");
 
   try {
@@ -162,11 +193,15 @@ export async function scanAndDraftRepliesForBrand(
   options?: {
     maxCapPerPost?: number;
     creatorHandle?: string;
+    language?: "ko" | "en";
+    /** The brand's own handle; fetched from /me when omitted. */
+    ownUsername?: string | null;
     fetchFn?: typeof fetch;
   }
 ): Promise<ScanRepliesResult> {
   const maxCap = options?.maxCapPerPost ?? THREADS_MAX_UNANSWERED_REPLIES_PER_POST;
   const customFetch = options?.fetchFn ?? fetch;
+  const ownUsername = options?.ownUsername === undefined ? await fetchOwnUsername(credentials, customFetch) : options.ownUsername;
 
   const result: ScanRepliesResult = {
     brandId,
@@ -178,19 +213,19 @@ export async function scanAndDraftRepliesForBrand(
     errors: [],
   };
 
-  // Find recent published posts from last 3 days
-  const threeDaysAgo = new Date();
-  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+  // Breakout posts keep collecting replies for a week or more, so the window is wider than the 3-6 posts/day.
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   const posts = await prisma.post.findMany({
     where: {
       brandId,
       status: "PUBLISHED",
       threadsId: { not: null },
-      publishedAt: { gte: threeDaysAgo },
+      publishedAt: { gte: sevenDaysAgo },
     },
     orderBy: { publishedAt: "desc" },
-    take: 10,
+    take: 25,
   });
 
   result.scannedPosts = posts.length;
@@ -217,6 +252,7 @@ export async function scanAndDraftRepliesForBrand(
       }
 
       for (const reply of replies) {
+        if (!isReaderReplyEligible(reply, ownUsername)) continue;
         // Check if reply already exists in DB
         const existing = await prisma.threadReply.findUnique({
           where: { replyThreadsId: reply.id },
@@ -227,7 +263,7 @@ export async function scanAndDraftRepliesForBrand(
             reply.username,
             reply.text,
             post.content,
-            { creatorHandle: options?.creatorHandle }
+            { creatorHandle: options?.creatorHandle, language: options?.language }
           );
 
           await prisma.threadReply.create({
@@ -269,7 +305,7 @@ export async function scanAndDraftRepliesForBrand(
           mention.username,
           mention.text,
           mention.text,
-          { creatorHandle: options?.creatorHandle }
+          { creatorHandle: options?.creatorHandle, language: options?.language }
         );
 
         await prisma.threadReply.create({
@@ -291,6 +327,52 @@ export async function scanAndDraftRepliesForBrand(
     }
   }
 
+  return result;
+}
+
+// The cron route has 60s; each publish sleeps ~6s. 3 per hourly run is still 72 replies/day.
+export const AUTO_REPLY_MAX_PER_RUN = 3;
+export const AUTO_REPLY_MAX_AGE_HOURS = 48;
+
+export interface AutoReplyResult {
+  brandId: string;
+  published: number;
+  failed: number;
+  errors: string[];
+}
+
+/**
+ * Publishes reader-reply drafts without human approval: newest-post comments first, capped per run so one
+ * run never bursts, and drafts older than the window stay DRAFT for manual review (a late reply reads as a bot).
+ * Mentions are left for approval: their context is another account's post.
+ */
+export async function publishDueDraftReplies(
+  brandId: string,
+  credentials: ThreadsCredentials,
+  options?: { maxPerRun?: number; maxAgeHours?: number; now?: Date }
+): Promise<AutoReplyResult> {
+  const maxPerRun = options?.maxPerRun ?? AUTO_REPLY_MAX_PER_RUN;
+  const maxAgeHours = options?.maxAgeHours ?? AUTO_REPLY_MAX_AGE_HOURS;
+  const now = options?.now ?? new Date();
+  const since = new Date(now.getTime() - maxAgeHours * 60 * 60 * 1000);
+
+  const due = await prisma.threadReply.findMany({
+    where: { brandId, status: "DRAFT", isMention: false, createdAt: { gte: since }, replyText: { not: null } },
+    orderBy: { createdAt: "asc" },
+    take: maxPerRun,
+  });
+
+  const result: AutoReplyResult = { brandId, published: 0, failed: 0, errors: [] };
+  for (const draft of due) {
+    const outcome = await publishApprovedReply(draft.id, credentials);
+    if (outcome.success) {
+      result.published++;
+    } else {
+      result.failed++;
+      result.errors.push(`${draft.id}: ${outcome.error ?? "publish failed"}`);
+      await prisma.threadReply.update({ where: { id: draft.id }, data: { status: "FAILED" } });
+    }
+  }
   return result;
 }
 
