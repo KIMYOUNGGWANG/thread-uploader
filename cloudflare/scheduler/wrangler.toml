@@ -1,0 +1,12 @@
+name = "threads-uploader-scheduler"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+# Keep these in sync with ROUTES in worker.js (the handler branches on event.cron).
+[triggers]
+crons = ["*/15 * * * *", "17 * * * *", "0 */2 * * *"]
+
+[vars]
+APP_URL = "https://thread-uploader.vercel.app"
+
+# CRON_SECRET is a secret, not a var: `npx wrangler secret put CRON_SECRET` (run in this directory).
