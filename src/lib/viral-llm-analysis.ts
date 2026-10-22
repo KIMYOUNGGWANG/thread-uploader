@@ -12,7 +12,7 @@ const ANALYSIS_BATCH_SIZE = 10;
 const LABEL_VOCABULARY = {
   hookType: ["질문형 훅", "반전형 훅", "논쟁형 훅", "고백형 훅", "체크리스트형 훅", "증거형 훅", "공감형 훅"],
   emotionalDriver: ["분노", "불안", "호기심", "소속감", "안도감", "욕망", "공감"],
-  structureType: ["자기분류", "저장형 도구", "리스트", "비포애프터", "반전", "짧은 선언", "스토리", "의견 전개"],
+  structureType: ["자기분류", "저장형 도구", "리스트", "비포애프터", "반전", "짧은 선언", "스토리", "의견 전개", "랭킹 정지", "카드 선택", "말하는 영상", "일간별 체인", "시즌 훅", "상담 유도"],
 } as const;
 
 const ANALYSIS_FIELDS = ["id", "hookType", "emotionalDriver", "structureType", "patternSummary", "keyTakeaway", "whyItWorks"] as const;
