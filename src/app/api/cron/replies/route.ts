@@ -25,14 +25,15 @@ export async function GET(request: NextRequest) {
 
       const credentials = await getFreshBrandCredentials(brand.id);
       const language = brandConfig.voiceProfile?.language === "en" || brandConfig.qualityProfile === "ecommerce_d2c" ? "en" : "ko";
-      const scanResult = await scanAndDraftRepliesForBrand(brand.id, credentials, {
-        creatorHandle: brandConfig.creatorHandle,
-        language,
-      });
+      // Publish first: it is bounded (3 × ~7s) while a scan with many new comments can eat the 60s budget.
       // AUTO_REPLY_PUBLISH=false parks drafts for manual approval instead of posting them.
       const autoReply = process.env.AUTO_REPLY_PUBLISH === "false"
         ? null
         : await publishDueDraftReplies(brand.id, credentials);
+      const scanResult = await scanAndDraftRepliesForBrand(brand.id, credentials, {
+        creatorHandle: brandConfig.creatorHandle,
+        language,
+      });
 
       results.push({ ...scanResult, autoReply });
     } catch (err) {

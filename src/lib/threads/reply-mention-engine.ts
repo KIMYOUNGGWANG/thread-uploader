@@ -13,11 +13,15 @@ export interface RawThreadsReply {
   isMention?: boolean;
 }
 
+export const SCAN_MAX_DRAFTS_PER_RUN = 5;
+
 export interface ScanRepliesResult {
   brandId: string;
   scannedPosts: number;
   totalRepliesFound: number;
   draftsCreated: number;
+  /** Comments that produced no draft this run (LLM failure); they are retried next run. */
+  draftsSkipped: number;
   truncatedThreads: Array<{ postThreadsId: string; totalReplies: number; kept: number }>;
   mentionsAccessible: boolean;
   errors: string[];
@@ -42,8 +46,8 @@ export function isReaderReplyEligible(reply: RawThreadsReply, ownUsername?: stri
 }
 
 /**
- * The account's own handle, so the scan can drop the brand's first comments. Null when the lookup fails:
- * the caller then skips drafting rather than risk replying to itself.
+ * The account's own handle, so the scan can drop the brand's first comments. Null when the lookup fails;
+ * scanAndDraftRepliesForBrand then skips post replies for the run rather than risk replying to itself.
  */
 export async function fetchOwnUsername(credentials: ThreadsCredentials, fetchFn = fetch): Promise<string | null> {
   try {
@@ -152,7 +156,7 @@ export async function generateDraftReplyContent(
   commentText: string,
   postContext: string,
   options?: { creatorHandle?: string; brandTone?: string; language?: "ko" | "en" }
-): Promise<string> {
+): Promise<string | null> {
   const isCreator = options?.creatorHandle && authorUsername.replace("@", "").toLowerCase() === options.creatorHandle.replace("@", "").toLowerCase();
   const toneRule = options?.language === "en"
     ? "[Rules]: Reply in casual English, 1-2 sentences. Answer the question first if there is one. No 'thanks for your comment' filler, no links, no promotion, no hashtags. Output only the reply."
@@ -176,10 +180,13 @@ export async function generateDraftReplyContent(
       messages: [{ role: "user", content: prompt }],
     });
 
-    return readMessageText(response);
-  } catch {
-    // Fallback simple acknowledgement if LLM fails
-    return `공감해주셔서 고마워요! 오늘도 좋은 하루 보내세요 :)`;
+    const text = readMessageText(response).trim();
+    return text.length > 0 ? text : null;
+  } catch (error) {
+    // No canned fallback: a fixed sentence auto-posted under every comment reads as a bot (PR #20 review).
+    // Null leaves no row, so the next hourly run retries this comment.
+    console.warn(`[reply-mention-engine] draft generation failed for @${authorUsername}:`, error);
+    return null;
   }
 }
 
@@ -194,20 +201,23 @@ export async function scanAndDraftRepliesForBrand(
     maxCapPerPost?: number;
     creatorHandle?: string;
     language?: "ko" | "en";
-    /** The brand's own handle; fetched from /me when omitted. */
+    /** The brand's own handle; fetched from /me when omitted. Null skips post replies for the run. */
     ownUsername?: string | null;
+    maxDraftsPerRun?: number;
     fetchFn?: typeof fetch;
   }
 ): Promise<ScanRepliesResult> {
   const maxCap = options?.maxCapPerPost ?? THREADS_MAX_UNANSWERED_REPLIES_PER_POST;
   const customFetch = options?.fetchFn ?? fetch;
   const ownUsername = options?.ownUsername === undefined ? await fetchOwnUsername(credentials, customFetch) : options.ownUsername;
+  const maxDrafts = options?.maxDraftsPerRun ?? SCAN_MAX_DRAFTS_PER_RUN;
 
   const result: ScanRepliesResult = {
     brandId,
     scannedPosts: 0,
     totalRepliesFound: 0,
     draftsCreated: 0,
+    draftsSkipped: 0,
     truncatedThreads: [],
     mentionsAccessible: false,
     errors: [],
@@ -217,16 +227,20 @@ export async function scanAndDraftRepliesForBrand(
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const posts = await prisma.post.findMany({
-    where: {
-      brandId,
-      status: "PUBLISHED",
-      threadsId: { not: null },
-      publishedAt: { gte: sevenDaysAgo },
-    },
-    orderBy: { publishedAt: "desc" },
-    take: 25,
-  });
+  // Without the brand's own handle every reply looks like a reader's, including the brand's first comment.
+  const posts = ownUsername
+    ? await prisma.post.findMany({
+        where: {
+          brandId,
+          status: "PUBLISHED",
+          threadsId: { not: null },
+          publishedAt: { gte: sevenDaysAgo },
+        },
+        orderBy: { publishedAt: "desc" },
+        take: 25,
+      })
+    : [];
+  if (!ownUsername) result.errors.push("Own username unavailable (/me failed): post replies skipped this run");
 
   result.scannedPosts = posts.length;
 
@@ -252,6 +266,7 @@ export async function scanAndDraftRepliesForBrand(
       }
 
       for (const reply of replies) {
+        if (result.draftsCreated >= maxDrafts) break;
         if (!isReaderReplyEligible(reply, ownUsername)) continue;
         // Check if reply already exists in DB
         const existing = await prisma.threadReply.findUnique({
@@ -265,6 +280,10 @@ export async function scanAndDraftRepliesForBrand(
             post.content,
             { creatorHandle: options?.creatorHandle, language: options?.language }
           );
+          if (draftText === null) {
+            result.draftsSkipped++;
+            continue;
+          }
 
           await prisma.threadReply.create({
             data: {
@@ -307,6 +326,10 @@ export async function scanAndDraftRepliesForBrand(
           mention.text,
           { creatorHandle: options?.creatorHandle, language: options?.language }
         );
+        if (draftText === null) {
+          result.draftsSkipped++;
+          continue;
+        }
 
         await prisma.threadReply.create({
           data: {
@@ -338,6 +361,8 @@ export interface AutoReplyResult {
   brandId: string;
   published: number;
   failed: number;
+  /** Rows left in PUBLISHING by an interrupted run; never auto-retried, check them by hand. */
+  stuck: number;
   errors: string[];
 }
 
@@ -362,7 +387,8 @@ export async function publishDueDraftReplies(
     take: maxPerRun,
   });
 
-  const result: AutoReplyResult = { brandId, published: 0, failed: 0, errors: [] };
+  const stuck = await prisma.threadReply.count({ where: { brandId, status: "PUBLISHING" } });
+  const result: AutoReplyResult = { brandId, published: 0, failed: 0, stuck, errors: [] };
   for (const draft of due) {
     const outcome = await publishApprovedReply(draft.id, credentials);
     if (outcome.success) {
@@ -396,6 +422,10 @@ export async function publishApprovedReply(
   }
 
   try {
+    // Claim the row first: if the route is killed between the Threads call and the final update, the row
+    // stays PUBLISHING and the next run cannot post the same reply twice.
+    await prisma.threadReply.update({ where: { id: replyId }, data: { status: "PUBLISHING" } });
+
     const publishedThreadsId = await publishReplyWithRetryForBrand(
       record.replyText,
       record.replyThreadsId,
