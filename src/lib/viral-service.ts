@@ -1,6 +1,7 @@
 import { decryptToken } from "@/lib/crypto";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 import {
   analyzeViralText,
   buildViralMemory,
@@ -65,7 +66,7 @@ export async function getViralReport(brandId: string) {
 
   const [examples, patterns, totalExamples] = await Promise.all([
     prisma.viralExample.findMany({
-      where: { brandId },
+      where: { brandId, source: { not: SHORTS_SOURCE } },
       orderBy: [{ viralScore: "desc" }, { discoveredAt: "desc" }],
       take: 12,
     }),
@@ -74,7 +75,7 @@ export async function getViralReport(brandId: string) {
       orderBy: [{ confidence: "desc" }, { avgViralScore: "desc" }],
       take: 12,
     }),
-    prisma.viralExample.count({ where: { brandId } }),
+    prisma.viralExample.count({ where: { brandId, source: { not: SHORTS_SOURCE } } }),
   ]);
 
   return {
@@ -192,7 +193,7 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
 
 export async function learnViralPatterns(brandId: string) {
   const examples = await prisma.viralExample.findMany({
-    where: { brandId },
+    where: { brandId, source: { not: SHORTS_SOURCE } },
     orderBy: [{ viralScore: "desc" }, { discoveredAt: "desc" }],
     take: 500,
   });
