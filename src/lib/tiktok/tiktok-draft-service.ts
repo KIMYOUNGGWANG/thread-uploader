@@ -3,6 +3,21 @@ import type { TikTokSceneBeat, TikTokScriptResult } from "@/lib/tiktok/tiktok-sc
 
 const DAY_MASTERS = ["갑목", "을목", "병화", "정화", "무토", "기토", "경금", "신금", "임수", "계수"];
 
+// formatId는 Remotion 컴포지션과 한 몸이다. 새 포맷은 여기와 video/src/Root.tsx에 같이 등록한다.
+export const TIKTOK_FORMAT_IDS = ["tiktok_explainer_vertical", "ig_rank_10s", "ig_pickcard_16s"] as const;
+export type TikTokFormatId = (typeof TIKTOK_FORMAT_IDS)[number];
+export const DEFAULT_FORMAT_ID: TikTokFormatId = "tiktok_explainer_vertical";
+
+export const FORMAT_COMPOSITIONS: Record<TikTokFormatId, string> = {
+  tiktok_explainer_vertical: "TikTokExplainer",
+  ig_rank_10s: "IgRank10s",
+  ig_pickcard_16s: "IgPickCard16s",
+};
+
+export function parseFormatId(raw: string): TikTokFormatId {
+  return (TIKTOK_FORMAT_IDS as readonly string[]).includes(raw) ? (raw as TikTokFormatId) : DEFAULT_FORMAT_ID;
+}
+
 // One stem per day so the daily promo video rotates through all ten day masters.
 export function pickDailyDayMaster(date: Date): string {
   const dayIndex = Math.floor(date.getTime() / (24 * 60 * 60 * 1000));
@@ -13,7 +28,7 @@ export function buildTikTokDraftCreateData(brandId: string, script: TikTokScript
   return {
     brandId,
     campaignId: "saju_tiktok_campaign",
-    formatId: "tiktok_explainer_vertical",
+    formatId: script.formatId ?? DEFAULT_FORMAT_ID,
     status,
     title: script.title,
     spokenHook: script.spokenHook,
@@ -41,6 +56,7 @@ function parseJsonArray<T>(raw: string): T[] {
 
 export function draftToScriptResult(draft: TikTokVideoDraft): TikTokScriptResult {
   return {
+    formatId: parseFormatId(draft.formatId),
     title: draft.title,
     spokenHook: draft.spokenHook,
     fullScript: draft.script,

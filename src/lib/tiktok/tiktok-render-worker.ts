@@ -3,9 +3,10 @@ import path from "path";
 import fs from "fs";
 import { exec } from "child_process";
 import { promisify } from "util";
-import type { TikTokScriptResult } from "./tiktok-script-engine";
+import type { TikTokSceneBeat, TikTokScriptResult } from "./tiktok-script-engine";
 import { alignTikTokScenes } from "./tiktok-audio-aligner";
-import type { RenderSpec, CardData } from "./render-spec-types";
+import { DEFAULT_FORMAT_ID, FORMAT_COMPOSITIONS } from "./tiktok-draft-service";
+import type { RenderSpec, RenderSpecScene } from "./render-spec-types";
 
 const execAsync = promisify(exec);
 
@@ -17,6 +18,25 @@ export interface RenderJobResult {
   renderSpec: RenderSpec;
 }
 
+function toVisual(scene: TikTokSceneBeat): RenderSpecScene["visual"] {
+  const props = scene.visualProps;
+  if (scene.type === "saju-card") {
+    return { type: "saju-card", src: "saju-chart", kenBurns: false, cardData: props?.sajuData };
+  }
+  if (scene.type === "kinetic-card") {
+    const src = props?.hookText ?? scene.onScreenText[0] ?? "주목";
+    const cardData = { subText: props?.subText, badge: props?.badge, colorScheme: props?.colorScheme };
+    return { type: "kinetic-card", src, kenBurns: true, cardData };
+  }
+  if (scene.type === "rank-card") {
+    return { type: "rank-card", src: "rank-card", kenBurns: false, cardData: props?.rankCard };
+  }
+  if (scene.type === "pick-card") {
+    return { type: "pick-card", src: "pick-card", kenBurns: false, cardData: props?.pickCard };
+  }
+  return { type: "placeholder", src: "#0b0d14", kenBurns: true };
+}
+
 export function buildTikTokRenderSpec(
   script: TikTokScriptResult,
   options: {
@@ -26,38 +46,17 @@ export function buildTikTokRenderSpec(
   } = {}
 ): RenderSpec {
   const alignment = alignTikTokScenes(script.scenes, 30);
+  const formatId = script.formatId ?? DEFAULT_FORMAT_ID;
+  // 릴스 포맷은 음악·내레이션·자막 없이 카드 컴포넌트가 화면을 전부 그린다.
+  const isReels = formatId !== DEFAULT_FORMAT_ID;
 
   const scenes = script.scenes.map((scene, idx) => {
     const timing = alignment.sceneTimings[idx];
-
-    let visualType: "saju-card" | "kinetic-card" | "placeholder" | "image" = "placeholder";
-    let visualSrc = "#0b0d14";
-    let cardData: CardData | undefined = undefined;
-
-    if (scene.type === "saju-card") {
-      visualType = "saju-card";
-      visualSrc = "saju-chart";
-      cardData = scene.visualProps?.sajuData;
-    } else if (scene.type === "kinetic-card") {
-      visualType = "kinetic-card";
-      visualSrc = scene.visualProps?.hookText ?? scene.onScreenText[0] ?? "주목";
-      cardData = {
-        subText: scene.visualProps?.subText,
-        badge: scene.visualProps?.badge,
-        colorScheme: scene.visualProps?.colorScheme,
-      };
-    }
-
     return {
       id: scene.sceneId,
       fromFrame: timing?.fromFrame ?? 0,
       durationInFrames: timing?.durationInFrames ?? 90,
-      visual: {
-        type: visualType,
-        src: visualSrc,
-        kenBurns: scene.type !== "saju-card",
-        cardData,
-      },
+      visual: toVisual(scene),
       onScreenText: scene.onScreenText,
     };
   });
@@ -65,19 +64,17 @@ export function buildTikTokRenderSpec(
   return {
     schemaVersion: "1.0",
     compositor: "remotion",
-    composition: "TikTokExplainer",
+    composition: FORMAT_COMPOSITIONS[formatId],
     fps: 30,
     dimensions: { width: 1080, height: 1920 },
     durationInFrames: alignment.totalFrames,
-    audio: {
-      narration: options.audioNarrationPath,
-      music: options.musicPath,
-      musicGainDb: -18,
-    },
+    audio: isReels
+      ? {}
+      : { narration: options.audioNarrationPath, music: options.musicPath, musicGainDb: -18 },
     scenes,
     captions: {
-      file: options.captionsSrtPath,
-      style: "tiktok",
+      file: isReels ? undefined : options.captionsSrtPath,
+      style: isReels ? "none" : "tiktok",
       fontFamily: "Pretendard",
       maxWidthPct: 86,
       safeArea: { topPct: 8, bottomPct: 18, leftPct: 6, rightPct: 16 },
@@ -119,7 +116,7 @@ export async function executeTikTokRender(
   const remotionDir = path.join(process.cwd(), ".agent/skills/oma-video/resources/remotion");
 
   try {
-    const cmd = `npx remotion render src/index.ts TikTokExplainer "${outputPath}" --props="${specFilePath}"`;
+    const cmd = `npx remotion render src/index.ts ${renderSpec.composition} "${outputPath}" --props="${specFilePath}"`;
     await execAsync(cmd, {
       cwd: remotionDir,
       timeout: 180000, // 3 minutes timeout

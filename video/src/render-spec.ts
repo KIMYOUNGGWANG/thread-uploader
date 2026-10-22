@@ -21,7 +21,7 @@ export const RenderSpecSceneSchema = z.object({
   fromFrame: z.number().int().nonnegative(),
   durationInFrames: z.number().int().positive(),
   visual: z.object({
-    type: z.enum(["image", "video", "slide", "capture", "placeholder", "saju-card", "kinetic-card"]),
+    type: z.enum(["image", "video", "slide", "capture", "placeholder", "saju-card", "kinetic-card", "rank-card", "pick-card"]),
     src: z.string().min(1),
     kenBurns: z.boolean().default(false),
     cardData: z.record(z.any()).optional(),

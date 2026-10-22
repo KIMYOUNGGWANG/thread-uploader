@@ -18,8 +18,12 @@ import type { RenderSpecScene } from "../render-spec";
 
 import { SajuVisualCard } from "./SajuVisualCard";
 import { KineticText } from "./KineticText";
+import { RankCard } from "./RankCard";
+import { PickCard } from "./PickCard";
 
 const isColor = (src: string): boolean => src.startsWith("#");
+// These card types draw their own title/text, so Scene skips the generic overlay.
+const SELF_DRAWN_TYPES: ReadonlySet<RenderSpecScene["visual"]["type"]> = new Set(["kinetic-card", "rank-card", "pick-card"]);
 
 export const Scene: React.FC<{ scene: RenderSpecScene }> = ({ scene }) => {
   const frame = useCurrentFrame();
@@ -37,7 +41,7 @@ export const Scene: React.FC<{ scene: RenderSpecScene }> = ({ scene }) => {
       <AbsoluteFill style={{ transform: `scale(${scale})` }}>
         {renderVisual(type, src, cardData)}
       </AbsoluteFill>
-      {scene.onScreenText.length > 0 && type !== "kinetic-card" ? (
+      {scene.onScreenText.length > 0 && !SELF_DRAWN_TYPES.has(type) ? (
         <AbsoluteFill
           style={{
             justifyContent: "flex-start",
@@ -71,6 +75,19 @@ function renderVisual(
 ): React.ReactNode {
   if (type === "saju-card") {
     return <SajuVisualCard cardData={cardData} />;
+  }
+  if (type === "rank-card") {
+    return <RankCard title={cardData?.title ?? ""} items={cardData?.items ?? []} />;
+  }
+  if (type === "pick-card") {
+    return (
+      <PickCard
+        question={cardData?.question ?? ""}
+        cards={cardData?.cards ?? []}
+        cta={cardData?.cta ?? ""}
+        ctaAtSeconds={cardData?.ctaAtSeconds ?? 12}
+      />
+    );
   }
   if (type === "kinetic-card") {
     return (
