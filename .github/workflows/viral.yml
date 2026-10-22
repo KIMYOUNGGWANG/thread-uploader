@@ -1,9 +1,10 @@
 name: Viral Discovery
 
 on:
-  schedule:
-    # 매시간 — 브랜드 topics 키워드 검색 → 바이럴 예시 저장 → 패턴 학습 (Vercel Hobby는 일 1회 크론만 허용)
-    - cron: '41 * * * *'
+  # 일시 중지 (2026-10-22): 11/17 글 길이 실험 판정 전까지 발행·채우기·지표 수집 외 자동화는 동결. 다시 켜려면 아래 schedule 주석 해제. workflow_dispatch 수동 실행은 그대로 가능.
+  # schedule:
+  #   # 매시간 — 브랜드 topics 키워드 검색 → 바이럴 예시 저장 → 패턴 학습 (Vercel Hobby는 일 1회 크론만 허용)
+  #   - cron: '41 * * * *'
   workflow_dispatch: # 수동 실행 가능
 
 concurrency:
