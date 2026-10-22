@@ -440,7 +440,7 @@ function dedupeCandidates(candidates: CandidateExample[]): CandidateExample[] {
   return uniqueCandidates;
 }
 
-function isAdapterEnabled(
+export function isAdapterEnabled(
   adapters: Array<{ id: ViralAdapterId; enabled: boolean }>,
   id: ViralAdapterId
 ): boolean {
