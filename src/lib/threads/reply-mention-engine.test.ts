@@ -2,6 +2,9 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   fetchPostRepliesWithCap,
   fetchMentionsSafely,
+  fetchOwnUsername,
+  isReaderReplyEligible,
+  publishDueDraftReplies,
   scanAndDraftRepliesForBrand,
   publishApprovedReply,
 } from "./reply-mention-engine";
@@ -16,6 +19,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     threadReply: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -205,6 +209,99 @@ describe("reply-mention-engine", () => {
           data: { status: "PUBLISHED" },
         })
       );
+    });
+  });
+  describe("isReaderReplyEligible", () => {
+    const reply = (text: string, username = "reader") => ({ id: "r", text, username });
+
+    it("drops the brand's own first comment, link spam, follow-back bait, and empty replies", () => {
+      expect(isReaderReplyEligible(reply("너는 몇 번 골랐냐?", "cosmicpath.kr"), "cosmicpath.kr")).toBe(false);
+      expect(isReaderReplyEligible(reply("너는 몇 번 골랐냐?", "@CosmicPath.kr"), "cosmicpath.kr")).toBe(false);
+      expect(isReaderReplyEligible(reply("무료 사주 https://spam.example"))).toBe(false);
+      expect(isReaderReplyEligible(reply("맞팔해요~"))).toBe(false);
+      expect(isReaderReplyEligible(reply("follow back pls"))).toBe(false);
+      expect(isReaderReplyEligible(reply("ㅋ"))).toBe(false);
+    });
+
+    it("keeps an ordinary reader comment", () => {
+      expect(isReaderReplyEligible(reply("나 2번인데 진짜 1년 존버함"), "cosmicpath.kr")).toBe(true);
+    });
+  });
+
+  describe("fetchOwnUsername", () => {
+    it("returns the handle from /me and null on failure", async () => {
+      const okFetch = vi.fn(async () => ({ ok: true, json: async () => ({ username: "cosmicpath.kr" }) })) as unknown as typeof fetch;
+      const badFetch = vi.fn(async () => ({ ok: false, status: 401 })) as unknown as typeof fetch;
+      expect(await fetchOwnUsername(credentials, okFetch)).toBe("cosmicpath.kr");
+      expect(await fetchOwnUsername(credentials, badFetch)).toBeNull();
+    });
+  });
+
+  describe("scanAndDraftRepliesForBrand self filter", () => {
+    it("never drafts a reply to the brand's own first comment", async () => {
+      vi.mocked(prisma.post.findMany).mockResolvedValue([
+        { id: "post_1", threadsId: "th_post_1", content: "원문", publishedAt: new Date() } as unknown as Post,
+      ]);
+      vi.mocked(prisma.threadReply.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.threadReply.create).mockResolvedValue({ id: "draft_1" } as unknown as ThreadReply);
+      const mockFetch = vi.fn(async (url: string | URL | Request) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/me?")) return { ok: true, json: async () => ({ username: "cosmicpath.kr" }) };
+        if (urlStr.includes("/replies")) {
+          return {
+            ok: true,
+            json: async () => ({
+              data: [
+                { id: "own", text: "난 2번 고르고 존버했음. 너넨?", username: "cosmicpath.kr" },
+                { id: "reader", text: "나도 2번 ㅠ", username: "reader_1" },
+              ],
+            }),
+          };
+        }
+        return { ok: false, status: 403, text: async () => "" };
+      }) as unknown as typeof fetch;
+
+      const result = await scanAndDraftRepliesForBrand("brand_1", credentials, { fetchFn: mockFetch });
+
+      expect(result.draftsCreated).toBe(1);
+      expect(prisma.threadReply.create).toHaveBeenCalledTimes(1);
+      expect(prisma.threadReply.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ replyThreadsId: "reader" }) })
+      );
+    });
+  });
+
+  describe("publishDueDraftReplies", () => {
+    it("publishes only fresh reader drafts, capped per run, and marks a failed publish", async () => {
+      const now = new Date("2026-10-22T12:00:00Z");
+      const drafts = [
+        { id: "d1", replyThreadsId: "c1", replyText: "답1", createdAt: new Date("2026-10-22T10:00:00Z") },
+        { id: "d2", replyThreadsId: "c2", replyText: "답2", createdAt: new Date("2026-10-22T11:00:00Z") },
+      ] as unknown as ThreadReply[];
+      vi.mocked(prisma.threadReply.findMany).mockResolvedValue(drafts);
+      vi.mocked(prisma.threadReply.findUnique).mockImplementation((async (args: { where: { id?: string } }) =>
+        drafts.find((draft) => draft.id === args.where.id) ?? null) as unknown as typeof prisma.threadReply.findUnique);
+      vi.mocked(prisma.threadReply.update).mockResolvedValue({} as unknown as ThreadReply);
+      vi.mocked(threadsApi.publishReplyWithRetryForBrand)
+        .mockResolvedValueOnce("pub_1")
+        .mockRejectedValueOnce(new Error("rate limited"));
+
+      const result = await publishDueDraftReplies("brand_1", credentials, { now });
+
+      expect(prisma.threadReply.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            brandId: "brand_1",
+            status: "DRAFT",
+            isMention: false,
+            createdAt: { gte: new Date("2026-10-20T12:00:00Z") },
+          }),
+          take: 3,
+        })
+      );
+      expect(result).toEqual({ brandId: "brand_1", published: 1, failed: 1, errors: ["d2: rate limited"] });
+      expect(prisma.threadReply.update).toHaveBeenCalledWith({ where: { id: "d1" }, data: { status: "PUBLISHED" } });
+      expect(prisma.threadReply.update).toHaveBeenCalledWith({ where: { id: "d2" }, data: { status: "FAILED" } });
     });
   });
 });

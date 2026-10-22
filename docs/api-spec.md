@@ -1128,6 +1128,7 @@ interface ViralAdapterResult {
 |:-------|:-----|:------------|
 | `GET` | `/api/cron/publish` | 모든 active 제품 순회 → 각 1개 FIFO 발행. `?brands=slug1,slug2`로 제품 제한. `?slots=0,12`(UTC 시, 0-23)를 주면 열린 슬롯(시작 후 3시간)마다 1회만 발행하고, 슬롯 밖이면 `outside_publish_slot`, 이미 발행했으면 `slot_already_served`로 건너뜀. 형식 오류는 400 |
 | `GET` | `/api/cron/refresh-token` | 모든 제품의 Threads 토큰 상태 확인 및 갱신 |
+| `GET` | `/api/cron/replies` | 모든 제품 순회. 최근 7일 발행 글(최대 25개)의 새 댓글을 수집해 Claude 초안을 `ThreadReply(DRAFT)`로 저장(브랜드 자기 댓글·링크·맞팔 유도·2자 미만은 제외, 언어는 `voiceProfile.language`/`ecommerce_d2c`면 en). 이어서 48시간 이내 독자 댓글 초안을 오래된 순으로 최대 3개 자동 게시(`PUBLISHED`, 실패 시 `FAILED`). 멘션 초안은 수동 승인용으로 남김. `AUTO_REPLY_PUBLISH=false`면 게시 생략. 응답 brand마다 `{ ...scan, autoReply: { published, failed, errors } \| null }`. GitHub Actions `cron.yml` `replies` 잡이 매시간 호출 |
 | `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자). formulaWeights와 thompsonPriors 모두 저장값에 누적하지 않고 최근 300개 창에서 기본값부터 재계산 |
 | `GET` | `/api/cron/feedback?apply=true` | 72h 성숙 글 기준 viralMemory topPerformers + 금지 표현 학습 (formulaWeights는 쓰지 않음) |
 | `GET` | `/api/cron/viral` | 모든 제품 viral discovery → 미분석 상위 10개 Claude 분석(`rawMetrics.llmAnalyzedAt`, `whyItWorks`) → viralMemory 재학습. `topPerformers`/`nextHookCandidates`는 feedback cron 소유라 보존. 외부 글 점수에 TOP 검색 순위·키워드 중복·반복 노출(`rawMetrics.searchRank`/`keywordHits`/`timesSeen`) 가산 |

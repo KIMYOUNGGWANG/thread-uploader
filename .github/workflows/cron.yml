@@ -45,3 +45,19 @@ jobs:
             echo "::endgroup::"
           done
           exit $status
+
+  # Reader-reply loop: scan the last week's posts for new comments, draft, and auto-publish (≤5 per brand per run).
+  # Hourly keeps the "answered within 24h" promise even with GitHub's schedule lag.
+  replies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reply to reader comments via cron route
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --show-error --silent --location --max-time 120 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/replies"
