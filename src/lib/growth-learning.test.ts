@@ -69,8 +69,8 @@ describe("formulaWinners", () => {
   // "steady" has more cold than hot posts, so its median (40) beats the brand median (20) but
   // three hot hook+topic pairs above it (6 patterns) push every formula out of the mixed top-5 winners.
   const posts: GrowthPostInput[] = [
-    ...repeat(5, "steady", "h1", 2000), ...repeat(5, "steady", "h2", 1800), ...repeat(5, "steady", "h3", 1700),
-    ...repeat(8, "steady", "h4", 200), ...repeat(8, "steady", "h5", 100),
+    ...repeat(8, "steady", "h1", 2000), ...repeat(8, "steady", "h2", 1800), ...repeat(8, "steady", "h3", 1700),
+    ...repeat(14, "steady", "h4", 200), ...repeat(14, "steady", "h5", 100),
     ...repeat(20, "weak", "h6", 10),
   ];
 
@@ -95,6 +95,21 @@ describe("formulaWinners", () => {
     expect(memory.weakSignals.map((weak) => weak.value)).toContain("stunt");
     expect(isAutopilotFormula("stunt", memory)).toBe(false);
     expect(isAutopilotFormula("lucky", memory)).toBe(false);
+  });
+
+  // Regression: 2026-10 cosmicpath fed a 5-post topic at ~2x the brand median back into the prompt as a
+  // "winner", and the generator bred copies of it until 26 of 30 posts shared two scenarios.
+  it("needs 8 posts and a 1.5x median margin before a pattern is a prompt-facing winner", () => {
+    const memory = buildGrowthMemory([
+      ...repeat(20, "base", "h0", 100),
+      ...repeat(5, "base", "few_but_hot", 250),
+      ...repeat(8, "base", "many_but_flat", 115),
+      ...repeat(8, "base", "many_and_hot", 200),
+    ]);
+    const winnerValues = memory.winners.map((winner) => winner.value);
+    expect(winnerValues).toContain("many_and_hot");
+    expect(winnerValues).not.toContain("few_but_hot");
+    expect(winnerValues).not.toContain("many_but_flat");
   });
 
   it("auto-queues a formula winner even when mixed winners are all hooks", () => {

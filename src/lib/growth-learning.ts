@@ -63,6 +63,10 @@ export function parseStoredGrowthMemory(raw: string): GrowthMemory {
 // Post views are long-tailed: one breakout carries a mean (42,329 + 115 views "averaged" 21k),
 // so patterns are judged by median and need this many posts before they count as evidence.
 export const MIN_PATTERN_POSTS = 5;
+// Winners are fed back into the generation prompt, so they need more proof than the autopilot list:
+// a 5-post topic at ~2x the brand median (2026-10, 238 views) became a "winner" and bred its own copies.
+export const MIN_WINNER_POSTS = 8;
+export const WINNER_MARGIN = 1.5;
 
 export function buildGrowthMemory(posts: GrowthPostInput[]): GrowthMemory {
   const scoredPosts = posts.filter((post) => getPostScore(post) !== null);
@@ -72,7 +76,9 @@ export function buildGrowthMemory(posts: GrowthPostInput[]): GrowthMemory {
   const avgScore = average(scores);
   const brandMedian = median(scores);
   const proven = buildAllPatternSummaries(scoredPosts).filter((pattern) => pattern.count >= MIN_PATTERN_POSTS);
-  const winners = proven.filter((pattern) => pattern.medianScore > brandMedian).slice(0, 5);
+  const winners = proven
+    .filter((pattern) => pattern.count >= MIN_WINNER_POSTS && pattern.medianScore >= WINNER_MARGIN * brandMedian)
+    .slice(0, 5);
   const weakSignals = proven
     .filter((pattern) => pattern.medianScore < brandMedian)
     .sort((a, b) => a.medianScore - b.medianScore)
