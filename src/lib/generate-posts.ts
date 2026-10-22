@@ -19,9 +19,7 @@ import { buildShortRedirectUrl, buildTrackedUrl } from "@/lib/tracking-url";
 import { selectFormulaWithQuota } from "@/lib/quota-bandit-router";
 import { selectFormulaWithThompsonSampling } from "@/lib/thompson-sampling-router";
 import { isLeanSprintRun, selectCampaignFormulaForViralMode, selectLeanViralMode } from "@/lib/lean-mode-selector";
-import { buildMultiFormatContentBundle } from "@/lib/multi-format-content-bridge";
 import { splitContentIntoThreadParts } from "@/lib/thread-splitter";
-import { svgToDataUri } from "@/lib/carousel-cards/renderer";
 import {
   ENGLISH_VIRAL_MODE_LABELS,
   formatViralIntentModePrompt,
@@ -1089,16 +1087,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   let linkedCount = 0;
   const createdPosts = [];
   for (const result of results) {
-    // Build 4 carousel card slides using multi-format bundle
-    const bundle = buildMultiFormatContentBundle({
-      postText: result.post,
-      topic: result.topic,
-      hookType: result.hookType,
-      ctaType: result.ctaType,
-      targetAudience: result.targetAudience,
-    });
-    // English Threads audience responds to text-only posts; Korean brands keep card carousels.
-    const carouselDataUrls = result.qualityProfile === "ecommerce_d2c" ? [] : bundle.carouselSvgs.map(svgToDataUri);
+    // Text only. 2026-10-22 metrics: Korean posts with auto card carousels had a median of 73 views
+    // against 131 for text posts; re-enable only behind an A/B, not by default.
+    const carouselDataUrls: string[] = [];
     const jitterMs = (Math.floor(Math.random() * 31) - 15) * 60 * 1000;
     // Slots follow saved posts, so a dropped draft leaves no gap in the schedule.
     const scheduledTime = Math.max(now + 5 * 60 * 1000, baseTime + createdPosts.length * POST_INTERVAL_MS + jitterMs);
