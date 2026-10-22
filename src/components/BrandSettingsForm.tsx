@@ -119,6 +119,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
               maxExamplesPerRun,
               minViralScore,
               adapters: viralAdapters,
+              youtube: initialData.config.viralDiscovery.youtube,
             },
           } satisfies BrandConfig,
         }),
@@ -132,7 +133,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     } finally {
       setIsSaving(false);
     }
-  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, optimizationGoal, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, router]);
+  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, optimizationGoal, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, initialData.config.viralDiscovery.youtube, router]);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "basic", label: "기본 정보", icon: <Key className="w-4 h-4" /> },
@@ -812,6 +813,7 @@ function adapterLabel(id: ViralAdapterId): string {
     threads_keyword: "Threads 키워드",
     threads_profile: "경쟁 프로필",
     manual: "수동 레퍼런스",
+    youtube_shorts: "유튜브 쇼츠",
   };
   return labels[id];
 }
@@ -822,6 +824,7 @@ function adapterDescription(id: ViralAdapterId): string {
     threads_keyword: "저장 키워드와 제품 토픽 검색",
     threads_profile: "경쟁 계정 공개 글 수집",
     manual: "직접 붙여넣은 레퍼런스 저장",
+    youtube_shorts: "키워드·채널로 48시간 내 쇼츠 수집 (YOUTUBE_API_KEY 필요)",
   };
   return descriptions[id];
 }

@@ -77,6 +77,13 @@ export interface ViralDiscoveryConfig {
     id: ViralAdapterId;
     enabled: boolean;
   }>;
+  youtube: {
+    keywords: string[];
+    channelHandles: string[];
+    regions: Array<"KR" | "GLOBAL">;
+    maxDurationSec: number;
+    minViews: { kr: number; global: number };
+  };
 }
 
 export interface VoiceProfile {
@@ -206,7 +213,15 @@ export const DEFAULT_BRAND_CONFIG: BrandConfig = {
       { id: "threads_keyword", enabled: true },
       { id: "threads_profile", enabled: true },
       { id: "manual", enabled: true },
+      { id: "youtube_shorts", enabled: false },
     ],
+    youtube: {
+      keywords: [],
+      channelHandles: [],
+      regions: ["KR", "GLOBAL"],
+      maxDurationSec: 180,
+      minViews: { kr: 10000, global: 50000 },
+    },
   },
   campaigns: [CAREER_TIMING_WEDGE_399],
   activeCampaignId: CAREER_TIMING_WEDGE_399.id,
@@ -359,6 +374,25 @@ function normalizeViralDiscovery(input: unknown): ViralDiscoveryConfig {
         enabled: typeof matched?.enabled === "boolean" ? matched.enabled : adapter.enabled,
       };
     }),
+    youtube: normalizeYoutubeConfig(raw.youtube),
+  };
+}
+
+function normalizeYoutubeConfig(input: unknown): ViralDiscoveryConfig["youtube"] {
+  const raw = isRecord(input) ? input : {};
+  const defaults = DEFAULT_BRAND_CONFIG.viralDiscovery.youtube;
+  const minViews = isRecord(raw.minViews) ? raw.minViews : {};
+  const rawRegions: unknown[] = Array.isArray(raw.regions) ? raw.regions : [];
+  const regions = defaults.regions.filter((region) => rawRegions.includes(region));
+  return {
+    keywords: normalizeStringList(raw.keywords),
+    channelHandles: normalizeStringList(raw.channelHandles).map((handle) => handle.replace(/^@/, "")),
+    regions: regions.length > 0 ? regions : defaults.regions,
+    maxDurationSec: normalizeBoundedNumber(raw.maxDurationSec, 15, 600, defaults.maxDurationSec),
+    minViews: {
+      kr: normalizeBoundedNumber(minViews.kr, 0, 10_000_000, defaults.minViews.kr),
+      global: normalizeBoundedNumber(minViews.global, 0, 10_000_000, defaults.minViews.global),
+    },
   };
 }
 
