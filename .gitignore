@@ -90,3 +90,7 @@ output/
 
 # Local one-off triage notes and already-applied data scripts
 scratch/
+
+# 스크립트가 재생성하는 디버그 산출물
+debug_audit.log
+test_apple_capture.png
