@@ -11,6 +11,7 @@ import { Shorts } from "./compositions/Shorts";
 import { Explainer } from "./compositions/Explainer";
 import { Demo } from "./compositions/Demo";
 import { TikTokExplainer } from "./compositions/TikTokExplainer";
+import { IgReels, IG_RANK_SAMPLE_SPEC, IG_PICKCARD_SAMPLE_SPEC } from "./compositions/IgReels";
 import { PromoReportTour } from "./compositions/PromoReportTour";
 import { PromoRace } from "./compositions/PromoRace";
 import { PromoMatch } from "./compositions/PromoMatch";
@@ -61,6 +62,29 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         fps={30}
         durationInFrames={90}
+      />
+      {/* Instagram Reels (manual upload) — formatId ig_rank_10s / ig_pickcard_16s */}
+      <Composition
+        id="IgRank10s"
+        component={IgReels}
+        schema={RenderSpecSchema}
+        defaultProps={IG_RANK_SAMPLE_SPEC}
+        calculateMetadata={calculateMetadata}
+        width={1080}
+        height={1920}
+        fps={30}
+        durationInFrames={300}
+      />
+      <Composition
+        id="IgPickCard16s"
+        component={IgReels}
+        schema={RenderSpecSchema}
+        defaultProps={IG_PICKCARD_SAMPLE_SPEC}
+        calculateMetadata={calculateMetadata}
+        width={1080}
+        height={1920}
+        fps={30}
+        durationInFrames={480}
       />
       <Composition
         id="Shorts"

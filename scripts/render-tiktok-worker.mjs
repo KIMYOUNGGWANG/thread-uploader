@@ -16,11 +16,20 @@ const prisma = new PrismaClient();
 
 const STALE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
+// Mirror of FORMAT_COMPOSITIONS in src/lib/tiktok/tiktok-draft-service.ts (keep in sync).
+const FORMAT_COMPOSITIONS = {
+  tiktok_explainer_vertical: "TikTokExplainer",
+  ig_rank_10s: "IgRank10s",
+  ig_pickcard_16s: "IgPickCard16s",
+};
+
 /**
  * Builds RenderSpec from script scenes for Remotion
  */
 export function buildTikTokRenderSpec(scriptResult) {
   const fps = 30;
+  const formatId = scriptResult.formatId in FORMAT_COMPOSITIONS ? scriptResult.formatId : "tiktok_explainer_vertical";
+  const isReels = formatId !== "tiktok_explainer_vertical";
   let currentFrame = 0;
   let currentMs = 0;
 
@@ -57,8 +66,17 @@ export function buildTikTokRenderSpec(scriptResult) {
         badge: scene.visualProps?.badge,
         colorScheme: scene.visualProps?.colorScheme,
       };
+    } else if (scene.type === "rank-card") {
+      visualType = "rank-card";
+      visualSrc = "rank-card";
+      cardData = scene.visualProps?.rankCard;
+    } else if (scene.type === "pick-card") {
+      visualType = "pick-card";
+      visualSrc = "pick-card";
+      cardData = scene.visualProps?.pickCard;
     }
 
+    const staticCard = ["saju-card", "rank-card", "pick-card"].includes(scene.type);
     return {
       id: scene.sceneId,
       fromFrame: timing?.fromFrame ?? 0,
@@ -66,7 +84,7 @@ export function buildTikTokRenderSpec(scriptResult) {
       visual: {
         type: visualType,
         src: visualSrc,
-        kenBurns: scene.type !== "saju-card",
+        kenBurns: !staticCard,
         cardData,
       },
       onScreenText: scene.onScreenText || [],
@@ -76,13 +94,13 @@ export function buildTikTokRenderSpec(scriptResult) {
   return {
     schemaVersion: "1.0",
     compositor: "remotion",
-    composition: "TikTokExplainer",
+    composition: FORMAT_COMPOSITIONS[formatId],
     fps: 30,
     dimensions: { width: 1080, height: 1920 },
     durationInFrames: currentFrame,
     scenes,
     captions: {
-      style: "tiktok",
+      style: isReels ? "none" : "tiktok",
       fontFamily: "Pretendard",
       maxWidthPct: 86,
       safeArea: { topPct: 8, bottomPct: 18, leftPct: 6, rightPct: 16 },
@@ -179,7 +197,7 @@ export async function processNextJob(db = prisma, options = {}) {
     const remotionDir = path.join(process.cwd(), ".agent/skills/oma-video/resources/remotion");
     console.log(`   ⚡ Executing Remotion Render (timeout: 180s)...`);
 
-    const cmd = `npx remotion render src/index.ts TikTokExplainer "${outputPath}" --props="${specFilePath}"`;
+    const cmd = `npx remotion render src/index.ts ${renderSpec.composition} "${outputPath}" --props="${specFilePath}"`;
     await execAsync(cmd, {
       cwd: remotionDir,
       timeout: 180000,

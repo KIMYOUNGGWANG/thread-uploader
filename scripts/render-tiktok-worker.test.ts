@@ -156,3 +156,59 @@ describe("TikTok Render Worker", () => {
     });
   });
 });
+
+describe("TikTok Render Worker — Instagram Reels formats", () => {
+  const base = { spokenHook: "", fullScript: "", cta: "저장해 두고 A/B/C 중 하나 골라 댓글" };
+
+  it("ig_rank_10s → IgRank10s composition with a single static rank-card scene", () => {
+    const spec = buildTikTokRenderSpec({
+      ...base,
+      formatId: "ig_rank_10s",
+      title: "2027년 운 좋은 일간 TOP 5",
+      totalDurationSeconds: 10,
+      scenes: [
+        {
+          sceneId: "scene-01-rank",
+          durationSeconds: 10,
+          type: "rank-card",
+          spokenLine: "",
+          onScreenText: [],
+          visualProps: { rankCard: { title: "2027년 운 좋은 일간 TOP 5", items: ["병화", "임수", "기토", "신금", "을목"] } },
+        },
+      ],
+    });
+
+    expect(spec.composition).toBe("IgRank10s");
+    expect(spec.durationInFrames).toBe(300);
+    expect(spec.captions.style).toBe("none");
+    expect(spec.scenes[0].visual).toMatchObject({ type: "rank-card", kenBurns: false });
+    expect(spec.scenes[0].visual.cardData.items).toHaveLength(5);
+  });
+
+  it("ig_pickcard_16s → IgPickCard16s composition carrying cards and CTA timing", () => {
+    const pickCard = {
+      question: "A/B/C 중 끌리는 카드 하나",
+      cards: [{ label: "A", text: "선택" }, { label: "B", text: "인연" }, { label: "C", text: "재물" }],
+      cta: base.cta,
+      ctaAtSeconds: 12,
+    };
+    const spec = buildTikTokRenderSpec({
+      ...base,
+      formatId: "ig_pickcard_16s",
+      title: pickCard.question,
+      totalDurationSeconds: 16,
+      scenes: [{ sceneId: "scene-01-pick", durationSeconds: 16, type: "pick-card", spokenLine: "", onScreenText: [], visualProps: { pickCard } }],
+    });
+
+    expect(spec.composition).toBe("IgPickCard16s");
+    expect(spec.durationInFrames).toBe(480);
+    expect(spec.scenes[0].visual.type).toBe("pick-card");
+    expect(spec.scenes[0].visual.cardData).toEqual(pickCard);
+  });
+
+  it("unknown or missing formatId falls back to TikTokExplainer", () => {
+    const script = { ...base, title: "t", totalDurationSeconds: 3, scenes: [{ sceneId: "s", durationSeconds: 3, type: "placeholder", spokenLine: "", onScreenText: [] }] };
+    expect(buildTikTokRenderSpec(script).composition).toBe("TikTokExplainer");
+    expect(buildTikTokRenderSpec({ ...script, formatId: "nope" }).composition).toBe("TikTokExplainer");
+  });
+});
