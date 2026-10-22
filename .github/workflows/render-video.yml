@@ -1,9 +1,10 @@
 name: Render Promo Video
 
 on:
-  schedule:
-    # KST 06:00 — 아침에 승인할 영상 1개를 준비 (승인 후 다음 발행 슬롯에 게시)
-    - cron: '0 21 * * *'
+  # 일시 중지 (2026-10-22): 11/17 글 길이 실험 판정 전까지 발행·채우기·지표 수집 외 자동화는 동결. 다시 켜려면 아래 schedule 주석 해제. workflow_dispatch 수동 실행은 그대로 가능.
+  # schedule:
+  #   # KST 06:00 — 아침에 승인할 영상 1개를 준비 (승인 후 다음 발행 슬롯에 게시)
+  #   - cron: '0 21 * * *'
   workflow_dispatch:
 
 concurrency:
