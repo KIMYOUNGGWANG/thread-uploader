@@ -580,6 +580,28 @@ export async function fetchPostInsightsForBrand(
 }
 
 /**
+ * Account follower total from the user-insights endpoint. Null (not 0) when the call fails, so a bad
+ * token never records a fake drop; Threads ranks followed accounts first, so this is the growth metric.
+ */
+export async function fetchFollowersCountForBrand(userId: string, accessToken: string): Promise<number | null> {
+    try {
+        const params = new URLSearchParams({ metric: "followers_count", access_token: accessToken });
+        const response = await fetch(`${THREADS_API_BASE}/${userId}/threads_insights?${params}`);
+        const data = await response.json() as {
+            data?: Array<{ name: string; total_value?: { value?: number }; values?: Array<{ value?: number }> }>;
+            error?: { message?: string };
+        };
+        if (!response.ok) throw new Error(data.error?.message ?? `HTTP ${response.status}`);
+        const item = (data.data ?? []).find((entry) => entry.name === "followers_count");
+        const value = item?.total_value?.value ?? item?.values?.[0]?.value;
+        return typeof value === "number" ? value : null;
+    } catch (error) {
+        console.warn(`[threads-api] followers_count skipped for ${userId}:`, error);
+        return null;
+    }
+}
+
+/**
  * Publish a post using explicit brand credentials
  */
 export async function publishPostWithCredentials(

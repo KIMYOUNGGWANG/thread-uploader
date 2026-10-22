@@ -1426,7 +1426,7 @@ model TikTokVideoMetric {
 |:-------|:-----|:------------|
 | `GET` | `/api/account-intelligence?brandId=xxx` | 최신 계정 분석과 최근 히스토리 조회 |
 | `POST` | `/api/account-intelligence/run` | 현재 브랜드 계정 분석 수동 실행 |
-| `GET` | `/api/cron/account-intelligence` | 전체 브랜드 2시간 간격 계정 분석 cron |
+| `GET` | `/api/cron/account-intelligence` | 전체 브랜드 2시간 간격 계정 분석 cron. 매 실행 `metrics.followersCount`에 Threads 사용자 인사이트 `followers_count`를 기록(조회 실패 시 `null`, 0으로 기록하지 않음) → 팔로워 추이는 AccountInsight 히스토리에서 읽는다 |
 
 ```typescript
 type AccountInsightActionType =

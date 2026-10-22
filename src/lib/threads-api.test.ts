@@ -6,7 +6,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: { brand: { findUnique: vi.fn() } } }));
 
 import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/crypto";
-import { getFreshBrandCredentials } from "./threads-api";
+import { fetchFollowersCountForBrand, getFreshBrandCredentials } from "./threads-api";
 
 describe("getFreshBrandCredentials", () => {
   it("decrypts the stored token so callers get the real Threads token", async () => {
@@ -47,5 +47,22 @@ describe("publishPostWithCredentials video", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ status: "ERROR", error_message: "bad codec" }))));
     const { waitForContainerReady } = await import("./threads-api");
     await expect(waitForContainerReady("c1", "t", { intervalMs: 1 })).rejects.toThrow("bad codec");
+  });
+});
+
+describe("fetchFollowersCountForBrand", () => {
+  it("reads the total_value of followers_count from user insights", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      expect(url).toContain("/u1/threads_insights?metric=followers_count");
+      return new Response(JSON.stringify({ data: [{ name: "followers_count", period: "day", total_value: { value: 1842 } }] }));
+    }));
+    expect(await fetchFollowersCountForBrand("u1", "tok")).toBe(1842);
+    vi.unstubAllGlobals();
+  });
+
+  it("returns null instead of 0 when the API rejects the token", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "Invalid OAuth access token" } }), { status: 400 })));
+    expect(await fetchFollowersCountForBrand("u1", "bad")).toBeNull();
+    vi.unstubAllGlobals();
   });
 });

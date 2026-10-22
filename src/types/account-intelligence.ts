@@ -33,6 +33,8 @@ export interface AccountInsightMetrics {
   totalClicks: number;
   totalConversions: number;
   avgPerformanceScore: number;
+  /** Account follower total at generation time; null when the lookup failed. */
+  followersCount?: number | null;
   metricsRefresh: {
     attempted: number;
     updated: number;
