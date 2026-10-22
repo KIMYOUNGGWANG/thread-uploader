@@ -1,0 +1,12 @@
+{
+  "kind": "youtube#playlistItemListResponse",
+  "etag": "etag-playlist",
+  "pageInfo": { "totalResults": 1, "resultsPerPage": 10 },
+  "items": [
+    {
+      "kind": "youtube#playlistItem",
+      "etag": "p1",
+      "contentDetails": { "videoId": "short45sec01", "videoPublishedAt": "2026-10-22T06:00:00Z" }
+    }
+  ]
+}

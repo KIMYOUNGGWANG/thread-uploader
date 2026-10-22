@@ -1,0 +1,11 @@
+{
+  "kind": "youtube#searchListResponse",
+  "etag": "etag-search",
+  "regionCode": "KR",
+  "pageInfo": { "totalResults": 1000000, "resultsPerPage": 3 },
+  "items": [
+    { "kind": "youtube#searchResult", "etag": "e1", "id": { "kind": "youtube#video", "videoId": "short45sec01" } },
+    { "kind": "youtube#searchResult", "etag": "e2", "id": { "kind": "youtube#video", "videoId": "long200sec01" } },
+    { "kind": "youtube#searchResult", "etag": "e3", "id": { "kind": "youtube#video", "videoId": "ghostvideo01" } }
+  ]
+}
