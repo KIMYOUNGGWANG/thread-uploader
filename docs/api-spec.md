@@ -203,7 +203,7 @@ interface ViralDiscoveryConfig {
   maxExamplesPerRun: number;     // default 15, hard max 50
   minViralScore: number;         // default 0
   adapters: Array<{
-    id: "owned_posts" | "threads_keyword" | "threads_profile" | "manual";
+    id: "owned_posts" | "threads_keyword" | "threads_profile" | "manual" | "youtube_shorts";
     enabled: boolean;
   }>;
   youtube: {
