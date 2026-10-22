@@ -520,3 +520,21 @@ export function hasFortuneOverclaim(content: string): boolean {
     /(?:확실|무조건|반드시)\s*(?:맞|보장|성공|해결|알려|적중|예측|실현|바꿔)/i.test(content)
   );
 }
+
+// 2026-10-22 metrics: posts ending in numbered choices had a median of 197 views vs 101, and posts ending in a
+// question 182 vs 103. The gate deliberately does not require either (it collapsed every post into one
+// template), so the share is raised by rotating the closing per post instead.
+export type ClosingFormat = "choices" | "question" | "statement";
+
+const CLOSING_FORMAT_ROTATION: readonly ClosingFormat[] = ["question", "statement", "question", "choices", "question", "statement"];
+
+export function pickClosingFormat(index: number, modeId?: ViralIntentModeId | null): ClosingFormat {
+  if (modeId === "imagination_dilemma") return "choices";
+  return CLOSING_FORMAT_ROTATION[((index % CLOSING_FORMAT_ROTATION.length) + CLOSING_FORMAT_ROTATION.length) % CLOSING_FORMAT_ROTATION.length];
+}
+
+export const CLOSING_FORMAT_PROMPT_KO: Record<ClosingFormat, string> = {
+  choices: "마지막은 1초 만에 고를 수 있는 번호 선택지 1/2/3으로 끝낸다. 선택지 뒤에 설명을 붙이지 않는다.",
+  question: "마지막 문장은 독자 자신에게 되묻는 물음표(?)로 끝낸다. '어떻게 생각해?' 같은 범용 질문은 금지, 글 내용에서 나온 구체적인 질문 하나.",
+  statement: "마지막은 질문이나 선택지 없이 뼈 때리는 단언 한 줄로 끝낸다.",
+};

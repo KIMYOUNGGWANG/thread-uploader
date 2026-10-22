@@ -28,6 +28,9 @@ import {
   resolveViralIntentMode,
   selectViralIntentMode,
   type ViralIntentMode,
+  type ClosingFormat,
+  CLOSING_FORMAT_PROMPT_KO,
+  pickClosingFormat,
 } from "@/lib/viral-intent-modes";
 import { formatViralPromptContext } from "@/lib/viral-analysis";
 import {
@@ -39,7 +42,7 @@ import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
 import { findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
-import { resolveDynamicContext } from "@/lib/context-matrix-engine";
+import { resolveDynamicContext, isRelationshipTopic, planTopicQuota } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
 import { findSaturatedTopics, formatSaturationReason, isSituationSaturated, SATURATION_WINDOW } from "@/lib/topic-saturation-guard";
@@ -88,6 +91,7 @@ interface GrowthExperiment {
   campaignFormulaId: string | null;
   shouldLink: boolean;
   sequenceIndex?: number;
+  closingFormat?: ClosingFormat;
 }
 
 interface GenerationFormula {
@@ -108,15 +112,6 @@ type RecentPostForPrompt = {
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function shuffleTopics(topics: string[], count: number): string[] {
-  const shuffled = [...topics].sort(() => Math.random() - 0.5);
-  const result: string[] = [];
-  while (result.length < count) {
-    result.push(...shuffled.slice(0, Math.min(topics.length, count - result.length)));
-  }
-  return result;
 }
 
 function buildFormulaPool(
@@ -598,6 +593,7 @@ function buildGenerationPrompt(
         `[훅 유형]\n${experiment.hookType}`,
         `[CTA 유형]\n${experiment.ctaType}`,
         `[이번 글 변주]\n각도: ${experiment.angleVariation ?? viralIntentMode.label}\n구조: ${experiment.structureVariation ?? viralIntentMode.instruction}`,
+        ...(experiment.closingFormat ? [`[마무리 형식]\n${CLOSING_FORMAT_PROMPT_KO[experiment.closingFormat]}`] : []),
         ...(creatorPatternContext ? [creatorPatternContext] : []),
         `[성과 학습 메모리]\n${growthContext}`,
         `[바이럴 레퍼런스 학습 메모리]\n${viralContext}`,
@@ -939,7 +935,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
 
   const formulaPool = buildFormulaPool(sourceFormulas, dbWeights);
   const allTopics = [...config.topics, ...(config.trendingTopics ?? [])];
-  const topics = shuffleTopics(allTopics, count);
+  const topics = planTopicQuota(allTopics, count);
   const growthMemory = parseStoredGrowthMemory(brand.growthMemory);
   const prohibitedPhrases = readProhibitedPhrases(brand.brandConfig);
   const growthContext = formatGrowthPromptContext(growthMemory);
@@ -993,7 +989,6 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         productName: config.productProfile?.productName,
         count,
       });
-      const useRelationshipContext = isLeanSprint && isSajuDomain;
       const viralIntentMode = isLeanSprint
         ? selectLeanViralMode(batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds)
         : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
@@ -1023,6 +1018,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       const formulaMode = isLeanSprint ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
 
       const topic = topics[batchIndex % topics.length];
+      // The matrix follows the topic's axis, not the sprint: a career topic in the relationship matrix
+      // produced "이직 고민 (헤어지면 불안해지는 거리감 맥락)" posts.
+      const useRelationshipContext = isSajuDomain && isRelationshipTopic(topic);
       const recentSituations = [...[...results].reverse().map((result) => result.situation), ...recentPosts.map((recent) => recent.situation)];
       const experiment = buildExperiment(
         formula, topic, config, activeCampaign, batchIndex, formulaMode,
@@ -1032,6 +1030,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         recentSituations
       );
       experiment.lengthTarget = lengthArms[batchIndex];
+      experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id);
       // Newest first, so the anti-repeat windows look at the latest drafts.
       const inBatchPosts: RecentPostSummary[] = [
         ...[...results].reverse().map((result) => ({ content: result.post, topic: result.topic, hookType: result.hookType, firstComment: result.firstComment })),

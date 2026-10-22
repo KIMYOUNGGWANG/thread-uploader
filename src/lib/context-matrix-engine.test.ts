@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DOMAIN_MATRICES,
-  resolveDynamicContext,
-} from "./context-matrix-engine";
+  resolveDynamicContext, isRelationshipTopic, planTopicQuota } from "./context-matrix-engine";
 
 describe("context-matrix-engine", () => {
   it("has complete 8x8x8 dimensions for each defined domain", () => {
@@ -134,5 +133,32 @@ describe("context-matrix-engine", () => {
     // promoted count should be substantially higher than uniform (>= 8).
     expect(promotedPersonaCount).toBeGreaterThan(8);
     expect(promotedFrictionCount).toBeGreaterThan(8);
+  });
+});
+
+describe("topic quota", () => {
+  const relationship = ["썸 상대에게 지금 고백할지 기다릴지 판정", "재회 후 다시 흔들릴 때 밀어붙일지 접을지 기준", "동업 제안을 받았을 때 둘의 기질 궁합 체크"];
+  const career = ["이직/퇴사 타이밍 (지금 존버할 때 vs 판 엎을 때)", "재물/돈 창고와 새는 구멍", "현실 진로/재능 판정 (공부 머리 vs 일 머리)"];
+
+  it("classifies relationship topics by axis keywords", () => {
+    expect(relationship.every(isRelationshipTopic)).toBe(true);
+    expect(career.some(isRelationshipTopic)).toBe(false);
+  });
+
+  // Regression: 2026-10 every cosmicpath topic was a relationship one, so 26 of 30 posts shared two scenarios.
+  it("keeps a batch half relationship, half other, alternating from the first slot", () => {
+    const plan = planTopicQuota([...relationship, ...career], 6, 0.5, () => 0.5);
+    expect(plan.filter(isRelationshipTopic)).toHaveLength(3);
+    expect(plan.map(isRelationshipTopic)).toEqual([true, false, true, false, true, false]);
+    expect(new Set(plan).size).toBe(6);
+  });
+
+  it("gives a 2-post chunk one topic of each axis and cycles when a batch outgrows the list", () => {
+    expect(planTopicQuota([...relationship, ...career], 2, 0.5, () => 0.5).map(isRelationshipTopic)).toEqual([true, false]);
+    expect(planTopicQuota([relationship[0], career[0]], 5, 0.5, () => 0.5)).toHaveLength(5);
+  });
+
+  it("falls back to a plain cycle when only one axis is configured", () => {
+    expect(planTopicQuota(relationship, 4, 0.5, () => 0.5)).toHaveLength(4);
   });
 });
