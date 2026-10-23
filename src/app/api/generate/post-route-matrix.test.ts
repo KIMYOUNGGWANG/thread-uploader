@@ -19,6 +19,8 @@ const state = vi.hoisted(() => ({
     qualityPass?: boolean;
   }>,
   remediationPass: true,
+  englishBody: false,
+  judgeNatural: vi.fn<(post: string) => Promise<{ natural: boolean; reason: string }>>(async () => ({ natural: true, reason: "" })),
 }));
 
 const DIVERSE_POST_BODIES = [
@@ -58,7 +60,9 @@ vi.mock("@anthropic-ai/sdk", () => ({
     messages = {
       create: vi.fn(async (request: unknown) => {
         state.prompts.push(JSON.stringify(request));
-        const body = DIVERSE_POST_BODIES[mockPostCallCounter % DIVERSE_POST_BODIES.length];
+        const body = state.englishBody
+          ? `Your birth hour is probably off by an hour ${mockPostCallCounter}.\n\nMost charts shift when it moves.`
+          : DIVERSE_POST_BODIES[mockPostCallCounter % DIVERSE_POST_BODIES.length];
         const count = mockPostCallCounter++;
         return {
           content: [{
@@ -250,6 +254,11 @@ vi.mock("@/lib/prisma", () => ({
       }),
     },
   },
+}));
+
+// The naturalness judge is an LLM call; each case sets its verdict.
+vi.mock("@/lib/english-naturalness", () => ({
+  judgeEnglishNaturalness: (post: string) => state.judgeNatural(post),
 }));
 
 // The heuristic scorer isn't under test here; each case sets whether drafts clear it.
@@ -462,6 +471,34 @@ describe("POST /api/generate viral sprint matrix", () => {
     for (const { formulaId, modeId } of pairs) {
       expect(formulaId).toBeDefined();
       expect(modeId).toBe(normalizeViralIntentModeId(formulaId));
+    }
+  }, 20000);
+
+  it("feeds an unnatural-English verdict into the retry prompt for English brands only", async () => {
+    state.createdPosts.length = 0;
+    state.prompts.length = 0;
+    state.judgeNatural.mockClear();
+    state.judgeNatural.mockResolvedValueOnce({ natural: false, reason: "stacked hedges in line 1" });
+    state.englishBody = true;
+    try {
+      const { POST } = await import("@/app/api/generate/route");
+      await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cosmicpath-global", count: 1 }),
+      }) as never);
+      expect(state.judgeNatural.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(state.prompts.slice(1).join("\n")).toContain("unnatural English: stacked hedges in line 1");
+
+      state.englishBody = false;
+      state.judgeNatural.mockClear();
+      await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 1, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      expect(state.judgeNatural).not.toHaveBeenCalled();
+    } finally {
+      state.englishBody = false;
+      state.judgeNatural.mockImplementation(async () => ({ natural: true, reason: "" }));
     }
   }, 20000);
 

@@ -50,6 +50,7 @@ import { findSaturatedTopics, formatSaturationReason, isSituationSaturated, SATU
 import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
+import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
@@ -342,13 +343,22 @@ async function generateWithQuality(
     return gate;
   };
 
+  // The LLM naturalness check runs only for English drafts that already pass the sync gate (saves a call per failed draft).
+  // It stays out of runQualityGate: that one is sync and is reused as regate after remediation.
+  const gateWithNaturalness = async (post: string, firstComment: string): Promise<QualityResult> => {
+    const gate = runQualityGate(post, firstComment);
+    if (!isEnglish || !gate.pass) return gate;
+    const verdict = await judgeEnglishNaturalness(post);
+    return verdict.natural ? gate : { ...gate, pass: false, reasons: [`unnatural English: ${verdict.reason}`, ...gate.reasons] };
+  };
+
   let lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext);
-  let qualityResult = runQualityGate(lastResult.post, lastResult.firstComment);
+  let qualityResult = await gateWithNaturalness(lastResult.post, lastResult.firstComment);
 
   for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
     console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
     lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, qualityResult.reasons);
-    qualityResult = runQualityGate(lastResult.post, lastResult.firstComment);
+    qualityResult = await gateWithNaturalness(lastResult.post, lastResult.firstComment);
   }
 
   if (!qualityResult.pass) {
