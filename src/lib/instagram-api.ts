@@ -76,8 +76,17 @@ export async function getFreshInstagramCredentials(brandId: string): Promise<Ins
   if (!isTokenRefreshDue(brand.instagramTokenExpiry)) {
     return { accessToken: storedToken, userId: brand.instagramUserId };
   }
-  const refreshed = await refreshAndStoreToken(brandId, storedToken);
-  return { accessToken: refreshed.accessToken, userId: brand.instagramUserId };
+  return { accessToken: await refreshOrKeepStoredToken(brandId, storedToken), userId: brand.instagramUserId };
+}
+
+/** The stored token is still valid here, so a failed refresh must not block publishing; the refresh-token cron retries. */
+async function refreshOrKeepStoredToken(brandId: string, storedToken: string): Promise<string> {
+  try {
+    return (await refreshAndStoreToken(brandId, storedToken)).accessToken;
+  } catch (error) {
+    console.warn(`[instagram] inline token refresh failed for brand ${brandId}, using stored token:`, error instanceof Error ? error.message : "Unknown error");
+    return storedToken;
+  }
 }
 
 export async function refreshBrandInstagramToken(brandId: string): Promise<{ accessToken: string; expiresIn: number }> {

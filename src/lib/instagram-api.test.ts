@@ -133,6 +133,18 @@ describe("getFreshInstagramCredentials", () => {
     expect(data.instagramAccessToken).not.toBe("fresh");
     expect(data.instagramTokenExpiry).toBeInstanceOf(Date);
   });
+
+  it("falls back to the still-valid stored token with a warning when the inline refresh fails", async () => {
+    prismaMock.brand.findUnique.mockResolvedValueOnce(connected(2));
+    refreshToken.mockRejectedValue(new Error("Session has been invalidated"));
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    expect(await getFreshInstagramCredentials("b1")).toEqual({ accessToken: "stored", userId: "17841" });
+    expect(prismaMock.brand.update).not.toHaveBeenCalled();
+    expect(consoleWarn).toHaveBeenCalledTimes(1);
+    expect(consoleWarn.mock.calls[0]?.map(String).join(" ")).toContain("Session has been invalidated");
+    consoleWarn.mockRestore();
+  });
 });
 
 describe("refreshBrandInstagramToken", () => {
