@@ -51,6 +51,7 @@ import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
+import { checkReadabilityRules } from "@/lib/readability-rules";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
@@ -339,6 +340,13 @@ async function generateWithQuality(
       : null;
     if (lengthReason) {
       gate = { ...gate, pass: false, reasons: [lengthReason, ...gate.reasons] };
+    }
+    // Saju jargon cap, unanswerable questions, invented first-person stories (cosmicpath Korean posts only)
+    if (experiment.qualityProfile === "saju_viral") {
+      const readability = checkReadabilityRules(post, firstComment);
+      if (!readability.pass) {
+        gate = { ...gate, pass: false, reasons: [...readability.reasons, ...gate.reasons] };
+      }
     }
     return gate;
   };
