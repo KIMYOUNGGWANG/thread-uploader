@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateBlendedPerformance,
-  DEFAULT_INFORMATIVE_PRIORS,
+  NEUTRAL_PRIOR,
   sampleBeta,
   selectFormulaWithThompsonSampling,
   updateThompsonPriors,
@@ -40,7 +40,7 @@ describe("Thompson Sampling MAB Router", () => {
     expect(res.blendedScore).toBeLessThanOrEqual(1.0);
   });
 
-  it("filters out noisy samples with low views (<200) during prior update", () => {
+  it("skips samples below an explicit minViewsForUpdate during prior update", () => {
     const currentPriors: Record<string, BetaPrior> = {
       formula_noise: { alpha: 5, beta: 5 },
       formula_solid: { alpha: 5, beta: 5 },
@@ -121,16 +121,6 @@ describe("revenue-first reward", () => {
   });
 });
 
-describe("DEFAULT_INFORMATIVE_PRIORS", () => {
-  it("gives every lean sprint mode an informative prior", () => {
-    for (const id of ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension"]) {
-      const prior = DEFAULT_INFORMATIVE_PRIORS[id];
-      expect(prior, id).toBeDefined();
-      expect(prior.alpha + prior.beta, id).toBeGreaterThanOrEqual(20);
-    }
-  });
-});
-
 describe("updateThompsonPriors reward option", () => {
   it("uses the supplied reward instead of the blended revenue score", () => {
     const observations: FormulaPerformanceObservation[] = [
@@ -140,5 +130,19 @@ describe("updateThompsonPriors reward option", () => {
     const priors = updateThompsonPriors({}, observations, { reward: (obs) => Math.min(1, obs.views / 10000) });
     const mean = (prior: BetaPrior) => prior.alpha / (prior.alpha + prior.beta);
     expect(mean(priors.reach)).toBeGreaterThan(mean(priors.money));
+  });
+});
+
+describe("updateThompsonPriors failure recording", () => {
+  it("records low-view posts as failures instead of dropping them", () => {
+    const priors = updateThompsonPriors({}, [{ formulaId: "weak", views: 18 }, { formulaId: "weak", views: 0 }] as FormulaPerformanceObservation[], { reward: () => 0 });
+    expect(priors.weak.beta).toBeGreaterThan(priors.weak.alpha);
+    expect(Number.isFinite(priors.weak.alpha) && Number.isFinite(priors.weak.beta)).toBe(true);
+  });
+
+  it("falls back to a neutral prior for unseen arms", () => {
+    const priors = updateThompsonPriors({}, [{ formulaId: "new_arm", views: 300 }] as FormulaPerformanceObservation[], { reward: () => 1 });
+    expect(priors.new_arm.alpha - NEUTRAL_PRIOR.alpha).toBeGreaterThan(0);
+    expect(priors.new_arm.beta).toBe(NEUTRAL_PRIOR.beta);
   });
 });

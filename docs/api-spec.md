@@ -1172,7 +1172,7 @@ interface ViralAdapterResult {
 - 생성 품질 게이트에 토픽 포화 가드가 있다: 최근 10개 글 중 같은 마커 그룹(`birth_time_offset`: 진태양시/30분 오차/32분/동경시/서머타임)이 상한(1개)에 도달하면 후보 글이 그 소재를 쓸 때 실패 처리하고 재시도 프롬프트에 사유를 넣는다.
 - remediation 리라이트 결과는 품질 게이트를 다시 통과해야 하며, 실패하면 원문(이미 통과)으로 되돌리고 `qualityReasons`에 `remediation_reverted: …`를 남긴다.
 - 캠페인 링크 cadence는 캠페인의 기존 글 수를 오프셋으로 더해 `(offset + index + 1) % linkCadenceEvery === 0`으로 결정한다 (청크 요청에서도 1/N 유지). 링크 없는 글에는 "링크 확인" CTA를 쓰지 않는다.
-- `thompsonPriors`는 매 실행마다 `DEFAULT_INFORMATIVE_PRIORS`에서 최근 300개 글로 재계산 (중복 학습 방지).
+- `thompsonPriors`는 매 실행마다 중립 prior(`NEUTRAL_PRIOR`)에서 발행 72시간 이상 지난 최근 300개 글로 재계산 (중복 학습 방지).
 - CosmicPath lean sprint는 priors가 있으면 4개 viral mode 중 Thompson 샘플링으로 선택, 없으면 고정 배분.
 
 ```typescript
