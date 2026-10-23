@@ -46,3 +46,12 @@ Higgsfield GPT Image 2.5, `--quality medium --resolution 1k` (장당 0.5크레�
 - `flip.mp3`: Seed Audio "Single crisp playing card flip sound effect, a thick tarot card being turned over on velvet, short soft swish followed by a light tap, close-up foley, no music, no voice, under one second" → ffmpeg로 앞 무음 제거, 1초로 자름.
 
 주의: 카드 3D 회전 요소의 부모에 opacity를 걸면 Chrome이 카드를 빼먹는 프레임이 생겼다(2026-10-23). 앞뒷면을 겹치지 말고 90도에서 이미지를 바꿔 끼운다.
+
+### 사주 톤으로 교체 (2026-10-23)
+
+별·달·해 타로 카드가 "너무 타로 같다"는 판정을 받아 교체했어. 지금 쓰는 건 아래 두 장 + CSS다. 타로 카드 이미지(back, front-a~c, table)는 안 쓴다.
+
+- `saju-front.png`: "Blank card made of cream Korean hanji mulberry paper with visible soft fibers, thin vermilion red double border line, a small vermilion square seal stamp with an abstract geometric pattern in the bottom right corner, large empty space in the center, " + NO
+- `saju-table.png`: "Top-down photo of a dark walnut wooden table surface with fine wood grain, soft warm lamp light from above making a gentle pool of light in the center, a Korean calligraphy brush and an ink stone resting only in the top-left corner, empty center, no cards, no text, moody cinematic, vertical composition"
+- 뒷면: 이미지 없이 `FlipCards`의 `LacquerBack`(옻칠 바탕·오방색 띠·命)을 CSS로 그린다.
+- 앞면 글자: `cardImages.marks: [{ hanja, word }]`. 한자는 명조(AppleMyungjo, macOS 로컬 전용). CI에서 렌더하면 Noto Serif CJK로 떨어지니 폰트를 확인해.
