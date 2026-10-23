@@ -280,7 +280,7 @@ async function generateWithQuality(
   careerDecisionType: string | null;
   shouldLink: boolean;
   lengthTarget?: LengthArm;
-  regate: (post: string, firstComment: string) => QualityResult;
+  regate: (post: string, firstComment: string) => Promise<QualityResult>;
 }> {
   const isEnglish =
     experiment.qualityProfile === "ecommerce_d2c" ||
@@ -344,7 +344,7 @@ async function generateWithQuality(
   };
 
   // The LLM naturalness check runs only for English drafts that already pass the sync gate (saves a call per failed draft).
-  // It stays out of runQualityGate: that one is sync and is reused as regate after remediation.
+  // It is also the post-remediation regate, so an English rewrite that reads unnatural reverts to the judged original.
   const gateWithNaturalness = async (post: string, firstComment: string): Promise<QualityResult> => {
     const gate = runQualityGate(post, firstComment);
     if (!isEnglish || !gate.pass) return gate;
@@ -392,7 +392,7 @@ async function generateWithQuality(
     careerDecisionType: qualityResult.careerDecisionType ?? null,
     shouldLink: experiment.shouldLink,
     lengthTarget: experiment.lengthTarget,
-    regate: runQualityGate,
+    regate: gateWithNaturalness,
   };
 }
 
@@ -1132,7 +1132,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       algorithmicThreshold
     );
     // A rewrite can break the content gate the original already passed; keep the original then.
-    const reconciled = reconcileRemediation({
+    const reconciled = await reconcileRemediation({
       rawContent: rawPostContent,
       rawFirstComment: result.firstComment || null,
       remediation: rawRemediation,
