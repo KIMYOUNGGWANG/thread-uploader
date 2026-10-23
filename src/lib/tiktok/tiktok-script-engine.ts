@@ -1,4 +1,4 @@
-import { type SajuCardData, DEFAULT_SAJU_PILLARS } from "./saju-types";
+import { type SajuCardData, pillarsForDayMaster } from "./saju-types";
 import type { PickCardData, RankCardData } from "./render-spec-types";
 import type { TikTokFormatId } from "./tiktok-draft-service";
 
@@ -31,6 +31,7 @@ export interface TikTokScriptResult {
   hashtags: string[];
   qualityScore: number;
   qualityPass: boolean;
+  qualityReasons?: string[];
 }
 
 export interface ScriptGenerationParams {
@@ -40,32 +41,92 @@ export interface ScriptGenerationParams {
   tone?: "urgent" | "mysterious" | "encouraging";
 }
 
+// 훅은 일간의 성향을 "왜?"로 묻고(Pull), 2번 장면이 그 일간의 상징으로 바로 답한다(Truth).
+// 모든 일간에 똑같이 붙는 운세 약속(재물운 반등·귀인 등)은 쓰지 않는다.
+interface DayMasterProfile {
+  hook: string; // "{일간} 일간이 ___" 뒤에 붙는 질문
+  symbol: string; // 2번 장면의 답 — 품질 게이트가 이 단어로 답을 확인한다
+  nature: string; // "{일간} 일간은 ___"
+  strength: string;
+}
+
+const DAY_MASTER_PROFILES: Record<string, DayMasterProfile> = {
+  갑목: { hook: "한번 정하면 잘 안 굽히는 이유", symbol: "큰 나무", nature: "큰 나무예요. 위로 곧게 자라는 기운이라, 방향을 정하면 돌아가기보다 밀고 나가요.", strength: "곧은 추진력 · 책임감" },
+  을목: { hook: "부드러워 보여도 끝까지 버티는 이유", symbol: "풀과 덩굴", nature: "풀과 덩굴이에요. 바람에 휘어도 꺾이지 않고, 틈을 찾아 결국 자리를 잡아요.", strength: "유연함 · 끈기" },
+  병화: { hook: "기분이 얼굴에 다 드러나는 이유", symbol: "태양", nature: "태양이에요. 빛을 숨길 수 없는 기운이라, 감정도 생각도 밖으로 환하게 드러나요.", strength: "솔직함 · 분위기를 밝히는 힘" },
+  정화: { hook: "가까운 사람한테 유독 세심한 이유", symbol: "촛불", nature: "촛불이에요. 멀리보다 가까운 곳을 오래 밝히는 기운이라, 곁에 있는 사람을 꼼꼼히 챙겨요.", strength: "섬세함 · 따뜻한 집중력" },
+  무토: { hook: "웬만해선 흔들리지 않는 이유", symbol: "큰 산", nature: "큰 산이에요. 묵직하게 자리를 지키는 기운이라, 주변이 흔들려도 중심을 잡아요.", strength: "듬직함 · 신뢰" },
+  기토: { hook: "남 챙기다 내 몫을 놓치는 이유", symbol: "논밭의 흙", nature: "논밭의 흙이에요. 씨앗을 품어 키우는 기운이라, 사람과 일을 먼저 돌보게 돼요.", strength: "포용력 · 키워내는 힘" },
+  경금: { hook: "맺고 끊음이 칼 같은 이유", symbol: "바위와 원석", nature: "바위와 원석이에요. 단단하고 날이 선 기운이라, 아닌 건 아니라고 분명히 잘라요.", strength: "결단력 · 의리" },
+  신금: { hook: "기준이 높아 쉽게 만족 못 하는 이유", symbol: "보석", nature: "다듬어진 보석이에요. 작은 흠도 보이는 기운이라, 스스로에게도 기준이 높아요.", strength: "안목 · 완성도" },
+  임수: { hook: "생각이 끝없이 넓어지는 이유", symbol: "큰 강과 바다", nature: "큰 강과 바다예요. 멈추지 않고 흐르는 기운이라, 생각이 한곳에 머물지 않고 넓게 퍼져요.", strength: "넓은 시야 · 지략" },
+  계수: { hook: "말 안 해도 분위기를 먼저 읽는 이유", symbol: "빗물과 이슬", nature: "빗물과 이슬이에요. 조용히 스며드는 기운이라, 말보다 공기의 변화를 먼저 느껴요.", strength: "직관 · 공감력" },
+};
+
+// 모르는 일간: 문구는 만들되 답(상징)이 없으므로 게이트에서 떨어진다.
+const UNKNOWN_PROFILE: DayMasterProfile = { hook: "가진 성향", symbol: "", nature: "", strength: "" };
+
+const HOOK_MAX_CHARS = 30; // 3.5초 안에 읽히는 길이
+const GAP_PATTERN = /이유|\?/;
+const OVERPROMISE_PATTERN = /절대|반드시|무조건|놓치지\s*마|경고|대박|급상승|100%|확실히|귀인\s*발탁|재물운\s*반등|운명의\s*전환점/;
+
+export interface ExplainerQuality {
+  qualityScore: number;
+  qualityPass: boolean;
+  qualityReasons: string[];
+}
+
+export function evaluateExplainerQuality(
+  script: Pick<TikTokScriptResult, "scenes" | "totalDurationSeconds">,
+  dayMaster: string
+): ExplainerQuality {
+  const profile = DAY_MASTER_PROFILES[dayMaster];
+  const hook = script.scenes[0]?.onScreenText[0] ?? "";
+  const payoff = script.scenes[1]?.spokenLine ?? "";
+  const allText = script.scenes.flatMap((scene) => [scene.spokenLine, ...scene.onScreenText]).join(" ");
+  const overpromise = allText.match(OVERPROMISE_PATTERN)?.[0];
+
+  const checks: [boolean, string][] = [
+    [Boolean(profile), `일간 해설 데이터 없음: "${dayMaster}" 훅의 답을 줄 수 없음 (Truth)`],
+    [hook.includes(dayMaster) && GAP_PATTERN.test(hook), "훅이 그 일간에게 질문을 열지 않음 (Pull)"],
+    [hook.length <= HOOK_MAX_CHARS, `훅이 ${HOOK_MAX_CHARS}자를 넘어 첫 장면에 다 안 읽힘 (Pull)`],
+    [Boolean(profile?.symbol) && payoff.includes(profile.symbol), "훅의 답이 바로 다음 장면에 없음 (Truth)"],
+    [!overpromise, `과장·막연한 떡밥 문구: "${overpromise}" (Truth)`],
+    [script.totalDurationSeconds >= 15 && script.totalDurationSeconds <= 30, "길이가 15~30초를 벗어남"],
+  ];
+
+  const qualityReasons = checks.filter(([ok]) => !ok).map(([, reason]) => reason);
+  return {
+    qualityScore: Math.round((100 * (checks.length - qualityReasons.length)) / checks.length),
+    qualityPass: qualityReasons.length === 0,
+    qualityReasons,
+  };
+}
+
 export function generateTikTokScript(params: ScriptGenerationParams): TikTokScriptResult {
-  const { topic, targetAudience = "2030 직장인", dayMaster = "병화", tone = "mysterious" } = params;
+  const { dayMaster = "병화", tone = "mysterious" } = params;
+  const profile = DAY_MASTER_PROFILES[dayMaster] ?? UNKNOWN_PROFILE;
 
-  // 1. Scene 1: 3-Second Visual & Spoken Hook
-  const hookBadge = tone === "urgent" ? "🚨 올해 운세 경고" : "🔮 2026 하반기 대운";
-  const hookText = `${dayMaster} 일주, 이번 달 절대 놓치지 마세요`;
-  const hookSub = "사주에 숨겨진 천을귀인이 움직이기 시작합니다";
-  const hookSpoken = `만약 본인이나 주변에 ${dayMaster} 일주가 있다면, 올해 하반기 흐름을 반드시 확인하셔야 합니다.`;
+  // 1. Scene 1: 질문을 여는 훅 (일간별로 다름)
+  const hookText = `${dayMaster} 일간이 ${profile.hook}`;
+  const hookSpoken = `${hookText}, 사주로 보면 바로 보여요.`;
 
-  // 2. Scene 2: Problem & Agitation (고민/상황 심화)
-  const scene2Spoken = `그동안 유독 일이 꼬이거나 인간관계에서 상처받으셨다면, 당신의 잘못이 아니라 사주 대운의 환절기를 지나고 계셨기 때문입니다.`;
-  const scene2OnScreen = ["왜 상반기엔 답답했을까?", "대운의 환절기 영향"];
+  // 2. Scene 2: 훅의 답 — 일간의 상징
+  const scene2Spoken = `${dayMaster} 일간은 ${profile.nature}`;
 
-  // 3. Scene 3: Saju Core Revelation (만세력 오행 카드뉴스 표출)
-  const scene3Spoken = `하지만 이번 달부터는 막혀있던 재물과 귀인 기운이 풀리며, 인생의 중요한 전환점을 맞이하게 됩니다.`;
+  // 3. Scene 3: 명식 예시 — 일주 천간이 이 일간과 같아야 한다
+  const scene3Spoken = `명식에서 일주 윗글자가 바로 '나'예요. 여기가 ${dayMaster} 일간이면, 강점은 ${profile.strength}.`;
   const sajuData: SajuCardData = {
-    title: `${dayMaster} 하반기 명식 흐름`,
-    subtitle: `${targetAudience} 맞춤 운세 분석`,
+    title: `${dayMaster} 일간 명식 예시`,
+    subtitle: "일주 윗글자가 '나'예요",
     dayMaster,
-    destinyKeyword: "재물운 반등 · 귀인 발탁",
-    pillars: DEFAULT_SAJU_PILLARS,
+    destinyKeyword: profile.strength,
+    pillars: pillarsForDayMaster(dayMaster),
   };
 
   // 4. Scene 4: Soft CTA (전환 유도)
-  const cta = "프로필 링크에서 내 정확한 만세력 오행을 1분 만에 확인해보세요.";
-  const scene4Spoken = `나만의 정확한 사주 오행과 귀인 시기를 알고 싶다면, 프로필 링크에서 지금 바로 확인해보세요.`;
+  const cta = "내 일간은 프로필 링크에서 1분이면 나와요.";
+  const scene4Spoken = "내 일간이 뭔지 모르겠다면, 프로필 링크에서 1분이면 확인할 수 있어요.";
 
   const scenes: TikTokSceneBeat[] = [
     {
@@ -76,19 +137,19 @@ export function generateTikTokScript(params: ScriptGenerationParams): TikTokScri
       onScreenText: [hookText],
       visualProps: {
         hookText,
-        subText: hookSub,
-        badge: hookBadge,
+        subText: "사주 일간으로 보면 보여요",
+        badge: `🔮 ${dayMaster} 일간`,
         colorScheme: tone === "urgent" ? "fire-red" : "electric-purple",
       },
     },
     {
-      sceneId: "scene-02-agitation",
+      sceneId: "scene-02-answer",
       durationSeconds: 5.5,
       type: "placeholder",
       spokenLine: scene2Spoken,
-      onScreenText: scene2OnScreen,
+      onScreenText: [`${dayMaster} = ${profile.symbol}`],
       visualProps: {
-        hookText: "운명의 전환점",
+        hookText: profile.symbol,
       },
     },
     {
@@ -96,7 +157,7 @@ export function generateTikTokScript(params: ScriptGenerationParams): TikTokScri
       durationSeconds: 7.0,
       type: "saju-card",
       spokenLine: scene3Spoken,
-      onScreenText: ["핵심 대운 분석"],
+      onScreenText: ["일주 윗글자 = 나", profile.strength],
       visualProps: {
         sajuData,
       },
@@ -108,9 +169,9 @@ export function generateTikTokScript(params: ScriptGenerationParams): TikTokScri
       spokenLine: scene4Spoken,
       onScreenText: [cta],
       visualProps: {
-        hookText: "내 만세력 무료 분석",
-        subText: "프로필 링크에서 1분 확인",
-        badge: "✨ 무료 테스트",
+        hookText: "내 일간 확인하기",
+        subText: "프로필 링크에서 1분",
+        badge: "✨ 내 일간 찾기",
         colorScheme: "neon-yellow",
       },
     },
@@ -119,24 +180,15 @@ export function generateTikTokScript(params: ScriptGenerationParams): TikTokScri
   const fullScript = scenes.map((s) => s.spokenLine).join(" ");
   const totalDurationSeconds = scenes.reduce((acc, s) => acc + s.durationSeconds, 0);
 
-  // Quality check algorithm
-  const qualityScore = Math.min(
-    100,
-    (hookSpoken.length > 10 ? 30 : 10) +
-    (totalDurationSeconds >= 15 && totalDurationSeconds <= 30 ? 40 : 20) +
-    (scenes.length === 4 ? 30 : 15)
-  );
-
   return {
-    title: `${dayMaster} 일주 2026 하반기 대운 분석`,
+    title: `${dayMaster} 일간 해설: ${profile.hook}`,
     spokenHook: hookSpoken,
     fullScript,
     totalDurationSeconds,
     scenes,
     cta,
-    hashtags: ["사주", "운세", "2026운세", `${dayMaster}일주`, "재물운", "틱톡운세"],
-    qualityScore,
-    qualityPass: qualityScore >= 80,
+    hashtags: ["사주", "일간", `${dayMaster}일간`, "사주풀이", "운세"],
+    ...evaluateExplainerQuality({ scenes, totalDurationSeconds }, dayMaster),
   };
 }
 

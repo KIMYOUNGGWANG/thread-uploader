@@ -62,5 +62,10 @@ async function createDailyDraft(brandId: string) {
   if (todays > 0) return null;
 
   const script = generateTikTokScript({ topic: "사주 대운 분석", dayMaster: pickDailyDayMaster(new Date()), tone: "mysterious" });
+  // A draft that fails the quality gate is recorded with its reasons but never rendered.
+  if (!script.qualityPass) {
+    await prisma.tikTokVideoDraft.create({ data: buildTikTokDraftCreateData(brandId, script, "FAILED") });
+    return null;
+  }
   return prisma.tikTokVideoDraft.create({ data: buildTikTokDraftCreateData(brandId, script, "RENDERING") });
 }
