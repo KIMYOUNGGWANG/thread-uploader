@@ -142,3 +142,16 @@ describe("campaign perPostLinks", () => {
     expect(off.campaigns[0].perPostLinks).toBe(false);
   });
 });
+
+describe("instagram config", () => {
+  it("fills instagram defaults when missing", () => {
+    expect(parseBrandConfig("{}").instagram).toEqual({ captionSuffix: "", carouselDailyCap: 1, publishHoursKst: [12, 20] });
+  });
+
+  it("keeps a valid instagram config and drops invalid fields", () => {
+    const config = parseBrandConfig(JSON.stringify({
+      instagram: { captionSuffix: "끝", carouselDailyCap: "x", publishHoursKst: [20, 99], bioAnchorPostId: "p1" },
+    }));
+    expect(config.instagram).toEqual({ captionSuffix: "끝", carouselDailyCap: 1, publishHoursKst: [20], bioAnchorPostId: "p1" });
+  });
+});

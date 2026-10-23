@@ -14,7 +14,7 @@ export function buildTrackedUrl(baseUrl: string, params: TrackingParams): string
   try {
     const url = new URL(baseUrl);
     url.searchParams.set("ref", params.source ?? "threads");
-    url.searchParams.set("utm_source", "threads");
+    url.searchParams.set("utm_source", params.source ?? "threads");
     url.searchParams.set("utm_medium", "social");
     url.searchParams.set("utm_campaign", "threads_growth");
 

@@ -113,6 +113,13 @@ export interface AccountHealthState {
   };
 }
 
+export interface InstagramConfig {
+  captionSuffix: string;
+  carouselDailyCap: number;
+  publishHoursKst: number[];
+  bioAnchorPostId?: string;
+}
+
 export interface BrandConfig {
   systemPrompt: string;
   topics: string[];
@@ -151,6 +158,7 @@ export interface BrandConfig {
   optimizationGoal?: OptimizationGoal;
   // Pre-registered S/L length experiment; unset or malformed = off.
   lengthExperiment?: LengthExperimentConfig;
+  instagram: InstagramConfig;
 }
 
 export type OptimizationGoal = "reach" | "conversion";
@@ -216,7 +224,22 @@ export const DEFAULT_BRAND_CONFIG: BrandConfig = {
   accountTrustTier: "established",
   jitterEnabled: true,
   shadowbanStatus: "HEALTHY",
+  instagram: { captionSuffix: "", carouselDailyCap: 1, publishHoursKst: [12, 20] },
 };
+
+export function parseInstagramConfig(input: unknown): InstagramConfig {
+  const raw = isRecord(input) ? input : {};
+  const defaults = DEFAULT_BRAND_CONFIG.instagram;
+  const cap = raw.carouselDailyCap;
+  return {
+    captionSuffix: typeof raw.captionSuffix === "string" ? raw.captionSuffix : defaults.captionSuffix,
+    carouselDailyCap: typeof cap === "number" && Number.isInteger(cap) && cap >= 1 ? cap : defaults.carouselDailyCap,
+    publishHoursKst: Array.isArray(raw.publishHoursKst)
+      ? raw.publishHoursKst.filter((hour): hour is number => Number.isInteger(hour) && hour >= 0 && hour <= 23)
+      : [...defaults.publishHoursKst],
+    ...(typeof raw.bioAnchorPostId === "string" ? { bioAnchorPostId: raw.bioAnchorPostId } : {}),
+  };
+}
 
 export function parseBrandConfig(raw: string): BrandConfig {
   try {
@@ -266,6 +289,7 @@ export function parseBrandConfig(raw: string): BrandConfig {
       circuitBreaker: isRecord(parsed.circuitBreaker) ? (parsed.circuitBreaker as unknown as CircuitBreakerState) : undefined,
       optimizationGoal: parseOptimizationGoal(parsed.optimizationGoal),
       lengthExperiment: parseLengthExperiment(parsed.lengthExperiment),
+      instagram: parseInstagramConfig(parsed.instagram),
     };
   } catch {
     return DEFAULT_BRAND_CONFIG;
