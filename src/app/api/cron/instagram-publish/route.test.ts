@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-type TestBrand = { id: string; slug: string; name: string; brandConfig: string; instagramConnectedAt: Date | null };
+type TestBrand = {
+  id: string; slug: string; name: string; brandConfig: string; instagramConnectedAt: Date | null; instagramTokenExpiry: Date | null;
+};
 
 const brands = vi.hoisted(() => ({ list: [] as TestBrand[] }));
 const findMany = vi.hoisted(() => vi.fn());
@@ -19,7 +21,9 @@ vi.mock("@/lib/alert-service", () => ({ sendSystemAlert }));
 import { GET, maxDuration } from "./route";
 
 const connectedAt = new Date("2026-10-20T00:00:00Z");
-const brand = (slug: string): TestBrand => ({ id: `id-${slug}`, slug, name: slug, brandConfig: "{}", instagramConnectedAt: connectedAt });
+const brand = (slug: string, instagramTokenExpiry: Date | null = new Date(Date.now() + 86_400_000)): TestBrand => ({
+  id: `id-${slug}`, slug, name: slug, brandConfig: "{}", instagramConnectedAt: connectedAt, instagramTokenExpiry,
+});
 const tickResult = { advanced: 0, published: [], started: "p1", skippedStale: 0, failed: [] };
 const request = (query = "") => new NextRequest(`http://localhost/api/cron/instagram-publish${query}`);
 
@@ -50,9 +54,9 @@ describe("instagram-publish cron", () => {
   });
 
   it("skips brands with no Instagram credentials and still returns 200", async () => {
-    brands.list = [brand("expired"), brand("cosmicpath")];
+    brands.list = [brand("disconnected", null), brand("cosmicpath")];
     getFreshInstagramCredentials.mockImplementation(async (brandId: string) =>
-      brandId === "id-expired" ? null : { accessToken: "t", userId: "u" });
+      brandId === "id-disconnected" ? null : { accessToken: "t", userId: "u" });
 
     const response = await GET(request());
     const body = await response.json();
@@ -65,7 +69,7 @@ describe("instagram-publish cron", () => {
       expect.any(Date),
     );
     expect(body.results).toEqual([
-      { slug: "expired", skipped: "not_connected" },
+      { slug: "disconnected", skipped: "not_connected" },
       { slug: "cosmicpath", ...tickResult },
     ]);
   });
@@ -89,5 +93,18 @@ describe("instagram-publish cron", () => {
       { slug: "broken", error: "db down" },
       { slug: "cosmicpath", ...tickResult },
     ]);
+  });
+
+  it("reports an expired token separately from a never-connected brand", async () => {
+    brands.list = [brand("expired", new Date(Date.now() - 1_000))];
+    getFreshInstagramCredentials.mockResolvedValue(null);
+
+    const body = await (await GET(request())).json();
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({ instagramTokenExpiry: true }),
+    }));
+    expect(runInstagramReelsTick).not.toHaveBeenCalled();
+    expect(body.results).toEqual([{ slug: "expired", skipped: "token_expired" }]);
   });
 });

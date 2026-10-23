@@ -6,8 +6,18 @@ import { runInstagramReelsTick, type ReelsTickResult } from "@/lib/instagram-ree
 
 export const maxDuration = 60;
 
-type InstagramBrand = { id: string; slug: string; name: string; brandConfig: string; instagramConnectedAt: Date | null };
-type BrandResult = { slug: string; skipped: "not_connected" } | { slug: string; error: string } | ({ slug: string } & ReelsTickResult);
+type InstagramBrand = {
+  id: string;
+  slug: string;
+  name: string;
+  brandConfig: string;
+  instagramConnectedAt: Date | null;
+  instagramTokenExpiry: Date | null;
+};
+type BrandResult =
+  | { slug: string; skipped: "not_connected" | "token_expired" }
+  | { slug: string; error: string }
+  | ({ slug: string } & ReelsTickResult);
 
 /** Cron (every 15 min): cross-posts Threads video posts as Instagram reels. Independent of /api/cron/publish. */
 export async function GET(request: NextRequest) {
@@ -29,7 +39,7 @@ async function findInstagramBrands(request: NextRequest): Promise<InstagramBrand
   const brandSlugs = request.nextUrl.searchParams.get("brands")?.split(",").map((slug) => slug.trim()).filter(Boolean);
   return prisma.brand.findMany({
     where: { instagramConnectedAt: { not: null }, ...(brandSlugs?.length ? { slug: { in: brandSlugs } } : {}) },
-    select: { id: true, slug: true, name: true, brandConfig: true, instagramConnectedAt: true },
+    select: { id: true, slug: true, name: true, brandConfig: true, instagramConnectedAt: true, instagramTokenExpiry: true },
   });
 }
 
@@ -37,7 +47,7 @@ async function runBrandTick(brand: InstagramBrand, now: Date): Promise<BrandResu
   try {
     const credentials = await getFreshInstagramCredentials(brand.id);
     const connectedAt = brand.instagramConnectedAt;
-    if (!credentials || !connectedAt) return { slug: brand.slug, skipped: "not_connected" };
+    if (!credentials || !connectedAt) return { slug: brand.slug, skipped: skipReason(brand, now) };
     const tick = await runInstagramReelsTick({ ...brand, instagramConnectedAt: connectedAt }, credentials, now);
     return { slug: brand.slug, ...tick };
   } catch (error) {
@@ -50,4 +60,9 @@ async function runBrandTick(brand: InstagramBrand, now: Date): Promise<BrandResu
     });
     return { slug: brand.slug, error: message };
   }
+}
+
+// No credentials: a past expiry means the token lapsed (reconnect needed); otherwise the brand was never fully connected.
+function skipReason(brand: InstagramBrand, now: Date): "not_connected" | "token_expired" {
+  return brand.instagramTokenExpiry && brand.instagramTokenExpiry <= now ? "token_expired" : "not_connected";
 }
