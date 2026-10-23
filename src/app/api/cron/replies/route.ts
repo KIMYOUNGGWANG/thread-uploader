@@ -12,7 +12,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const brands = await prisma.brand.findMany();
+  // An expired Threads token can't be refreshed (only an OAuth reconnect fixes it), so skip those brands.
+  const brands = await prisma.brand.findMany({
+    where: { accessToken: { not: null }, tokenExpiry: { gt: new Date() } },
+  });
   if (brands.length === 0) {
     return NextResponse.json({ message: "No brands found", results: [] });
   }
