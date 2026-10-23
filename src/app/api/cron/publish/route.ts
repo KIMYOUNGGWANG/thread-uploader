@@ -165,8 +165,11 @@ export async function GET(request: NextRequest) {
 
       // 3. Minimum Inter-Post Cooldown Check (only for new posts, not resuming)
       if (!isResuming) {
+        // publishedAt not null: Postgres sorts NULLs first on DESC, so one legacy PUBLISHED row without a date
+        // became "last published" and disabled both the slot gate and the cooldown (2026-10-23: 3 KR posts
+        // in the 09:00 slot within 36 min once the scheduler ran every 15 min).
         const lastPublished = await prisma.post.findFirst({
-          where: { brandId: brand.id, status: "PUBLISHED" },
+          where: { brandId: brand.id, status: "PUBLISHED", publishedAt: { not: null } },
           orderBy: { publishedAt: "desc" },
         });
         if (slotHours) {

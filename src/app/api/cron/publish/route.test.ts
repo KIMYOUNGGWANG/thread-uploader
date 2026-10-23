@@ -270,6 +270,25 @@ describe("GET /api/cron/publish", () => {
       vi.useRealTimers();
     });
 
+    // Regression 2026-10-23: a PUBLISHED row with publishedAt null sorted first on DESC and reopened every slot.
+    it("looks up the last published post only among rows that have a publish date", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-12T13:40:00Z"));
+      mocks.findBrands.mockResolvedValue([{ id: "brand_slot", name: "CosmicPath" }]);
+      mocks.findPost.mockReset();
+      mocks.findPost
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ status: "PUBLISHED", publishedAt: new Date("2026-10-12T12:20:00Z") });
+
+      await callWithSlots("0,12");
+
+      expect(mocks.findPost).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        where: expect.objectContaining({ status: "PUBLISHED", publishedAt: { not: null } }),
+        orderBy: { publishedAt: "desc" },
+      }));
+      vi.useRealTimers();
+    });
+
     it("skips runs that land outside every slot window", async () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       vi.setSystemTime(new Date("2026-10-12T18:30:00Z"));
