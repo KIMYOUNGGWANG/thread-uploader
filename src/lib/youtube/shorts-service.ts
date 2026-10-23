@@ -91,7 +91,8 @@ function createData(brandId: string, c: ShortsCandidate, now: Date) {
 export async function saveShortsCandidate(brandId: string, c: ShortsCandidate, now: Date): Promise<void> {
   const where = { brandId_source_sourceKey: { brandId, source: SHORTS_SOURCE, sourceKey: c.videoId } };
   const rawMetrics = await buildRawMetrics(where, c, now);
-  const content = `${c.title}\n${c.description.slice(0, 300)}`;
+  // Slice by code point: a UTF-16 slice can split an emoji, and a lone surrogate makes the upsert fail.
+  const content = `${c.title}\n${Array.from(c.description).slice(0, 300).join("")}`;
   const shared = { views: c.views, likes: c.likes, replies: c.comments, content, country: c.country, rawMetrics };
   const example = await prisma.viralExample.upsert({
     where,

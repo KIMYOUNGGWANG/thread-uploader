@@ -101,6 +101,14 @@ describe("saveShortsCandidate", () => {
     });
   });
 
+  it("never splits an emoji when truncating the description to 300 characters", async () => {
+    const description = `${"d".repeat(299)}🔮${"x".repeat(10)}`;
+    await saveShortsCandidate("b1", { ...candidate, description }, NOW);
+    const content = upsertArgs().create.content as string;
+    expect(content).toBe(`제목\n${"d".repeat(299)}🔮`);
+    expect(content.isWellFormed()).toBe(true);
+  });
+
   it("keeps firstSeenAt and discoveredAt on the second save", async () => {
     db.viralExample.findUnique.mockResolvedValue({ rawMetrics: JSON.stringify({ firstSeenAt: "old", timesSeen: 1 }) });
     await saveShortsCandidate("b1", candidate, NOW);
