@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseBrandConfig } from "@/types/brand";
-import { tryBuildInstagramBioLink } from "@/lib/instagram-bio-anchor";
+import { instagramBioAnchorWhere, tryBuildInstagramBioLink } from "@/lib/instagram-bio-anchor";
 import { BrandSettingsForm } from "@/components/BrandSettingsForm";
 
 interface PageProps {
@@ -21,7 +21,10 @@ export default async function BrandSettingsPage({ params }: PageProps) {
   const config = parseBrandConfig(brand.brandConfig);
   const anchorId = config.instagram.bioAnchorPostId;
   const anchorPost = anchorId
-    ? await prisma.post.findUnique({ where: { id: anchorId }, select: { clicks: true, conversions: true } })
+    ? await prisma.post.findFirst({
+        where: instagramBioAnchorWhere(brand.id, anchorId),
+        select: { id: true, clicks: true, conversions: true },
+      })
     : null;
   const instagramExpiry = brand.instagramTokenExpiry;
 
@@ -41,7 +44,7 @@ export default async function BrandSettingsPage({ params }: PageProps) {
           username: brand.instagramUsername,
           tokenExpiry: instagramExpiry ? instagramExpiry.toISOString().split("T")[0] : null,
           needsReconnect: instagramExpiry ? instagramExpiry < new Date() : false,
-          bioLink: tryBuildInstagramBioLink(config.websiteUrl, anchorId),
+          bioLink: tryBuildInstagramBioLink(config.websiteUrl, anchorPost?.id),
           clicks: anchorPost?.clicks ?? 0,
           conversions: anchorPost?.conversions ?? 0,
         },

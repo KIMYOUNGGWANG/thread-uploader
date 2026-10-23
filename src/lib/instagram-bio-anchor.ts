@@ -5,13 +5,18 @@ import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 export const INSTAGRAM_BIO_ANCHOR_STATUS = "ANCHOR";
 export const INSTAGRAM_BIO_CATEGORY = "INSTAGRAM_BIO";
 
+// bioAnchorPostId is editable through the brands PATCH, so only trust it when it is this brand's own anchor.
+export function instagramBioAnchorWhere(brandId: string, anchorPostId: string) {
+  return { id: anchorPostId, brandId, status: INSTAGRAM_BIO_ANCHOR_STATUS };
+}
+
 // One placeholder Post per brand: the bio link carries its id as `pid` so bio clicks/conversions attribute to it.
 export async function ensureInstagramBioAnchor(brandId: string): Promise<string> {
   const brand = await prisma.brand.findUniqueOrThrow({ where: { id: brandId } });
   const config = parseBrandConfig(brand.brandConfig);
   const storedId = config.instagram.bioAnchorPostId;
 
-  if (storedId && (await prisma.post.findUnique({ where: { id: storedId }, select: { id: true } }))) {
+  if (storedId && (await prisma.post.findFirst({ where: instagramBioAnchorWhere(brandId, storedId), select: { id: true } }))) {
     return storedId;
   }
 

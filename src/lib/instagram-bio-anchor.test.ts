@@ -2,11 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
   brand: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
-  post: { findUnique: vi.fn(), create: vi.fn() },
+  post: { findFirst: vi.fn(), create: vi.fn() },
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 
-import { buildInstagramBioLink, ensureInstagramBioAnchor, tryBuildInstagramBioLink } from "@/lib/instagram-bio-anchor";
+import {
+  buildInstagramBioLink,
+  ensureInstagramBioAnchor,
+  instagramBioAnchorWhere,
+  tryBuildInstagramBioLink,
+} from "@/lib/instagram-bio-anchor";
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -35,9 +40,10 @@ describe("ensureInstagramBioAnchor", () => {
       id: "b1",
       brandConfig: JSON.stringify({ instagram: { bioAnchorPostId: "anchor1" } }),
     });
-    prismaMock.post.findUnique.mockResolvedValue({ id: "anchor1" });
+    prismaMock.post.findFirst.mockResolvedValue({ id: "anchor1" });
 
     expect(await ensureInstagramBioAnchor("b1")).toBe("anchor1");
+    expect(prismaMock.post.findFirst.mock.calls[0]?.[0].where).toEqual({ id: "anchor1", brandId: "b1", status: "ANCHOR" });
     expect(prismaMock.post.create).not.toHaveBeenCalled();
     expect(prismaMock.brand.update).not.toHaveBeenCalled();
   });
@@ -47,10 +53,28 @@ describe("ensureInstagramBioAnchor", () => {
       id: "b1",
       brandConfig: JSON.stringify({ instagram: { bioAnchorPostId: "gone" } }),
     });
-    prismaMock.post.findUnique.mockResolvedValue(null);
+    prismaMock.post.findFirst.mockResolvedValue(null);
     prismaMock.post.create.mockResolvedValue({ id: "anchor2" });
 
     expect(await ensureInstagramBioAnchor("b1")).toBe("anchor2");
+  });
+
+  it("does not adopt a stored id that points at another brand's post", async () => {
+    prismaMock.brand.findUniqueOrThrow.mockResolvedValue({
+      id: "b1",
+      brandConfig: JSON.stringify({ instagram: { bioAnchorPostId: "other-brand-post" } }),
+    });
+    prismaMock.post.findFirst.mockResolvedValue(null); // brandId/status filter excludes it
+    prismaMock.post.create.mockResolvedValue({ id: "anchor3" });
+
+    expect(await ensureInstagramBioAnchor("b1")).toBe("anchor3");
+    expect(prismaMock.post.findFirst.mock.calls[0]?.[0].where).toEqual({ id: "other-brand-post", brandId: "b1", status: "ANCHOR" });
+  });
+});
+
+describe("instagramBioAnchorWhere", () => {
+  it("scopes the anchor lookup to the brand and ANCHOR status", () => {
+    expect(instagramBioAnchorWhere("b1", "p1")).toEqual({ id: "p1", brandId: "b1", status: "ANCHOR" });
   });
 });
 
