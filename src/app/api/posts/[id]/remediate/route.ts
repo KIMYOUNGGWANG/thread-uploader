@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requirePostForCurrentUser } from "@/lib/brand-access";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { checkQuality } from "@/lib/quality-gate";
+import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
 import { parseBrandConfig, type QualityProfileId } from "@/types/brand";
 
 const QUALITY_PROFILE_IDS: readonly string[] = ["saju_viral", "career_decision", "product_growth", "ecommerce_d2c", "saas_b2b"];
@@ -37,8 +38,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
 
     // The score alone must not promote a post: publish cron trusts qualityPass, so run the content gate too.
-    const gate = checkQuality(remediation.content, narrowQualityProfile(post.qualityProfile, config.qualityProfile));
-    const passed = remediation.pass && gate.pass;
+    const qualityProfile = narrowQualityProfile(post.qualityProfile, config.qualityProfile);
+    const gate = checkQuality(remediation.content, qualityProfile);
+    // English rewrites also need the naturalness judge that generation applies; only asked once score and gate pass.
+    const isEnglish = qualityProfile === "ecommerce_d2c" || !/[가-힣]/.test(remediation.content);
+    const natural = remediation.pass && gate.pass && isEnglish
+      ? (await judgeEnglishNaturalness(remediation.content)).natural
+      : true;
+    const passed = remediation.pass && gate.pass && natural;
 
     const updated = await prisma.post.update({
       where: { id: post.id },
