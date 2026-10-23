@@ -8,22 +8,9 @@ import {
   verifyAccountPublishEligibility,
   type AccountTrustTier,
 } from "@/lib/account-trust-ramp";
+import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
 
 import type { PostCategory, AccountHealthState } from "@/types/brand";
-
-const GENERATED_META_PATTERNS = [
-  /자수\s*체크/,
-  /글자\s*수\s*확인/,
-  /공백[·\s]*줄바꿈.*포함/,
-  /500자\s*이하\s*통과/,
-  /Threads\s*본문/,
-  /초안\s*작성/,
-  // The model describing its own draft ("셀프체크형 포스트입니다"), a char-count label ("본문 (482자)"),
-  // or a draft title line ("# Threads Post: ..."). Each matched only leaked posts in 291 published ones.
-  /(포스트|게시물)입니다/,
-  /\(\s*\d{2,4}\s*(자|chars?|characters)\s*\)/i,
-  /^\s*#*\s*(threads?\s+post|post\s+draft|draft)\s*[:：]/im,
-];
 
 export interface PublishSafetyPost {
   content: string;
@@ -72,7 +59,7 @@ export function getPublishSafetyBlockReasons(
   if (hasFortuneOverclaim(surface)) {
     reasons.push("overclaim 운세/상대 마음 보장 표현 포함");
   }
-  if (GENERATED_META_PATTERNS.some((pattern) => pattern.test(surface))) {
+  if (hasGeneratedMeta(surface)) {
     reasons.push("generated meta text 포함");
   }
 

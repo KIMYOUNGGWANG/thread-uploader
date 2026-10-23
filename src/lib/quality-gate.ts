@@ -14,6 +14,7 @@ import {
 import { validateAntiSlop } from "@/lib/marketing-skills";
 import { evaluateContentWithExpertPanel } from "@/lib/expert-panel-evaluator";
 import { checkMetaPolicySafety } from "@/lib/meta-policy-guard";
+import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
 
 /**
  * Quality Gate — CosmicPath 바이럴 공식 준수 검사기
@@ -219,20 +220,6 @@ const GENERIC_SELF_HELP_PATTERNS = [
   /언젠가 다 잘될/,
 ];
 
-const GENERATED_META_PATTERNS = [
-  /자수\s*체크/,
-  /글자\s*수\s*확인/,
-  /공백[·\s]*줄바꿈.*포함/,
-  /500자\s*이하\s*통과/,
-  /Threads\s*본문/i,
-  /초안\s*작성/,
-  /#+\s*📌\s*THREADS\s*POST/i,
-  /---\s*\*\*본문\*\*/i,
-  /^\*\*본문\*\*/m,
-  /===FIRST_COMMENT===/i,
-  /#\s*The\s*Peach\s*Blossom/i,
-];
-
 const CAREER_DECISION_PATTERNS: Array<{
   type: CareerDecisionType;
   patterns: RegExp[];
@@ -430,7 +417,7 @@ function enforceSafetyRules(post: string, result: QualityResult, isEnglish = fal
   }
   if (hasReplyBurdenPromise(post)) reasons.unshift("reply-burden CTA 포함");
   if (hasFortuneOverclaim(post)) reasons.unshift("overclaim 운세/상대 마음 보장 표현 포함");
-  if (GENERATED_META_PATTERNS.some((pattern) => pattern.test(post))) reasons.unshift("generated meta text 포함");
+  if (hasGeneratedMeta(post)) reasons.unshift("generated meta text 포함");
 
   const antiSlop = validateAntiSlop(post);
   if (!antiSlop.pass) {

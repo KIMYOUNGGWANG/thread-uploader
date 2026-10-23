@@ -51,6 +51,7 @@ import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/struct
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
+import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
 import type { LengthArm } from "@/types/length-experiment";
 
 const client = new Anthropic({
@@ -61,19 +62,6 @@ const client = new Anthropic({
 const SEPARATOR = "===FIRST_COMMENT===";
 const RETRYABLE_STATUSES = new Set([429, 529]);
 const RECENT_POST_AVOIDANCE_COUNT = 24;
-const GENERATED_META_PATTERNS = [
-  /자수\s*체크/,
-  /글자\s*수\s*확인/,
-  /공백[·\s]*줄바꿈.*포함/,
-  /500자\s*이하\s*통과/,
-  /Threads\s*본문/i,
-  /초안\s*작성/,
-  /#+\s*📌\s*THREADS\s*POST/i,
-  /---\s*\*\*본문\*\*/i,
-  /^\*\*본문\*\*/m,
-  /===FIRST_COMMENT===/i,
-  /#\s*The\s*Peach\s*Blossom/i,
-];
 
 interface GrowthExperiment {
   // Pre-registered length experiment arm for this draft (docs/experiments/2026-10-16-post-length.md).
@@ -153,10 +141,6 @@ function cleanGeneratedContentLabels(content: string): string {
   return normalizeIpchunSpelling(cleaned);
 }
 
-function hasGeneratedMetaText(content: string): boolean {
-  return GENERATED_META_PATTERNS.some((pattern) => pattern.test(content));
-}
-
 function enforceGeneratedSurfaceSafety<T extends QualityResult>(
   qualityResult: T,
   result: { post: string; firstComment: string },
@@ -176,7 +160,7 @@ function enforceGeneratedSurfaceSafety<T extends QualityResult>(
   if (hasFortuneOverclaim(surface) && !reasons.includes("overclaim 운세/상대 마음 보장 표현 포함")) {
     reasons.unshift("overclaim 운세/상대 마음 보장 표현 포함");
   }
-  if (hasGeneratedMetaText(surface) && !reasons.includes("generated meta text 포함")) {
+  if (hasGeneratedMeta(surface) && !reasons.includes("generated meta text 포함")) {
     reasons.unshift("generated meta text 포함");
   }
   return reasons.length === qualityResult.reasons.length

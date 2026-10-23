@@ -12,6 +12,7 @@ import {
 } from "@/lib/threads-limits";
 import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
 import { type QualityResult } from "@/lib/quality-gate";
+import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
 import {
   ENGLISH_VIRAL_MODE_LABELS,
   formatViralIntentModePrompt,
@@ -21,15 +22,6 @@ import {
   type ViralIntentMode,
 } from "@/lib/viral-intent-modes";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
-
-export const GENERATED_META_PATTERNS = [
-  /자수\s*체크/,
-  /글자\s*수\s*확인/,
-  /공백[·\s]*줄바꿈.*포함/,
-  /500자\s*이하\s*통과/,
-  /Threads\s*본문/,
-  /초안\s*작성/,
-];
 
 export interface GenerationFormula {
   id: string;
@@ -110,10 +102,6 @@ export function cleanGeneratedContentLabels(content: string): string {
 }
 
 
-export function hasGeneratedMetaText(content: string): boolean {
-  return GENERATED_META_PATTERNS.some((pattern) => pattern.test(content));
-}
-
 export function enforceGeneratedSurfaceSafety<T extends QualityResult>(
   qualityResult: T,
   result: { post: string; firstComment: string }
@@ -129,7 +117,7 @@ export function enforceGeneratedSurfaceSafety<T extends QualityResult>(
   if (hasFortuneOverclaim(surface) && !reasons.includes("overclaim 운세/상대 마음 보장 표현 포함")) {
     reasons.unshift("overclaim 운세/상대 마음 보장 표현 포함");
   }
-  if (hasGeneratedMetaText(surface) && !reasons.includes("generated meta text 포함")) {
+  if (hasGeneratedMeta(surface) && !reasons.includes("generated meta text 포함")) {
     reasons.unshift("generated meta text 포함");
   }
   return reasons.length === qualityResult.reasons.length
