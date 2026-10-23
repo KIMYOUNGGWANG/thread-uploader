@@ -2,7 +2,7 @@ import type { Brand } from "@prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { formatCreatorPatternContext } from "@/lib/creator-prompt-patterns";
-import { formatGrowthPromptContext, isAutopilotFormula, parseStoredGrowthMemory } from "@/lib/growth-learning";
+import { formatGrowthPromptContext, parseStoredGrowthMemory } from "@/lib/growth-learning";
 import { findProhibitedPhrases, readProhibitedPhrases } from "@/lib/trend-radar/negative-pattern-learner";
 import { formatTrendRadarContext, readTrendRadar } from "@/lib/trend-radar/trend-radar-memory";
 import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
@@ -1113,13 +1113,17 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       continue;
     }
 
+    if (result.qualityPass === false) {
+      failureReasons.push(`quality gate failed (${result.formulaId})`);
+      continue;
+    }
+
     const postContent = reconciled.content;
     const initialComment = reconciled.firstComment;
     const qualityReasons = [...result.qualityReasons, ...reconciled.extraReasons];
     const threadParts = splitContentIntoThreadParts(postContent);
-    // Auto-queue only gate-passing posts from proven formulas; the rest wait for human approval
-    const autoQueue = result.qualityPass !== false && isAutopilotFormula(result.formulaId, growthMemory);
-    const postStatus = autoQueue ? "PENDING" : "NEEDS_REVIEW";
+    // Nobody reviews drafts by hand: every gate-passing draft is queued, learning decides which formulas get volume.
+    const postStatus = "PENDING";
 
     const post = await prisma.post.create({
       data: {

@@ -15,6 +15,8 @@ const state = vi.hoisted(() => ({
     utmContent?: string | null;
     ctaType?: string | null;
     targetAudience?: string | null;
+    status?: string;
+    qualityPass?: boolean;
   }>,
   remediationPass: true,
 }));
@@ -377,6 +379,23 @@ describe("POST /api/generate viral sprint matrix", () => {
 
     expect(state.createdPosts).toHaveLength(4);
     expect(new Set(state.createdPosts.map((post) => post.targetAudience)).size).toBe(4);
+  }, 10000);
+
+  // Nobody reviews drafts by hand: NEEDS_REVIEW for unproven formulas stalled the queue and refill.
+  it("queues a gate-passing draft from an unproven formula as PENDING", async () => {
+    state.createdPosts.length = 0;
+    const { POST } = await import("@/app/api/generate/route");
+    const response = await POST(new Request("http://localhost/api/generate", {
+      method: "POST",
+      body: JSON.stringify({ brandId: "brand_1", count: 2, campaignId: "career_timing_wedge_399" }),
+    }) as never);
+
+    expect(response.status).toBe(200);
+    expect(state.createdPosts).toHaveLength(2);
+    for (const post of state.createdPosts) {
+      expect(post.status).toBe("PENDING");
+      expect(post.qualityPass).toBe(true);
+    }
   }, 10000);
 
   // Drafts under the algorithm score used to be saved as NEEDS_REVIEW and filled the approval queue.

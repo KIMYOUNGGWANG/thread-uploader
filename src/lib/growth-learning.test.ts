@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGrowthMemory, calculatePerformanceScore, computeWeeklyLift, isAutopilotFormula, type GrowthPostInput } from "@/lib/growth-learning";
-import { EMPTY_GROWTH_MEMORY } from "@/types/brand";
+import { buildGrowthMemory, calculatePerformanceScore, computeWeeklyLift, type GrowthPostInput } from "@/lib/growth-learning";
 
 describe("calculatePerformanceScore", () => {
   it("weights views replies reposts clicks conversions and paid conversions", () => {
@@ -18,23 +17,6 @@ describe("calculatePerformanceScore", () => {
 
     // 200 (views) + 80 (replies) + 25 (reposts) + 150 (clicks) + 300 (conversions) + 2500 (paid) = 3255
     expect(score).toBe(3255);
-  });
-});
-
-describe("isAutopilotFormula", () => {
-  const memory = {
-    ...EMPTY_GROWTH_MEMORY,
-    winners: [
-      { dimension: "formula" as const, value: "dilemma", count: 5, avgScore: 900, medianScore: 900, avgViews: 0, avgLikes: 0, avgReplies: 0, avgReposts: 0 },
-      { dimension: "hook" as const, value: "new_formula", count: 5, avgScore: 900, medianScore: 900, avgViews: 0, avgLikes: 0, avgReplies: 0, avgReposts: 0 },
-    ],
-  };
-
-  it("auto-queues only formula winners", () => {
-    expect(isAutopilotFormula("dilemma", memory)).toBe(true);
-    expect(isAutopilotFormula("new_formula", memory)).toBe(false);
-    expect(isAutopilotFormula(null, memory)).toBe(false);
-    expect(isAutopilotFormula("dilemma", EMPTY_GROWTH_MEMORY)).toBe(false);
   });
 });
 
@@ -93,8 +75,6 @@ describe("formulaWinners", () => {
     expect(memory.winners.map((winner) => winner.value)).not.toContain("stunt");
     expect(memory.winners.map((winner) => winner.value)).not.toContain("lucky");
     expect(memory.weakSignals.map((weak) => weak.value)).toContain("stunt");
-    expect(isAutopilotFormula("stunt", memory)).toBe(false);
-    expect(isAutopilotFormula("lucky", memory)).toBe(false);
   });
 
   // Regression: 2026-10 cosmicpath fed a 5-post topic at ~2x the brand median back into the prompt as a
@@ -112,10 +92,10 @@ describe("formulaWinners", () => {
     expect(winnerValues).not.toContain("many_but_flat");
   });
 
-  it("auto-queues a formula winner even when mixed winners are all hooks", () => {
+  it("keeps a formula winner in formulaWinners even when mixed winners are all hooks", () => {
     const memory = buildGrowthMemory(posts);
     expect(memory.winners.some((winner) => winner.dimension === "formula")).toBe(false);
-    expect(isAutopilotFormula("steady", memory)).toBe(true);
-    expect(isAutopilotFormula("weak", memory)).toBe(false);
+    expect(memory.formulaWinners).toContain("steady");
+    expect(memory.formulaWinners).not.toContain("weak");
   });
 });
