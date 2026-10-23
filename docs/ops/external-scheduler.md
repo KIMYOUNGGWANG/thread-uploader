@@ -41,7 +41,12 @@ cd cloudflare/scheduler && npx wrangler deploy
 
 - 스케줄을 바꿀 때는 `wrangler.toml`의 `crons`와 `worker.js`의 `ROUTES`를 같이 고치고(테스트가 둘의 일치를 검사한다) 다시 `npx wrangler deploy`.
 - 테스트: `node --test cloudflare/scheduler/worker.test.mjs`
-- 무료 플랜의 실행당 시간 제한 때문에 호출은 25초에서 끊지만, Vercel은 연결이 끊겨도 라우트를 끝까지 돌린다.
+- 크론 트리거는 대기 시간 15분까지 허용(CPU만 10ms 제한, 응답 대기는 CPU를 안 씀)이라 호출마다 최대 290초까지 응답을 기다린다. 슬롯 안 발행은 30~60초 걸린다.
+- `CRON_SECRET`이 Vercel 값과 다르면 로그에 `401 ... Unauthorized`가 찍힌다. 로컬 `.env` 값이 프로덕션과 같으면 이렇게 넣는다(값은 화면에 안 나옴):
+
+```bash
+node -e 'const m=require("fs").readFileSync(".env","utf8").match(/^CRON_SECRET=(.*)$/m);process.stdout.write(m[1].trim())' | npx wrangler secret put CRON_SECRET --name threads-uploader-scheduler
+```
 
 ## B. cron-job.org
 
