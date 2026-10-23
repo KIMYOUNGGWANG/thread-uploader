@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   createdPosts: [] as Array<{
     id: string;
     campaignFormulaId: string | null;
+    imageUrls?: string;
     firstComment?: string | null;
     linkUrl?: string | null;
     utmContent?: string | null;
@@ -348,6 +349,8 @@ describe("POST /api/generate viral sprint matrix", () => {
     ]);
     expect(state.createdPosts.filter((post) => post.linkUrl)).toHaveLength(5);
     expect(state.createdPosts.filter((post) => post.utmContent)).toHaveLength(5);
+    // Saju drafts got auto card carousels until 2026-10-22, so refill queued image posts only.
+    expect(state.createdPosts.map((post) => post.imageUrls)).toEqual(Array(15).fill("[]"));
 
     const lastRecentPosts = state.checkStructureRepeat.mock.calls.at(-1)?.[2] ?? [];
     const commentNumber = (comment: string | null | undefined) => /북마크 (\d+)/.exec(comment ?? "")?.[1];
