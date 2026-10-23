@@ -61,6 +61,7 @@ describe("buildInstagramBioLink", () => {
     expect(url.searchParams.get("pid")).toBe("p1");
     expect(url.searchParams.get("utm_source")).toBe("instagram");
     expect(url.searchParams.get("ref")).toBe("instagram");
+    expect(url.searchParams.get("utm_campaign")).toBe("instagram_bio");
   });
 
   it("defaults to https for a scheme-less website URL", () => {

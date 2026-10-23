@@ -14,6 +14,12 @@ describe("Tracking URL Attribution", () => {
     expect(url).toContain("pid=post_123");
     expect(url).toContain("fid=fact_bomb_incumbent_attack");
     expect(url).toContain("track=track_b");
+    expect(new URL(url).searchParams.get("utm_campaign")).toBe("threads_growth");
+  });
+
+  it("overrides utm_campaign when utmCampaign is given", () => {
+    const url = new URL(buildTrackedUrl("https://www.cosmicpath.app/start", { utmCampaign: "instagram_bio" }));
+    expect(url.searchParams.get("utm_campaign")).toBe("instagram_bio");
   });
 
   it("parses tracking params accurately from a full URL", () => {

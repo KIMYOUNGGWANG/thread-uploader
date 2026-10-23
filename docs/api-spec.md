@@ -261,7 +261,7 @@ interface InstagramConfig {            // brandConfig.instagram (항상 존재, 
 }
 ```
 
-- 설정 화면(`/brands/[slug]/settings` 기본 정보 탭)이 연결 버튼, `@username`·토큰 만료일, 만료 시 "재연결 필요", 캡션 꼬리말 편집, 바이오 링크(`buildInstagramBioLink`: `/start?pid=<anchorId>&utm_source=instagram…`) 복사, "인스타 합계: 클릭 N · 전환 N"(기준 글의 `clicks`/`conversions`, 없으면 0)을 보여준다. 액세스 토큰은 클라이언트로 내려가지 않는다.
+- 설정 화면(`/brands/[slug]/settings` 기본 정보 탭)이 연결 버튼, `@username`·토큰 만료일, 만료 시 "재연결 필요", 캡션 꼬리말 편집, 바이오 링크(`buildInstagramBioLink`: `/start?pid=<anchorId>&utm_source=instagram&utm_campaign=instagram_bio…`) 복사, "인스타 합계: 클릭 N · 전환 N"(기준 글의 `clicks`/`conversions`, 없으면 0)을 보여준다. 액세스 토큰은 클라이언트로 내려가지 않는다.
 
 ---
 

@@ -44,6 +44,7 @@ export function buildInstagramBioLink(websiteUrl: string, anchorPostId: string):
     postId: anchorPostId,
     source: "instagram",
     utmSource: "instagram",
+    utmCampaign: "instagram_bio",
   });
 }
 
