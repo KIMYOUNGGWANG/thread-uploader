@@ -94,6 +94,19 @@ describe("parseBrandConfig", () => {
     expect(config.campaigns[0]?.formulas[0]?.instruction).not.toMatch(/분류해준|답글|진단해준/);
   });
 
+  it("keeps campaign normalization of offer formula ids unchanged (falls back like any unknown id)", () => {
+    const config = parseBrandConfig(JSON.stringify({
+      campaigns: [{
+        ...CAREER_TIMING_WEDGE_399,
+        formulas: [{ id: "d2c_etsy_offer", name: "Etsy", weight: 2, instruction: "Sell the dossier" }],
+      }],
+      activeCampaignId: CAREER_TIMING_WEDGE_399.id,
+    }));
+    const formula = config.campaigns[0]?.formulas[0];
+    expect(formula?.id).toBe(CAREER_TIMING_WEDGE_399.formulas[0].id);
+    expect(formula?.instruction).toBe(CAREER_TIMING_WEDGE_399.formulas[0].instruction);
+  });
+
   it("defaults CosmicPath campaign formulas to self classification and saveable tools", () => {
     const formulaIds = CAREER_TIMING_WEDGE_399.formulas.map((formula) => formula.id);
     const formulaText = CAREER_TIMING_WEDGE_399.formulas.map((formula) => formula.instruction).join("\n");

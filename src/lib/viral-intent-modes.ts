@@ -363,9 +363,16 @@ export function selectViralIntentMode(
   return VIRAL_INTENT_MODES[modeIndex] ?? VIRAL_INTENT_MODES[0];
 }
 
+// Offer formulas live outside LEGACY_FORMULA_MAP on purpose: campaign normalization uses that map and would rename them.
+const OFFER_FORMULA_MODES: Record<string, ViralIntentModeId> = {
+  synastry_blueprint_offer: "relationship_tension",
+  d2c_etsy_offer: "quiet_contrarian",
+};
+
 export function resolveViralIntentMode(formulaId: string | null, fallbackIndex: number): ViralIntentMode {
   if (formulaId === WINNER_REPLAY_MODE.id) return WINNER_REPLAY_MODE;
-  const normalizedId = normalizeViralIntentModeId(formulaId);
+  const normalizedId = normalizeViralIntentModeId(formulaId)
+    ?? (formulaId ? OFFER_FORMULA_MODES[formulaId] ?? null : null);
   return VIRAL_INTENT_MODES.find((mode) => mode.id === normalizedId) ?? selectViralIntentMode(fallbackIndex);
 }
 

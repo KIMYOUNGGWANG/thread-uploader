@@ -114,3 +114,17 @@ describe("winner_replay mode", () => {
     expect(VIRAL_INTENT_MODES.map((mode) => mode.id)).not.toContain("winner_replay");
   });
 });
+
+describe("global offer formulas", () => {
+  it.each([
+    ["synastry_blueprint_offer", "relationship_tension"],
+    ["d2c_etsy_offer", "quiet_contrarian"],
+  ])("maps %s to %s, not self_classification", (id, mode) => {
+    for (const index of [0, 3, 6]) expect(resolveViralIntentMode(id, index).id).toBe(mode);
+  });
+
+  it("does not make offer ids campaign-normalizable", () => {
+    expect(normalizeViralIntentModeId("d2c_etsy_offer")).toBeNull();
+    expect(normalizeViralIntentModeId("synastry_blueprint_offer")).toBeNull();
+  });
+});
