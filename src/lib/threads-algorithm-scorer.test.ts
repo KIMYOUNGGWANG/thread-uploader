@@ -169,6 +169,12 @@ describe("threads-algorithm-scorer english hooks", () => {
     expect(flat).toBeGreaterThan(q);
   });
 
+  // The English hook rule forbids "vs": no contrast bonus and no flat-hook bonus for it.
+  it("gives no hook bonus for 'vs' on an English first line", () => {
+    const result = scoreThreadsPostAlgorithmic("Saturn return vs midlife crisis.\nbody line");
+    expect(result.dimensions.hookTension.score).toBe(10);
+  });
+
   // Values measured on e40642a before the English hook change; Korean lines must not move.
   it("keeps Korean hook scoring unchanged", () => {
     const question = scoreThreadsPostAlgorithmic("혹시 너도 이거 착각하고 있어?\n본문");

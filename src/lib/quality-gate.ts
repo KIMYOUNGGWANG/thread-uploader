@@ -329,7 +329,8 @@ const ENGLISH_ASTRO_TERMS = [
  */
 export function isFlatEnglishHook(firstLine: string): boolean {
   const line = firstLine.trim();
-  return line.length > 0 && line.length <= 60 && !line.includes("?");
+  // ENGLISH_HOOK_RULE also forbids "vs" on line 1.
+  return line.length > 0 && line.length <= 60 && !line.includes("?") && !/\bvs\.?\b/i.test(line);
 }
 
 function checkEcommerceD2CQuality(post: string): QualityResult {
@@ -357,7 +358,7 @@ function checkEcommerceD2CQuality(post: string): QualityResult {
   if (hasFlatHook) {
     score++;
   } else {
-    reasons.push(`영문 첫 줄 훅 약함 (60자 이하 평서문, 물음표 금지): "${firstLine.slice(0, 50)}"`);
+    reasons.push(`영문 첫 줄 훅 약함 (60자 이하 평서문, 물음표·vs 금지): "${firstLine.slice(0, 50)}"`);
   }
 
   // Check 3: Contrarian / Insight structure (contains vs, or, but, however, not, instead)

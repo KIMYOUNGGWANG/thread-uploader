@@ -43,10 +43,10 @@ export interface AlgorithmicPredictionResult {
   actionableFixes: string[];
 }
 
+// "vs" is a Korean-only contrast reward: the English hook rule forbids it.
+const HOOK_VS = /\svs\s/i;
 const HOOK_CONTRAST_PATTERNS = [
   /보다\s*센/,
-  /\svs\s/i,
-  /\sVS\s/,
   /비교/,
   /상식/,
   /불편한\s*진실/,
@@ -126,7 +126,7 @@ export function scoreThreadsPostAlgorithmic(
   const isEnglishFirstLine = !/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(firstLine);
   const hasFlatEnglishHook = isEnglishFirstLine && isFlatEnglishHook(firstLine);
   const hasContrast = HOOK_CONTRAST_PATTERNS.some((p) => p.test(firstLine)) ||
-    (!isEnglishFirstLine && ENGLISH_CONTRAST_WORDS.test(firstLine));
+    (!isEnglishFirstLine && (HOOK_VS.test(firstLine) || ENGLISH_CONTRAST_WORDS.test(firstLine)));
   const hasCuriosity = HOOK_CURIOSITY_PATTERNS.some((p) => p.test(firstLine)) ||
     (!isEnglishFirstLine && QUESTION_MARK.test(firstLine));
 

@@ -429,6 +429,14 @@ describe("checkQuality ecommerce_d2c english hooks", () => {
     expect(isFlatEnglishHook("x".repeat(60))).toBe(true);
     expect(isFlatEnglishHook("x".repeat(61))).toBe(false);
   });
+
+  it("isFlatEnglishHook rejects a 'vs' first line, matching the English hook rule", () => {
+    expect(isFlatEnglishHook("Saturn return vs midlife crisis.")).toBe(false);
+    expect(isFlatEnglishHook("Saju vs. Western astrology.")).toBe(false);
+    expect(isFlatEnglishHook("Saturn return VS midlife crisis.")).toBe(false);
+    // Only the standalone word: "versus" spelled out and words containing "vs" are not this rule
+    expect(isFlatEnglishHook("Your canvas is not your chart.")).toBe(true);
+  });
 });
 
 describe("checkQuality length experiment drafts", () => {
