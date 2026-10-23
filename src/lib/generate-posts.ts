@@ -50,6 +50,7 @@ import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
+import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import type { LengthArm } from "@/types/length-experiment";
 
 const client = new Anthropic({
@@ -943,8 +944,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     formatViralPromptContext(parseViralMemory(brand.viralMemory)),
     formatTrendRadarContext(readTrendRadar(brand.brandConfig)),
   ].filter(Boolean).join("\n\n");
+  const notAnchor = { brandId, status: { not: INSTAGRAM_BIO_ANCHOR_STATUS } };
   const recentPosts = await prisma.post.findMany({
-    where: { brandId },
+    where: notAnchor,
     orderBy: { createdAt: "desc" },
     take: RECENT_POST_AVOIDANCE_COUNT,
     select: {
@@ -961,7 +963,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
 
   // The matrix is a pure function of index, and the dashboard sends 2-post chunks that each restart at 0.
   // Offsetting by the brand's post count gives every chunk fresh contexts instead of the same day's pair.
-  const contextOffset = await prisma.post.count({ where: { brandId } });
+  const contextOffset = await prisma.post.count({ where: notAnchor });
   const isSajuDomain = domainProfile === "saju_viral" || domainProfile === "career_decision";
   // Link cadence counts the campaign's existing posts, so chunked requests keep the 1-in-N rhythm.
   const linkOffset = activeCampaign

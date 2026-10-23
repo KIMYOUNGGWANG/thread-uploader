@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { ParsedPost, validatePost } from "@/lib/parser";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     await requireBrandForCurrentUser(brandId);
 
     const posts = await prisma.post.findMany({
-      where: { brandId },
+      where: { brandId, status: { not: INSTAGRAM_BIO_ANCHOR_STATUS } },
       orderBy: { scheduledAt: "asc" },
     });
 
