@@ -55,3 +55,5 @@ Higgsfield GPT Image 2.5, `--quality medium --resolution 1k` (장당 0.5크레�
 - `saju-table.png`: "Top-down photo of a dark walnut wooden table surface with fine wood grain, soft warm lamp light from above making a gentle pool of light in the center, a Korean calligraphy brush and an ink stone resting only in the top-left corner, empty center, no cards, no text, moody cinematic, vertical composition"
 - 뒷면: 이미지 없이 `FlipCards`의 `LacquerBack`(옻칠 바탕·오방색 띠·命)을 CSS로 그린다.
 - 앞면 글자: `cardImages.marks: [{ hanja, word }]`. 한자는 명조(AppleMyungjo, macOS 로컬 전용). CI에서 렌더하면 Noto Serif CJK로 떨어지니 폰트를 확인해.
+
+랭킹(`RankCard`)도 `saju-front.png`를 한지 패널로, `saju-table.png`를 배경(`background: { type: "image" }`)으로 재사용한다. 새 이미지는 없다.

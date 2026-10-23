@@ -11,15 +11,6 @@ const BG_LOOP_SECONDS = 10;
 const BRAND = "CosmicPath";
 const DEFAULT_SUB_COPY = "내 일간 모르면 → 프로필 링크, 1분이면 나와";
 
-// 갑을=목 병정=화 무기=토 경신=금 임계=수. 일간 첫 글자로 색을 고른다.
-const ELEMENT_COLORS: Record<string, string> = {
-  갑: "#4ade80", 을: "#4ade80",
-  병: "#fb7185", 정: "#fb7185",
-  무: "#fbbf24", 기: "#fbbf24",
-  경: "#e2e8f0", 신: "#e2e8f0",
-  임: "#60a5fa", 계: "#60a5fa",
-};
-export const elementColor = (text: string, fallback: string): string => ELEMENT_COLORS[text.trim().charAt(0)] ?? fallback;
 
 interface ReelsFrameProps {
   backdrop?: { type: "video" | "image"; src: string }; // public/ 기준. 있으면 성운 배경 대신 쓴다(촬영본·테이블 이미지).

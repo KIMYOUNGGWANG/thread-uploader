@@ -5,6 +5,7 @@
 // 모든 움직임은 프레임 기반이라 렌더가 결정적이다. 이미지·효과음은 public/reels/cards/ (README 참고).
 import React from "react";
 import { AbsoluteFill, Audio, Img, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { SERIF_STACK } from "../load-fonts";
 
 export interface FlipCardMark {
   hanja: string;
@@ -18,8 +19,6 @@ export interface FlipCardImages {
   flipSound?: string;
 }
 
-// 한자는 Pretendard에 없어서 명조 계열로. AppleMyungjo는 macOS 로컬 렌더 전용이라 CI에선 Noto Serif CJK로 떨어진다.
-const SERIF_STACK = "'AppleMyungjo', 'Noto Serif CJK KR', 'Nanum Myeongjo', serif";
 const OBANG = ["#2f5fa7", "#b8322a", "#c99a1b", "#e9e4d8", "#1b1b1b"]; // 청·적·황·백·흑
 
 const CARD_WIDTH = 260;
