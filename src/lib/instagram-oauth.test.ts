@@ -80,4 +80,10 @@ describe("instagram oauth", () => {
     await expect(failure).rejects.toBeInstanceOf(InstagramOAuthError);
     await expect(failure).rejects.toThrow("bad");
   });
+
+  it("reads the top-level error_message shape from api.instagram.com", async () => {
+    stubFetch({ error_type: "OAuthException", code: 400, error_message: "Invalid authorization code" }, 400);
+    const failure = exchangeInstagramAuthorizationCode({ appId: "a", appSecret: "sec", code: "c", redirectUri: "https://x/cb" });
+    await expect(failure).rejects.toThrow("Invalid authorization code");
+  });
 });

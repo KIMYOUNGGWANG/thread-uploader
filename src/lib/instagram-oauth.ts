@@ -133,8 +133,9 @@ function getErrorMessage(data: unknown): string {
   const fallback = "Instagram OAuth request failed.";
   if (!isRecord(data)) return fallback;
   const error = data["error"];
-  if (!isRecord(error)) return fallback;
-  return getString(error, "message") ?? fallback;
+  // graph.instagram.com nests { error: { message } }; api.instagram.com returns a top-level error_message.
+  const nestedMessage = isRecord(error) ? getString(error, "message") : null;
+  return nestedMessage ?? getString(data, "error_message") ?? fallback;
 }
 
 function getString(data: unknown, key: string): string | null {

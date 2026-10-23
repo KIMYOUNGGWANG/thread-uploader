@@ -27,10 +27,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "INSTAGRAM_APP_ID/INSTAGRAM_APP_SECRET is not configured" }, { status: 500 });
   }
 
+  let stage = "access";
   try {
     const { brand } = await requireBrandForCurrentUser(storedState.brandId);
     const redirectUri = new URL("/api/oauth/instagram/callback", request.url).toString();
+    stage = "connect";
     await connectBrand(brand, { ...credentials, code, redirectUri });
+    stage = "bio_anchor";
     await ensureInstagramBioAnchor(brand.id);
 
     return clearOAuthCookie(
@@ -39,6 +42,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const response = accessErrorResponse(error);
     if (response) return clearOAuthCookie(response);
+    // Message only: never log the code, token, or app secret.
+    console.error(`[instagram-oauth] callback failed at ${stage}:`, error instanceof Error ? error.message : "Unknown error");
     return clearOAuthCookie(
       NextResponse.redirect(new URL("/brands?instagram=connection_failed", request.url))
     );

@@ -60,4 +60,21 @@ describe("instagram oauth callback", () => {
     const response = await GET(callbackRequest("state=good&code=c"));
     expect(response.status).toBe(500);
   });
+
+  it("logs the failure stage and message without the code or secret, then redirects to connection_failed", async () => {
+    const { exchangeInstagramLongLivedToken } = await import("@/lib/instagram-oauth");
+    vi.mocked(exchangeInstagramLongLivedToken).mockRejectedValueOnce(new Error("Session has expired"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const response = await GET(callbackRequest("state=good&code=secret-code"));
+
+    expect(response.headers.get("location")).toBe("https://app.test/brands?instagram=connection_failed");
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    const logged = consoleError.mock.calls[0]?.map(String).join(" ") ?? "";
+    expect(logged).toContain("connect");
+    expect(logged).toContain("Session has expired");
+    expect(logged).not.toContain("secret-code");
+    expect(logged).not.toContain("secret");
+    consoleError.mockRestore();
+  });
 });
