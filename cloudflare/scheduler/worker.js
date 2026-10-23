@@ -20,9 +20,10 @@ export function routesFor(cron) {
 }
 
 async function ping(baseUrl, path, cronSecret) {
-  // 25s: free-plan wall clock is tight; Vercel keeps running the route after the client disconnects.
+  // Cron triggers allow up to 15 min of wall clock (only CPU is capped at 10ms, and awaiting fetch uses none).
+  // A publish inside an open slot takes 30-60s; waiting lets the log show its real 200 instead of an abort.
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25_000);
+  const timer = setTimeout(() => controller.abort(), 290_000);
   try {
     const response = await fetch(`${baseUrl}${path}`, {
       headers: { Authorization: `Bearer ${cronSecret}` },
