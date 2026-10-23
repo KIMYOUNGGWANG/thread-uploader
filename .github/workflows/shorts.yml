@@ -1,0 +1,54 @@
+name: Shorts Radar
+
+on:
+  # 쇼츠 수집은 Threads 발행과 무관해서 실험 동결 대상이 아님 — 스케줄 활성.
+  schedule:
+    # 6시간마다 급상승 쇼츠 후보 수집 (search.list, 쿼터 큼)
+    - cron: '7 */6 * * *'
+    # 매시간 후보 조회수 스냅샷 + 오래된 데이터 정리
+    - cron: '37 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 실행할 작업
+        type: choice
+        options: [discover, snapshot]
+        default: snapshot
+
+concurrency:
+  group: shorts
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    if: github.event.schedule == '7 */6 * * *' || github.event.inputs.mode == 'discover'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discover rising Shorts
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SHORTS_BRAND_SLUGS: ${{ vars.SHORTS_BRAND_SLUGS || 'cosmicpath' }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --show-error --silent --location --max-time 300 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/shorts/discover?brands=${SHORTS_BRAND_SLUGS}"
+          echo
+
+  snapshot:
+    if: github.event.schedule == '37 * * * *' || github.event.inputs.mode == 'snapshot'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Snapshot Shorts views
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --show-error --silent --location --max-time 300 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/shorts/snapshot"
+          echo

@@ -155,3 +155,23 @@ describe("instagram config", () => {
     expect(config.instagram).toEqual({ captionSuffix: "끝", carouselDailyCap: 1, publishHoursKst: [20], bioAnchorPostId: "p1" });
   });
 });
+
+describe("viralDiscovery.youtube", () => {
+  it("fills defaults when the stored config predates youtube", () => {
+    const config = parseBrandConfig("{}");
+    expect(config.viralDiscovery.youtube).toEqual({
+      keywords: [], channelHandles: [], regions: ["KR", "GLOBAL"],
+      maxDurationSec: 180, minViews: { kr: 10000, global: 50000 },
+    });
+    expect(config.viralDiscovery.adapters).toContainEqual({ id: "youtube_shorts", enabled: false });
+  });
+
+  it("strips @ from channel handles and clamps duration", () => {
+    const config = parseBrandConfig(JSON.stringify({
+      viralDiscovery: { youtube: { channelHandles: ["@zendi_tarot"], maxDurationSec: 9999, regions: ["KR", "XX"] } },
+    }));
+    expect(config.viralDiscovery.youtube.channelHandles).toEqual(["zendi_tarot"]);
+    expect(config.viralDiscovery.youtube.maxDurationSec).toBe(600);
+    expect(config.viralDiscovery.youtube.regions).toEqual(["KR"]);
+  });
+});
