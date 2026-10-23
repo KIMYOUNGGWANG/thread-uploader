@@ -27,6 +27,41 @@ vi.mock("@/lib/remediation-engine", () => ({
   remediatePostAlgorithmic: mocks.remediatePostAlgorithmic,
 }));
 
+const PASSING_BODY =
+  "퇴사해야 할지 버틸지 모르겠다면\nA. 버팀형 B. 이동형 C. 준비형 중 가까운 쪽만 체크해. 저장해두고 다음 선택 전에 다시 봐.";
+const LEAK_LINE = "자기분류 셀프체크형 포스트입니다. 실제 투자/이직 결정 타이밍을 앞둔 독자가";
+
+function mockPostAndRewrite(content: string) {
+  mocks.requirePostForCurrentUser.mockResolvedValue({
+    post: {
+      id: "post_1",
+      content: "기존 본문",
+      firstComment: null,
+      algorithmicScore: 65,
+      qualityPass: false,
+      qualityProfile: "career_decision",
+    },
+    brand: { id: "brand_1", brandConfig: JSON.stringify({ minAlgorithmicScore: 80 }) },
+  });
+  mocks.remediatePostAlgorithmic.mockResolvedValue({
+    content,
+    firstComment: null,
+    pass: true,
+    method: "targeted_llm_rewrite",
+    rewriteCount: 1,
+    scoreResult: { totalScore: 88, dimensions: {} },
+    actionableFixes: [],
+  });
+}
+
+async function callRemediate() {
+  const { POST } = await import("./route");
+  return POST(
+    new Request("http://localhost/api/posts/post_1/remediate", { method: "POST" }) as never,
+    { params: Promise.resolve({ id: "post_1" }) }
+  );
+}
+
 describe("POST /api/posts/[id]/remediate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -60,7 +95,7 @@ describe("POST /api/posts/[id]/remediate", () => {
     });
 
     mocks.remediatePostAlgorithmic.mockResolvedValue({
-      content: "치유된 본문",
+      content: PASSING_BODY,
       firstComment: "첫 댓글 https://example.com",
       pass: true,
       method: "targeted_llm_rewrite",
@@ -97,7 +132,7 @@ describe("POST /api/posts/[id]/remediate", () => {
       expect.objectContaining({
         where: { id: "post_1" },
         data: expect.objectContaining({
-          content: "치유된 본문",
+          content: PASSING_BODY,
           firstComment: "첫 댓글 https://example.com",
           algorithmicScore: 88,
           algorithmicPass: true,
@@ -105,5 +140,29 @@ describe("POST /api/posts/[id]/remediate", () => {
         }),
       })
     );
+  });
+
+  it("keeps NEEDS_REVIEW and qualityPass unchanged when the rewrite passes the score but fails the content gate", async () => {
+    mockPostAndRewrite(`${PASSING_BODY}\n${LEAK_LINE}`);
+
+    const response = await callRemediate();
+
+    expect(response.status).toBe(200);
+    const data = mocks.updatePost.mock.calls[0][0].data;
+    expect(data.status).toBe("NEEDS_REVIEW");
+    expect(data.qualityPass).toBe(false);
+    const body = await response.json();
+    expect(body.remediation.pass).toBe(false);
+  });
+
+  it("queues the post when both the score and the content gate pass", async () => {
+    mockPostAndRewrite(PASSING_BODY);
+
+    const response = await callRemediate();
+
+    const data = mocks.updatePost.mock.calls[0][0].data;
+    expect(data.status).toBe("PENDING");
+    expect(data.qualityPass).toBe(true);
+    expect((await response.json()).remediation.pass).toBe(true);
   });
 });
