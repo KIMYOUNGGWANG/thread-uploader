@@ -1,5 +1,7 @@
 // PickCard.tsx — ig_pickcard_16s: 질문 1줄 + 카드 A/B/C가 4초쯤 등장, ctaAtSeconds 지점에 선택형 CTA.
 // CTA는 "저장하고 A/B/C 골라 댓글" 류 선택형만. 키워드 DM·"댓글 달면 해석"은 쓰지 않는다.
+// filmed 모드: 카드는 촬영본(실물)이 보여주므로 박스를 그리지 않고, 질문·안내·뒤집기 자막·CTA만 얹는다.
+// 컷 타이밍은 docs/design/reels-shot-list.md.
 import React from "react";
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { FONT_STACK } from "../load-fonts";
@@ -9,12 +11,24 @@ export interface PickCardOption {
   text: string;
 }
 
+export interface PickCardReveal {
+  label: string;
+  text: string;
+  atSeconds: number;
+}
+
 export interface PickCardProps {
   question: string;
   cards: PickCardOption[];
   cta: string;
   ctaAtSeconds: number;
+  filmed?: boolean;
+  hint?: string;
+  reveals?: PickCardReveal[];
 }
+
+const HINT_FROM_SECONDS = 1;
+const DEFAULT_HINT = "화면 멈추고 A·B·C 중 하나";
 
 const CARDS_AT_SECONDS = 4;
 const CARD_STAGGER_SECONDS = 0.35;
@@ -71,7 +85,51 @@ const OptionCard: React.FC<{ option: PickCardOption; index: number; startFrame: 
   );
 };
 
-export const PickCard: React.FC<PickCardProps> = ({ question, cards, cta, ctaAtSeconds }) => {
+const CAPTION_STYLE: React.CSSProperties = {
+  alignSelf: "flex-start",
+  padding: "18px 28px",
+  borderRadius: 18,
+  background: "rgba(5,7,14,0.72)",
+  color: "#f8fafc",
+  fontSize: 46,
+  fontWeight: 800,
+  lineHeight: 1.35,
+  wordBreak: "keep-all",
+};
+
+// 지금 시점의 자막 하나: 안내(hint) → 뒤집기 자막 → (CTA 시점부터는 CTA가 대신)
+function currentCaption(seconds: number, hint: string, reveals: PickCardReveal[], ctaAtSeconds: number): string | null {
+  if (seconds >= ctaAtSeconds) return null;
+  const shown = reveals.filter((reveal) => seconds >= reveal.atSeconds);
+  const latest = shown[shown.length - 1];
+  if (latest) return `${latest.label} · ${latest.text}`;
+  return seconds >= HINT_FROM_SECONDS ? hint : null;
+}
+
+const FilmedPickCard: React.FC<PickCardProps> = ({ question, cta, ctaAtSeconds, hint = DEFAULT_HINT, reveals = [] }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const ctaEnter = useEnter(Math.round(ctaAtSeconds * fps));
+  const caption = currentCaption(frame / fps, hint, reveals, ctaAtSeconds);
+  return (
+    <AbsoluteFill style={{ fontFamily: FONT_STACK, padding: "180px 170px 460px 70px", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+      <div style={{ fontSize: 60, fontWeight: 900, color: "#ffffff", lineHeight: 1.25, letterSpacing: -1, wordBreak: "keep-all", textShadow: "0 4px 24px rgba(0,0,0,0.9)" }}>
+        {question}
+      </div>
+      <div style={{ flex: 1 }} />
+      {caption ? <div style={CAPTION_STYLE}>{caption}</div> : null}
+      {frame >= Math.round(ctaAtSeconds * fps) ? (
+        <div style={{ padding: "30px 36px", borderRadius: 999, background: "#facc15", color: "#0b0d14", fontSize: 40, fontWeight: 900, textAlign: "center", wordBreak: "keep-all", opacity: ctaEnter.opacity, transform: `scale(${ctaEnter.scale})` }}>
+          {cta}
+        </div>
+      ) : null}
+    </AbsoluteFill>
+  );
+};
+
+export const PickCard: React.FC<PickCardProps> = (props) => (props.filmed ? <FilmedPickCard {...props} /> : <BoxedPickCard {...props} />);
+
+const BoxedPickCard: React.FC<PickCardProps> = ({ question, cards, cta, ctaAtSeconds }) => {
   const { fps } = useVideoConfig();
   const questionEnter = useEnter(0);
   const ctaEnter = useEnter(Math.round(ctaAtSeconds * fps));

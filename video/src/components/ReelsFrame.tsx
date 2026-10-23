@@ -1,8 +1,8 @@
 // ReelsFrame.tsx — ig_rank_10s / ig_pickcard_16s가 공유하는 틀.
-// 배경 성운 영상(10초 핑퐁 루프) + 글자 대비용 그라데이션 + 하단 브랜드 마크·서브 카피.
-// 에셋은 public/reels/ (README 참고). 없으면 단색 배경으로 떨어져 렌더는 계속된다.
+// 배경(촬영본 footage가 있으면 그것, 없으면 성운 10초 핑퐁 루프) + 글자 대비용 그라데이션 + 하단 브랜드.
+// 하단은 첫 프레임부터 보인다: 정지 랭킹은 반복 재생되므로 마지막 프레임 = 첫 프레임이어야 한다.
 import React from "react";
-import { AbsoluteFill, Loop, OffthreadVideo, staticFile, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { AbsoluteFill, Loop, OffthreadVideo, staticFile, useVideoConfig } from "remotion";
 import { FONT_STACK } from "../load-fonts";
 
 export const REELS_BG = "reels/bg-cosmic.mp4";
@@ -21,22 +21,30 @@ const ELEMENT_COLORS: Record<string, string> = {
 };
 export const elementColor = (text: string, fallback: string): string => ELEMENT_COLORS[text.trim().charAt(0)] ?? fallback;
 
-export const ReelsFrame: React.FC<{ subCopy?: string; children: React.ReactNode }> = ({ subCopy = DEFAULT_SUB_COPY, children }) => {
+interface ReelsFrameProps {
+  footage?: string; // public/ 기준 촬영본 경로. 있으면 성운 배경 대신 쓴다.
+  subCopy?: string; // 빈 문자열이면 브랜드 마크만
+  children: React.ReactNode;
+}
+
+export const ReelsFrame: React.FC<ReelsFrameProps> = ({ footage, subCopy = DEFAULT_SUB_COPY, children }) => {
   const { fps } = useVideoConfig();
-  const frame = useCurrentFrame();
-  const footerOpacity = interpolate(frame, [Math.round(0.8 * fps), Math.round(1.6 * fps)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0d14", fontFamily: FONT_STACK }}>
-      <Loop durationInFrames={BG_LOOP_SECONDS * fps}>
-        <OffthreadVideo src={staticFile(REELS_BG)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      </Loop>
+      {footage ? (
+        <OffthreadVideo src={staticFile(footage)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <Loop durationInFrames={BG_LOOP_SECONDS * fps}>
+          <OffthreadVideo src={staticFile(REELS_BG)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </Loop>
+      )}
       {/* 위·아래를 어둡게 눌러 글자 대비 확보 */}
       <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(5,7,14,0.55) 0%, rgba(5,7,14,0.18) 45%, rgba(5,7,14,0.35) 75%, rgba(5,7,14,0.85) 100%)" }} />
       {children}
       <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "flex-start", padding: "0 170px 400px 70px", boxSizing: "border-box", pointerEvents: "none" }}>
-        <div style={{ opacity: footerOpacity, display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ fontSize: 34, fontWeight: 600, color: "rgba(248,250,252,0.82)", lineHeight: 1.35, wordBreak: "keep-all" }}>{subCopy}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {subCopy ? <div style={{ fontSize: 34, fontWeight: 600, color: "rgba(248,250,252,0.82)", lineHeight: 1.35, wordBreak: "keep-all" }}>{subCopy}</div> : null}
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ width: 18, height: 18, borderRadius: 9, background: "linear-gradient(135deg, #fde68a, #a78bfa)", boxShadow: "0 0 18px rgba(167,139,250,0.8)" }} />
             <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: 2, color: "#fde68a" }}>{BRAND}</div>

@@ -10,7 +10,7 @@
 
 ## 렌더 명령
 
-Remotion webpack 캐시가 컴포넌트 수정을 못 잡는 경우가 있어서(2026-10-23 확인) 릴스 렌더는 항상 캐시를 끈다.
+릴스 렌더는 캐시를 끈다(`--bundle-cache=false`). 주의: zsh에서는 `set -- $pair`처럼 변수를 공백으로 쪼개지 않는다. 반복문으로 돌릴 때는 함수 인자로 넘겨. 2026-10-23에 이걸 몰라서 빈 props로 렌더돼 옛 화면이 나왔어.
 
 ```bash
 npx remotion render src/index.ts IgRank10s out/reels/<이름>.mp4 --props=<spec.json> --bundle-cache=false
@@ -18,3 +18,13 @@ npx remotion render src/index.ts IgPickCard16s out/reels/<이름>.mp4 --props=<s
 ```
 
 spec.json의 `audio`는 `{ "music": "reels/bgm-ambient.m4a", "musicGainDb": -18 }`, `background`는 `{ "type": "color", "src": "transparent" }`로 둔다. 배경 영상은 `ReelsFrame`이 그린다.
+
+## 촬영본 모드 (카드 선택)
+
+촬영 컷 구성은 `docs/design/reels-shot-list.md`. 촬영본은 `footage/` 아래에 두고(git 제외), spec에서
+`background: { "type": "video", "src": "reels/footage/ep02.mp4" }`, `cardData.filmed: true`, `cardData.reveals: [{ label, text, atSeconds }]`를 준다.
+`footage/test.mp4`는 자막 배치 확인용 가짜 촬영본(카드 자리 회색 사각형 3개)이야.
+
+## 랭킹 정지
+
+spec의 `durationInFrames`를 180(6초)으로 둔다. 등장 애니메이션이 없어서 첫 프레임부터 전부 보이고, 짧게 반복 재생된다.
