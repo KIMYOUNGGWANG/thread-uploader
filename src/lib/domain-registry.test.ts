@@ -112,6 +112,12 @@ describe("ecommerce_d2c batch keeps one claim per formula", () => {
     expect(findBorrowedYearBoundaryClaim("two_birthday_compatibility", compatibility)).toBeNull();
   });
 
+  // The rule told the model to use wrong/instead, which produced "Is your birth hour actually wrong, instead?".
+  it("no longer tells the model to use wrong/instead", () => {
+    expect(ENGLISH_HOOK_RULE).not.toMatch(/wrong|instead/);
+    expect(ENGLISH_HOOK_RULE).toMatch(/no question mark/);
+  });
+
   it("does not seed a concrete claim in the hook rule every formula shares", () => {
     expect(ENGLISH_HOOK_RULE).not.toMatch(/zodiac|animal|ipchun/i);
     for (const formula of globalFormulas) {

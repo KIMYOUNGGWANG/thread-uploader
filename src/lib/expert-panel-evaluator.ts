@@ -73,13 +73,14 @@ export function evaluateRoyLee(content: string): PersonaScore {
   const isEnglish = !/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(content);
   const firstLine = content.split("\n").find((l) => l.trim().length > 0)?.trim() ?? "";
 
-  // 1. Hook tension
-  if (/\?/.test(firstLine)) {
+  // 1. Hook tension. English line 1 is a flat claim (ENGLISH_HOOK_RULE), so "?" and why/how/what earn nothing there.
+  const isEnglishFirstLine = !/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(firstLine);
+  if (!isEnglishFirstLine && /\?/.test(firstLine)) {
     score += 8;
   }
   if (
     /(사실|솔직히|근데|오히려|착각|반대로|문제는|최악)/.test(firstLine) ||
-    (isEnglish && /^(why|how|what|stop|never|your|turning\s+29|the\s+truth|actually|honestly|lie|myth|instead)/i.test(firstLine))
+    (isEnglish && /^(stop|never|your|turning\s+29|the\s+truth|honestly|lie|myth)/i.test(firstLine))
   ) {
     score += 12;
   }

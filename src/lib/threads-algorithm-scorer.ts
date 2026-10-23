@@ -14,6 +14,7 @@
 import { validateAntiSlop, validateBurstiness } from "@/lib/marketing-skills";
 import { checkMetaPolicySafety } from "@/lib/meta-policy-guard";
 import { IDENTITY_MARKER_PATTERN, hasFortuneOverclaim, hasReplyBurdenPromise } from "@/lib/viral-intent-modes";
+import { isFlatEnglishHook } from "@/lib/quality-gate";
 
 export interface AlgorithmicDimensionScore {
   name: string;
@@ -56,11 +57,13 @@ const HOOK_CONTRAST_PATTERNS = [
   /반대/,
   /통념/,
   /아니라/,
-  /\b(wrong|myth|not\s+your|isn't|actually|really|instead|different)\b/i,
 ];
+// Korean first lines keep these English-word and "?" rewards; English first lines are scored on
+// isFlatEnglishHook instead, because rewarding them produced "Is your birth hour actually wrong, instead?".
+const ENGLISH_CONTRAST_WORDS = /\b(wrong|myth|not\s+your|isn't|actually|really|instead|different)\b/i;
+const QUESTION_MARK = /\?/;
 
 const HOOK_CURIOSITY_PATTERNS = [
-  /\?/,
   /상상해/,
   /혹시/,
   /사실/,
@@ -120,8 +123,12 @@ export function scoreThreadsPostAlgorithmic(
   const hookStrengths: string[] = [];
   const hookWeaknesses: string[] = [];
 
-  const hasContrast = HOOK_CONTRAST_PATTERNS.some((p) => p.test(firstLine));
-  const hasCuriosity = HOOK_CURIOSITY_PATTERNS.some((p) => p.test(firstLine));
+  const isEnglishFirstLine = !/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(firstLine);
+  const hasFlatEnglishHook = isEnglishFirstLine && isFlatEnglishHook(firstLine);
+  const hasContrast = HOOK_CONTRAST_PATTERNS.some((p) => p.test(firstLine)) ||
+    (!isEnglishFirstLine && ENGLISH_CONTRAST_WORDS.test(firstLine));
+  const hasCuriosity = HOOK_CURIOSITY_PATTERNS.some((p) => p.test(firstLine)) ||
+    (!isEnglishFirstLine && QUESTION_MARK.test(firstLine));
 
   if (hasContrast) {
     hookScore += 8;
@@ -131,6 +138,10 @@ export function scoreThreadsPostAlgorithmic(
     hookScore += 7;
     hookStrengths.push("호기심 갭 및 질문형 훅 적용됨 (+7)");
   }
+  if (hasFlatEnglishHook) {
+    hookScore += 8;
+    hookStrengths.push("영문 첫 줄이 60자 이하 평서문 (+8)");
+  }
 
   if (firstLine.length > 60) {
     hookScore -= 5;
@@ -138,7 +149,7 @@ export function scoreThreadsPostAlgorithmic(
     actionableFixes.push("첫 문장 길이를 40자 이내로 압축하여 스크롤 스탑 확률을 높이십시오.");
   }
 
-  if (!hasContrast && !hasCuriosity) {
+  if (!hasContrast && !hasCuriosity && !hasFlatEnglishHook) {
     hookWeaknesses.push("첫 문장에 긴장감(대비/호기심 갭)이 부족함");
     actionableFixes.push("첫 줄에 구체 숫자, 특정 살/일주 호명, 통념 반박 중 하나를 넣으십시오.");
   }

@@ -3,6 +3,7 @@ import { ENGLISH_HOOK_RULE } from "./domain-registry";
 import {
   applyHeuristicFixes,
   breaksFormulaShape,
+  buildRewritePrompt,
   englishRewriteChecklist,
   extractRewrittenPost,
   introducesFormalTone,
@@ -144,3 +145,25 @@ describe("remediatePostAlgorithmic rewrite attempts", () => {
     expect(breaksFormulaShape("trend_correction", shaped, generic)).toBe(false);
   });
 });
+
+describe("buildRewritePrompt", () => {
+  const weakest = { name: "hook", score: 5, maxScore: 25, actionableFix: "x" };
+
+  // The Korean prompt asked every rewrite to add a question, re-adding "?" to declarative English hooks.
+  it("builds an English rewrite prompt without the add-a-question rule", () => {
+    const prompt = buildRewritePrompt("Your chart is not wrong.", weakest, { formulaId: "two_birthday_compatibility" }, true);
+    expect(prompt).not.toMatch(/[가-힣]/);
+    expect(prompt).not.toMatch(/add (a )?question|end with (a )?question|양자택일/i);
+    expect(prompt).toContain(englishRewriteChecklist("two_birthday_compatibility"));
+    expect(prompt).toContain("<post>");
+    expect(prompt).toContain("Your chart is not wrong.");
+  });
+
+  it("keeps the Korean prompt wording for Korean drafts", () => {
+    const prompt = buildRewritePrompt("첫 줄\n본문", weakest, undefined, false);
+    expect(prompt).toContain("2. 첫 문장의 긴장감(대비/호기심)을 강화하거나, 본문 끝에 독자가 즉각 반응할 수 있는 간결한 질문(양자택일 등)을 보강하십시오.");
+    expect(prompt).toContain("- 개선 요구사항: x");
+    expect(prompt).toContain("- 주제: 지정되지 않음");
+  });
+});
+

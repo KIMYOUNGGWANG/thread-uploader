@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkQuality } from "@/lib/quality-gate";
+import { checkQuality, isFlatEnglishHook } from "@/lib/quality-gate";
 
 describe("checkQuality", () => {
   it("rejects a saju_viral post with a hook and engagement but no saju term", () => {
@@ -403,12 +403,31 @@ most people default to A out of fear. some bolt to B and repeat the same pattern
 
 describe("checkQuality ecommerce_d2c english hooks", () => {
   it.each([
-    "That Goat birth year on your phone? Probably wrong.\n\nKorean saju flips the year at Ipchun, not January 1st.",
+    "That Goat birth year on your phone is probably wrong.\n\nKorean saju flips the year at Ipchun, not January 1st.",
     "Your zodiac sign was probably decided wrong.\n\nKorean saju uses Ipchun (Feb 4) instead of the calendar.",
     "To every Rabbit born in 1987, 1999, 2011: you leave first.\n\nSaju says that is not your animal talking.",
   ])("passes hook and contrast checks: %s", (post) => {
     const result = checkQuality(post, "ecommerce_d2c");
     expect(result.reasons.join(" ")).not.toMatch(/첫 줄 훅 약함|대비\(Contrast\)/);
+  });
+
+  // "Is your birth hour actually wrong, instead?" passed because the gate rewarded "?" and wrong/instead
+  // while ENGLISH_HOOK_RULE forbade the question mark. Line 1 is now a flat claim, <=60 chars, no "?".
+  it("fails an English question hook even with astro and contrast words", () => {
+    const result = checkQuality("Is your birth hour actually wrong, instead?\nYour saju day master reads it differently.", "ecommerce_d2c");
+    expect(result.pass).toBe(false);
+    expect(result.reasons.join(" ")).toMatch(/첫 줄 훅 약함/);
+  });
+
+  it("passes a flat English claim with an astro term", () => {
+    expect(checkQuality("Your Saturn return is not a breakdown.\nIn saju, 29 is a handover year, not a crisis.", "ecommerce_d2c").pass).toBe(true);
+  });
+
+  it("isFlatEnglishHook accepts only short lines without a question mark", () => {
+    expect(isFlatEnglishHook("Your birth hour is not the problem.")).toBe(true);
+    expect(isFlatEnglishHook("Is your birth hour actually wrong?")).toBe(false);
+    expect(isFlatEnglishHook("x".repeat(60))).toBe(true);
+    expect(isFlatEnglishHook("x".repeat(61))).toBe(false);
   });
 });
 

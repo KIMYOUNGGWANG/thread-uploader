@@ -27,7 +27,7 @@ const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
 // Shared with the remediation rewrite checklist so generation and rewrite can't drift apart again.
 // No example sentence: every formula copied the old one ("Your zodiac animal is probably wrong.") into the same post.
 export const ENGLISH_HOOK_RULE =
-  "line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim that flips an assumption about this post's own subject: no question mark, no 'vs' (use a word like wrong, not, isn't, instead plus probably, might or most people)";
+  "line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim a native speaker would actually write, that flips an assumption about this post's own subject: no question mark, no 'vs'";
 const GLOBAL_FRAME_RULE =
   "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul. " +
   "Leave the zodiac year boundary (when the animal year starts, January or early February birthdays) out unless this formula is about it.";

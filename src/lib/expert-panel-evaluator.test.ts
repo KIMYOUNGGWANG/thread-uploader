@@ -72,3 +72,15 @@ describe("evaluateTargetUser fold penalty", () => {
     expect(exempt.flags.join(" ")).not.toContain("Fold");
   });
 });
+
+describe("evaluateRoyLee english hooks", () => {
+  it("gives no question-mark bonus to English first lines", () => {
+    expect(evaluateRoyLee("Why is your chart wrong?\nbody").score).toBeLessThanOrEqual(evaluateRoyLee("Your chart is not wrong.\nbody").score);
+  });
+
+  // Measured on e40642a before the English hook change.
+  it("keeps the Korean question-mark bonus", () => {
+    expect(evaluateRoyLee("혹시 너도 이거 착각하고 있어?\n본문").score).toBe(90);
+    expect(evaluateRoyLee("연봉보다 센 직급, 사실 따로 있어\n본문").score).toBe(82);
+  });
+});
