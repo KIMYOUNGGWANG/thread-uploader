@@ -32,6 +32,20 @@ describe("GET /api/cron/shorts/snapshot", () => {
     });
   });
 
+  it("still runs cleanup and returns 200 when snapshotShorts throws", async () => {
+    vi.mocked(snapshotShorts).mockRejectedValue(new Error("boom"));
+    vi.mocked(cleanupShorts).mockResolvedValue({ deleted: 2 });
+    const res = await GET(new NextRequest(url));
+    expect(cleanupShorts).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      brands: [
+        { slug: "*", snapshots: 0, deleted: 2, quotaUsed: 0, errors: [{ adapter: "youtube_shorts", source: "route", message: "boom" }] },
+      ],
+    });
+  });
+
   it("returns 401 without the cron secret", async () => {
     vi.mocked(verifyCronSecret).mockReturnValue(false);
     const res = await GET(new NextRequest(url));

@@ -8,8 +8,15 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("./youtube-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./youtube-api")>()),
+  createYoutubeClient: vi.fn(),
+}));
+vi.mock("./shorts-harvester", () => ({ harvestShorts: vi.fn() }));
+
 import { prisma } from "@/lib/prisma";
-import type { ShortsCandidate } from "./shorts-harvester";
+import { harvestShorts, type ShortsCandidate } from "./shorts-harvester";
+import { createYoutubeClient, type YoutubeVideo } from "./youtube-api";
 import {
   SHORTS_SOURCE,
   cleanupShorts,
@@ -50,8 +57,11 @@ function upsertArgs(): { where: unknown; create: Record<string, unknown>; update
   return db.viralExample.upsert.mock.calls[0][0];
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.resetAllMocks();
+  const actual = await vi.importActual<typeof import("./shorts-harvester")>("./shorts-harvester");
+  vi.mocked(harvestShorts).mockImplementation(actual.harvestShorts);
+  vi.mocked(createYoutubeClient).mockReturnValue({ listVideos: vi.fn().mockResolvedValue([]), quotaUsed: 0 } as never);
   vi.unstubAllEnvs();
   db.viralExample.upsert.mockResolvedValue({ id: "ex1", rawMetrics: "{}" });
   db.viralExample.findMany.mockResolvedValue([]);
@@ -140,6 +150,88 @@ describe("discoverShorts", () => {
     expect(result.errors[0]).toMatchObject({ adapter: "youtube_shorts", source: "auth" });
     expect(db.viralExample.upsert).not.toHaveBeenCalled();
     expect(db.viralExampleSnapshot.create).not.toHaveBeenCalled();
+  });
+});
+
+function row(id: string, sourceKey: string) {
+  return { id, sourceKey, publishedAt: new Date(NOW.getTime() - HOUR) };
+}
+
+function video(id: string): YoutubeVideo {
+  return { id, views: 10, likes: 1, comments: 0 } as YoutubeVideo;
+}
+
+function stubClient(listVideos: Fn) {
+  vi.stubEnv("YOUTUBE_API_KEY", "key");
+  vi.mocked(createYoutubeClient).mockReturnValue({ listVideos, quotaUsed: 5 } as never);
+}
+
+describe("snapshotShorts error isolation and grouping", () => {
+  it("records a chunk error and still snapshots the next chunk", async () => {
+    db.viralExample.findMany.mockResolvedValue(Array.from({ length: 51 }, (_, i) => row(`e${i}`, `v${i}`)));
+    db.viralExample.findUnique.mockResolvedValue({ rawMetrics: "{}" });
+    const listVideos = vi.fn().mockRejectedValueOnce(new Error("503")).mockResolvedValueOnce([video("v50")]);
+    stubClient(listVideos);
+    const result = await snapshotShorts(NOW);
+    expect(result.errors).toEqual([{ adapter: "youtube_shorts", source: "snapshot", message: "503" }]);
+    expect(result.snapshots).toBe(1);
+    expect(db.viralExampleSnapshot.create).toHaveBeenCalledTimes(1);
+    expect(db.viralExampleSnapshot.create.mock.calls[0][0].data.exampleId).toBe("e50");
+  });
+
+  it("records a row error and continues with the next row", async () => {
+    db.viralExample.findMany.mockResolvedValue([row("e1", "v1"), row("e2", "v2")]);
+    db.viralExample.findUnique.mockResolvedValue({ rawMetrics: "{}" });
+    db.viralExampleSnapshot.create.mockRejectedValueOnce(new Error("db down"));
+    stubClient(vi.fn().mockResolvedValue([video("v1"), video("v2")]));
+    const result = await snapshotShorts(NOW);
+    expect(result.snapshots).toBe(1);
+    expect(result.errors).toEqual([{ adapter: "youtube_shorts", source: "snapshot", message: "db down" }]);
+  });
+
+  it("snapshots every row sharing a sourceKey and requests the id once", async () => {
+    db.viralExample.findMany.mockResolvedValue([row("e1", "same"), row("e2", "same")]);
+    db.viralExample.findUnique.mockResolvedValue({ rawMetrics: "{}" });
+    const listVideos = vi.fn().mockResolvedValue([video("same")]);
+    stubClient(listVideos);
+    const result = await snapshotShorts(NOW);
+    expect(listVideos).toHaveBeenCalledWith(["same"]);
+    const ids = db.viralExampleSnapshot.create.mock.calls.map((c) => c[0].data.exampleId);
+    expect(ids).toEqual(["e1", "e2"]);
+    expect(result.snapshots).toBe(2);
+  });
+
+  it("chunks 51 rows into two listVideos calls (50 + 1)", async () => {
+    db.viralExample.findMany.mockResolvedValue(Array.from({ length: 51 }, (_, i) => row(`e${i}`, `v${i}`)));
+    const listVideos = vi.fn().mockResolvedValue([]);
+    stubClient(listVideos);
+    await snapshotShorts(NOW);
+    expect(listVideos).toHaveBeenCalledTimes(2);
+    expect(listVideos.mock.calls[0][0]).toHaveLength(50);
+    expect(listVideos.mock.calls[1][0]).toHaveLength(1);
+  });
+
+  it("silently skips videos missing from the response", async () => {
+    db.viralExample.findMany.mockResolvedValue([row("e1", "gone")]);
+    stubClient(vi.fn().mockResolvedValue([]));
+    const result = await snapshotShorts(NOW);
+    expect(result).toMatchObject({ snapshots: 0, errors: [] });
+  });
+});
+
+describe("discoverShorts save isolation", () => {
+  it("keeps saving after one candidate fails and reports it", async () => {
+    db.brand.findUnique.mockResolvedValue({ id: "b1", brandConfig: "{}" });
+    vi.mocked(harvestShorts).mockResolvedValue({
+      candidates: [candidate, { ...candidate, videoId: "vid2" }],
+      errors: [],
+      quotaUsed: 100,
+    });
+    db.viralExample.upsert.mockRejectedValueOnce(new Error("save failed"));
+    db.viralExample.upsert.mockResolvedValue({ id: "ex2", rawMetrics: "{}" });
+    const result = await discoverShorts("b1", NOW);
+    expect(result).toMatchObject({ discovered: 2, saved: 1, quotaUsed: 100 });
+    expect(result.errors).toEqual([{ adapter: "youtube_shorts", source: "save:vid1", message: "save failed" }]);
   });
 });
 

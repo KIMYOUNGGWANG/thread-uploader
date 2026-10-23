@@ -5,7 +5,7 @@ import type { ViralSourceError } from "@/types/viral";
 import { mergeStoredRawMetrics } from "@/lib/viral-analysis";
 import { harvestShorts, type ShortsCandidate } from "./shorts-harvester";
 import { calculateShortsVelocity } from "./shorts-velocity";
-import { createYoutubeClient, YoutubeQuotaError, type YoutubeClient } from "./youtube-api";
+import { createYoutubeClient, YoutubeQuotaError, type YoutubeClient, type YoutubeVideo } from "./youtube-api";
 
 export const SHORTS_SOURCE = "youtube_shorts";
 
@@ -111,24 +111,67 @@ export async function discoverShorts(brandId: string, now: Date = new Date()) {
     fallbackKeywords: config.topics,
     now,
   });
-  for (const candidate of candidates) await saveShortsCandidate(brandId, candidate, now);
-  return { discovered: candidates.length, saved: candidates.length, quotaUsed, errors };
+  const { saved, errors: saveErrors } = await saveCandidates(brandId, candidates, now);
+  return { discovered: candidates.length, saved, quotaUsed, errors: [...errors, ...saveErrors] };
+}
+
+async function saveCandidates(brandId: string, candidates: ShortsCandidate[], now: Date) {
+  const errors: ViralSourceError[] = [];
+  let saved = 0;
+  for (const candidate of candidates) {
+    try {
+      await saveShortsCandidate(brandId, candidate, now);
+      saved++;
+    } catch (error) {
+      errors.push(toSourceError(`save:${candidate.videoId}`, error));
+    }
+  }
+  return { saved, errors };
+}
+
+type SnapshotExample = { id: string; sourceKey: string; publishedAt: Date };
+
+function toSourceError(source: string, error: unknown): ViralSourceError {
+  return { adapter: SHORTS_SOURCE, source, message: error instanceof Error ? error.message : "unknown error" };
+}
+
+// The same video can exist once per brand, so one sourceKey maps to several rows.
+function groupByKey(examples: SnapshotExample[]): Map<string, SnapshotExample[]> {
+  const groups = new Map<string, SnapshotExample[]>();
+  for (const example of examples) groups.set(example.sourceKey, [...(groups.get(example.sourceKey) ?? []), example]);
+  return groups;
+}
+
+async function snapshotRows(rows: SnapshotExample[], video: YoutubeVideo, now: Date, errors: ViralSourceError[]): Promise<number> {
+  let count = 0;
+  for (const example of rows) {
+    try {
+      await recordSnapshot(example.id, video, example.publishedAt, now);
+      count++;
+    } catch (error) {
+      errors.push(toSourceError("snapshot", error));
+    }
+  }
+  return count;
 }
 
 async function snapshotChunk(
   client: YoutubeClient,
-  examples: Array<{ id: string; sourceKey: string; publishedAt: Date }>,
-  now: Date
+  keys: string[],
+  groups: Map<string, SnapshotExample[]>,
+  now: Date,
+  errors: ViralSourceError[]
 ): Promise<number> {
-  const byKey = new Map(examples.map((e) => [e.sourceKey, e]));
-  const videos = await client.listVideos(examples.map((e) => e.sourceKey));
-  let count = 0;
-  for (const video of videos) {
-    const example = byKey.get(video.id);
-    if (!example) continue;
-    await recordSnapshot(example.id, video, example.publishedAt, now);
-    count++;
+  let videos: YoutubeVideo[];
+  try {
+    videos = await client.listVideos(keys);
+  } catch (error) {
+    if (error instanceof YoutubeQuotaError) throw error;
+    errors.push(toSourceError("snapshot", error));
+    return 0;
   }
+  let count = 0;
+  for (const video of videos) count += await snapshotRows(groups.get(video.id) ?? [], video, now, errors);
   return count;
 }
 
@@ -141,10 +184,12 @@ export async function snapshotShorts(now: Date = new Date()) {
   });
   const examples = rows.flatMap((r) => (r.publishedAt ? [{ ...r, publishedAt: r.publishedAt }] : []));
   const errors: ViralSourceError[] = [];
+  const groups = groupByKey(examples);
+  const keys = [...groups.keys()];
   let snapshots = 0;
   try {
-    for (let i = 0; i < examples.length; i += ID_CHUNK) {
-      snapshots += await snapshotChunk(client, examples.slice(i, i + ID_CHUNK), now);
+    for (let i = 0; i < keys.length; i += ID_CHUNK) {
+      snapshots += await snapshotChunk(client, keys.slice(i, i + ID_CHUNK), groups, now, errors);
     }
   } catch (error) {
     if (!(error instanceof YoutubeQuotaError)) throw error;

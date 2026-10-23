@@ -12,8 +12,7 @@ async function loadTargetBrands(slugs: string[]) {
     where: slugs.length > 0 ? { slug: { in: slugs } } : undefined,
     select: { id: true, slug: true, brandConfig: true },
   });
-  // Explicit ?brands= wins over the toggle; without it, only brands that opted in run.
-  if (slugs.length > 0) return brands;
+  // The settings toggle always applies; ?brands= only narrows the set.
   return brands.filter((brand) =>
     isAdapterEnabled(parseBrandConfig(brand.brandConfig).viralDiscovery.adapters, "youtube_shorts")
   );
@@ -23,6 +22,7 @@ async function runBrand(brand: { id: string; slug: string }) {
   try {
     return { slug: brand.slug, ...(await discoverShorts(brand.id)) };
   } catch (error) {
+    // discoverShorts isolates per-candidate failures, so only brand-not-found reaches here (no quota spent yet).
     const message = error instanceof Error ? error.message : "Shorts discovery failed";
     return { slug: brand.slug, quotaUsed: 0, errors: [{ adapter: "youtube_shorts", source: "route", message }] };
   }

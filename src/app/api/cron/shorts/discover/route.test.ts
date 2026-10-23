@@ -45,11 +45,15 @@ describe("GET /api/cron/shorts/discover", () => {
     expect(await res.json()).toEqual({ success: true, brands: [{ slug: "on", ...ok }] });
   });
 
-  it("limits to ?brands= slugs", async () => {
-    vi.mocked(prisma.brand.findMany).mockResolvedValue([{ id: "b2", slug: "off", brandConfig: disabledConfig }] as never);
-    await call("?brands=off, other");
-    expect(prisma.brand.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { slug: { in: ["off", "other"] } } }));
-    expect(discoverShorts).toHaveBeenCalledWith("b2");
+  it("limits to ?brands= slugs and still skips brands with the adapter disabled", async () => {
+    vi.mocked(prisma.brand.findMany).mockResolvedValue([
+      { id: "b1", slug: "on", brandConfig: enabledConfig },
+      { id: "b2", slug: "off", brandConfig: disabledConfig },
+    ] as never);
+    await call("?brands=on, off");
+    expect(prisma.brand.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { slug: { in: ["on", "off"] } } }));
+    expect(discoverShorts).toHaveBeenCalledTimes(1);
+    expect(discoverShorts).toHaveBeenCalledWith("b1");
   });
 
   it("keeps going when one brand throws and reports it in errors", async () => {
