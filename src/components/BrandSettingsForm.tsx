@@ -20,6 +20,16 @@ interface InitialData {
   threadsUserId: string | null;
   tokenExpiry: string | null;
   config: BrandConfig;
+  instagram: InstagramConnection;
+}
+
+export interface InstagramConnection {
+  username: string | null;
+  tokenExpiry: string | null;
+  needsReconnect: boolean;
+  bioLink: string | null;
+  clicks: number;
+  conversions: number;
 }
 
 interface BrandSettingsFormProps {
@@ -45,6 +55,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
   // AI 설정
   const [systemPrompt, setSystemPrompt] = useState(initialData.config.systemPrompt);
   const [websiteUrl, setWebsiteUrl] = useState(initialData.config.websiteUrl);
+  const [instagramCaptionSuffix, setInstagramCaptionSuffix] = useState(initialData.config.instagram.captionSuffix);
   const [productProfile, setProductProfile] = useState(initialData.config.productProfile);
   const [activeExperiment, setActiveExperiment] = useState(initialData.config.activeExperiment);
 
@@ -112,7 +123,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             trendingTopics,
             productProfile,
             activeExperiment,
-            instagram: initialData.config.instagram,
+            instagram: { ...initialData.config.instagram, captionSuffix: instagramCaptionSuffix },
             viralDiscovery: {
               keywords: viralKeywords,
               competitorHandles,
@@ -133,7 +144,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     } finally {
       setIsSaving(false);
     }
-  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, optimizationGoal, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, initialData.config.instagram, router]);
+  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, optimizationGoal, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, initialData.config.instagram, instagramCaptionSuffix, router]);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "basic", label: "기본 정보", icon: <Key className="w-4 h-4" /> },
@@ -219,6 +230,8 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             accessToken={accessToken} setAccessToken={setAccessToken}
             threadsUserId={threadsUserId} setThreadsUserId={setThreadsUserId}
             tokenExpiry={tokenExpiry} setTokenExpiry={setTokenExpiry}
+            instagram={initialData.instagram}
+            captionSuffix={instagramCaptionSuffix} setCaptionSuffix={setInstagramCaptionSuffix}
           />
         )}
         {activeTab === "ai" && (
@@ -338,12 +351,16 @@ function BasicTab({
   accessToken, setAccessToken,
   threadsUserId, setThreadsUserId,
   tokenExpiry, setTokenExpiry,
+  instagram,
+  captionSuffix, setCaptionSuffix,
 }: {
   brandId: string;
   name: string; setName: (v: string) => void;
   accessToken: string; setAccessToken: (v: string) => void;
   threadsUserId: string; setThreadsUserId: (v: string) => void;
   tokenExpiry: string; setTokenExpiry: (v: string) => void;
+  instagram: InstagramConnection;
+  captionSuffix: string; setCaptionSuffix: (v: string) => void;
 }) {
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -397,7 +414,93 @@ function BasicTab({
           </Button>
         </div>
       </SectionCard>
+      <InstagramConnectionSection
+        brandId={brandId}
+        instagram={instagram}
+        captionSuffix={captionSuffix}
+        setCaptionSuffix={setCaptionSuffix}
+      />
     </div>
+  );
+}
+
+function InstagramConnectionSection({
+  brandId, instagram, captionSuffix, setCaptionSuffix,
+}: {
+  brandId: string;
+  instagram: InstagramConnection;
+  captionSuffix: string; setCaptionSuffix: (v: string) => void;
+}) {
+  const [isConnecting, setIsConnecting] = useState(false);
+  const isConnected = instagram.username !== null;
+
+  const handleConnect = () => {
+    setIsConnecting(true);
+    window.location.assign(`/api/oauth/instagram/start?brandId=${encodeURIComponent(brandId)}`);
+  };
+
+  const handleCopyBioLink = async () => {
+    if (!instagram.bioLink) return;
+    try {
+      await navigator.clipboard.writeText(instagram.bioLink);
+      toast.success("바이오 링크를 복사했습니다");
+    } catch {
+      toast.error("복사하지 못했습니다");
+    }
+  };
+
+  return (
+    <SectionCard title="Instagram 연결" description="Threads에 발행한 영상 글을 Instagram 릴스로 교차 발행합니다.">
+      <div className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-4">
+        {isConnected ? (
+          <p className="text-sm font-medium text-pink-200">
+            @{instagram.username}{instagram.tokenExpiry ? ` · 토큰 만료 ${instagram.tokenExpiry}` : ""}
+          </p>
+        ) : (
+          <p className="text-xs text-slate-400">연결하면 이후에 Threads에 발행되는 영상 글부터 릴스로 올라갑니다.</p>
+        )}
+        {instagram.needsReconnect && (
+          <p className="mt-1 text-xs font-medium text-amber-300">재연결 필요 — 토큰이 만료되었습니다.</p>
+        )}
+        <Button
+          type="button"
+          onClick={handleConnect}
+          disabled={isConnecting}
+          variant="outline"
+          className="mt-3 border-pink-500/40 text-pink-200 hover:bg-pink-500/10"
+        >
+          {isConnecting ? <RefreshCw className="mr-1.5 h-4 w-4 animate-spin" /> : <Key className="mr-1.5 h-4 w-4" />}
+          {isConnecting ? "Instagram으로 이동 중..." : isConnected ? "Instagram 다시 연결" : "Instagram 연결"}
+        </Button>
+      </div>
+      {isConnected && (
+        <>
+          <Field label="캡션 꼬리말" hint="릴스 캡션 끝에 항상 붙습니다. 저장 버튼을 눌러야 반영됩니다.">
+            <textarea
+              value={captionSuffix} onChange={(e) => setCaptionSuffix(e.target.value)}
+              rows={2}
+              className={INPUT_CLASS}
+              placeholder="예: 프로필 링크에서 더 보기"
+            />
+          </Field>
+          <InstagramBioLinkField instagram={instagram} onCopy={handleCopyBioLink} />
+        </>
+      )}
+    </SectionCard>
+  );
+}
+
+function InstagramBioLinkField({ instagram, onCopy }: { instagram: InstagramConnection; onCopy: () => void }) {
+  if (!instagram.bioLink) {
+    return <p className="text-xs text-slate-400">AI 설정 탭에서 웹사이트 URL을 저장하면 바이오 링크가 만들어집니다.</p>;
+  }
+  return (
+    <Field label="바이오 링크" hint={`인스타 합계: 클릭 ${instagram.clicks} · 전환 ${instagram.conversions}`}>
+      <div className="flex gap-2">
+        <input type="text" readOnly value={instagram.bioLink} className={INPUT_CLASS} />
+        <Button type="button" variant="outline" onClick={onCopy} className="shrink-0">복사</Button>
+      </div>
+    </Field>
   );
 }
 

@@ -10,6 +10,7 @@ export const ROUTES = {
   "*/15 * * * *": [
     "/api/cron/publish?brands=cosmicpath&slots=0,3,9,12,14",
     "/api/cron/publish?brands=cosmicpath-global&slots=0,12",
+    "/api/cron/instagram-publish?brands=cosmicpath",
   ],
   "17 * * * *": ["/api/cron/replies"],
   "0 */2 * * *": ["/api/cron/account-intelligence"],
