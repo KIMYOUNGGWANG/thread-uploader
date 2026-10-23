@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 process.env.ENCRYPTION_KEY = "test-encryption-key";
@@ -38,5 +38,20 @@ describe("PATCH /api/brands/[id] access token", () => {
     const { data } = vi.mocked(prisma.brand.update).mock.calls[0][0];
     expect(data.accessToken).not.toBe("THQAA-new");
     expect(decryptToken(String(data.accessToken))).toBe("THQAA-new");
+  });
+});
+
+describe("PATCH /api/brands/[id] instagram config", () => {
+  beforeEach(() => vi.mocked(prisma.brand.update).mockClear());
+  afterEach(() => { stored.brandConfig = "{}"; });
+
+  it("keeps the stored bioAnchorPostId when a stale form sends instagram without it", async () => {
+    stored.brandConfig = JSON.stringify({ instagram: { captionSuffix: "old", bioAnchorPostId: "anchor1" } });
+
+    await patch({ brandConfig: { instagram: { captionSuffix: "new" } } });
+
+    const { data } = vi.mocked(prisma.brand.update).mock.calls[0][0];
+    const saved = JSON.parse(String(data.brandConfig));
+    expect(saved.instagram).toMatchObject({ captionSuffix: "new", bioAnchorPostId: "anchor1" });
   });
 });
