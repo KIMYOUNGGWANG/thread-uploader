@@ -51,16 +51,16 @@ async function refreshInstagramBrand(brand: InstagramBrand, expiry: Date, now: D
     try {
         const result = await refreshBrandInstagramToken(brand.id);
         return { slug: brand.slug, success: true, newExpiry: new Date(Date.now() + result.expiresIn * 1000).toISOString() };
-    } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Unknown error";
-        console.error(`Failed to refresh Instagram token for brand ${brand.slug}:`, err);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.error(`Failed to refresh Instagram token for brand ${brand.slug}:`, error);
         await sendSystemAlert({
             level: "error",
             title: `Instagram Token Refresh Failed (${brand.name})`,
-            message: `Failed to refresh Instagram token for brand "${brand.name}": ${errorMsg}`,
+            message: `Failed to refresh Instagram token for brand "${brand.name}": ${errorMessage}`,
             brandName: brand.name,
         });
-        return { slug: brand.slug, success: false, error: errorMsg };
+        return { slug: brand.slug, success: false, error: errorMessage };
     }
 }
 

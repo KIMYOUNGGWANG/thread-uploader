@@ -477,7 +477,7 @@ function InstagramConnectionSection({
         <>
           <Field label="캡션 꼬리말" hint="릴스 캡션 끝에 항상 붙습니다. 저장 버튼을 눌러야 반영됩니다.">
             <textarea
-              value={captionSuffix} onChange={(e) => setCaptionSuffix(e.target.value)}
+              value={captionSuffix} onChange={(event) => setCaptionSuffix(event.target.value)}
               rows={2}
               className={INPUT_CLASS}
               placeholder="예: 프로필 링크에서 더 보기"
