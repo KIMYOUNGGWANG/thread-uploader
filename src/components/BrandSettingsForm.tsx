@@ -75,6 +75,12 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
   const [excludedTerms, setExcludedTerms] = useState<string[]>(
     initialData.config.viralDiscovery.excludedTerms
   );
+  const [youtubeKeywords, setYoutubeKeywords] = useState<string[]>(
+    initialData.config.viralDiscovery.youtube.keywords
+  );
+  const [youtubeChannelHandles, setYoutubeChannelHandles] = useState<string[]>(
+    initialData.config.viralDiscovery.youtube.channelHandles
+  );
   const [maxExamplesPerRun, setMaxExamplesPerRun] = useState(
     initialData.config.viralDiscovery.maxExamplesPerRun
   );
@@ -119,6 +125,11 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
               maxExamplesPerRun,
               minViralScore,
               adapters: viralAdapters,
+              youtube: {
+                ...initialData.config.viralDiscovery.youtube,
+                keywords: youtubeKeywords,
+                channelHandles: youtubeChannelHandles,
+              },
             },
           } satisfies BrandConfig,
         }),
@@ -132,7 +143,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     } finally {
       setIsSaving(false);
     }
-  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, optimizationGoal, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, router]);
+  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, optimizationGoal, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, youtubeKeywords, youtubeChannelHandles, initialData.config.viralDiscovery.youtube, router]);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "basic", label: "기본 정보", icon: <Key className="w-4 h-4" /> },
@@ -146,7 +157,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     { id: "ctas", label: "CTA", icon: <TrendingUp className="w-4 h-4" />, badge: ctaTypes.length },
     { id: "formulas", label: "공식", icon: <Zap className="w-4 h-4" />, badge: formulas.length },
     { id: "trending", label: "트렌딩", icon: <TrendingUp className="w-4 h-4" />, badge: trendingTopics.length },
-    { id: "viral", label: "바이럴 소스", icon: <Radar className="w-4 h-4" />, badge: viralKeywords.length + competitorHandles.length },
+    { id: "viral", label: "바이럴 소스", icon: <Radar className="w-4 h-4" />, badge: viralKeywords.length + competitorHandles.length + youtubeKeywords.length + youtubeChannelHandles.length },
   ];
 
   return (
@@ -323,6 +334,10 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             setMinViralScore={setMinViralScore}
             adapters={viralAdapters}
             setAdapters={setViralAdapters}
+            youtubeKeywords={youtubeKeywords}
+            setYoutubeKeywords={setYoutubeKeywords}
+            youtubeChannelHandles={youtubeChannelHandles}
+            setYoutubeChannelHandles={setYoutubeChannelHandles}
           />
         )}
       </main>
@@ -703,6 +718,10 @@ function ViralSourcesTab({
   setMinViralScore,
   adapters,
   setAdapters,
+  youtubeKeywords,
+  setYoutubeKeywords,
+  youtubeChannelHandles,
+  setYoutubeChannelHandles,
 }: {
   keywords: string[];
   setKeywords: (items: string[]) => void;
@@ -716,12 +735,18 @@ function ViralSourcesTab({
   setMinViralScore: (value: number) => void;
   adapters: ViralDiscoveryConfig["adapters"];
   setAdapters: (items: ViralDiscoveryConfig["adapters"]) => void;
+  youtubeKeywords: string[];
+  setYoutubeKeywords: (items: string[]) => void;
+  youtubeChannelHandles: string[];
+  setYoutubeChannelHandles: (items: string[]) => void;
 }) {
   const toggleAdapter = (id: ViralAdapterId) => {
     setAdapters(adapters.map((adapter) => (
       adapter.id === id ? { ...adapter, enabled: !adapter.enabled } : adapter
     )));
   };
+
+  const youtubeEnabled = adapters.some((adapter) => adapter.id === "youtube_shorts" && adapter.enabled);
 
   return (
     <div className="space-y-6">
@@ -787,6 +812,23 @@ function ViralSourcesTab({
           ))}
         </div>
       </SectionCard>
+
+      <div className={`space-y-6 ${youtubeEnabled ? "" : "opacity-50"}`}>
+        <ListTab
+          label="유튜브 키워드"
+          description="비우면 제품 토픽 앞 3개를 씁니다"
+          placeholder="예: 견적서 자동화"
+          items={youtubeKeywords}
+          setItems={setYoutubeKeywords}
+        />
+        <ListTab
+          label="유튜브 채널 핸들"
+          description="@ 없이 입력해도 됩니다"
+          placeholder="예: invoiceflow"
+          items={youtubeChannelHandles}
+          setItems={(items) => setYoutubeChannelHandles(items.map((item) => item.replace(/^@/, "")))}
+        />
+      </div>
     </div>
   );
 }
@@ -812,6 +854,7 @@ function adapterLabel(id: ViralAdapterId): string {
     threads_keyword: "Threads 키워드",
     threads_profile: "경쟁 프로필",
     manual: "수동 레퍼런스",
+    youtube_shorts: "유튜브 쇼츠",
   };
   return labels[id];
 }
@@ -822,6 +865,7 @@ function adapterDescription(id: ViralAdapterId): string {
     threads_keyword: "저장 키워드와 제품 토픽 검색",
     threads_profile: "경쟁 계정 공개 글 수집",
     manual: "직접 붙여넣은 레퍼런스 저장",
+    youtube_shorts: "키워드·채널로 48시간 내 쇼츠 수집 (YOUTUBE_API_KEY 필요)",
   };
   return descriptions[id];
 }

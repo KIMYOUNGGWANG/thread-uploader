@@ -886,6 +886,11 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   <Video className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">TikTok 숏폼</span>
                 </Button>
               </Link>
+              <Link href={`/brands/${brandSlug}/shorts`}>
+                <Button variant="outline" size="sm" className="text-red-600 dark:text-red-400 border-red-500/30 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20">
+                  <Radar className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">쇼츠 레이더</span>
+                </Button>
+              </Link>
               <Link href={`/brands/${brandSlug}/settings`}>
                 <Button variant="ghost" size="sm" className="text-slate-500 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/10">
                   <Settings className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">설정</span>

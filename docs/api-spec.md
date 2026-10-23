@@ -203,9 +203,16 @@ interface ViralDiscoveryConfig {
   maxExamplesPerRun: number;     // default 15, hard max 50
   minViralScore: number;         // default 0
   adapters: Array<{
-    id: "owned_posts" | "threads_keyword" | "threads_profile" | "manual";
+    id: "owned_posts" | "threads_keyword" | "threads_profile" | "manual" | "youtube_shorts";
     enabled: boolean;
   }>;
+  youtube: {
+    keywords: string[];
+    channelHandles: string[];
+    regions: Array<"KR" | "GLOBAL">;
+    maxDurationSec: number;
+    minViews: { kr: number; global: number };
+  };
 }
 
 interface BrandResponse {
@@ -1021,7 +1028,7 @@ interface WeeklyScorecardResponse {
 | `POST` | `/api/viral/learn` | 저장된 레퍼런스로 viralMemory 및 ViralPattern 재학습 |
 
 ```typescript
-type ViralAdapterId = "owned_posts" | "threads_keyword" | "threads_profile" | "manual";
+type ViralAdapterId = "owned_posts" | "threads_keyword" | "threads_profile" | "manual" | "youtube_shorts";
 
 interface ViralPatternSummary {
   dimension: "hook" | "topic" | "emotion" | "structure" | "cta";
@@ -1132,6 +1139,8 @@ interface ViralAdapterResult {
 | `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자). formulaWeights와 thompsonPriors 모두 저장값에 누적하지 않고 최근 300개 창에서 기본값부터 재계산 |
 | `GET` | `/api/cron/feedback?apply=true` | 72h 성숙 글 기준 viralMemory topPerformers + 금지 표현 학습 (formulaWeights는 쓰지 않음) |
 | `GET` | `/api/cron/viral` | 모든 제품 viral discovery → 미분석 상위 10개 Claude 분석(`rawMetrics.llmAnalyzedAt`, `whyItWorks`) → viralMemory 재학습. `topPerformers`/`nextHookCandidates`는 feedback cron 소유라 보존. 외부 글 점수에 TOP 검색 순위·키워드 중복·반복 노출(`rawMetrics.searchRank`/`keywordHits`/`timesSeen`) 가산 |
+| `GET` | `/api/cron/shorts/discover?brands=slug,slug` | 6h. `youtube_shorts` 어댑터가 켜진 브랜드만 키워드·채널에서 48h 내 쇼츠 수집. `brands`는 대상을 좁히기만 함(꺼진 브랜드는 `brands`에 있어도 건너뜀) |
+| `GET` | `/api/cron/shorts/snapshot` | 1h. 72h 내 쇼츠 통계 스냅샷 → velocity 갱신 → 7일 지난 쇼츠 삭제 |
 | `GET` | `/api/cron/refill?brand=slug&target=N` | `brand`, `target`(1-50) 필수. 대기열(PENDING+NEEDS_REVIEW)이 target 미만이면 부족분을 최대 6개까지 `generatePostsForBrand`로 생성. `approvedCampaignStart`는 항상 false. 대기열이 차 있으면 `skipped: "backlog_full"` |
 | `GET` | `/api/cron/trends?brands=slug` | `brands` 필수(없으면 400). 한국어 제품만 대상. 도메인별 키워드로 브랜드 토큰의 Threads 키워드 검색(최근 72시간 글 중 TOP 검색 순위·키워드 중복 노출·댓글 유무로 점수화해 도메인당 상위 12개, 작성자 제거) + Claude(Sonnet) 웹 검색으로 커리어·재테크·관계 갈등 수집. 토큰이 없거나 만료면 웹 검색만으로 진행 → 브랜드 훅으로 변환 → `brandConfig.trendRadar = { harvestedAt, items[≤6] }` 저장. 생성 시 4일 이내 레이더만 프롬프트에 주입. 응답 brand마다 `threadsSearch: { calls, failed, posts, firstError?, skipped? }` (키워드 검색 실패·토큰 문제 진단용) |
 | `POST` | `/api/cron/promo-posts` | 홍보 영상 로테이션 등록 (CI `render-promo-job.mjs` 전용, `Authorization: Bearer CRON_SECRET`). 본문 `{ date: "YYYY-MM-DD", items: [{ brandSlug, videoUrl, content, commentTemplate, landingPath, format, topic }] }`. 검증: `videoUrl` https + `.mp4`, `content` 1–480자, `commentTemplate`에 `{{link}}`, `landingPath`는 `/start`로 시작, items 1–4개 — 위반 시 400. item마다 `formulaId = video:promo:<date>`로 브랜드당 1개만 만들고(이미 있으면 `skipped: "already_queued"`, 브랜드 없으면 `skipped: "brand_not_found"`), `NEEDS_REVIEW` Post(`imageUrls=[videoUrl]`, `topic="<format>:<topic>"`) 생성 후 `linkUrl = https://cosmicpath.app<landingPath>` + `utm_source=threads&utm_campaign=promo-rotation&utm_content=<postId>`, `firstComment`는 `{{link}}` 치환. 응답 `{ results }` |
@@ -1178,6 +1187,21 @@ interface CronPublishResponse {
     reason: "no_pending" | "quality_blocked" | "awaiting_review" | "scheduled_later" | "publish_failed" | "daily_quota_reached"; // daily_quota_reached: 등급 일일 쿼터(KST 자정 기준) 도달, 글 상태는 바꾸지 않음
     // awaiting_review: 발행할 글은 없고 NEEDS_REVIEW 글만 있음(refill은 이걸 backlog로 세서 생성도 멈춤) → 시스템 알림 발송
     // scheduled_later: PENDING 글이 있지만 scheduledAt이 아직 미래
+  }>;
+}
+```
+
+```typescript
+interface ShortsCronResponse {
+  success: true;
+  brands: Array<{
+    slug: string;
+    discovered?: number;
+    saved?: number;
+    snapshots?: number;
+    deleted?: number;
+    quotaUsed: number;
+    errors: ViralSourceError[];
   }>;
 }
 ```
@@ -1319,8 +1343,23 @@ model ViralExample {
   patternSummary  String?
   keyTakeaway     String?
   rawMetrics      String    @default("{}")
+  country         String?
+  snapshots       ViralExampleSnapshot[]
 
   @@unique([brandId, source, sourceKey])
+  @@index([brandId, source, publishedAt])
+}
+
+model ViralExampleSnapshot {
+  id         String       @id @default(cuid())
+  exampleId  String
+  example    ViralExample @relation(fields: [exampleId], references: [id], onDelete: Cascade)
+  capturedAt DateTime
+  views      Int
+  likes      Int?
+  comments   Int?
+  @@unique([exampleId, capturedAt])
+  @@index([exampleId, capturedAt(sort: Desc)])
 }
 
 model ViralPattern {

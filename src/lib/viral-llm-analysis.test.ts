@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { buildViralAnalysisPrompt, parseViralAnalysisResponse } from "@/lib/viral-llm-analysis";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { prisma } from "@/lib/prisma";
+import { analyzeTopViralExamples, buildViralAnalysisPrompt, parseViralAnalysisResponse } from "@/lib/viral-llm-analysis";
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    viralExample: { findMany: vi.fn(async () => []), update: vi.fn() },
+  },
+}));
 
 const analysis = {
   id: "ex1",
@@ -28,5 +35,33 @@ describe("viral LLM analysis", () => {
 
   it("returns nothing for a malformed payload shape", () => {
     expect(parseViralAnalysisResponse(JSON.stringify({ result: [] }), ["ex1"])).toEqual([]);
+  });
+});
+
+describe("analyzeTopViralExamples shorts exclusion", () => {
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.ANTHROPIC_API_KEY = "x";
+  });
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+  });
+
+  it("keeps the unanalyzed filter and excludes youtube shorts", async () => {
+    await analyzeTopViralExamples("b1");
+
+    expect(prisma.viralExample.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          brandId: "b1",
+          NOT: { rawMetrics: { contains: "llmAnalyzedAt" } },
+          source: { not: "youtube_shorts" },
+        }),
+      }),
+    );
   });
 });

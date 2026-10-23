@@ -1,0 +1,21 @@
+{
+  "kind": "youtube#channelListResponse",
+  "etag": "etag-channels",
+  "pageInfo": { "totalResults": 2, "resultsPerPage": 2 },
+  "items": [
+    {
+      "kind": "youtube#channel",
+      "etag": "c1",
+      "id": "UC_kr_channel",
+      "snippet": { "title": "한국 채널", "customUrl": "@krchannel", "country": "KR" },
+      "contentDetails": { "relatedPlaylists": { "likes": "", "uploads": "UU_kr_channel" } }
+    },
+    {
+      "kind": "youtube#channel",
+      "etag": "c2",
+      "id": "UC_no_country",
+      "snippet": { "title": "국가 없는 채널", "customUrl": "@nocountry" },
+      "contentDetails": { "relatedPlaylists": { "likes": "", "uploads": "UU_no_country" } }
+    }
+  ]
+}

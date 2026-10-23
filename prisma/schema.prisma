@@ -158,10 +158,25 @@ model ViralExample {
   patternSummary  String?
   keyTakeaway     String?
   rawMetrics      String    @default("{}")
+  country         String?
+  snapshots       ViralExampleSnapshot[]
 
   @@unique([brandId, source, sourceKey])
   @@index([brandId, viralScore])
   @@index([brandId, discoveredAt])
+  @@index([brandId, source, publishedAt])
+}
+
+model ViralExampleSnapshot {
+  id         String       @id @default(cuid())
+  exampleId  String
+  example    ViralExample @relation(fields: [exampleId], references: [id], onDelete: Cascade)
+  capturedAt DateTime
+  views      Int
+  likes      Int?
+  comments   Int?
+  @@unique([exampleId, capturedAt])
+  @@index([exampleId, capturedAt(sort: Desc)])
 }
 
 model ViralPattern {
