@@ -5,6 +5,7 @@ import { requireAuth, AuthError } from "@/lib/auth";
 import { isSuperAdmin } from "@/lib/brand-access";
 import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 import type { BrandConfig } from "@/types/brand";
+import { isRecord } from "@/types/config-normalizers";
 
 async function getBrandForUser(id: string, user: { id: string; email: string }) {
   const brand = await prisma.brand.findUnique({ where: { id } });
@@ -13,6 +14,16 @@ async function getBrandForUser(id: string, user: { id: string; email: string }) 
   if (!isSuperAdmin(user.email) && brand.ownerId !== user.id) return null;
   
   return brand;
+}
+
+// `instagram` is merged one level deep so a stale settings form can't drop server-written keys like bioAnchorPostId.
+function mergeBrandConfig(currentConfig: BrandConfig, incomingConfig: Partial<BrandConfig>): BrandConfig {
+  const merged = { ...currentConfig, ...incomingConfig };
+  const incomingInstagram: unknown = incomingConfig.instagram;
+  if (isRecord(currentConfig.instagram) && isRecord(incomingInstagram)) {
+    merged.instagram = { ...currentConfig.instagram, ...incomingInstagram };
+  }
+  return merged;
 }
 
 export async function GET(
@@ -71,7 +82,7 @@ export async function PATCH(
       ? body.brandConfig as Partial<BrandConfig>
       : undefined;
     const mergedConfig = parseBrandConfig(JSON.stringify(
-      incomingConfig ? { ...currentConfig, ...incomingConfig } : currentConfig
+      incomingConfig ? mergeBrandConfig(currentConfig, incomingConfig) : currentConfig
     ));
 
     const updated = await prisma.brand.update({

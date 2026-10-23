@@ -14,6 +14,12 @@ describe("Tracking URL Attribution", () => {
     expect(url).toContain("pid=post_123");
     expect(url).toContain("fid=fact_bomb_incumbent_attack");
     expect(url).toContain("track=track_b");
+    expect(new URL(url).searchParams.get("utm_campaign")).toBe("threads_growth");
+  });
+
+  it("overrides utm_campaign when utmCampaign is given", () => {
+    const url = new URL(buildTrackedUrl("https://www.cosmicpath.app/start", { utmCampaign: "instagram_bio" }));
+    expect(url.searchParams.get("utm_campaign")).toBe("instagram_bio");
   });
 
   it("parses tracking params accurately from a full URL", () => {
@@ -52,5 +58,22 @@ describe("tagBrandLinks", () => {
     const text = "https://example.com/a https://www.cosmicpath.app/start?pid=old";
     expect(tagBrandLinks(text, "p1", BRAND_URLS)).toBe(text);
     expect(tagBrandLinks("https://www.cosmicpath.app/start", "p1", [""])).toBe("https://www.cosmicpath.app/start");
+  });
+
+  it("uses utmSource as utm_source when given", () => {
+    const url = new URL(buildTrackedUrl("https://x.com/start", { postId: "p1", source: "instagram", utmSource: "instagram" }));
+    expect(url.searchParams.get("utm_source")).toBe("instagram");
+    expect(url.searchParams.get("ref")).toBe("instagram");
+    expect(url.searchParams.get("pid")).toBe("p1");
+  });
+
+  it("keeps utm_source=threads without utmSource", () => {
+    expect(new URL(buildTrackedUrl("https://x.com", { postId: "p1" })).searchParams.get("utm_source")).toBe("threads");
+  });
+
+  it("keeps utm_source=threads when only source is set", () => {
+    const url = new URL(buildTrackedUrl("https://x.com", { source: "threads_bio" }));
+    expect(url.searchParams.get("utm_source")).toBe("threads");
+    expect(url.searchParams.get("ref")).toBe("threads_bio");
   });
 });

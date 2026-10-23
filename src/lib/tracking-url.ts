@@ -8,15 +8,19 @@ export interface TrackingParams {
   track?: "track_a" | "track_b" | "track_c" | string;
   campaignId?: string;
   source?: string;
+  // Overrides utm_source only; `source` keeps driving `ref`.
+  utmSource?: string;
+  // Overrides utm_campaign (default "threads_growth").
+  utmCampaign?: string;
 }
 
 export function buildTrackedUrl(baseUrl: string, params: TrackingParams): string {
   try {
     const url = new URL(baseUrl);
     url.searchParams.set("ref", params.source ?? "threads");
-    url.searchParams.set("utm_source", "threads");
+    url.searchParams.set("utm_source", params.utmSource ?? "threads");
     url.searchParams.set("utm_medium", "social");
-    url.searchParams.set("utm_campaign", "threads_growth");
+    url.searchParams.set("utm_campaign", params.utmCampaign ?? "threads_growth");
 
     if (params.postId) url.searchParams.set("pid", params.postId);
     if (params.formulaId) url.searchParams.set("fid", params.formulaId);

@@ -34,5 +34,6 @@ test("scheduled() calls the secret-bearing routes for its cron and nothing for a
 
 test("scheduled() refuses to run without the secret instead of calling with 'Bearer undefined'", async () => {
   await assert.rejects(() => worker.scheduled({ cron: "17 * * * *" }, {}, { waitUntil() {} }), /CRON_SECRET/);
-  assert.equal(routesFor("*/15 * * * *").length, 2);
+  assert.equal(routesFor("*/15 * * * *").length, 3);
+  assert.ok(routesFor("*/15 * * * *").includes("/api/cron/instagram-publish?brands=cosmicpath"));
 });

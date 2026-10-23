@@ -75,6 +75,7 @@ node --env-file=.env --env-file=.env.local scripts/register-cronjobs.mjs --apply
 |---|---|---|---|
 | threads publish KR | `/api/cron/publish?brands=cosmicpath&slots=0,3,9,12,14` | 매시 02·17·32·47분 | 슬롯 KST 09/12/18/21/23. 슬롯 밖이면 즉시 `outside_publish_slot` |
 | threads publish Global | `/api/cron/publish?brands=cosmicpath-global&slots=0,12` | 매시 05·20·35·50분 | 하루 2슬롯 |
+| instagram publish | `/api/cron/instagram-publish?brands=cosmicpath` | Cloudflare Worker `*/15 * * * *` (cron-job.org 미등록) | Threads 영상 글 → 릴스 교차 발행. 하루 1개, 3일 지난 글은 건너뜀 |
 | threads replies | `/api/cron/replies` | 매시 17분 | 답글 게시 ≤3 → 댓글 스캔 ≤5 |
 | threads account-intelligence | `/api/cron/account-intelligence` | 2시간마다 정각 | 팔로워 수 기록 |
 

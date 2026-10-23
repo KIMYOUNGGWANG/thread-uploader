@@ -252,6 +252,26 @@ interface UpdateBrandRequest {
 
 ---
 
+### Instagram 연결 (1단계: 릴스 교차 발행)
+
+| Method | Path | Description | Auth |
+|:-------|:-----|:------------|:-----|
+| `GET` | `/api/oauth/instagram/start?brandId=` | `brandId` 필수(없으면 400), `INSTAGRAM_APP_ID` 미설정이면 500. 소유 제품 검증 후 `instagram_oauth` 쿠키(httpOnly, 10분, `brandId:state`)를 심고 Instagram 인가 화면(scope `instagram_business_basic,instagram_business_content_publish`)으로 302 | Required + Owner |
+| `GET` | `/api/oauth/instagram/callback` | `state`·`code` 검증(불일치 400). 단기 토큰 → 장기 토큰 교환 후 `Brand.instagramAccessToken`(암호화)·`instagramUserId`·`instagramUsername`·`instagramTokenExpiry` 저장, `instagramConnectedAt`은 최초 연결 시각 유지. 바이오 링크 기준 글(`Post.status="ANCHOR"`)을 한 번만 만들어 `brandConfig.instagram.bioAnchorPostId`에 저장. 성공 시 `/brands/[slug]/settings?instagram=connected`, 실패 시 `/brands?instagram=connection_failed`로 302 | Required + Owner |
+
+```typescript
+interface InstagramConfig {            // brandConfig.instagram (항상 존재, 기본값 채워짐)
+  captionSuffix: string;               // 릴스 캡션 끝에 붙는 꼬리말
+  carouselDailyCap: number;            // ≥1
+  publishHoursKst: number[];           // 0-23
+  bioAnchorPostId?: string;            // 바이오 링크 클릭/전환이 귀속되는 Post.id
+}
+```
+
+- 설정 화면(`/brands/[slug]/settings` 기본 정보 탭)이 연결 버튼, `@username`·토큰 만료일, 만료 시 "재연결 필요", 캡션 꼬리말 편집, 바이오 링크(`buildInstagramBioLink`: `/start?pid=<anchorId>&utm_source=instagram&utm_campaign=instagram_bio…`) 복사, "인스타 합계: 클릭 N · 전환 N"(기준 글의 `clicks`/`conversions`, 없으면 0)을 보여준다. 액세스 토큰은 클라이언트로 내려가지 않는다.
+
+---
+
 ## AI Account Discovery API
 
 The account discovery engine finds related public Threads accounts, scores them against the current product profile, and only learns from accounts that the Portfolio Operator explicitly watches.
@@ -1134,7 +1154,8 @@ interface ViralAdapterResult {
 | Method | Path | Description |
 |:-------|:-----|:------------|
 | `GET` | `/api/cron/publish` | 모든 active 제품 순회 → 각 1개 FIFO 발행. `?brands=slug1,slug2`로 제품 제한. `?slots=0,12`(UTC 시, 0-23)를 주면 열린 슬롯(시작 후 3시간)마다 1회만 발행하고, 슬롯 밖이면 `outside_publish_slot`, 이미 발행했으면 `slot_already_served`로 건너뜀. 형식 오류는 400 |
-| `GET` | `/api/cron/refresh-token` | 모든 제품의 Threads 토큰 상태 확인 및 갱신 |
+| `GET` | `/api/cron/refresh-token` | 모든 제품의 Threads 토큰 상태 확인 및 갱신. Instagram 연결 제품은 같은 방식으로 갱신하고 결과를 응답 `instagramRefreshResults: Array<{ slug, success, message?, newExpiry?, instagramNeedsReconnect?, error? }>`로 함께 반환(만료돼 재연결이 필요한 건 `instagramNeedsReconnect: true`이며 500 사유가 아님) |
+| `GET` | `/api/cron/instagram-publish?brands=slug1,slug2` | Instagram 연결된 제품(`instagramConnectedAt != null`, `brands`로 제한 가능)마다 Threads 영상 글을 릴스로 교차 발행. 한 번 호출에 ①`PROCESSING` 릴스 상태 확인·발행 ②Threads 발행 3일 지난 미처리 글 `SKIPPED` ③진행 중·방금 발행한 릴스가 없으면 다음 1개 업로드 시작. 릴스는 제품당 KST 하루 1개, 연결 시각 이전에 발행된 글은 올리지 않음, 재시도 최대 3회(3회째 실패 시 `FAILED` + 시스템 알림). 응답 `{ results: Array<{ slug } & ({ skipped: "not_connected" \| "token_expired" } \| { error: string } \| { advanced, published: string[], started: string \| null, skippedStale, failed: string[] })> }`. `token_expired`는 저장 토큰 만료(재연결 필요), `not_connected`는 토큰/계정 ID 없음. Cron 시크릿 없으면 401. Cloudflare Worker가 15분마다 호출(GitHub Actions `cron.yml`에는 없음) |
 | `GET` | `/api/cron/replies` | 모든 제품 순회. 먼저 48시간 이내 독자 댓글 초안을 오래된 순으로 최대 3개 자동 게시(게시 전 `PUBLISHING`으로 선점 → 성공 `PUBLISHED`, 실패 `FAILED`; 중단돼 `PUBLISHING`에 남은 행은 자동 재시도하지 않고 `stuck`으로 보고). 이어서 최근 7일 발행 글(최대 25개)의 새 댓글을 수집해 Claude 초안을 `ThreadReply(DRAFT)`로 저장(런당 최대 5개; 브랜드 자기 댓글·링크·맞팔 유도·2자 미만 제외; `/me` 사용자명 조회 실패 시 그 회차 댓글 스캔 생략; Claude 실패 시 고정 문구 없이 행을 만들지 않고 다음 회차 재시도 → `draftsSkipped`). 언어는 `voiceProfile.language`/`ecommerce_d2c`면 en. 멘션 초안은 수동 승인용. `AUTO_REPLY_PUBLISH=false`면 게시 생략. 응답 brand마다 `{ ...scan, autoReply: { published, failed, stuck, errors } \| null }`. GitHub Actions `cron.yml` `replies` 잡이 매시간 호출 |
 | `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자). formulaWeights와 thompsonPriors 모두 저장값에 누적하지 않고 최근 300개 창에서 기본값부터 재계산 |
 | `GET` | `/api/cron/feedback?apply=true` | 72h 성숙 글 기준 viralMemory topPerformers + 금지 표현 학습 (formulaWeights는 쓰지 않음) |
@@ -1284,6 +1305,11 @@ model Brand {
   posts          Post[]
   viralExamples  ViralExample[]
   viralPatterns  ViralPattern[]
+  instagramAccessToken  String?   // encrypt() 저장, 클라이언트로 전송 금지
+  instagramUserId       String?
+  instagramUsername     String?
+  instagramTokenExpiry  DateTime?
+  instagramConnectedAt  DateTime? // 최초 연결 시각. 이전에 Threads에 발행된 글은 릴스로 올리지 않음
 }
 
 model Post {
@@ -1313,6 +1339,12 @@ model Post {
   performanceScore Int?
   performanceTier  String?
   learnedAt    DateTime?
+  instagramStatus       String?   // null(대기) | PROCESSING | PUBLISHED | FAILED | SKIPPED. 바이오 기준 글은 status="ANCHOR"
+  instagramContainerId  String?
+  instagramMediaId      String?
+  instagramPublishedAt  DateTime?
+  instagramAttempts     Int       @default(0)
+  instagramError        String?
 }
 
 model ViralExample {
@@ -1532,7 +1564,7 @@ Cron recommendation:
 
 ## Non-goals
 
-- X/Instagram 외부 플랫폼 연동
+- X 연동 / Instagram 스토리·DM·지표(3단계) — Instagram 릴스 교차 발행과 바이오 링크 기준 글은 1단계로 구현됨
 - TikTok upload/publish 외부 API 연동
 - 공개 API / 3rd party webhook
 - 브랜드 간 콘텐츠 공유

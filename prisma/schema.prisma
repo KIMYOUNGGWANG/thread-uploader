@@ -39,6 +39,11 @@ model Brand {
   conversionEvents ConversionEvent[]
   threadReplies    ThreadReply[]
   tikTokDrafts     TikTokVideoDraft[]
+  instagramAccessToken  String?
+  instagramUserId       String?
+  instagramUsername     String?
+  instagramTokenExpiry  DateTime?
+  instagramConnectedAt  DateTime?
 }
 
 model Post {
@@ -92,7 +97,14 @@ model Post {
   algorithmicDimensions String @default("{}")
   algorithmicFixes   String    @default("[]")
   rewriteCount       Int       @default(0)
+  instagramStatus       String?
+  instagramContainerId  String?
+  instagramMediaId      String?
+  instagramPublishedAt  DateTime?
+  instagramAttempts     Int       @default(0)
+  instagramError        String?
 
+  @@index([brandId, instagramStatus])
   @@index([brandId, campaignId])
   @@index([brandId, scheduledAt])
   @@index([brandId, publishedAt])

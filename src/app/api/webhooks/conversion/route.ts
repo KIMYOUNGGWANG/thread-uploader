@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { safeEqual } from "@/lib/cron-auth";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
 import { learnBrandGrowth } from "@/lib/growth-service";
+import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 
 type NormalizedEvent = "click" | "conversion" | "paid_conversion";
 
@@ -140,7 +141,7 @@ async function recordEvent(input: RecordEventInput) {
         "clicks" = COALESCE("clicks", 0) + ${click},
         "conversions" = COALESCE("conversions", 0) + ${conversion},
         "manualPaidConversions" = COALESCE("manualPaidConversions", 0) + ${paid},
-        "metricsAt" = NOW()
+        "metricsAt" = CASE WHEN "status" = ${INSTAGRAM_BIO_ANCHOR_STATUS} THEN "metricsAt" ELSE NOW() END
       WHERE "id" = ${input.postId}`;
 
     const counted = await tx.post.findUniqueOrThrow({ where: { id: input.postId } });

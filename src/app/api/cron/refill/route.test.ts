@@ -34,6 +34,13 @@ describe("GET /api/cron/refill", () => {
     expect(body.generated).toBe(3);
   });
 
+  it("never counts the instagram bio anchor toward the backlog", async () => {
+    mocks.countPosts.mockResolvedValue(10);
+    await call("brand=cosmicpath&target=10");
+    const [args] = mocks.countPosts.mock.calls[0] as unknown as [{ where: { status: { in: string[] } } }];
+    expect(args.where.status.in).not.toContain("ANCHOR");
+  });
+
   it("skips generation when the backlog already meets the target", async () => {
     mocks.countPosts.mockResolvedValue(12);
     const { body } = await call("brand=cosmicpath&target=10");

@@ -54,6 +54,15 @@ describe("POST /api/webhooks/conversion", () => {
     expect(learnBrandGrowth).toHaveBeenCalledWith("brand_1");
   });
 
+  it("keeps metricsAt unchanged for the instagram bio anchor while still counting", async () => {
+    await webhook({ postId: "post_1", eventType: "first_result_view", sessionId: "s1" });
+    const [strings, ...values] = tx.$executeRaw.mock.calls[0] as unknown as [string[], ...unknown[]];
+    const sql = strings.join("?");
+    expect(sql).toContain(`"metricsAt" = CASE WHEN "status" = ? THEN "metricsAt" ELSE NOW() END`);
+    expect(sql).toContain(`"clicks" = COALESCE("clicks", 0) +`);
+    expect(values).toContain("ANCHOR");
+  });
+
   it("counts the CosmicPath canonical question-submit event as a conversion", async () => {
     const res = await webhook({ postId: "post_1", eventType: "decision_question_submit", sessionId: "s2" });
     expect(res.status).toBe(200);
