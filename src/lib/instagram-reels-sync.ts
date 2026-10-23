@@ -48,7 +48,7 @@ interface AdvanceResult {
   failed: string[];
 }
 
-// publish_retry: media_publish failed but may have gone through, so the container is kept (blocks step 3 like in_progress).
+// publish_retry: media_publish or the status read failed and the reel may already be posted, so the container is kept (blocks step 3 like in_progress).
 type AdvanceOutcome = "published" | "in_progress" | "publish_retry" | "failed";
 
 export function buildInstagramCaption(content: string, captionSuffix: string): string {
@@ -114,7 +114,8 @@ async function advanceReel(brand: ReelsBrand, credentials: InstagramCredentials,
   try {
     status = await getContainerStatus(containerId, credentials.accessToken);
   } catch (error) {
-    return recordReelFailure(brand, reel, errorMessage(error));
+    // A failed read says nothing about the container (a previous publish may have gone through): keep it, like a publish failure.
+    return recordPublishFailure(brand, reel, errorMessage(error));
   }
   if (status === "IN_PROGRESS") return "in_progress";
   if (status === "ERROR" || status === "EXPIRED") return recordReelFailure(brand, reel, `Container status ${status}`);

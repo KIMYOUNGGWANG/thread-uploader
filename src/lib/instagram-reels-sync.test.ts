@@ -153,6 +153,25 @@ describe("runInstagramReelsTick", () => {
     expect(result).toMatchObject({ published: [], started: null, failed: ["p1"] });
   });
 
+  it("keeps the container when the status read throws so a timed-out publish is never re-posted", async () => {
+    db.processing = [{ id: "p1", instagramContainerId: "c1", instagramAttempts: 1 }];
+    db.candidates = [candidate("p1", hoursAgo(10)), candidate("p2", hoursAgo(1))];
+    api.getContainerStatus.mockRejectedValue(new Error("Instagram API Error (status check): 503"));
+
+    const result = await runInstagramReelsTick(brand, credentials, now);
+
+    expect(post.updateMany).toHaveBeenCalledWith({
+      where: { id: "p1", instagramStatus: "PROCESSING" },
+      data: { instagramAttempts: 2, instagramError: "Instagram API Error (status check): 503" },
+    });
+    const writes = [...post.update.mock.calls, ...post.updateMany.mock.calls].map(([args]) => args.data);
+    expect(writes).not.toContainEqual(expect.objectContaining({ instagramContainerId: null }));
+    expect(writes).not.toContainEqual(expect.objectContaining({ instagramStatus: null }));
+    expect(transaction.run).not.toHaveBeenCalled();
+    expect(api.createReelsContainer).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ published: [], started: null, failed: ["p1"] });
+  });
+
   it("marks FAILED and alerts when publishContainer fails for the third time", async () => {
     db.processing = [{ id: "p1", instagramContainerId: "c1", instagramAttempts: 2 }];
     api.getContainerStatus.mockResolvedValue("FINISHED");
