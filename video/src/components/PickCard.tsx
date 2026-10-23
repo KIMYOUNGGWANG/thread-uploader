@@ -5,6 +5,7 @@
 import React from "react";
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { FONT_STACK } from "../load-fonts";
+import { FlipCards, type FlipCardImages } from "./FlipCards";
 
 export interface PickCardOption {
   label: string;
@@ -25,6 +26,7 @@ export interface PickCardProps {
   filmed?: boolean;
   hint?: string;
   reveals?: PickCardReveal[];
+  cardImages?: FlipCardImages; // 있으면 AI 카드 이미지를 Remotion이 뒤집는다 (A안)
 }
 
 const HINT_FROM_SECONDS = 1;
@@ -106,12 +108,14 @@ function currentCaption(seconds: number, hint: string, reveals: PickCardReveal[]
   return seconds >= HINT_FROM_SECONDS ? hint : null;
 }
 
-const FilmedPickCard: React.FC<PickCardProps> = ({ question, cta, ctaAtSeconds, hint = DEFAULT_HINT, reveals = [] }) => {
+const FilmedPickCard: React.FC<PickCardProps> = ({ question, cta, ctaAtSeconds, hint = DEFAULT_HINT, reveals = [], cardImages }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const ctaEnter = useEnter(Math.round(ctaAtSeconds * fps));
   const caption = currentCaption(frame / fps, hint, reveals, ctaAtSeconds);
   return (
+    <AbsoluteFill>
+    {cardImages ? <FlipCards images={cardImages} labels={reveals.map((reveal) => reveal.label)} flipAtSeconds={reveals.map((reveal) => reveal.atSeconds)} /> : null}
     <AbsoluteFill style={{ fontFamily: FONT_STACK, padding: "180px 170px 460px 70px", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
       <div style={{ fontSize: 60, fontWeight: 900, color: "#ffffff", lineHeight: 1.25, letterSpacing: -1, wordBreak: "keep-all", textShadow: "0 4px 24px rgba(0,0,0,0.9)" }}>
         {question}
@@ -123,6 +127,7 @@ const FilmedPickCard: React.FC<PickCardProps> = ({ question, cta, ctaAtSeconds, 
           {cta}
         </div>
       ) : null}
+    </AbsoluteFill>
     </AbsoluteFill>
   );
 };

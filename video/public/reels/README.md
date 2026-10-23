@@ -28,3 +28,21 @@ spec.json의 `audio`는 `{ "music": "reels/bgm-ambient.m4a", "musicGainDb": -18 
 ## 랭킹 정지
 
 spec의 `durationInFrames`를 180(6초)으로 둔다. 등장 애니메이션이 없어서 첫 프레임부터 전부 보이고, 짧게 반복 재생된다.
+
+## 카드 뒤집기 (A안, 촬영 없이)
+
+`cards/`의 이미지 5장과 효과음 1개를 Remotion `FlipCards`가 3D로 뒤집는다. 전부 생성 모델 출력이라 git에 넣지 않아.
+스펙: `background: { "type": "image", "src": "reels/cards/table.png" }`, `cardData.filmed: true`,
+`cardData.cardImages: { back, fronts: [a, b, c], flipSound }`, 뒤집는 시점은 `cardData.reveals[].atSeconds`.
+
+Higgsfield GPT Image 2.5, `--quality medium --resolution 1k` (장당 0.5크레딧). 카드는 2:3, 테이블은 9:16.
+공통 꼬리말 NO = "flat front-facing view, the card fills the entire frame edge to edge, no text, no letters, no numbers, no watermark, no table, no hands, no shadow"
+
+- `back.png`: "Tarot card back design, deep midnight navy with fine gold celestial line art, central crescent moon inside a circle of small stars, symmetrical ornamental pattern, thin gold double border, " + NO
+- `front-a.png`: "Tarot-style card face illustration, a glowing crescent moon above calm dark water with its reflection, deep indigo and soft gold palette, painterly mystical style, thin gold border, " + NO
+- `front-b.png`: "Tarot-style card face illustration, a warm sun rising between two mountains with rays of light, amber and gold palette on deep navy, painterly mystical style, thin gold border, " + NO
+- `front-c.png`: "Tarot-style card face illustration, a single bright eight-pointed star above a winding path leading forward, teal and gold palette on deep navy, painterly mystical style, thin gold border, " + NO
+- `table.png`: "Top-down photo of dark navy velvet cloth on a table, soft warm spotlight from above making a gentle pool of light in the middle, subtle fabric texture, a few tiny scattered gold star confetti near the edges only, empty center, no cards, no objects, no text, moody cinematic, vertical composition"
+- `flip.mp3`: Seed Audio "Single crisp playing card flip sound effect, a thick tarot card being turned over on velvet, short soft swish followed by a light tap, close-up foley, no music, no voice, under one second" → ffmpeg로 앞 무음 제거, 1초로 자름.
+
+주의: 카드 3D 회전 요소의 부모에 opacity를 걸면 Chrome이 카드를 빼먹는 프레임이 생겼다(2026-10-23). 앞뒷면을 겹치지 말고 90도에서 이미지를 바꿔 끼운다.

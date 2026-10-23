@@ -89,6 +89,7 @@ function renderVisual(
         filmed={cardData?.filmed === true}
         hint={cardData?.hint}
         reveals={cardData?.reveals}
+        cardImages={cardData?.cardImages}
       />
     );
   }

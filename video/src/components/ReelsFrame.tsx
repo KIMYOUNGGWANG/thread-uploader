@@ -1,8 +1,8 @@
 // ReelsFrame.tsx — ig_rank_10s / ig_pickcard_16s가 공유하는 틀.
-// 배경(촬영본 footage가 있으면 그것, 없으면 성운 10초 핑퐁 루프) + 글자 대비용 그라데이션 + 하단 브랜드.
+// 배경(backdrop 촬영본·이미지가 있으면 그것, 없으면 성운 10초 핑퐁 루프) + 글자 대비용 그라데이션 + 하단 브랜드.
 // 하단은 첫 프레임부터 보인다: 정지 랭킹은 반복 재생되므로 마지막 프레임 = 첫 프레임이어야 한다.
 import React from "react";
-import { AbsoluteFill, Loop, OffthreadVideo, staticFile, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, Loop, OffthreadVideo, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { FONT_STACK } from "../load-fonts";
 
 export const REELS_BG = "reels/bg-cosmic.mp4";
@@ -22,18 +22,23 @@ const ELEMENT_COLORS: Record<string, string> = {
 export const elementColor = (text: string, fallback: string): string => ELEMENT_COLORS[text.trim().charAt(0)] ?? fallback;
 
 interface ReelsFrameProps {
-  footage?: string; // public/ 기준 촬영본 경로. 있으면 성운 배경 대신 쓴다.
+  backdrop?: { type: "video" | "image"; src: string }; // public/ 기준. 있으면 성운 배경 대신 쓴다(촬영본·테이블 이미지).
   subCopy?: string; // 빈 문자열이면 브랜드 마크만
   children: React.ReactNode;
 }
 
-export const ReelsFrame: React.FC<ReelsFrameProps> = ({ footage, subCopy = DEFAULT_SUB_COPY, children }) => {
-  const { fps } = useVideoConfig();
+export const ReelsFrame: React.FC<ReelsFrameProps> = ({ backdrop, subCopy = DEFAULT_SUB_COPY, children }) => {
+  const { fps, durationInFrames } = useVideoConfig();
+  const frame = useCurrentFrame();
+  // 정지 이미지 배경은 아주 느리게 확대해 화면이 멈춰 보이지 않게 한다
+  const zoom = interpolate(frame, [0, durationInFrames], [1, 1.06]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0d14", fontFamily: FONT_STACK }}>
-      {footage ? (
-        <OffthreadVideo src={staticFile(footage)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      {backdrop?.type === "video" ? (
+        <OffthreadVideo src={staticFile(backdrop.src)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : backdrop?.type === "image" ? (
+        <Img src={staticFile(backdrop.src)} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${zoom})` }} />
       ) : (
         <Loop durationInFrames={BG_LOOP_SECONDS * fps}>
           <OffthreadVideo src={staticFile(REELS_BG)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />

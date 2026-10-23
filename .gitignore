@@ -102,3 +102,5 @@ cloudflare/scheduler/node_modules/
 # reels shared assets (generated, see video/public/reels/README.md)
 video/public/reels/**/*.mp4
 video/public/reels/*.m4a
+video/public/reels/**/*.png
+video/public/reels/**/*.mp3
