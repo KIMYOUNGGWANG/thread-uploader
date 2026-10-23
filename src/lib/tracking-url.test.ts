@@ -54,14 +54,20 @@ describe("tagBrandLinks", () => {
     expect(tagBrandLinks("https://www.cosmicpath.app/start", "p1", [""])).toBe("https://www.cosmicpath.app/start");
   });
 
-  it("uses source as utm_source when given", () => {
-    const url = new URL(buildTrackedUrl("https://x.com/start", { postId: "p1", source: "instagram" }));
+  it("uses utmSource as utm_source when given", () => {
+    const url = new URL(buildTrackedUrl("https://x.com/start", { postId: "p1", source: "instagram", utmSource: "instagram" }));
     expect(url.searchParams.get("utm_source")).toBe("instagram");
     expect(url.searchParams.get("ref")).toBe("instagram");
     expect(url.searchParams.get("pid")).toBe("p1");
   });
 
-  it("keeps utm_source=threads without source", () => {
+  it("keeps utm_source=threads without utmSource", () => {
     expect(new URL(buildTrackedUrl("https://x.com", { postId: "p1" })).searchParams.get("utm_source")).toBe("threads");
+  });
+
+  it("keeps utm_source=threads when only source is set", () => {
+    const url = new URL(buildTrackedUrl("https://x.com", { source: "threads_bio" }));
+    expect(url.searchParams.get("utm_source")).toBe("threads");
+    expect(url.searchParams.get("ref")).toBe("threads_bio");
   });
 });
