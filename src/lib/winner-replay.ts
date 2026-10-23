@@ -53,6 +53,8 @@ export async function loadWinnerReplaySource(brandId: string, now: Date): Promis
         status: "PUBLISHED",
         views: { not: null },
         publishedAt: { gte: new Date(now.getTime() - SOURCE_WINDOW_DAYS * DAY_MS) },
+        // No replay-of-replay. formulaId is nullable and SQL `<>` drops NULL rows, so keep them explicitly.
+        OR: [{ formulaId: null }, { formulaId: { not: WINNER_REPLAY_MODE.id } }],
       },
       select: { id: true, content: true, views: true },
     }),

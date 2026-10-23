@@ -988,23 +988,30 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   // Live length experiment: each draft gets the arm the queue is shortest on, so publish slots never wait long.
   const lengthExperiment = await loadLengthExperimentState(brandId, config, new Date());
   const lengthArms = lengthExperiment ? shuffleArms(planLengthArms(lengthExperiment.pending, lengthExperiment.arm, count)) : [];
-  // One high-view past post per run can be replayed with a new topic; the English D2C profile has its own formulas.
-  const winnerSource = domainProfile !== "ecommerce_d2c" ? await loadWinnerReplaySource(brandId, new Date()) : null;
+  const isLeanSprint = isLeanSprintRun({
+    brandSlug: brand.slug,
+    domainProfile,
+    campaignId: activeCampaign?.id,
+    experimentId: config.activeExperiment?.id,
+    productName: config.productProfile?.productName,
+    count,
+  });
+  // One high-view past post per lean run can be replayed with a new topic (isLeanSprintRun already excludes
+  // English D2C). It is an optional arm: a failed lookup must not abort the whole run.
+  const winnerSource = isLeanSprint
+    ? await loadWinnerReplaySource(brandId, new Date()).catch((error: unknown) => {
+        console.warn("[generate] winner replay source lookup failed, skipping replay arm:", error);
+        return null;
+      })
+    : null;
   for (let i = 0; i < count; i += BATCH) {
     const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
       const batchIndex = i + j;
-      const isLeanSprint = isLeanSprintRun({
-        brandSlug: brand.slug,
-        domainProfile,
-        campaignId: activeCampaign?.id,
-        experimentId: config.activeExperiment?.id,
-        productName: config.productProfile?.productName,
-        count,
-      });
+      // No replay while the length experiment runs: an extra arm skews per-arm drop rates and its random assignment.
       const viralIntentMode = isLeanSprint
         ? selectLeanViralMode(
             batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds,
-            Boolean(winnerSource) && !pickedFormulaIds.includes(WINNER_REPLAY_MODE.id)
+            Boolean(winnerSource) && !lengthExperiment && !pickedFormulaIds.includes(WINNER_REPLAY_MODE.id)
           )
         : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
       const quotaSelection = config.thompsonPriors

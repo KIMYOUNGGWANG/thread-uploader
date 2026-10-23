@@ -51,6 +51,16 @@ vi.mock("@/lib/winner-replay", async (importOriginal) => ({
   loadWinnerReplaySource: vi.fn(async () => SOURCE),
 }));
 
+vi.mock("@/lib/length-experiment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/length-experiment")>()),
+  loadLengthExperimentState: vi.fn(async () => null),
+}));
+
+vi.mock("@/lib/lean-mode-selector", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/lean-mode-selector")>();
+  return { ...actual, selectLeanViralMode: vi.fn(actual.selectLeanViralMode) };
+});
+
 vi.mock("@/lib/remediation-engine", () => ({
   remediatePostAlgorithmic: vi.fn(async (content: string, firstComment: string | null) => ({
     content,
@@ -68,7 +78,9 @@ vi.mock("@/lib/quality-gate", () => ({
 }));
 
 import { generatePostsForBrand } from "@/lib/generate-posts";
-import { WINNER_REPLAY_SOURCE_PREFIX } from "@/lib/winner-replay";
+import { loadWinnerReplaySource, WINNER_REPLAY_SOURCE_PREFIX } from "@/lib/winner-replay";
+import { loadLengthExperimentState } from "@/lib/length-experiment";
+import { selectLeanViralMode } from "@/lib/lean-mode-selector";
 
 const LEAN_ARMS = ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension", "beginner_qa"];
 const brand = {
@@ -105,6 +117,7 @@ const input = { count: 1, insertAtFront: false, requestedCampaignId: null, appro
 describe("winner_replay draft gate", () => {
   beforeEach(() => {
     state.created.length = 0;
+    vi.mocked(selectLeanViralMode).mockClear();
   });
 
   it("drops a replay draft that copies its source even when 10+ recent posts fill the anti-repeat window", async () => {
@@ -124,5 +137,28 @@ describe("winner_replay draft gate", () => {
     expect(state.created).toHaveLength(1);
     expect(state.created[0]?.formulaId).toBe("winner_replay");
     expect(JSON.parse(state.created[0]?.qualityReasons ?? "[]")).toContain(`${WINNER_REPLAY_SOURCE_PREFIX}${SOURCE.id}`);
+  });
+
+  it("does not offer the replay arm while the length experiment is running", async () => {
+    vi.mocked(loadLengthExperimentState).mockResolvedValueOnce({
+      config: { startAt: "2026-10-01T00:00:00Z", sequence: "SL", shortMax: 260, longMin: 390 },
+      position: 0,
+      arm: "S",
+      pending: { S: 0, L: 0 },
+    });
+    state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+    await generatePostsForBrand(brand, input);
+    expect(vi.mocked(selectLeanViralMode).mock.calls.length).toBeGreaterThan(0);
+    expect(vi.mocked(selectLeanViralMode).mock.calls.every((call) => call[4] === false)).toBe(true);
+    expect(state.created.map((post) => post.formulaId)).not.toContain("winner_replay");
+  });
+
+  it("keeps generating when the winner source lookup fails", async () => {
+    vi.mocked(loadWinnerReplaySource).mockRejectedValueOnce(new Error("db down"));
+    state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+    const result = await generatePostsForBrand(brand, input);
+    expect(result.ok).toBe(true);
+    expect(state.created).toHaveLength(1);
+    expect(state.created[0]?.formulaId).not.toBe("winner_replay");
   });
 });
