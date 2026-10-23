@@ -325,6 +325,13 @@ async function generateWithQuality(
         gate = { ...gate, pass: false, reasons: [repeat.reason, ...gate.reasons] };
       }
     }
+    // A replay is compared with its source on its own: in the shared recent list it fell outside the 10-post window.
+    if (experiment.winnerReference) {
+      const copy = checkAntiRepeatSimilarity(post, [{ content: experiment.winnerReference }]);
+      if (copy.isDuplicate) {
+        gate = { ...gate, pass: false, reasons: [`승자 원본과 너무 비슷함: ${copy.reason ?? "유사도 과다"}`, ...gate.reasons] };
+      }
+    }
     // A miss retries the same formula with the arm's band as feedback, and makes a too-short rewrite revert.
     const lengthReason = experiment.lengthTarget && config.lengthExperiment
       ? lengthGateReason(post, experiment.lengthTarget, config.lengthExperiment)
@@ -1033,11 +1040,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       if (replaySource) experiment.winnerReference = replaySource.content;
       else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id);
       // Newest first, so the anti-repeat windows look at the latest drafts.
-      // A replay also checks against its source, so a near-copy fails the word-overlap gate.
       const inBatchPosts: RecentPostSummary[] = [
         ...[...results].reverse().map((result) => ({ content: result.post, topic: result.topic, hookType: result.hookType, firstComment: result.firstComment })),
         ...recentPosts,
-        ...(replaySource ? [{ content: replaySource.content }] : []),
       ];
       return generateWithQuality(
         experiment,
