@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parseBrandConfig } from "@/types/brand";
-import { buildInstagramBioLink } from "@/lib/instagram-bio-anchor";
+import { tryBuildInstagramBioLink } from "@/lib/instagram-bio-anchor";
 import { BrandSettingsForm } from "@/components/BrandSettingsForm";
 
 interface PageProps {
@@ -43,7 +43,7 @@ export default async function BrandSettingsPage({ params }: PageProps) {
           username: brand.instagramUsername,
           tokenExpiry: instagramExpiry ? instagramExpiry.toISOString().split("T")[0] : null,
           needsReconnect: instagramExpiry ? instagramExpiry < new Date() : false,
-          bioLink: anchorId && config.websiteUrl ? buildInstagramBioLink(config.websiteUrl, anchorId) : null,
+          bioLink: tryBuildInstagramBioLink(config.websiteUrl, anchorId),
           clicks: anchorPost?.clicks ?? 0,
           conversions: anchorPost?.conversions ?? 0,
         },

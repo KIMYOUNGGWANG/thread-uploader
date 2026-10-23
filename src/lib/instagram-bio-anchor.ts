@@ -35,10 +35,24 @@ export async function ensureInstagramBioAnchor(brandId: string): Promise<string>
   return anchor.id;
 }
 
+const URL_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
+
+// The AI tab allows a bare domain ("invoiceflow.app"), so default to https when no scheme is present.
 export function buildInstagramBioLink(websiteUrl: string, anchorPostId: string): string {
-  return buildTrackedUrl(new URL("/start", websiteUrl).toString(), {
+  const baseUrl = URL_SCHEME_PATTERN.test(websiteUrl) ? websiteUrl : `https://${websiteUrl}`;
+  return buildTrackedUrl(new URL("/start", baseUrl).toString(), {
     postId: anchorPostId,
     source: "instagram",
     utmSource: "instagram",
   });
+}
+
+// For display paths (settings page): an unusable website URL means "no link yet", never an error.
+export function tryBuildInstagramBioLink(websiteUrl: string, anchorPostId: string | undefined): string | null {
+  if (!anchorPostId || !websiteUrl.trim()) return null;
+  try {
+    return buildInstagramBioLink(websiteUrl.trim(), anchorPostId);
+  } catch {
+    return null;
+  }
 }

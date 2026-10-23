@@ -6,7 +6,7 @@ const prismaMock = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 
-import { buildInstagramBioLink, ensureInstagramBioAnchor } from "@/lib/instagram-bio-anchor";
+import { buildInstagramBioLink, ensureInstagramBioAnchor, tryBuildInstagramBioLink } from "@/lib/instagram-bio-anchor";
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -61,5 +61,25 @@ describe("buildInstagramBioLink", () => {
     expect(url.searchParams.get("pid")).toBe("p1");
     expect(url.searchParams.get("utm_source")).toBe("instagram");
     expect(url.searchParams.get("ref")).toBe("instagram");
+  });
+
+  it("defaults to https for a scheme-less website URL", () => {
+    const url = new URL(buildInstagramBioLink("cosmicpath.app", "p1"));
+    expect(url.origin).toBe("https://cosmicpath.app");
+    expect(url.pathname).toBe("/start");
+    expect(url.searchParams.get("pid")).toBe("p1");
+    expect(url.searchParams.get("utm_source")).toBe("instagram");
+  });
+});
+
+describe("tryBuildInstagramBioLink", () => {
+  it("returns null instead of throwing for unusable website URLs or a missing anchor", () => {
+    expect(tryBuildInstagramBioLink("", "p1")).toBeNull();
+    expect(tryBuildInstagramBioLink("http://", "p1")).toBeNull();
+    expect(tryBuildInstagramBioLink("https://cosmicpath.app", undefined)).toBeNull();
+  });
+
+  it("returns the link for a bare domain", () => {
+    expect(tryBuildInstagramBioLink("cosmicpath.app", "p1")).toContain("https://cosmicpath.app/start");
   });
 });
