@@ -3,14 +3,26 @@
 // scene components draw the whole frame, so captions are "none" and audio is empty.
 // The sample specs below are the Studio previews and the render smoke-test inputs.
 import { VideoBase } from "../components/VideoBase";
+import { ReelsFrame, REELS_BGM } from "../components/ReelsFrame";
 import { PLACEHOLDER_RENDER_SPEC, type RenderSpec } from "../render-spec";
 
-export const IgReels: React.FC<RenderSpec> = (props) => <VideoBase {...props} />;
+// ReelsFrame이 배경·그라데이션·하단 브랜드를 그리고, VideoBase는 그 위에 투명하게 얹힌다.
+// background가 video·image면 그걸 배경으로 쓴다(촬영본·테이블 이미지). 카드 선택은 CTA가 있으니 서브 카피를 뺀다.
+export const IgReels: React.FC<RenderSpec> = (props) => {
+  const { type, src } = props.background;
+  const backdrop = (type === "video" || type === "image") && src ? { type, src } : undefined;
+  return (
+    <ReelsFrame backdrop={backdrop} subCopy={props.scenes.some((scene) => scene.visual.type === "pick-card") ? "" : undefined}>
+      <VideoBase {...props} background={{ type: "color", src: "transparent" }} />
+    </ReelsFrame>
+  );
+};
 
 const IG_BASE_SPEC: Omit<RenderSpec, "composition" | "durationInFrames" | "scenes"> = {
   ...PLACEHOLDER_RENDER_SPEC,
   captions: { ...PLACEHOLDER_RENDER_SPEC.captions, style: "none" },
-  background: { type: "color", src: "#0b0d14" },
+  background: { type: "color", src: "transparent" },
+  audio: { music: REELS_BGM, musicGainDb: -18 },
 };
 
 export const IG_RANK_SAMPLE_SPEC: RenderSpec = {

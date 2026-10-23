@@ -86,6 +86,10 @@ function renderVisual(
         cards={cardData?.cards ?? []}
         cta={cardData?.cta ?? ""}
         ctaAtSeconds={cardData?.ctaAtSeconds ?? 12}
+        filmed={cardData?.filmed === true}
+        hint={cardData?.hint}
+        reveals={cardData?.reveals}
+        cardImages={cardData?.cardImages}
       />
     );
   }

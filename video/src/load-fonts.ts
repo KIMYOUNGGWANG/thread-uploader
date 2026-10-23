@@ -59,3 +59,6 @@ export function ensurePretendard(): Promise<void> {
 export const FONT_STACK =
   `"${PRETENDARD_FAMILY}", "Noto Sans CJK KR", system-ui, ` +
   `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+
+// 한자·사주 톤용 명조. Pretendard에 한자가 없다. AppleMyungjo는 macOS 로컬 렌더 전용이라 CI에선 Noto Serif CJK로 떨어진다.
+export const SERIF_STACK = "'AppleMyungjo', 'Noto Serif CJK KR', 'Nanum Myeongjo', serif";
