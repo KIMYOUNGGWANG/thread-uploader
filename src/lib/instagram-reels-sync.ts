@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { startOfPublishDay } from "@/lib/account-trust-ramp";
 import { sendSystemAlert } from "@/lib/alert-service";
 import {
@@ -5,6 +6,7 @@ import {
   getContainerStatus,
   getRemainingPublishQuota,
   publishContainer,
+  type InstagramContainerStatus,
   type InstagramCredentials,
 } from "@/lib/instagram-api";
 import { isVideoMediaUrl } from "@/lib/media-url";
@@ -46,7 +48,8 @@ interface AdvanceResult {
   failed: string[];
 }
 
-type AdvanceOutcome = "published" | "in_progress" | "failed";
+// publish_retry: media_publish failed but may have gone through, so the container is kept (blocks step 3 like in_progress).
+type AdvanceOutcome = "published" | "in_progress" | "publish_retry" | "failed";
 
 export function buildInstagramCaption(content: string, captionSuffix: string): string {
   if (!captionSuffix) return content.slice(0, INSTAGRAM_CAPTION_MAX);
@@ -96,10 +99,10 @@ async function advanceProcessingReels(brand: ReelsBrand, credentials: InstagramC
   const result: AdvanceResult = { advanced: 0, published: [], inProgress: 0, failed: [] };
   for (const reel of reels) {
     const outcome = await advanceReel(brand, credentials, reel, now);
-    if (outcome === "in_progress") result.inProgress += 1;
+    if (outcome === "in_progress" || outcome === "publish_retry") result.inProgress += 1;
     else result.advanced += 1;
     if (outcome === "published") result.published.push(reel.id);
-    if (outcome === "failed") result.failed.push(reel.id);
+    if (outcome === "failed" || outcome === "publish_retry") result.failed.push(reel.id);
   }
   return result;
 }
@@ -107,38 +110,72 @@ async function advanceProcessingReels(brand: ReelsBrand, credentials: InstagramC
 async function advanceReel(brand: ReelsBrand, credentials: InstagramCredentials, reel: ProcessingReel, now: Date): Promise<AdvanceOutcome> {
   const containerId = reel.instagramContainerId;
   if (!containerId) return recordReelFailure(brand, reel, "Claimed without a container (previous run died mid-creation)");
+  let status: InstagramContainerStatus;
   try {
-    const status = await getContainerStatus(containerId, credentials.accessToken);
-    if (status === "IN_PROGRESS") return "in_progress";
-    if (status === "ERROR" || status === "EXPIRED") return recordReelFailure(brand, reel, `Container status ${status}`);
-    // PUBLISHED means Instagram already posted it (a previous run died before saving): record it, never re-publish.
-    const mediaId = status === "FINISHED" ? await publishContainer(credentials, containerId) : null;
-    await prisma.post.update({
-      where: { id: reel.id },
-      data: { instagramStatus: "PUBLISHED", instagramMediaId: mediaId, instagramPublishedAt: now, instagramError: null },
-    });
-    return "published";
+    status = await getContainerStatus(containerId, credentials.accessToken);
   } catch (error) {
-    return recordReelFailure(brand, reel, error instanceof Error ? error.message : "Unknown error");
+    return recordReelFailure(brand, reel, errorMessage(error));
   }
+  if (status === "IN_PROGRESS") return "in_progress";
+  if (status === "ERROR" || status === "EXPIRED") return recordReelFailure(brand, reel, `Container status ${status}`);
+  if (status === "FINISHED") return publishFinishedReel(brand, credentials, reel, containerId, now);
+  // PUBLISHED means Instagram already posted it (a previous run died before saving): record it, never re-publish.
+  await markReelPublished(reel.id, null, now);
+  return "published";
+}
+
+async function publishFinishedReel(
+  brand: ReelsBrand,
+  credentials: InstagramCredentials,
+  reel: ReelAttempt,
+  containerId: string,
+  now: Date,
+): Promise<AdvanceOutcome> {
+  let mediaId: string;
+  try {
+    mediaId = await publishContainer(credentials, containerId);
+  } catch (error) {
+    return recordPublishFailure(brand, reel, errorMessage(error));
+  }
+  await markReelPublished(reel.id, mediaId, now);
+  return "published";
+}
+
+async function markReelPublished(postId: string, mediaId: string | null, now: Date): Promise<void> {
+  await prisma.post.update({
+    where: { id: postId },
+    data: { instagramStatus: "PUBLISHED", instagramMediaId: mediaId, instagramPublishedAt: now, instagramError: null },
+  });
+}
+
+/** media_publish may succeed on Instagram even when the call fails, so keep the claim and container; next tick re-reads status. */
+async function recordPublishFailure(brand: ReelsBrand, reel: ReelAttempt, reason: string): Promise<AdvanceOutcome> {
+  const attempts = reel.instagramAttempts + 1;
+  if (attempts >= INSTAGRAM_MAX_ATTEMPTS) return markReelFailed(brand, reel.id, attempts, reason);
+  await prisma.post.updateMany({
+    where: { id: reel.id, instagramStatus: "PROCESSING" },
+    data: { instagramAttempts: attempts, instagramError: reason },
+  });
+  return "publish_retry";
 }
 
 /** One failed attempt: reset for a retry next tick, or mark FAILED and alert on the last attempt. */
 async function recordReelFailure(brand: ReelsBrand, reel: ReelAttempt, reason: string): Promise<"failed"> {
   const attempts = reel.instagramAttempts + 1;
-  const where = { id: reel.id, instagramStatus: "PROCESSING" };
-  if (attempts < INSTAGRAM_MAX_ATTEMPTS) {
-    await prisma.post.updateMany({
-      where,
-      data: { instagramStatus: null, instagramContainerId: null, instagramAttempts: attempts, instagramError: reason },
-    });
-    return "failed";
-  }
+  if (attempts >= INSTAGRAM_MAX_ATTEMPTS) return markReelFailed(brand, reel.id, attempts, reason);
+  await prisma.post.updateMany({
+    where: { id: reel.id, instagramStatus: "PROCESSING" },
+    data: { instagramStatus: null, instagramContainerId: null, instagramAttempts: attempts, instagramError: reason },
+  });
+  return "failed";
+}
+
+async function markReelFailed(brand: ReelsBrand, postId: string, attempts: number, reason: string): Promise<"failed"> {
   const { count } = await prisma.post.updateMany({
-    where,
+    where: { id: postId, instagramStatus: "PROCESSING" },
     data: { instagramStatus: "FAILED", instagramAttempts: attempts, instagramError: reason },
   });
-  if (count > 0) await alertReelFailed(brand, reel.id, reason);
+  if (count > 0) await alertReelFailed(brand, postId, reason);
   return "failed";
 }
 
@@ -179,21 +216,30 @@ async function startNextReel(
   now: Date,
 ): Promise<{ started: string | null; failed: string[] }> {
   const none = { started: null, failed: [] };
-  if (await hasReelTodayOrInFlight(brand.id, now)) return none;
   const quota = await getRemainingPublishQuota(credentials);
   if (quota !== null && quota <= 0) return none;
-  const reel = await findReelCandidate(brand, now);
+  const reel = await claimNextReel(brand, now);
   if (!reel) return none;
-  const claim = await prisma.post.updateMany({
-    where: { id: reel.id, instagramStatus: null },
-    data: { instagramStatus: "PROCESSING" },
-  });
-  if (claim.count === 0) return none;
   return createContainerForReel(brand, credentials, reel);
 }
 
-async function hasReelTodayOrInFlight(brandId: string, now: Date): Promise<boolean> {
-  const existing = await prisma.post.findFirst({
+// Per-brand advisory lock (Postgres) so overlapping ticks can't each claim a different post on the same KST day.
+async function claimNextReel(brand: ReelsBrand, now: Date) {
+  return prisma.$transaction(async (transaction) => {
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${brand.id}::text))`;
+    if (await hasReelTodayOrInFlight(transaction, brand.id, now)) return null;
+    const reel = await findReelCandidate(transaction, brand, now);
+    if (!reel) return null;
+    const claim = await transaction.post.updateMany({
+      where: { id: reel.id, instagramStatus: null },
+      data: { instagramStatus: "PROCESSING" },
+    });
+    return claim.count > 0 ? reel : null;
+  });
+}
+
+async function hasReelTodayOrInFlight(database: Prisma.TransactionClient, brandId: string, now: Date): Promise<boolean> {
+  const existing = await database.post.findFirst({
     where: {
       brandId,
       OR: [{ instagramPublishedAt: { gte: startOfPublishDay(now) } }, { instagramStatus: "PROCESSING" }],
@@ -203,8 +249,8 @@ async function hasReelTodayOrInFlight(brandId: string, now: Date): Promise<boole
   return existing !== null;
 }
 
-async function findReelCandidate(brand: ReelsBrand, now: Date) {
-  const posts = await prisma.post.findMany({
+async function findReelCandidate(database: Prisma.TransactionClient, brand: ReelsBrand, now: Date) {
+  const posts = await database.post.findMany({
     where: {
       brandId: brand.id,
       status: "PUBLISHED",
@@ -228,7 +274,7 @@ async function createContainerForReel(
     await prisma.post.update({ where: { id: reel.id }, data: { instagramContainerId: containerId } });
     return { started: reel.id, failed: [] };
   } catch (error) {
-    await recordReelFailure(brand, reel, error instanceof Error ? error.message : "Unknown error");
+    await recordReelFailure(brand, reel, errorMessage(error));
     return { started: null, failed: [reel.id] };
   }
 }
@@ -243,4 +289,8 @@ function findVideoUrl(imageUrls: string): string | null {
   } catch {
     return null;
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error";
 }

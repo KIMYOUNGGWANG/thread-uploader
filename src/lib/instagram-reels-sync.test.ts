@@ -20,8 +20,9 @@ const api = vi.hoisted(() => ({
   getRemainingPublishQuota: vi.fn(),
 }));
 const sendSystemAlert = vi.hoisted(() => vi.fn());
+const transaction = vi.hoisted(() => ({ active: false, executeRaw: vi.fn(), run: vi.fn() }));
 
-vi.mock("@/lib/prisma", () => ({ prisma: { post } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { post, $transaction: transaction.run } }));
 vi.mock("@/lib/instagram-api", () => api);
 vi.mock("@/lib/alert-service", () => ({ sendSystemAlert }));
 
@@ -99,6 +100,15 @@ describe("runInstagramReelsTick", () => {
     post.updateMany.mockResolvedValue({ count: 1 });
     api.getRemainingPublishQuota.mockResolvedValue(null);
     api.createReelsContainer.mockResolvedValue("container-new");
+    transaction.executeRaw.mockResolvedValue(0);
+    transaction.run.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => {
+      transaction.active = true;
+      try {
+        return await callback({ post, $executeRaw: transaction.executeRaw });
+      } finally {
+        transaction.active = false;
+      }
+    });
   });
 
   it("publishes a FINISHED container and records media id", async () => {
@@ -120,6 +130,41 @@ describe("runInstagramReelsTick", () => {
     // Already published today: nothing new starts in the same tick.
     expect(result.started).toBeNull();
     expect(api.createReelsContainer).not.toHaveBeenCalled();
+  });
+
+  it("keeps the container when publishContainer fails so a timed-out publish is never re-posted", async () => {
+    db.processing = [{ id: "p1", instagramContainerId: "c1", instagramAttempts: 0 }];
+    db.candidates = [candidate("p1", hoursAgo(10)), candidate("p2", hoursAgo(1))];
+    api.getContainerStatus.mockResolvedValue("FINISHED");
+    api.publishContainer.mockRejectedValue(new Error("Instagram API Error (publish): timeout"));
+
+    const result = await runInstagramReelsTick(brand, credentials, now);
+
+    expect(post.updateMany).toHaveBeenCalledWith({
+      where: { id: "p1", instagramStatus: "PROCESSING" },
+      data: { instagramAttempts: 1, instagramError: "Instagram API Error (publish): timeout" },
+    });
+    const writes = [...post.update.mock.calls, ...post.updateMany.mock.calls].map(([args]) => args.data);
+    expect(writes).not.toContainEqual(expect.objectContaining({ instagramContainerId: null }));
+    expect(writes).not.toContainEqual(expect.objectContaining({ instagramStatus: null }));
+    expect(transaction.run).not.toHaveBeenCalled();
+    expect(api.createReelsContainer).not.toHaveBeenCalled();
+    expect(sendSystemAlert).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ published: [], started: null, failed: ["p1"] });
+  });
+
+  it("marks FAILED and alerts when publishContainer fails for the third time", async () => {
+    db.processing = [{ id: "p1", instagramContainerId: "c1", instagramAttempts: 2 }];
+    api.getContainerStatus.mockResolvedValue("FINISHED");
+    api.publishContainer.mockRejectedValue(new Error("Instagram API Error (publish): 500"));
+
+    await runInstagramReelsTick(brand, credentials, now);
+
+    expect(post.updateMany).toHaveBeenCalledWith({
+      where: { id: "p1", instagramStatus: "PROCESSING" },
+      data: { instagramStatus: "FAILED", instagramAttempts: 3, instagramError: "Instagram API Error (publish): 500" },
+    });
+    expect(sendSystemAlert).toHaveBeenCalledTimes(1);
   });
 
   it("leaves IN_PROGRESS containers alone and starts nothing new", async () => {
@@ -237,6 +282,27 @@ describe("runInstagramReelsTick", () => {
     });
     expect(post.update).toHaveBeenCalledWith({ where: { id: "older" }, data: { instagramContainerId: "container-new" } });
     expect(result.started).toBe("older");
+  });
+
+  it("serializes the today check and claim per brand with an advisory lock, creating the container outside it", async () => {
+    db.candidates = [candidate("p2", hoursAgo(1))];
+    let createdInsideTransaction: boolean | null = null;
+    api.createReelsContainer.mockImplementation(async () => {
+      createdInsideTransaction = transaction.active;
+      return "container-new";
+    });
+
+    await runInstagramReelsTick(brand, credentials, now);
+
+    expect(transaction.run).toHaveBeenCalledTimes(1);
+    const [sqlParts, lockKey] = transaction.executeRaw.mock.calls[0];
+    expect(sqlParts.join("?")).toContain("pg_advisory_xact_lock(hashtext(");
+    expect(lockKey).toBe("brand-1");
+    const lockOrder = transaction.executeRaw.mock.invocationCallOrder[0];
+    expect(api.getRemainingPublishQuota.mock.invocationCallOrder[0]).toBeLessThan(lockOrder);
+    expect(lockOrder).toBeLessThan(post.findFirst.mock.invocationCallOrder[0]);
+    expect(post.findFirst.mock.invocationCallOrder[0]).toBeLessThan(post.updateMany.mock.invocationCallOrder[0]);
+    expect(createdInsideTransaction).toBe(false);
   });
 
   it("claims atomically and stops when another run claimed first", async () => {
