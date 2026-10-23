@@ -4,6 +4,7 @@ import {
   selectViralIntentMode,
   type ViralIntentMode,
   type ViralIntentModeId,
+  WINNER_REPLAY_MODE,
 } from "@/lib/viral-intent-modes";
 
 export interface GenerationFormula {
@@ -63,16 +64,21 @@ const LEAN_ARM_IDS: readonly ViralIntentModeId[] = [
 
 // Lean sprint picks its viral mode by Thompson sampling over learned priors, so the
 // learn cron actually steers CosmicPath output. Without priors it keeps the fixed allocation.
+// winner_replay joins the pool only when the caller found a high-view source post to replay.
 export function selectLeanViralMode(
   batchIndex: number,
   formulas: GenerationFormula[],
   priors: Record<string, BetaPrior> | undefined,
-  recentFormulaIds: string[]
+  recentFormulaIds: string[],
+  winnerReplayAvailable = false
 ): ViralIntentMode {
   const fixedMode = selectViralIntentMode(batchIndex, { sprintType: "lean_15post" });
   if (!priors) return fixedMode;
 
-  const modes = LEAN_ARM_IDS.map((id) => resolveViralIntentMode(id, 0));
+  const modes = [
+    ...LEAN_ARM_IDS.map((id) => resolveViralIntentMode(id, 0)),
+    ...(winnerReplayAvailable ? [WINNER_REPLAY_MODE] : []),
+  ];
   const armFormulaId = (mode: ViralIntentMode) => selectCampaignFormulaForViralMode(formulas, mode).id;
   const previous = recentFormulaIds[recentFormulaIds.length - 1];
   const candidates = modes.filter((mode) => armFormulaId(mode) !== previous);

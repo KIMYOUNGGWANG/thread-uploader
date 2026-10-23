@@ -104,3 +104,13 @@ describe("pickClosingFormat", () => {
     for (let index = 0; index < 6; index++) expect(pickClosingFormat(index, "imagination_dilemma")).toBe("choices");
   });
 });
+
+describe("winner_replay mode", () => {
+  it("resolves winner_replay to its own mode", () => {
+    expect(resolveViralIntentMode("winner_replay", 0).id).toBe("winner_replay");
+  });
+
+  it("stays out of the standard rotation", () => {
+    expect(VIRAL_INTENT_MODES.map((mode) => mode.id)).not.toContain("winner_replay");
+  });
+});

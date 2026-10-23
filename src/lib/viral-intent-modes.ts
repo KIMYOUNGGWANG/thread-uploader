@@ -10,7 +10,8 @@ export type ViralIntentModeId =
   | "imagination_dilemma"
   | "identity_profile"
   | "relationship_tension"
-  | "beginner_qa";
+  | "beginner_qa"
+  | "winner_replay";
 
 export interface ViralIntentMode {
   readonly id: ViralIntentModeId;
@@ -266,6 +267,19 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
   },
 ];
 
+// Rewrites the structure of one of the brand's own high-view posts with a new topic. Kept out of
+// VIRAL_INTENT_MODES so index rotation is unchanged; the lean selector offers it only when a source exists.
+export const WINNER_REPLAY_MODE: ViralIntentMode = {
+  id: "winner_replay",
+  label: "승자 재현",
+  primaryMetric: "shares",
+  instruction: "아래 참고 글의 구조(첫 줄 방식, 줄 구성, 마무리 방식)만 따라 새 글을 쓴다. 주제·문장·표현은 그대로 쓰지 않는다.",
+  rules: [
+    "참고 글의 문장이나 표현을 그대로 옮기지 않는다.",
+    "주제는 이번 글의 [주제]에서 가져온다.",
+  ],
+};
+
 const SPRINT_GROUP_SIZE = 7;
 const LEGACY_FORMULA_MAP: Record<string, ViralIntentModeId> = {
   comment_diagnosis: "self_classification",
@@ -350,6 +364,7 @@ export function selectViralIntentMode(
 }
 
 export function resolveViralIntentMode(formulaId: string | null, fallbackIndex: number): ViralIntentMode {
+  if (formulaId === WINNER_REPLAY_MODE.id) return WINNER_REPLAY_MODE;
   const normalizedId = normalizeViralIntentModeId(formulaId);
   return VIRAL_INTENT_MODES.find((mode) => mode.id === normalizedId) ?? selectViralIntentMode(fallbackIndex);
 }
@@ -456,6 +471,14 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
       "Lead with the answer, then explain with one or two terms in plain language.",
       "Never sell anxiety or imply something is wrong with the reader.",
       "Close by asking what else confused them, not with numbered choices.",
+    ],
+  },
+  winner_replay: {
+    label: "Winner Replay",
+    instruction: "Follow only the structure of the reference post below (opening move, line layout, closing move) and write a new post. Never reuse its topic, sentences or phrasing.",
+    rules: [
+      "Do not copy any sentence or phrase from the reference post.",
+      "Take the topic from this post's [Topic].",
     ],
   },
 };

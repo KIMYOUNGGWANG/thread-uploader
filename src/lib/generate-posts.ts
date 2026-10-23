@@ -31,6 +31,7 @@ import {
   type ClosingFormat,
   CLOSING_FORMAT_PROMPT_KO,
   pickClosingFormat,
+  WINNER_REPLAY_MODE,
 } from "@/lib/viral-intent-modes";
 import { formatViralPromptContext } from "@/lib/viral-analysis";
 import {
@@ -52,6 +53,7 @@ import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
+import { loadWinnerReplaySource, WINNER_REPLAY_SOURCE_PREFIX } from "@/lib/winner-replay";
 import type { LengthArm } from "@/types/length-experiment";
 
 const client = new Anthropic({
@@ -81,6 +83,8 @@ interface GrowthExperiment {
   shouldLink: boolean;
   sequenceIndex?: number;
   closingFormat?: ClosingFormat;
+  // Content of a high-view past post whose structure the winner_replay draft follows.
+  winnerReference?: string;
 }
 
 interface GenerationFormula {
@@ -597,6 +601,9 @@ function buildGenerationPrompt(
     ...formatProductPrompt(config),
     ...formatCampaignPrompt(experiment),
     formatViralIntentModePrompt(viralIntentMode, isEnglish),
+    ...(experiment.winnerReference
+      ? [`[참고 글: 조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써]\n---\n${experiment.winnerReference}\n---`]
+      : []),
     ...(marketingSkillsContext ? [marketingSkillsContext] : []),
     ...crossDomainGuardrails,
     ...viralRules,
@@ -964,6 +971,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   // Live length experiment: each draft gets the arm the queue is shortest on, so publish slots never wait long.
   const lengthExperiment = await loadLengthExperimentState(brandId, config, new Date());
   const lengthArms = lengthExperiment ? shuffleArms(planLengthArms(lengthExperiment.pending, lengthExperiment.arm, count)) : [];
+  // One high-view past post per run can be replayed with a new topic; the English D2C profile has its own formulas.
+  const winnerSource = domainProfile !== "ecommerce_d2c" ? await loadWinnerReplaySource(brandId, new Date()) : null;
   for (let i = 0; i < count; i += BATCH) {
     const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
       const batchIndex = i + j;
@@ -976,7 +985,10 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         count,
       });
       const viralIntentMode = isLeanSprint
-        ? selectLeanViralMode(batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds)
+        ? selectLeanViralMode(
+            batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds,
+            Boolean(winnerSource) && !pickedFormulaIds.includes(WINNER_REPLAY_MODE.id)
+          )
         : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
       const quotaSelection = config.thompsonPriors
         ? selectFormulaWithThompsonSampling(batchIndex, {
@@ -1016,11 +1028,16 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         recentSituations
       );
       experiment.lengthTarget = lengthArms[batchIndex];
-      experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id);
+      const replaySource = formulaMode.id === WINNER_REPLAY_MODE.id ? winnerSource : null;
+      // A replay keeps the source's own closing, so it gets no rotated closing format to contradict it.
+      if (replaySource) experiment.winnerReference = replaySource.content;
+      else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id);
       // Newest first, so the anti-repeat windows look at the latest drafts.
+      // A replay also checks against its source, so a near-copy fails the word-overlap gate.
       const inBatchPosts: RecentPostSummary[] = [
         ...[...results].reverse().map((result) => ({ content: result.post, topic: result.topic, hookType: result.hookType, firstComment: result.firstComment })),
         ...recentPosts,
+        ...(replaySource ? [{ content: replaySource.content }] : []),
       ];
       return generateWithQuality(
         experiment,
@@ -1120,7 +1137,11 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
 
     const postContent = reconciled.content;
     const initialComment = reconciled.firstComment;
-    const qualityReasons = [...result.qualityReasons, ...reconciled.extraReasons];
+    const qualityReasons = [
+      ...result.qualityReasons,
+      ...reconciled.extraReasons,
+      ...(result.formulaId === WINNER_REPLAY_MODE.id && winnerSource ? [`${WINNER_REPLAY_SOURCE_PREFIX}${winnerSource.id}`] : []),
+    ];
     const threadParts = splitContentIntoThreadParts(postContent);
     // Nobody reviews drafts by hand: every gate-passing draft is queued, learning decides which formulas get volume.
     const postStatus = "PENDING";

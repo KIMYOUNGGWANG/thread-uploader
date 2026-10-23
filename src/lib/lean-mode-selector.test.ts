@@ -32,6 +32,12 @@ describe("selectLeanViralMode", () => {
     expect(mode.id).not.toBe("relationship_tension");
     expect(LEAN_IDS).toContain(mode.id);
   });
+
+  it("offers winner_replay only when a source is available", () => {
+    const priors = { winner_replay: { alpha: 1000, beta: 1 } };
+    expect(selectLeanViralMode(0, [], priors, [], true).id).toBe("winner_replay");
+    expect(selectLeanViralMode(0, [], priors, [], false).id).not.toBe("winner_replay");
+  });
 });
 
 describe("isLeanSprintRun", () => {
