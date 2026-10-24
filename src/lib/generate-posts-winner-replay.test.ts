@@ -186,6 +186,54 @@ describe("winner_replay draft gate", () => {
     expect(prompt).toContain("마지막 질문과 첫 댓글에는 사주 전문 용어를 쓰지 않는다");
   });
 
+  describe("saju_viral prompt agrees with the readability gate", () => {
+    const PASSING_REPLY = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+    // Every string inside the captured LLM requests (system + messages), unescaped.
+    const promptStrings = (): string[] => {
+      const strings: string[] = [];
+      const walk = (value: unknown): void => {
+        if (typeof value === "string") strings.push(value);
+        else if (Array.isArray(value)) value.forEach(walk);
+        else if (value && typeof value === "object") Object.values(value).forEach(walk);
+      };
+      state.requests.forEach((request) => walk(JSON.parse(request)));
+      return strings;
+    };
+
+    // The gate fails "X가 아니라 Y" openers past the template cap and first lines that presume the reader's saju,
+    // so the prompt must not ask for a reversal on line 2 or a 살·일주 callout / myth-busting first line.
+    it("drops the hook instructions the gate rejects: reversal line 2, 살·일주 callout or myth-busting first line", async () => {
+      state.reply = PASSING_REPLY;
+      await generatePostsForBrand(brand, input);
+      const prompt = promptStrings().join("\n");
+      expect(prompt).not.toContain("반전/대립각");
+      expect(prompt).not.toContain("특정 살·일주 호명");
+      expect(prompt).not.toContain("통념 반박 중 하나로");
+    });
+
+    it("keeps reference hooks that break the readability rules out of the prompt", async () => {
+      state.reply = PASSING_REPLY;
+      const viralMemory = JSON.stringify({
+        sampleSize: 3,
+        topPatterns: [],
+        topPerformers: [
+          { hook: "혹시 '도화'보다 센 '홍염'보다 센 게 뭔지 알아? 바로 '화개'야.", score: 90 },
+          { hook: "재성 약하고 관성 센 사람이 이직하면 생기는 일", score: 80 },
+          { hook: "점집 가서 10만원 복채 내고 들은 말이 제일 쓸모없었음", score: 70 },
+        ],
+        nextHookCandidates: [
+          { nextHeadlineHook: "그건 게으른 게 아니라 배터리 용량이 다른 거임", objectionCore: "게으름" },
+        ],
+      });
+      await generatePostsForBrand({ ...brand, viralMemory } as Brand, input);
+      const prompt = promptStrings().join("\n");
+      expect(prompt).toContain("점집 가서 10만원 복채 내고 들은 말이 제일 쓸모없었음");
+      expect(prompt).not.toContain("'홍염'보다 센");
+      expect(prompt).not.toContain("재성 약하고 관성 센");
+      expect(prompt).not.toContain("배터리 용량이 다른 거임");
+    });
+  });
+
   describe("numbered-choice template cap", () => {
     const CHOICE_POST = "새벽 연락 오면 어떻게 함?\n1. 바로 답장\n2. 아침에 답장\n3. 읽고 안 읽은 척";
     const withChoices = (status: string) => [
