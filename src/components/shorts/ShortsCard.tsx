@@ -1,8 +1,26 @@
 import { formatDistanceToNowStrict } from "date-fns";
 import { ko } from "date-fns/locale";
-import type { ShortsFeedItem } from "@/lib/youtube/shorts-feed";
+import { OUTLIER_HIGHLIGHT_RATIO, type ShortsFeedItem } from "@/lib/youtube/shorts-feed";
 
 const compact = new Intl.NumberFormat("ko", { notation: "compact" });
+
+const BADGE = "rounded-full px-2 py-0.5 text-sm font-semibold";
+const BADGE_HOT = "bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300";
+const BADGE_NEUTRAL = "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
+
+function OutlierBadge({ item }: { item: ShortsFeedItem }) {
+  if (item.outlierRatio === null) return <span className={`${BADGE} ${BADGE_NEUTRAL}`}>평소 기준 없음</span>;
+  const hot = item.outlierRatio >= OUTLIER_HIGHLIGHT_RATIO;
+  const title =
+    item.channelMedianViews === null
+      ? undefined
+      : `채널 최근 쇼츠 ${item.baselineSampleSize}개 중앙값 ${compact.format(item.channelMedianViews)}회 기준`;
+  return (
+    <span className={`${BADGE} ${hot ? BADGE_HOT : BADGE_NEUTRAL}`} title={title}>
+      평소의 {item.outlierRatio.toFixed(1)}배
+    </span>
+  );
+}
 
 export function ShortsCard({ item }: { item: ShortsFeedItem }) {
   const hasStats = item.likes !== null || item.comments !== null;
@@ -24,6 +42,7 @@ export function ShortsCard({ item }: { item: ShortsFeedItem }) {
         <span className="rounded-full bg-orange-100 px-2 py-0.5 text-sm font-semibold text-orange-700 dark:bg-orange-950/40 dark:text-orange-300">
           +{compact.format(item.velocity)}/h ({item.velocityWindowHours}h 기준)
         </span>
+        <OutlierBadge item={item} />
       </div>
       {hasStats && (
         <p className="text-base text-slate-500 dark:text-slate-400">

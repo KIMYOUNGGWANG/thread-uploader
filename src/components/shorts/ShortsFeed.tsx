@@ -3,14 +3,14 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { ko } from "date-fns/locale";
 import { ShortsCard } from "@/components/shorts/ShortsCard";
 import { ShortsFilters } from "@/components/shorts/ShortsFilters";
-import type { ShortsFeedItem, ShortsRegion, ShortsWindow } from "@/lib/youtube/shorts-feed";
+import type { ShortsFeedItem, ShortsRegion, ShortsSort, ShortsWindow } from "@/lib/youtube/shorts-feed";
 
 const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-violet-500";
 
 interface ShortsFeedProps {
   items: ShortsFeedItem[];
   lastCapturedAt: Date | null;
-  filters: { window: ShortsWindow; region: ShortsRegion };
+  filters: { window: ShortsWindow; region: ShortsRegion; sort: ShortsSort };
   brandSlug: string;
   brandName: string;
   hasApiKey: boolean;
@@ -47,7 +47,7 @@ export function ShortsFeed({ items, lastCapturedAt, filters, brandSlug, brandNam
         </div>
       </header>
       <main className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6">
-        <ShortsFilters window={filters.window} region={filters.region} />
+        <ShortsFilters window={filters.window} region={filters.region} sort={filters.sort} />
         <p className="text-base text-slate-500 dark:text-slate-400">{updated}</p>
         {items.length === 0 ? (
           <EmptyState brandSlug={brandSlug} hasApiKey={hasApiKey} adapterEnabled={adapterEnabled} />
