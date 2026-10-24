@@ -347,7 +347,7 @@ async function generateWithQuality(
     }
     // Posts auto-publish unreviewed, so saju values that disagree with the New Year data never pass.
     if (experiment.newYearMode) {
-      const factProblems = checkNewYearFacts(post, experiment.newYearMode, isEnglish ? "en" : "ko");
+      const factProblems = checkNewYearFacts(post, experiment.newYearMode);
       if (factProblems.length > 0) {
         gate = { ...gate, pass: false, reasons: [...factProblems, ...gate.reasons] };
       }

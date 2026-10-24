@@ -57,6 +57,15 @@ export const NEW_YEAR_TAGS: Record<NewYearTag, { ko: string; en: string; videoSu
   },
 };
 
+// A ranking line naming a day master must use its own theme's words, not another theme's.
+export const NEW_YEAR_TAG_KEYWORDS: Record<NewYearTag, RegExp> = {
+  express: /말|재주|꺼내/,
+  peers: /닮은|경쟁/,
+  learn: /배우|채우|기반/,
+  role: /책임|자리|맡/,
+  money: /돈/,
+};
+
 // startsOn = KST date of the 절입 that begins the pillar (month 1: 소한, month 2: 입춘, ...).
 export const MONTHS_2027: ReadonlyArray<{ month: number; pillar: string; pillarHanja: string; startsOn: string }> = [
   { month: 1, pillar: "신축", pillarHanja: "辛丑", startsOn: "2027-01-05" },
@@ -74,3 +83,9 @@ export const MONTHS_2027: ReadonlyArray<{ month: number; pillar: string; pillarH
 ];
 
 export const IPCHUN_2027: { date: string; timeKst: string } = { date: "2027-02-04", timeKst: "10:46" };
+
+// The only "N월 D일" dates a New Year post may state, as "month-day": Jan 1 and each month's 절입 day.
+export const NEW_YEAR_ALLOWED_DATES: ReadonlySet<string> = new Set([
+  "1-1",
+  ...MONTHS_2027.map((m) => `${Number(m.startsOn.slice(5, 7))}-${Number(m.startsOn.slice(8, 10))}`),
+]);
