@@ -323,7 +323,7 @@ it("passes when the API call fails", async () => { /* mock Anthropic.messages.cr
 
 **Files:**
 - Create: `src/lib/readability-rules.ts`
-- Modify: `src/lib/generate-posts.ts` (`generateWithQuality`의 `runQualityGate`, 293-330행 부근)
+- Modify: `src/lib/generate-posts.ts` (`generateWithQuality`의 `runQualityGate`, 298-344행)
 - Test: `src/lib/readability-rules.test.ts`
 
 **Interfaces:**
@@ -369,7 +369,7 @@ it.each(["갑자기 연락 옴", "상관없어", "기사 봤어?", "지지해줄
 **Files:**
 - Modify: `src/lib/readability-rules.ts`
 - Modify: `src/lib/lean-mode-selector.ts` (`selectLeanViralMode`)
-- Modify: `src/lib/generate-posts.ts` (선택 루프 983-1040행 부근, `runQualityGate`)
+- Modify: `src/lib/generate-posts.ts` (선택 루프 1007-1016행 `selectLeanViralMode` 호출, `runQualityGate`)
 - Test: `src/lib/readability-rules.test.ts`, `src/lib/lean-mode-selector.test.ts`
 
 **Interfaces:**
@@ -378,7 +378,7 @@ it.each(["갑자기 연락 옴", "상관없어", "기사 봤어?", "지지해줄
   - `export function opensWithReversal(post: string): boolean` — 첫 두 줄에 `/아니라|아님(?![가-힣])|이 아니고/`
   - `export const TEMPLATE_CAP = 3`, `export const TEMPLATE_WINDOW = 10`
   - `export function checkTemplateCap(post: string, recent: readonly { content: string }[]): { pass: boolean; reasons: string[] }` — `recent.slice(0, TEMPLATE_WINDOW)`에서 같은 틀이 이미 `TEMPLATE_CAP`개 이상이고 후보도 그 틀이면 실패. 이유: `"최근 10개 중 번호 선택지 글이 이미 N개: 다른 마무리로"` / `"최근 10개 중 'X가 아니라 Y' 첫 줄이 이미 N개: 다른 훅으로"`
-- `selectLeanViralMode(batchIndex, formulas, priors, recentFormulaIds, winnerReplayAvailable = false, excludedModeIds: readonly string[] = [])` — 제외된 모드는 후보 풀에서 뺀다. 풀이 비면 제외 없이 원래대로 고른다.
+- `selectLeanViralMode(batchIndex, formulas, priors, recentFormulaIds, winnerReplayAvailable = false, excludedModeIds: readonly string[] = [])` (`lean-mode-selector.ts:68`, 5번째 인자는 Task 5가 추가함. 호출처는 `generate-posts.ts` 한 곳) — 제외된 모드는 후보 풀에서 뺀다. 풀이 비면 제외 없이 원래대로 고른다.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -419,7 +419,7 @@ it("skips an excluded mode even with a dominant prior", () => {
 
 **Files:**
 - Create: `src/lib/readability-judge.ts`
-- Modify: `src/lib/generate-posts.ts` (`generateWithQuality` 재시도 루프 — Task 8에서 영어 채점을 넣은 자리 옆)
+- Modify: `src/lib/generate-posts.ts` (`generateWithQuality`의 `gateWithNaturalness`, 348-353행)
 - Test: `src/lib/readability-judge.test.ts`
 
 **Interfaces:**
@@ -449,7 +449,7 @@ it("passes when the API call fails", async () => { /* mock Anthropic.messages.cr
   - 모델·클라이언트 설정은 Task 8과 같다 (`CLAUDE_TEXT_MODEL`, thinking off, effort low, `max_tokens: 200`, 타임아웃 20초, `readMessageText`).
   - 프롬프트(한국어): 기준 독자는 "사주를 모르는 25~35세. 썸·이별·이직 고민이 있고, 피드에서 첫 두 줄만 보고 계속 읽을지 정한다". 이 독자로서 세 질문에 답한다. ① 첫 두 줄만 보고 계속 읽고 싶은가 ② 사주를 몰라도 모든 문장의 뜻을 이해할 수 있는가 ③ 다 읽고 오늘 바로 써먹을 생각이나 행동이 하나 남는가 ("네 원국을 봐야 안다"는 남는 것으로 치지 않는다). `{"keepReading": bool, "understandable": bool, "takeaway": bool, "reason": "<아니오인 항목과 걸린 문장>"}`만 출력.
   - `readable = keepReading && understandable && takeaway`. 키 없음·API 오류·파싱 실패는 `{ readable: true }` + `console.warn`.
-  - `generateWithQuality`: `experiment.qualityProfile === "saju_viral"`이고 동기 게이트가 통과한 경우에만 판정. `readable: false`면 `{ ...gate, pass: false, reasons: [\`읽힘 판정 실패: ${reason}\`, ...gate.reasons] }`로 바꿔 기존 재시도 피드백에 태운다. remediation 후 `regate`(동기)는 그대로.
+  - `generateWithQuality`의 `gateWithNaturalness`(Task 8)에 붙인다: `experiment.qualityProfile === "saju_viral"`이고 동기 게이트가 통과한 경우에만 판정. `readable: false`면 `{ ...gate, pass: false, reasons: [\`읽힘 판정 실패: ${reason}\`, ...gate.reasons] }`로 바꿔 기존 재시도 피드백에 태운다. `regate`가 이제 이 비동기 게이트라서 remediation으로 고친 글도 같은 판정을 거친다 (판정에 떨어진 재작성은 원본으로 되돌아간다). 함수 이름이 역할과 안 맞으면 `gateWithJudges` 등으로 바꿔도 된다.
 - [ ] **Step 4: Run** `npx vitest run src/lib/readability-judge.test.ts src/app/api/generate` → PASS
 - [ ] **Step 5: Commit** `feat: 사주 모르는 독자 기준 읽힘 AI 판정 추가`
 
@@ -504,9 +504,9 @@ it.each(["saju_viral", "saju_relationship"])("has at most one jargon term per se
 - `domain-registry.ts:118` concept_hierarchy 공식 instruction에 같은 "사주 개념 2~3개" 문구
 
 **Files:**
-- Modify: `src/lib/generate-posts.ts` (`SAJU_VIRAL_REQUIREMENTS` 725-731행)
-- Modify: `src/lib/viral-intent-modes.ts` (`concept_hierarchy` 205-215행, 261행 확인)
-- Modify: `src/lib/domain-registry.ts:118`
+- Modify: `src/lib/generate-posts.ts` (`SAJU_VIRAL_REQUIREMENTS` 정의 750행, 사용 743행)
+- Modify: `src/lib/viral-intent-modes.ts` (`concept_hierarchy` 206행부터, fidelity 체크 89행 확인)
+- Modify: `src/lib/domain-registry.ts:114`
 - Test: `src/lib/viral-intent-modes.test.ts`, `src/app/api/generate` 프롬프트 스냅샷/문자열 테스트
 
 **Interfaces:**
@@ -531,7 +531,7 @@ it("saju_viral prompt caps jargon at one term instead of requiring it", () => {
 - [ ] **Step 3: Implement**
   - `SAJU_VIRAL_REQUIREMENTS` 첫 항목 교체: `"- 사주·궁합·운세 같은 단어는 자연스럽게 1번 이상 나온다. 사주 전문 용어(일간·재성·관성·도화살 등)는 1개까지만 쓰고, 쓰면 그 문장이나 바로 다음 문장에서 쉬운 말로 푼다."` 그 아래에 `"- 기준 독자는 사주를 모르는 25~35세다. 독자가 자기 사주를 몰라도 오늘 써먹을 생각이나 행동 하나를 남긴다."`, `"- 마지막 질문과 첫 댓글은 독자가 자기 경험만으로 답할 수 있어야 한다. 독자의 원국·일주·사주 구조를 묻지 않는다."`, `"- 첫 댓글에 지어낸 1인칭 경험담을 쓰지 않는다."` 추가.
   - `concept_hierarchy` instruction·rules: "용어 서열"이 아니라 "판단 순서"를 쉬운 말로 비교하게 바꾼다. 예: `"사람들이 먼저 보는 것(A)보다 먼저 봐야 할 것(B)을 쉬운 말로 비교해 통념을 깬다. 사주 개념은 근거로 1개까지만 쓰고 풀어서 쓴다."` 첫 댓글 규칙은 `"첫 댓글: 독자가 자기 경험으로 답할 수 있는 질문 한 줄. 링크·홍보 문구는 넣지 않는다."`로.
-  - `domain-registry.ts:118` instruction도 같은 방향으로 맞춘다.
+  - `domain-registry.ts:114` instruction도 같은 방향으로 맞춘다.
 - [ ] **Step 4: Run** `npx vitest run src/lib src/app/api/generate` → PASS
 - [ ] **Step 5: Commit** `fix: 생성 프롬프트가 사주 용어를 강요하지 않고 읽히는 글 기준을 따르게 수정`
 
