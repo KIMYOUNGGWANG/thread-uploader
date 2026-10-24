@@ -291,4 +291,27 @@ describe("winner_replay draft gate", () => {
       expect(state.requests.join("\n")).toContain("1/2/3으로 끝낸다");
     });
   });
+
+  // Without an up-front notice the model kept opening with "X가 아니라 Y" and every retry hit the gate.
+  describe("reversal-opener template cap", () => {
+    const REVERSAL_POST = "연락 늦는 건 무관심이 아니라 부담임\n\n새벽 답장은 아침에 해도 됨";
+    const NOTICE = "첫 두 줄에 '~가 아니라', '~아님', '~이 아니고' 같은 뒤집기를 쓰지 않는다";
+    const reply = "새벽 2시 연락은 설렘보다 외로움일 때가 많음\n\n답장은 아침에 해도 늦지 않음\n\n너라면 바로 답장해?";
+
+    it("tells the model up front once 3 of the last 10 posts open with a reversal", async () => {
+      state.recent = [
+        ...Array.from({ length: 3 }, () => ({ ...RECENT_POSTS[0], content: REVERSAL_POST, status: "PUBLISHED" })),
+        ...RECENT_POSTS.slice(3).map((post) => ({ ...post, status: "PUBLISHED" })),
+      ];
+      state.reply = reply;
+      await generatePostsForBrand(brand, input);
+      expect(state.requests.join("\n")).toContain(NOTICE);
+    });
+
+    it("says nothing about reversals while the cap is not hit", async () => {
+      state.reply = reply;
+      await generatePostsForBrand(brand, input);
+      expect(state.requests.join("\n")).not.toContain(NOTICE);
+    });
+  });
 });

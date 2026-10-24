@@ -53,7 +53,7 @@ import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/struct
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
 import { judgeReadability } from "@/lib/readability-judge";
-import { checkReadabilityRules, checkTemplateCap, opensWithReversal } from "@/lib/readability-rules";
+import { checkReadabilityRules, checkTemplateCap, opensWithReversal, tightenChoiceLines } from "@/lib/readability-rules";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
@@ -87,6 +87,8 @@ interface GrowthExperiment {
   shouldLink: boolean;
   sequenceIndex?: number;
   closingFormat?: ClosingFormat;
+  // The "X가 아니라 Y" opener cap is already hit, so the prompt forbids that opener up front.
+  reversalCapped?: boolean;
   // Content of a high-view past post whose structure the winner_replay draft follows.
   winnerReference?: string;
 }
@@ -146,7 +148,7 @@ function cleanGeneratedContentLabels(content: string): string {
   // If still starts with **본문** or similar standalone line
   cleaned = cleaned.replace(/^\s*\*\*본문\*\*\s*\n+/gi, "").trim();
 
-  return normalizeIpchunSpelling(cleaned);
+  return normalizeIpchunSpelling(tightenChoiceLines(cleaned));
 }
 
 function enforceGeneratedSurfaceSafety<T extends QualityResult>(
@@ -625,6 +627,7 @@ function buildGenerationPrompt(
         `[CTA 유형]\n${experiment.ctaType}`,
         `[이번 글 변주]\n각도: ${experiment.angleVariation ?? viralIntentMode.label}\n구조: ${experiment.structureVariation ?? viralIntentMode.instruction}`,
         ...(experiment.closingFormat ? [`[마무리 형식]\n${CLOSING_FORMAT_PROMPT_KO[experiment.closingFormat]}`] : []),
+        ...(experiment.reversalCapped ? [REVERSAL_CAPPED_PROMPT_KO] : []),
         ...(creatorPatternContext ? [creatorPatternContext] : []),
         `[성과 학습 메모리]\n${growthContext}`,
         `[바이럴 레퍼런스 학습 메모리]\n${viralContext}`,
@@ -947,6 +950,9 @@ export type GeneratePostsResult = { ok: false; error: string } | { ok: true; sum
  * the dashboard route checks the session owner, the refill cron checks CRON_SECRET.
  */
 const NUMBERED_CHOICE_PROBE = "1. a\n2. b";
+const REVERSAL_PROBE = "a가 아니라 b";
+const REVERSAL_CAPPED_PROMPT_KO =
+  "[첫 줄 제한]\n첫 두 줄에 '~가 아니라', '~아님', '~이 아니고' 같은 뒤집기를 쓰지 않는다. 비교가 필요하면 '~보다'로 쓴다.";
 // The template cap counts posts readers see or will see ("발행·대기 글"). This run's drafts carry no status and count;
 // archived, failed, and review-queue posts do not, so a regate that archives choice posts frees the cap.
 // Reference hooks shown as "검증 훅" get copied, so saju_viral only shows ones its gate would let through:
@@ -1059,6 +1065,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       // imagination_dilemma needs numbered choices, so once the cap is hit it must not be picked at all
       // (the gate alone would only burn retries and drop the draft).
       const choicesCapped = !checkTemplateCap(NUMBERED_CHOICE_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
+      const reversalCapped = !checkTemplateCap(REVERSAL_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
       const excludedModeIds = isLeanSprint && choicesCapped ? ["imagination_dilemma"] : [];
       // No replay while the length experiment runs: an extra arm skews per-arm drop rates and its random assignment.
       const viralIntentMode = isLeanSprint
@@ -1106,6 +1113,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         recentSituations
       );
       experiment.lengthTarget = lengthArms[batchIndex];
+      // The gate caps reversal openers only for saju_viral (same scope as the numbered-choice cap).
+      experiment.reversalCapped = reversalCapped && experiment.qualityProfile === "saju_viral";
       const replaySource = formulaMode.id === WINNER_REPLAY_MODE.id ? winnerSource : null;
       // A replay keeps the source's own closing, so it gets no rotated closing format to contradict it.
       if (replaySource) experiment.winnerReference = replaySource.content;

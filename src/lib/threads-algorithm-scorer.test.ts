@@ -183,4 +183,11 @@ describe("threads-algorithm-scorer english hooks", () => {
     expect(scoreThreadsPostAlgorithmic("그건 착각이야\n본문").dimensions.hookTension.score).toBe(18);
     expect(scoreThreadsPostAlgorithmic("이직 vs 존버 중 진짜 당신에게 맞는 선택은 뭘까요?\n본문").totalScore).toBe(87);
   });
+
+  // The reversal-opener cap tells drafts to compare with "~보다" instead; that hook must score as a contrast too.
+  it("scores a Korean '~보다' comparison hook as contrast", () => {
+    const comparison = scoreThreadsPostAlgorithmic("친구 동업 제안, 감정보다 먼저 볼 게 따로 있음.\n본문");
+    expect(comparison.dimensions.hookTension.score).toBe(18);
+    expect(scoreThreadsPostAlgorithmic("드라마 보다가 생각난 거 있음.\n본문").dimensions.hookTension.score).toBe(10);
+  });
 });
