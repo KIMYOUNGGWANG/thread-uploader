@@ -2,6 +2,7 @@ import { type SajuCardData, pillarsForDayMaster } from "./saju-types";
 import type { PickCardData, RankCardData } from "./render-spec-types";
 import type { TikTokFormatId } from "./tiktok-draft-service";
 import { findFirstLineChartGate } from "@/lib/quality-gate";
+import { DAY_MASTER_2027, NEW_YEAR_TAGS } from "@/lib/new-year/new-year-2027-data";
 
 export interface TikTokSceneBeat {
   sceneId: string;
@@ -41,6 +42,7 @@ export interface ScriptGenerationParams {
   dayMaster?: string; // e.g. "갑목", "병화", "무토"
   tone?: "urgent" | "mysterious" | "encouraging";
   variant?: number; // 같은 일간의 훅 후보 중 몇 번째를 쓸지 (pickDailyHookVariant)
+  season?: "new_year_2027"; // 신년 시즌: "○○ 일간의 2027" 버전 대본
 }
 
 // 훅은 사주를 몰라도 읽히는 성향을 "왜?"로 묻고(Pull), 2번 장면이 그 성향을 일간과 상징으로 답한다(Truth).
@@ -81,11 +83,13 @@ export interface ExplainerQuality {
 
 export function evaluateExplainerQuality(
   script: Pick<TikTokScriptResult, "scenes" | "totalDurationSeconds">,
-  dayMaster: string
+  dayMaster: string,
+  answer?: string // 2번 장면이 훅에 답하는 단어 (기본: 일간 상징)
 ): ExplainerQuality {
   const profile = DAY_MASTER_PROFILES[dayMaster];
   const hook = script.scenes[0]?.onScreenText[0] ?? "";
   const payoff = script.scenes[1]?.spokenLine ?? "";
+  const answerWord = answer ?? profile?.symbol;
   const allText = script.scenes.flatMap((scene) => [scene.spokenLine, ...scene.onScreenText]).join(" ");
   const overpromise = allText.match(OVERPROMISE_PATTERN)?.[0];
 
@@ -94,7 +98,7 @@ export function evaluateExplainerQuality(
     [GAP_PATTERN.test(hook), "훅이 질문을 열지 않음 (Pull)"],
     [!findFirstLineChartGate(hook), "훅이 독자의 사주를 전제함: 자기 일간을 아는 사람에게만 닿음 (Pull)"],
     [hook.length <= HOOK_MAX_CHARS, `훅이 ${HOOK_MAX_CHARS}자를 넘어 첫 장면에 다 안 읽힘 (Pull)`],
-    [Boolean(profile?.symbol) && payoff.includes(dayMaster) && payoff.includes(profile.symbol), "훅의 답(일간·상징)이 바로 다음 장면에 없음 (Truth)"],
+    [Boolean(profile) && Boolean(answerWord) && payoff.includes(dayMaster) && payoff.includes(answerWord as string), "훅의 답(일간·상징)이 바로 다음 장면에 없음 (Truth)"],
     [!overpromise, `과장·막연한 떡밥 문구: "${overpromise}" (Truth)`],
     [script.totalDurationSeconds >= 15 && script.totalDurationSeconds <= 30, "길이가 15~30초를 벗어남"],
   ];
@@ -110,14 +114,19 @@ export function evaluateExplainerQuality(
 export function generateTikTokScript(params: ScriptGenerationParams): TikTokScriptResult {
   const { dayMaster = "병화", tone = "mysterious", variant = 0 } = params;
   const profile = DAY_MASTER_PROFILES[dayMaster] ?? UNKNOWN_PROFILE;
-  const subject = profile.hooks[variant % profile.hooks.length];
+  const ny = params.season ? DAY_MASTER_2027[dayMaster] : undefined;
+  const nyTag = ny ? NEW_YEAR_TAGS[ny.tag] : undefined;
+  const subject = nyTag?.videoSubject ?? profile.hooks[variant % profile.hooks.length];
 
   // 1. Scene 1: 사주를 몰라도 읽히는 질문 (일간·회차별로 다름)
   const hookText = `${subject}, 왜 그럴까?`;
   const hookSpoken = `${subject}, 사주로 보면 이유가 보여요.`;
 
   // 2. Scene 2: 훅의 답 — 그 성향의 일간과 상징
-  const scene2Spoken = `사주에서는 이런 모습을 ${dayMaster} 일간의 특징으로 봐요. ${dayMaster} 일간은 ${profile.nature}`;
+  const scene2Spoken = ny && nyTag
+    ? `사주로 보면 2027년 정미년은 ${dayMaster} 일간에게 ${ny.tenGod}의 해예요. ${nyTag.videoMeaning}`
+    : `사주에서는 이런 모습을 ${dayMaster} 일간의 특징으로 봐요. ${dayMaster} 일간은 ${profile.nature}`;
+  const scene2Screen = ny ? `${dayMaster} · 2027 ${ny.tenGod}` : `${dayMaster} = ${profile.symbol}`;
 
   // 3. Scene 3: 명식 예시 — 일주 천간이 이 일간과 같아야 한다
   const scene3Spoken = `명식에서 일주 윗글자가 바로 '나'예요. 여기가 ${dayMaster} 일간이면, 강점은 ${profile.strength}.`;
@@ -125,13 +134,15 @@ export function generateTikTokScript(params: ScriptGenerationParams): TikTokScri
     title: `${dayMaster} 일간 명식 예시`,
     subtitle: "일주 윗글자가 '나'예요",
     dayMaster,
-    destinyKeyword: profile.strength,
+    destinyKeyword: ny ? `2027 ${ny.tenGod}` : profile.strength,
     pillars: pillarsForDayMaster(dayMaster),
   };
 
   // 4. Scene 4: Soft CTA (전환 유도)
-  const cta = "내 일간은 프로필 링크에서 1분이면 나와요.";
-  const scene4Spoken = "내 일간이 뭔지 모르겠다면, 프로필 링크에서 1분이면 확인할 수 있어요.";
+  const cta = ny ? "프로필 링크 → 홈 맨 위 2027 캘린더" : "내 일간은 프로필 링크에서 1분이면 나와요.";
+  const scene4Spoken = ny
+    ? "내 2027년 달력이 궁금하면, 프로필 링크 들어가서 홈 맨 위 2027 캘린더를 눌러 보세요."
+    : "내 일간이 뭔지 모르겠다면, 프로필 링크에서 1분이면 확인할 수 있어요.";
 
   const scenes: TikTokSceneBeat[] = [
     {
@@ -152,9 +163,9 @@ export function generateTikTokScript(params: ScriptGenerationParams): TikTokScri
       durationSeconds: 5.5,
       type: "placeholder",
       spokenLine: scene2Spoken,
-      onScreenText: [`${dayMaster} = ${profile.symbol}`],
+      onScreenText: [scene2Screen],
       visualProps: {
-        hookText: profile.symbol,
+        hookText: ny ? scene2Screen : profile.symbol,
       },
     },
     {
@@ -174,9 +185,9 @@ export function generateTikTokScript(params: ScriptGenerationParams): TikTokScri
       spokenLine: scene4Spoken,
       onScreenText: [cta],
       visualProps: {
-        hookText: "내 일간 확인하기",
-        subText: "프로필 링크에서 1분",
-        badge: "✨ 내 일간 찾기",
+        hookText: ny ? "내 2027 캘린더 보기" : "내 일간 확인하기",
+        subText: ny ? "프로필 링크 → 홈 맨 위" : "프로필 링크에서 1분",
+        badge: ny ? "✨ 2027 캘린더" : "✨ 내 일간 찾기",
         colorScheme: "neon-yellow",
       },
     },
@@ -186,14 +197,14 @@ export function generateTikTokScript(params: ScriptGenerationParams): TikTokScri
   const totalDurationSeconds = scenes.reduce((acc, s) => acc + s.durationSeconds, 0);
 
   return {
-    title: `${dayMaster} 일간 해설: ${subject}`,
+    title: ny ? `${dayMaster} 일간의 2027: ${subject}` : `${dayMaster} 일간 해설: ${subject}`,
     spokenHook: hookSpoken,
     fullScript,
     totalDurationSeconds,
     scenes,
     cta,
     hashtags: ["사주", "일간", `${dayMaster}일간`, "사주풀이", "운세"],
-    ...evaluateExplainerQuality({ scenes, totalDurationSeconds }, dayMaster),
+    ...evaluateExplainerQuality({ scenes, totalDurationSeconds }, dayMaster, ny?.tenGod),
   };
 }
 

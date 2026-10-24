@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { generateTikTokScript } from "@/lib/tiktok/tiktok-script-engine";
+import { isKoNewYearSeason } from "@/lib/new-year/new-year-season";
 import { buildTikTokRenderSpec } from "@/lib/tiktok/tiktok-render-worker";
 import { buildTikTokDraftCreateData, draftToScriptResult, pickDailyDayMaster, pickDailyHookVariant } from "@/lib/tiktok/tiktok-draft-service";
 
@@ -67,6 +68,7 @@ async function createDailyDraft(brandId: string) {
     dayMaster: pickDailyDayMaster(now),
     variant: pickDailyHookVariant(now),
     tone: "mysterious",
+    season: isKoNewYearSeason(now) ? "new_year_2027" : undefined,
   });
   // A draft that fails the quality gate is recorded with its reasons but never rendered.
   if (!script.qualityPass) {

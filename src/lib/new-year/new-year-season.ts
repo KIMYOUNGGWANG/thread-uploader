@@ -40,9 +40,17 @@ const MODE_CYCLE: NewYearModeId[] = [
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
-function kstYmd(d: Date): number {
+export function kstYmd(d: Date): number {
   const k = new Date(d.getTime() + KST_OFFSET_MS);
   return k.getUTCFullYear() * 10000 + (k.getUTCMonth() + 1) * 100 + k.getUTCDate();
+}
+
+// KO season span (first window start .. last window end, KST) minus the kill switch.
+export function isKoNewYearSeason(date: Date, env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.NEW_YEAR_SEASON_DISABLED === "1") return false;
+  const wins = NEW_YEAR_WINDOWS.ko;
+  const ymd = kstYmd(date);
+  return ymd >= wins[0].start && ymd <= wins[wins.length - 1].end;
 }
 
 export function newYearSlotMode(input: {
