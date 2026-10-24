@@ -14,6 +14,7 @@ import {
 import { validateAntiSlop } from "@/lib/marketing-skills";
 import { evaluateContentWithExpertPanel } from "@/lib/expert-panel-evaluator";
 import { checkMetaPolicySafety } from "@/lib/meta-policy-guard";
+import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
 
 /**
  * Quality Gate — CosmicPath 바이럴 공식 준수 검사기
@@ -219,20 +220,6 @@ const GENERIC_SELF_HELP_PATTERNS = [
   /언젠가 다 잘될/,
 ];
 
-const GENERATED_META_PATTERNS = [
-  /자수\s*체크/,
-  /글자\s*수\s*확인/,
-  /공백[·\s]*줄바꿈.*포함/,
-  /500자\s*이하\s*통과/,
-  /Threads\s*본문/i,
-  /초안\s*작성/,
-  /#+\s*📌\s*THREADS\s*POST/i,
-  /---\s*\*\*본문\*\*/i,
-  /^\*\*본문\*\*/m,
-  /===FIRST_COMMENT===/i,
-  /#\s*The\s*Peach\s*Blossom/i,
-];
-
 const CAREER_DECISION_PATTERNS: Array<{
   type: CareerDecisionType;
   patterns: RegExp[];
@@ -335,21 +322,16 @@ const ENGLISH_ASTRO_TERMS = [
   /house|10th house|6th house|8th house|7th house|4th house/i,
 ];
 
-const ENGLISH_HOOK_PATTERNS = [
-  /\?$/,                          // 질문형
-  /^(why|how|what|stop|never)\b/i, // Why / Stop / Never
-  /your\s+(birth\s*chart|horoscope|founder|saturn|moon|career)/i,
-  /turning\s+29/i,
-  /the\s+(reason|truth|paradox|mistake|trap)/i,
-  /in\s+western\s+astrology/i,
-  /most\s+people/i,
-  /^\d+\s+(reasons|mistakes|signs|steps)/i,
-  /\?/,                                                    // question anywhere in line 1
-  // ENGLISH_HOOK_RULE tells the model to flip with not / isn't / instead; the gate must accept what the rule asks for.
-  /\b(probably|wrong|myth|not|instead)\b|n['’]t\b/i,      // correction hooks
-  /^(born|to\s+(?:every|all))\b/i,                         // boundary / identity call-outs
-  /your\s+(zodiac|animal|sign|day\s*master|real)/i,
-];
+/**
+ * The English line-1 rule shared by ENGLISH_HOOK_RULE, this gate, the scorer and the expert panel:
+ * a flat claim of at most 60 characters with no question mark. Rewarding "?" and wrong/instead here
+ * while the prompt forbade "?" produced hooks like "Is your birth hour actually wrong, instead?".
+ */
+export function isFlatEnglishHook(firstLine: string): boolean {
+  const line = firstLine.trim();
+  // ENGLISH_HOOK_RULE also forbids "vs" on line 1.
+  return line.length > 0 && line.length <= 60 && !line.includes("?") && !/\bvs\.?\b/i.test(line);
+}
 
 function checkEcommerceD2CQuality(post: string): QualityResult {
   const reasons: string[] = [];
@@ -371,12 +353,12 @@ function checkEcommerceD2CQuality(post: string): QualityResult {
     reasons.push("점성술/사주/운명학 핵심 영문 용어 부재");
   }
 
-  // Check 2: Strong opening hook
-  const hasHook = ENGLISH_HOOK_PATTERNS.some((p) => p.test(firstLine));
-  if (hasHook) {
+  // Check 2: Line 1 is a flat declarative claim (<=60 chars, no "?")
+  const hasFlatHook = isFlatEnglishHook(firstLine);
+  if (hasFlatHook) {
     score++;
   } else {
-    reasons.push(`영문 첫 줄 훅 약함: "${firstLine.slice(0, 50)}"`);
+    reasons.push(`영문 첫 줄 훅 약함 (60자 이하 평서문, 물음표·vs 금지): "${firstLine.slice(0, 50)}"`);
   }
 
   // Check 3: Contrarian / Insight structure (contains vs, or, but, however, not, instead)
@@ -388,7 +370,7 @@ function checkEcommerceD2CQuality(post: string): QualityResult {
   }
 
   return {
-    pass: score >= 2,
+    pass: hasFlatHook && (hasAstroTerm || hasContrastOrConflict),
     score,
     profile: "ecommerce_d2c",
     reasons,
@@ -430,7 +412,7 @@ function enforceSafetyRules(post: string, result: QualityResult, isEnglish = fal
   }
   if (hasReplyBurdenPromise(post)) reasons.unshift("reply-burden CTA 포함");
   if (hasFortuneOverclaim(post)) reasons.unshift("overclaim 운세/상대 마음 보장 표현 포함");
-  if (GENERATED_META_PATTERNS.some((pattern) => pattern.test(post))) reasons.unshift("generated meta text 포함");
+  if (hasGeneratedMeta(post)) reasons.unshift("generated meta text 포함");
 
   const antiSlop = validateAntiSlop(post);
   if (!antiSlop.pass) {

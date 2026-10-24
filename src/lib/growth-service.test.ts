@@ -95,4 +95,19 @@ describe("learnBrandGrowth", () => {
       data: expect.objectContaining({ formulaWeights: expect.stringContaining('"winner":4') }),
     }));
   });
+
+  it("learns only from posts measured for at least 72 hours", async () => {
+    const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000);
+    mocks.findPosts.mockResolvedValue([
+      { ...post("f", "fresh", 50), publishedAt: hoursAgo(24) },
+      { ...post("m", "mature", 50), publishedAt: hoursAgo(100) },
+      { ...post("n", "unpublished", 50), publishedAt: null },
+    ]);
+
+    await learnBrandGrowth("brand_1");
+
+    const saved = mocks.updateBrand.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
+    const priors = (JSON.parse(saved[0].data.brandConfig) as { thompsonPriors: Record<string, unknown> }).thompsonPriors;
+    expect(Object.keys(priors)).toEqual(["mature"]);
+  });
 });

@@ -8,6 +8,8 @@ export interface MatrixDimensionSet {
   personas: string[];
   frictions: string[];
   tensions: string[];
+  /** true면 frictions[i]가 personas[i]의 상황이다: persona를 고르면 같은 위치의 friction만 쓴다. */
+  pairedFrictions?: true;
 }
 
 export interface DynamicContextResult {
@@ -46,26 +48,28 @@ export const DOMAIN_MATRICES: Record<string, MatrixDimensionSet> = {
       "1인 창업가/인디메이커",
       "대기업 5년차 과장/중간관리자",
     ],
+    // frictions[i]는 personas[i]의 상황 (pairedFrictions)
     frictions: [
-      "보고서 결재만 5단계인 보수적인 위계 조직",
-      "실무 역량 전무한 낙하산 팀장의 훈수와 마이크로매니징",
       "성과 가로채기와 사내 정치 싸움에 휘말린 상태",
-      "3년차 번아웃과 포괄임금제 야근의 늪",
-      "대기업 네임밸류 vs 스타트업 성장 정체 사이의 갈림길",
       "연봉 1,500 인상 이직 오퍼 뒤에 숨겨진 업무 폭탄 함정",
+      "대기업 네임밸류 vs 스타트업 성장 정체 사이의 갈림길",
+      "3년차 번아웃과 포괄임금제 야근의 늪",
       "홧김에 사표 던지기 직전 카드값과 통장 잔고 딜레마",
+      "실무 역량 전무한 낙하산 팀장의 훈수와 마이크로매니징",
       "창업 런웨이 3개월 남은 외통수와 번아웃",
+      "보고서 결재만 5단계인 보수적인 위계 조직",
     ],
     tensions: [
-      "식상 과다(실행·창작욕 80%) vs 관성(조직 위계 순응)의 기질 미스매치",
-      "편인 과다(생각 과잉·실행 마비) vs 식신(현실 행동력)의 충돌",
-      "10년 대운 교운기(접목운) 환경 강제 리셋과 무기력증",
-      "비견·겁재 과다(자존심·독립심) vs 조직 복종의 한계",
-      "재성 결핍(돈 안 되는 완벽주의) vs 현실 자본주의의 압박",
-      "단일 사주 맹신 vs 점성술 토성 직업궁 강타의 교차 충돌",
-      "에너지 소진기 한가운데에서의 충동적 이직 베팅 리스크",
+      "하고 싶은 게 많은 기질인데 조직은 위계만 따르라는 충돌",
+      "생각만 많고 손이 안 움직이는 시기",
+      "환경이 한꺼번에 바뀌어 아무것도 하기 싫은 무기력",
+      "자존심 세고 독립적인 성격과 시키는 대로 해야 하는 조직의 한계",
+      "돈 안 되는 완벽주의와 돈이 기준인 현실의 압박",
+      "사주만 믿다가 다른 점괘와 엇갈려 어느 쪽도 못 믿겠는 혼란",
+      "지친 한가운데에서 충동적으로 이직에 베팅하는 리스크",
       "손실 회피 심리와 과거 실패 경험에 대한 자책감",
     ],
+    pairedFrictions: true,
   },
   // 둘의 관계 축: 지금 밀어붙일지 / 기다릴지. 궁합(/match/new) 유입용이라 혼자 보는 사주 소재는 넣지 않는다.
   saju_relationship: {
@@ -79,15 +83,16 @@ export const DOMAIN_MATRICES: Record<string, MatrixDimensionSet> = {
       "장거리 연애 1년차",
       "재회 후 다시 흔들리는 커플의 한쪽",
     ],
+    // frictions[i]는 personas[i]의 상황 (pairedFrictions)
     frictions: [
       "읽씹과 칼답이 번갈아 오는 연락 패턴",
-      "먼저 고백하면 지는 것 같은 눈치 싸움",
-      "헤어진 뒤에도 서로 SNS를 보고 있는 어정쩡한 거리",
+      "정리했다고 생각한 사람에게서 온 새벽 연락",
       "결혼 시기와 집 문제에서 매번 같은 곳에서 끊기는 대화",
+      "먼저 고백하면 지는 것 같은 눈치 싸움",
       "친한 사이라 거절하기 어려운 동업 제안",
       "생활 리듬 차이가 쌓여 터지는 사소한 다툼",
       "만날 때는 좋은데 헤어지면 불안해지는 거리감",
-      "정리했다고 생각한 사람에게서 온 새벽 연락",
+      "헤어진 뒤에도 서로 SNS를 보고 있는 어정쩡한 거리",
     ],
     tensions: [
       "밀어붙이는 기질과 기다리는 기질이 정면으로 부딪히는 구조",
@@ -99,6 +104,7 @@ export const DOMAIN_MATRICES: Record<string, MatrixDimensionSet> = {
       "혼자 볼 때의 운과 둘이 만났을 때의 궁합이 다르게 읽히는 간극",
       "한쪽만 노력하고 있다는 억울함과 놓기 싫은 미련",
     ],
+    pairedFrictions: true,
   },
   career_decision: {
     personas: [
@@ -259,10 +265,13 @@ export function resolveDynamicContext(options: ResolveDynamicContextOptions): Dy
 
   if (!isExploration && hasCustomWeights) {
     persona = pickWeighted(matrix.personas, weights?.personaWeights ?? {}, options.index * 7 + 1);
-    friction = pickWeighted(matrix.frictions, weights?.frictionWeights ?? {}, options.index * 11 + 3);
+    // paired 매트릭스는 persona에 딸린 friction만 쓰므로 frictionWeights는 무시한다
+    friction = matrix.pairedFrictions
+      ? matrix.frictions[matrix.personas.indexOf(persona)]
+      : pickWeighted(matrix.frictions, weights?.frictionWeights ?? {}, options.index * 11 + 3);
   } else {
     persona = matrix.personas[pIdx];
-    friction = matrix.frictions[fIdx];
+    friction = matrix.frictions[matrix.pairedFrictions ? pIdx : fIdx];
   }
 
   const isEnglish = domainKey === "ecommerce_d2c";

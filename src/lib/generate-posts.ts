@@ -2,7 +2,7 @@ import type { Brand } from "@prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { formatCreatorPatternContext } from "@/lib/creator-prompt-patterns";
-import { formatGrowthPromptContext, isAutopilotFormula, parseStoredGrowthMemory } from "@/lib/growth-learning";
+import { formatGrowthPromptContext, parseStoredGrowthMemory } from "@/lib/growth-learning";
 import { findProhibitedPhrases, readProhibitedPhrases } from "@/lib/trend-radar/negative-pattern-learner";
 import { formatTrendRadarContext, readTrendRadar } from "@/lib/trend-radar/trend-radar-memory";
 import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
@@ -31,6 +31,7 @@ import {
   type ClosingFormat,
   CLOSING_FORMAT_PROMPT_KO,
   pickClosingFormat,
+  WINNER_REPLAY_MODE,
 } from "@/lib/viral-intent-modes";
 import { formatViralPromptContext } from "@/lib/viral-analysis";
 import {
@@ -49,8 +50,13 @@ import { findSaturatedTopics, formatSaturationReason, isSituationSaturated, SATU
 import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
+import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
+import { judgeReadability } from "@/lib/readability-judge";
+import { checkReadabilityRules, checkTemplateCap } from "@/lib/readability-rules";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
+import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
+import { loadWinnerReplaySource, WINNER_REPLAY_SOURCE_PREFIX } from "@/lib/winner-replay";
 import type { LengthArm } from "@/types/length-experiment";
 
 const client = new Anthropic({
@@ -61,19 +67,6 @@ const client = new Anthropic({
 const SEPARATOR = "===FIRST_COMMENT===";
 const RETRYABLE_STATUSES = new Set([429, 529]);
 const RECENT_POST_AVOIDANCE_COUNT = 24;
-const GENERATED_META_PATTERNS = [
-  /자수\s*체크/,
-  /글자\s*수\s*확인/,
-  /공백[·\s]*줄바꿈.*포함/,
-  /500자\s*이하\s*통과/,
-  /Threads\s*본문/i,
-  /초안\s*작성/,
-  /#+\s*📌\s*THREADS\s*POST/i,
-  /---\s*\*\*본문\*\*/i,
-  /^\*\*본문\*\*/m,
-  /===FIRST_COMMENT===/i,
-  /#\s*The\s*Peach\s*Blossom/i,
-];
 
 interface GrowthExperiment {
   // Pre-registered length experiment arm for this draft (docs/experiments/2026-10-16-post-length.md).
@@ -93,6 +86,8 @@ interface GrowthExperiment {
   shouldLink: boolean;
   sequenceIndex?: number;
   closingFormat?: ClosingFormat;
+  // Content of a high-view past post whose structure the winner_replay draft follows.
+  winnerReference?: string;
 }
 
 interface GenerationFormula {
@@ -153,10 +148,6 @@ function cleanGeneratedContentLabels(content: string): string {
   return normalizeIpchunSpelling(cleaned);
 }
 
-function hasGeneratedMetaText(content: string): boolean {
-  return GENERATED_META_PATTERNS.some((pattern) => pattern.test(content));
-}
-
 function enforceGeneratedSurfaceSafety<T extends QualityResult>(
   qualityResult: T,
   result: { post: string; firstComment: string },
@@ -176,7 +167,7 @@ function enforceGeneratedSurfaceSafety<T extends QualityResult>(
   if (hasFortuneOverclaim(surface) && !reasons.includes("overclaim 운세/상대 마음 보장 표현 포함")) {
     reasons.unshift("overclaim 운세/상대 마음 보장 표현 포함");
   }
-  if (hasGeneratedMetaText(surface) && !reasons.includes("generated meta text 포함")) {
+  if (hasGeneratedMeta(surface) && !reasons.includes("generated meta text 포함")) {
     reasons.unshift("generated meta text 포함");
   }
   return reasons.length === qualityResult.reasons.length
@@ -291,7 +282,7 @@ async function generateWithQuality(
   careerDecisionType: string | null;
   shouldLink: boolean;
   lengthTarget?: LengthArm;
-  regate: (post: string, firstComment: string) => QualityResult;
+  regate: (post: string, firstComment: string) => Promise<QualityResult>;
 }> {
   const isEnglish =
     experiment.qualityProfile === "ecommerce_d2c" ||
@@ -337,6 +328,13 @@ async function generateWithQuality(
         gate = { ...gate, pass: false, reasons: [repeat.reason, ...gate.reasons] };
       }
     }
+    // A replay is compared with its source on its own: in the shared recent list it fell outside the 10-post window.
+    if (experiment.winnerReference) {
+      const copy = checkAntiRepeatSimilarity(post, [{ content: experiment.winnerReference }]);
+      if (copy.isDuplicate) {
+        gate = { ...gate, pass: false, reasons: [`승자 원본과 너무 비슷함: ${copy.reason ?? "유사도 과다"}`, ...gate.reasons] };
+      }
+    }
     // A miss retries the same formula with the arm's band as feedback, and makes a too-short rewrite revert.
     const lengthReason = experiment.lengthTarget && config.lengthExperiment
       ? lengthGateReason(post, experiment.lengthTarget, config.lengthExperiment)
@@ -344,16 +342,45 @@ async function generateWithQuality(
     if (lengthReason) {
       gate = { ...gate, pass: false, reasons: [lengthReason, ...gate.reasons] };
     }
+    // Saju jargon cap, unanswerable questions, invented first-person stories (cosmicpath Korean posts only)
+    if (experiment.qualityProfile === "saju_viral") {
+      const readability = checkReadabilityRules(post, firstComment);
+      if (!readability.pass) {
+        gate = { ...gate, pass: false, reasons: [...readability.reasons, ...gate.reasons] };
+      }
+      // Safety net for the template cap: reversal openers, and numbered choices from a formula other than the excluded one
+      const template = checkTemplateCap(post, recentPosts.filter(countsTowardTemplateCap));
+      if (!template.pass) {
+        gate = { ...gate, pass: false, reasons: [...template.reasons, ...gate.reasons] };
+      }
+    }
+    return gate;
+  };
+
+  // The LLM judges run only for drafts that already pass the sync gate (saves a call per failed draft):
+  // English naturalness for English drafts, and readability for a non-saju reader on saju_viral drafts.
+  // This is also the post-remediation regate, so a rewrite that fails a judge reverts to the judged original.
+  const gateWithJudges = async (post: string, firstComment: string): Promise<QualityResult> => {
+    let gate = runQualityGate(post, firstComment);
+    if (!gate.pass) return gate;
+    if (isEnglish) {
+      const verdict = await judgeEnglishNaturalness(post);
+      if (!verdict.natural) gate = { ...gate, pass: false, reasons: [`unnatural English: ${verdict.reason}`, ...gate.reasons] };
+    }
+    if (gate.pass && experiment.qualityProfile === "saju_viral") {
+      const verdict = await judgeReadability(post, firstComment);
+      if (!verdict.readable) gate = { ...gate, pass: false, reasons: [`읽힘 판정 실패: ${verdict.reason}`, ...gate.reasons] };
+    }
     return gate;
   };
 
   let lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext);
-  let qualityResult = runQualityGate(lastResult.post, lastResult.firstComment);
+  let qualityResult = await gateWithJudges(lastResult.post, lastResult.firstComment);
 
   for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
     console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
     lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, qualityResult.reasons);
-    qualityResult = runQualityGate(lastResult.post, lastResult.firstComment);
+    qualityResult = await gateWithJudges(lastResult.post, lastResult.firstComment);
   }
 
   if (!qualityResult.pass) {
@@ -387,7 +414,7 @@ async function generateWithQuality(
     careerDecisionType: qualityResult.careerDecisionType ?? null,
     shouldLink: experiment.shouldLink,
     lengthTarget: experiment.lengthTarget,
-    regate: runQualityGate,
+    regate: gateWithJudges,
   };
 }
 
@@ -613,6 +640,9 @@ function buildGenerationPrompt(
     ...formatProductPrompt(config),
     ...formatCampaignPrompt(experiment),
     formatViralIntentModePrompt(viralIntentMode, isEnglish),
+    ...(experiment.winnerReference
+      ? [`[참고 글: 조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써]\n---\n${experiment.winnerReference}\n---`]
+      : []),
     ...(marketingSkillsContext ? [marketingSkillsContext] : []),
     ...crossDomainGuardrails,
     ...viralRules,
@@ -741,7 +771,11 @@ function formatCampaignPrompt(experiment: GrowthExperiment): string[] {
 // Mirrors the saju_viral quality gate so drafts are written to pass it instead of being discarded.
 const SAJU_VIRAL_REQUIREMENTS = [
   "[필수 조건 — 하나라도 빠지면 품질 게이트에서 폐기됨]",
-  "- 본문에 사주 용어를 최소 1개 넣는다 (예: 일간, 일주, 재성, 관성, 비겁, 식상, 도화살, 역마살, 화개살, 궁합, 대운).",
+  "- 사주·궁합·운세 같은 단어는 자연스럽게 1번 이상 나온다. 사주 전문 용어(일간·재성·관성·도화살 등)는 1개까지만 쓰고, 쓰면 그 문장이나 바로 다음 문장에서 쉬운 말로 푼다.",
+  "- 기준 독자는 사주를 모르는 25~35세다. 독자가 자기 사주를 몰라도 오늘 써먹을 생각이나 행동 하나를 남긴다.",
+  "- 마지막 질문과 첫 댓글은 독자가 자기 경험만으로 답할 수 있어야 한다. 독자의 원국·일주·사주 구조를 묻지 않는다.",
+  "- 마지막 질문과 첫 댓글에는 사주 전문 용어를 쓰지 않는다. 첫 줄에 쓴 용어(예: 화개살)도 마지막 질문에서 되풀이하지 않는다.",
+  "- 첫 댓글에 지어낸 1인칭 경험담을 쓰지 않는다.",
   "- 100% 반말/독백체(~임, ~했음, ~야)로 쓰고 ~습니다/~하세요 같은 존댓말은 쓰지 않는다.",
   "- 첫 줄 모양과 끝맺음은 바이럴 모드 규칙을 따른다. 모든 글을 질문이나 번호 선택지로 끝낼 필요는 없다.",
 ];
@@ -909,6 +943,14 @@ export type GeneratePostsResult = { ok: false; error: string } | { ok: true; sum
  * Generates, scores and queues posts for one brand. Callers own authorization:
  * the dashboard route checks the session owner, the refill cron checks CRON_SECRET.
  */
+const NUMBERED_CHOICE_PROBE = "1. a\n2. b";
+// The template cap counts posts readers see or will see ("발행·대기 글"). This run's drafts carry no status and count;
+// archived, failed, and review-queue posts do not, so a regate that archives choice posts frees the cap.
+const TEMPLATE_CAP_STATUSES = new Set(["PUBLISHED", "PUBLISHING", "PARTIAL_FAILED", "PENDING"]);
+function countsTowardTemplateCap(post: RecentPostSummary): boolean {
+  return post.status == null || TEMPLATE_CAP_STATUSES.has(post.status);
+}
+
 export async function generatePostsForBrand(brand: Brand, input: GeneratePostsInput): Promise<GeneratePostsResult> {
   const { count, insertAtFront, requestedCampaignId, approvedCampaignStart, postCategory } = input;
   const brandId = brand.id;
@@ -957,6 +999,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       hookType: true,
       ctaType: true,
       campaignFormulaId: true,
+      status: true,
     },
   });
   const recentPostContext = formatRecentPostContext(recentPosts);
@@ -980,19 +1023,41 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   // Live length experiment: each draft gets the arm the queue is shortest on, so publish slots never wait long.
   const lengthExperiment = await loadLengthExperimentState(brandId, config, new Date());
   const lengthArms = lengthExperiment ? shuffleArms(planLengthArms(lengthExperiment.pending, lengthExperiment.arm, count)) : [];
+  const isLeanSprint = isLeanSprintRun({
+    brandSlug: brand.slug,
+    domainProfile,
+    campaignId: activeCampaign?.id,
+    experimentId: config.activeExperiment?.id,
+    productName: config.productProfile?.productName,
+    count,
+  });
+  // One high-view past post per lean run can be replayed with a new topic (isLeanSprintRun already excludes
+  // English D2C). It is an optional arm: a failed lookup must not abort the whole run.
+  const winnerSource = isLeanSprint
+    ? await loadWinnerReplaySource(brandId, new Date()).catch((error: unknown) => {
+        console.warn("[generate] winner replay source lookup failed, skipping replay arm:", error);
+        return null;
+      })
+    : null;
   for (let i = 0; i < count; i += BATCH) {
     const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
       const batchIndex = i + j;
-      const isLeanSprint = isLeanSprintRun({
-        brandSlug: brand.slug,
-        domainProfile,
-        campaignId: activeCampaign?.id,
-        experimentId: config.activeExperiment?.id,
-        productName: config.productProfile?.productName,
-        count,
-      });
+      // Newest first, so the anti-repeat windows and the template cap look at the latest drafts.
+      const inBatchPosts: RecentPostSummary[] = [
+        ...[...results].reverse().map((result) => ({ content: result.post, topic: result.topic, hookType: result.hookType, firstComment: result.firstComment })),
+        ...recentPosts,
+      ];
+      // imagination_dilemma needs numbered choices, so once the cap is hit it must not be picked at all
+      // (the gate alone would only burn retries and drop the draft).
+      const choicesCapped = !checkTemplateCap(NUMBERED_CHOICE_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
+      const excludedModeIds = isLeanSprint && choicesCapped ? ["imagination_dilemma"] : [];
+      // No replay while the length experiment runs: an extra arm skews per-arm drop rates and its random assignment.
       const viralIntentMode = isLeanSprint
-        ? selectLeanViralMode(batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds)
+        ? selectLeanViralMode(
+            batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds,
+            Boolean(winnerSource) && !lengthExperiment && !pickedFormulaIds.includes(WINNER_REPLAY_MODE.id),
+            excludedModeIds
+          )
         : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
       const quotaSelection = config.thompsonPriors
         ? selectFormulaWithThompsonSampling(batchIndex, {
@@ -1032,12 +1097,11 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         recentSituations
       );
       experiment.lengthTarget = lengthArms[batchIndex];
-      experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id);
-      // Newest first, so the anti-repeat windows look at the latest drafts.
-      const inBatchPosts: RecentPostSummary[] = [
-        ...[...results].reverse().map((result) => ({ content: result.post, topic: result.topic, hookType: result.hookType, firstComment: result.firstComment })),
-        ...recentPosts,
-      ];
+      const replaySource = formulaMode.id === WINNER_REPLAY_MODE.id ? winnerSource : null;
+      // A replay keeps the source's own closing, so it gets no rotated closing format to contradict it.
+      if (replaySource) experiment.winnerReference = replaySource.content;
+      // The gate caps numbered choices only for saju_viral, so only there is a capped "choices" slot turned into a question.
+      else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
       return generateWithQuality(
         experiment,
         config,
@@ -1109,7 +1173,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       algorithmicThreshold
     );
     // A rewrite can break the content gate the original already passed; keep the original then.
-    const reconciled = reconcileRemediation({
+    const reconciled = await reconcileRemediation({
       rawContent: rawPostContent,
       rawFirstComment: result.firstComment || null,
       remediation: rawRemediation,
@@ -1129,13 +1193,21 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       continue;
     }
 
+    if (result.qualityPass === false) {
+      failureReasons.push(`quality gate failed (${result.formulaId})`);
+      continue;
+    }
+
     const postContent = reconciled.content;
     const initialComment = reconciled.firstComment;
-    const qualityReasons = [...result.qualityReasons, ...reconciled.extraReasons];
+    const qualityReasons = [
+      ...result.qualityReasons,
+      ...reconciled.extraReasons,
+      ...(result.formulaId === WINNER_REPLAY_MODE.id && winnerSource ? [`${WINNER_REPLAY_SOURCE_PREFIX}${winnerSource.id}`] : []),
+    ];
     const threadParts = splitContentIntoThreadParts(postContent);
-    // Auto-queue only gate-passing posts from proven formulas; the rest wait for human approval
-    const autoQueue = result.qualityPass !== false && isAutopilotFormula(result.formulaId, growthMemory);
-    const postStatus = autoQueue ? "PENDING" : "NEEDS_REVIEW";
+    // Nobody reviews drafts by hand: every gate-passing draft is queued, learning decides which formulas get volume.
+    const postStatus = "PENDING";
 
     const post = await prisma.post.create({
       data: {

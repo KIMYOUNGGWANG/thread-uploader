@@ -16,10 +16,10 @@ import { DOMAIN_MATRICES } from "@/lib/context-matrix-engine";
 import { getDomainPreset } from "@/lib/domain-registry";
 import { QUOTA_TRACKS } from "@/lib/quota-bandit-router";
 import {
-  DEFAULT_INFORMATIVE_PRIORS,
   updateThompsonPriors,
   type FormulaPerformanceObservation,
 } from "@/lib/thompson-sampling-router";
+import { MATURITY_HOURS } from "@/lib/weekly-scorecard";
 import { calculateGoalReward, calculateLearningScore, medianViews, resolveOptimizationGoal } from "@/lib/optimization-goal";
 
 export async function learnBrandGrowth(brandId: string) {
@@ -97,8 +97,11 @@ export async function learnBrandGrowth(brandId: string) {
       matrix.frictions
     );
 
+    // Posts younger than MATURITY_HOURS haven't collected their views yet and would be learned as failures.
+    const matureBefore = Date.now() - MATURITY_HOURS * 60 * 60 * 1000;
     const observations: FormulaPerformanceObservation[] = learningPosts
       .filter((p) => Boolean(p.formulaId) && typeof p.views === "number")
+      .filter((p) => p.publishedAt != null && p.publishedAt.getTime() <= matureBefore)
       .map((p) => ({
         formulaId: p.formulaId!,
         views: p.views ?? 0,
@@ -110,10 +113,10 @@ export async function learnBrandGrowth(brandId: string) {
         paidConversions: p.manualPaidConversions ?? 0,
       }));
 
-    // Rebuild from defaults every run: the 300-post window already covers history,
+    // Rebuild from neutral priors every run: the 300-post window already covers history,
     // so stacking on stored priors would re-count the same posts daily and freeze exploration.
     const rewardContext = { medianViews: medianViews(observations.map((observation) => observation.views)) };
-    const updatedPriors = updateThompsonPriors(DEFAULT_INFORMATIVE_PRIORS, observations, {
+    const updatedPriors = updateThompsonPriors({}, observations, {
       reward: (observation) => calculateGoalReward(goal, observation, rewardContext),
     });
 

@@ -226,14 +226,6 @@ export function median(values: number[]): number {
   return Math.round(sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]);
 }
 
-// Autopilot: only formulas that already proved themselves (formula winner in growth memory)
-// skip human review. Everything else is queued as NEEDS_REVIEW.
-export function isAutopilotFormula(formulaId: string | null | undefined, memory: GrowthMemory): boolean {
-  if (!formulaId) return false;
-  if (memory.formulaWinners?.includes(formulaId)) return true;
-  return memory.winners.some((winner) => winner.dimension === "formula" && winner.value === formulaId);
-}
-
 export interface WeeklyLiftInput {
   publishedAt: Date | null;
   views: number | null;

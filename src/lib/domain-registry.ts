@@ -27,7 +27,7 @@ const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
 // Shared with the remediation rewrite checklist so generation and rewrite can't drift apart again.
 // No example sentence: every formula copied the old one ("Your zodiac animal is probably wrong.") into the same post.
 export const ENGLISH_HOOK_RULE =
-  "line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim that flips an assumption about this post's own subject: no question mark, no 'vs' (use a word like wrong, not, isn't, instead plus probably, might or most people)";
+  "line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim a native speaker would actually write, that flips an assumption about this post's own subject: no question mark, no 'vs'";
 const GLOBAL_FRAME_RULE =
   "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul. " +
   "Leave the zodiac year boundary (when the animal year starts, January or early February birthdays) out unless this formula is about it.";
@@ -88,7 +88,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "살 서열화 & 에고 스트로킹 (12만 뷰 검증)",
           track: "track_a",
           weight: 8,
-          instruction: "도화/홍염/화개, 백호/괴강 등 기운의 치명적 서열을 비교하고 독자의 특별한 잠재력을 자극하는 압축형(140~200자) 공유 포스트. 첫 줄 절대 서열 제시, 극단적 1줄 앵커('스님도 파계시킴'), 독자 투사, 첫 댓글 결핍 브릿지 배치.",
+          instruction: "사람들이 먼저 보는 것(A)보다 먼저 봐야 할 것(B)을 쉬운 말로 비교하고 독자의 특별한 잠재력을 자극하는 압축형(140~200자) 공유 포스트. 사주 개념은 근거로 1개까지만 쓰고 쉬운 말로 푼다. 첫 줄은 A보다 B를 앞세우는 비교, 극단적 1줄 앵커('스님도 파계시킴'), 독자 투사. 첫 댓글은 독자가 자기 경험으로 답할 수 있는 질문 한 줄.",
           hookArchetype: "개념 서열 훅",
           forbiddenKeywords: ["사기", "상담비", "반박시 니 말", "AI한테 생년월일"],
         },
@@ -115,7 +115,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "개념 서열 비교 & 극단적 앵커 훅 (12만 뷰 검증)",
           track: "track_a",
           weight: 7,
-          instruction: "대중이 흔히 아는 개념보다 본질적인 사주 개념 2~3개(살·십신·일주)를 서열이나 대비로 비교해 상식을 깨고, 극단적 1줄 앵커와 독자 투사로 140~200자 내로 압축 작성한다. 같은 비교 문장 틀을 반복하지 않는다. 본문 링크 절대 금지.",
+          instruction: "사람들이 먼저 보는 것(A)보다 먼저 봐야 할 것(B)을 쉬운 말로 비교해 통념을 깨고, 사주 개념은 근거로 1개까지만 풀어서 쓰며, 극단적 1줄 앵커와 독자 투사로 140~200자 내로 압축 작성한다. 같은 비교 문장 틀을 반복하지 않는다. 본문 링크 절대 금지.",
           hookArchetype: "개념 서열 훅",
           forbiddenKeywords: ["사기", "상담비", "반박시 니 말", "AI한테 생년월일"],
         },

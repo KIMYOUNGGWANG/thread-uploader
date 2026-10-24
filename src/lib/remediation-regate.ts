@@ -6,7 +6,8 @@ export interface ReconcileRemediationInput {
   rawContent: string;
   rawFirstComment: string | null;
   remediation: RemediationResult;
-  regate: (content: string, firstComment: string) => QualityResult;
+  // May be async: English drafts also run the LLM naturalness judge on the rewrite.
+  regate: (content: string, firstComment: string) => QualityResult | Promise<QualityResult>;
   threshold: number;
 }
 
@@ -20,14 +21,14 @@ export interface ReconcileRemediationOutcome {
 
 // A rewrite that scores higher on the algorithm heuristics can still break the content gate
 // (drop saju terms, lose the 3 choices). The original already passed, so fall back to it.
-export function reconcileRemediation(input: ReconcileRemediationInput): ReconcileRemediationOutcome {
+export async function reconcileRemediation(input: ReconcileRemediationInput): Promise<ReconcileRemediationOutcome> {
   const { rawContent, rawFirstComment, remediation, regate, threshold } = input;
   const unchanged = remediation.content === rawContent && (remediation.firstComment ?? null) === rawFirstComment;
   if (unchanged) {
     return { content: rawContent, firstComment: rawFirstComment, remediation, reverted: false, extraReasons: [] };
   }
 
-  const gate = regate(remediation.content, remediation.firstComment ?? "");
+  const gate = await regate(remediation.content, remediation.firstComment ?? "");
   if (gate.pass) {
     return { content: remediation.content, firstComment: remediation.firstComment, remediation, reverted: false, extraReasons: [] };
   }

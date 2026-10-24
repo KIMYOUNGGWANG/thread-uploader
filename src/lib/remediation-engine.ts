@@ -137,26 +137,40 @@ export function extractRewrittenPost(raw: string): string | null {
   return body ? body : null;
 }
 
+type WeakestDimension = { name: string; score: number; maxScore: number; actionableFix: string };
+
 /**
- * 1-Token Targeted LLM Rewriter
- * Targets only the dimension with the largest point deficit.
+ * English drafts get an English prompt whose rule 2 is the same checklist generation uses. The Korean
+ * prompt's rule 2 ("add a short question") re-added "?" to declarative English hooks.
  */
-export async function executeTargetedRewrite(
+export function buildRewritePrompt(
   content: string,
-  firstComment: string | null,
-  weakestDimension: { name: string; score: number; maxScore: number; actionableFix: string },
-  context?: { topic?: string; targetAudience?: string; productProfile?: string }
-): Promise<{ content: string; firstComment: string | null }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    // If no API key, return unedited
-    return { content, firstComment };
+  weakestDimension: WeakestDimension,
+  context: RemediationContext | undefined,
+  isEnglish: boolean
+): string {
+  if (isEnglish) {
+    return `You are the lead Threads editor.
+Keep the draft's meaning, argument and voice exactly as they are and fix only this one weakness.
+
+[Weakness]
+- Dimension: ${weakestDimension.name} (now ${weakestDimension.score}/${weakestDimension.maxScore})
+- Fix: ${weakestDimension.actionableFix}
+
+[Context]
+- Topic: ${context?.topic ?? "not specified"}
+- Target reader: ${context?.targetAudience ?? "not specified"}
+
+[Rules]
+1. Do not change the draft's core message or facts.
+2. ${englishRewriteChecklist(context?.formulaId ?? "")}
+3. No links (http/https) and no meta notes such as character counts.
+4. Output the finished Threads post only between <post> and </post>. Write nothing outside the tags (no explanation, change log or advice).
+
+[Draft]
+${content}`;
   }
-
-  // Without a timeout the SDK waits up to 10 minutes on a stalled request and blocks the whole batch.
-  const anthropic = new Anthropic({ apiKey, timeout: 20000, maxRetries: 1 });
-
-  const prompt = `당신은 Threads 알고리즘 최적화 수석 에디터입니다.
+  return `당신은 Threads 알고리즘 최적화 수석 에디터입니다.
 아래 포스트 초안의 본문 의미, 논지, 어조를 왜곡 없이 그대로 유지하면서 다음 1가지 약점만 즉시 수정하십시오.
 
 [약점 및 수정 지침]
@@ -178,6 +192,28 @@ export async function executeTargetedRewrite(
 
 [원문 초안]
 ${content}`;
+}
+
+/**
+ * 1-Token Targeted LLM Rewriter
+ * Targets only the dimension with the largest point deficit.
+ */
+export async function executeTargetedRewrite(
+  content: string,
+  firstComment: string | null,
+  weakestDimension: WeakestDimension,
+  context?: RemediationContext,
+  isEnglish = !/[가-힣]/.test(content)
+): Promise<{ content: string; firstComment: string | null }> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    // If no API key, return unedited
+    return { content, firstComment };
+  }
+
+  // Without a timeout the SDK waits up to 10 minutes on a stalled request and blocks the whole batch.
+  const anthropic = new Anthropic({ apiKey, timeout: 20000, maxRetries: 1 });
+  const prompt = buildRewritePrompt(content, weakestDimension, context, isEnglish);
 
   try {
     const response = await anthropic.messages.create({
@@ -281,12 +317,13 @@ async function rewriteOnce(
     curr.maxScore - curr.score > prev.maxScore - prev.score ? curr : prev
   ));
   const isEnglish = !/[가-힣]/.test(content);
+  // English: the checklist is already rule 2 of the English prompt; the scorer's fix hints are Korean.
   const actionableFix = isEnglish
-    ? englishRewriteChecklist(context?.formulaId ?? "")
+    ? `Raise the ${weakest.name} score without breaking the rules below.`
     : score.actionableFixes.length
       ? score.actionableFixes.join(" / ")
       : `${weakest.name} 차원의 점수가 부족하므로 해당 요소를 보강하십시오.`;
-  const rewritten = await executeTargetedRewrite(content, firstComment, { ...weakest, actionableFix }, context);
+  const rewritten = await executeTargetedRewrite(content, firstComment, { ...weakest, actionableFix }, context, isEnglish);
   // Re-run heuristic patch on rewritten content (in case LLM added URLs or artifacts)
   const clean = applyHeuristicFixes(rewritten.content, rewritten.firstComment);
   return { content: clean.content, firstComment: clean.firstComment, score: scoreThreadsPostAlgorithmic(clean.content, clean.firstComment) };

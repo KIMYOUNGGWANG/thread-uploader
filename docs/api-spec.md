@@ -987,7 +987,7 @@ interface GrowthMemory {
   winners: GrowthPattern[];
   weakSignals: GrowthPattern[];
   recommendations: string[];
-  formulaWinners?: string[]; // 공식 차원에서 2개 이상·브랜드 평균 이상인 id. 생성 시 PENDING 자동 승인 기준
+  formulaWinners?: string[]; // 공식 차원에서 2개 이상·브랜드 평균 이상인 id. 학습 기록용 (생성 상태에는 쓰지 않음: 게이트 통과 글은 모두 PENDING)
 }
 
 interface GrowthReportResponse {
@@ -1167,13 +1167,15 @@ interface ViralAdapterResult {
 | `POST` | `/api/cron/promo-posts` | 홍보 영상 로테이션 등록 (CI `render-promo-job.mjs` 전용, `Authorization: Bearer CRON_SECRET`). 본문 `{ date: "YYYY-MM-DD", items: [{ brandSlug, videoUrl, content, commentTemplate, landingPath, format, topic }] }`. 검증: `videoUrl` https + `.mp4`, `content` 1–480자, `commentTemplate`에 `{{link}}`, `landingPath`는 `/start`로 시작, items 1–4개 — 위반 시 400. item마다 `formulaId = video:promo:<date>`로 브랜드당 1개만 만들고(이미 있으면 `skipped: "already_queued"`, 브랜드 없으면 `skipped: "brand_not_found"`), `NEEDS_REVIEW` Post(`imageUrls=[videoUrl]`, `topic="<format>:<topic>"`) 생성 후 `linkUrl = https://cosmicpath.app<landingPath>` + `utm_source=threads&utm_campaign=promo-rotation&utm_content=<postId>`, `firstComment`는 `{{link}}` 치환. 응답 `{ results }` |
 
 학습 루프 규칙:
-- 학습 목표 `brandConfig.optimizationGoal`: `"reach"`(기본, 조회수 우선) 또는 `"conversion"`. reach면 공식 승격·`formulaWinners` 자동 승인·feedback top performer·Thompson 보상이 **조회수**로 계산된다 (Thompson 보상 = min(1, views / (브랜드 중앙값 뷰 × 2))). conversion이면 아래 revenue 점수를 쓴다. 저장되는 `performanceScore`/`performanceTier`는 목표와 무관하게 revenue 점수(표시용).
+- 학습 목표 `brandConfig.optimizationGoal`: `"reach"`(기본, 조회수 우선) 또는 `"conversion"`. reach면 공식 승격·`formulaWinners` 집계·feedback top performer·Thompson 보상이 **조회수**로 계산된다 (Thompson 보상 = min(1, views / (브랜드 중앙값 뷰 × 2))). conversion이면 아래 revenue 점수를 쓴다. 저장되는 `performanceScore`/`performanceTier`는 목표와 무관하게 revenue 점수(표시용).
 - 표시 점수 정의는 `calculatePerformanceScore` 하나 (조회 0.2 · 댓글 40 · 리포스트 25 · 클릭 50 · 전환 300 · 유료전환 2500). Thompson 보상은 전환 0.6 / 반응 0.4.
 - 생성 품질 게이트에 토픽 포화 가드가 있다: 최근 10개 글 중 같은 마커 그룹(`birth_time_offset`: 진태양시/30분 오차/32분/동경시/서머타임)이 상한(1개)에 도달하면 후보 글이 그 소재를 쓸 때 실패 처리하고 재시도 프롬프트에 사유를 넣는다.
-- remediation 리라이트 결과는 품질 게이트를 다시 통과해야 하며, 실패하면 원문(이미 통과)으로 되돌리고 `qualityReasons`에 `remediation_reverted: …`를 남긴다.
+- 품질 게이트를 통과한 초안은 공식과 상관없이 모두 `PENDING`으로 저장된다 (`formulaWinners` 자동 승인 없음). 어느 공식에 물량을 줄지는 학습(Thompson priors)이 정한다.
+- remediation 리라이트 결과는 품질 게이트를 다시 통과해야 하며, 실패하면 원문(이미 통과)으로 되돌리고 `qualityReasons`에 `remediation_reverted: …`를 남긴다. 영어 초안은 리라이트가 바뀌었으면 자연스러움 채점(`judgeEnglishNaturalness`)도 다시 통과해야 한다. 수동 `POST /api/posts/[id]/remediate`도 영어 글(`ecommerce_d2c` 또는 한글 없음)은 점수·게이트·자연스러움을 모두 통과해야 `PENDING`이 된다.
 - 캠페인 링크 cadence는 캠페인의 기존 글 수를 오프셋으로 더해 `(offset + index + 1) % linkCadenceEvery === 0`으로 결정한다 (청크 요청에서도 1/N 유지). 링크 없는 글에는 "링크 확인" CTA를 쓰지 않는다.
-- `thompsonPriors`는 매 실행마다 `DEFAULT_INFORMATIVE_PRIORS`에서 최근 300개 글로 재계산 (중복 학습 방지).
-- CosmicPath lean sprint는 priors가 있으면 4개 viral mode 중 Thompson 샘플링으로 선택, 없으면 고정 배분.
+- `thompsonPriors`는 매 실행마다 중립 prior(`NEUTRAL_PRIOR`)에서 발행 72시간 이상 지난 최근 300개 글로 재계산 (중복 학습 방지).
+- CosmicPath lean sprint는 priors가 있으면 5개 viral mode(`imagination_dilemma`·`concept_hierarchy`·`identity_profile`·`relationship_tension`·`beginner_qa`) 중 Thompson 샘플링으로 선택, 없으면 고정 배분. 승자 원본이 있으면 `winner_replay`가 6번째 arm으로 들어간다.
+- `winner_replay` arm: 한국어 lean sprint 전용(`ecommerce_d2c` 제외). 최근 60일 발행 글 중 조회수가 브랜드 하위 중앙값의 5배 이상인 글(이미 `winner_replay`로 만든 글은 제외, 14일 안에 replay한 소스도 제외)의 구조를 새 토픽으로 다시 쓴다. 실행당 최대 1개, 원본과 너무 비슷하면 게이트에서 떨어지고, 저장 시 `qualityReasons`에 `winner_replay_source:<postId>`를 남긴다. 길이 실험이 진행 중이면 arm별 탈락률과 무작위 배정을 지키기 위해 제공하지 않는다. 소스 조회가 실패하면 경고만 남기고 replay 없이 생성을 계속한다.
 
 ```typescript
 interface CronLearnResponse {

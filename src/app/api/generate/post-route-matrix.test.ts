@@ -15,8 +15,13 @@ const state = vi.hoisted(() => ({
     utmContent?: string | null;
     ctaType?: string | null;
     targetAudience?: string | null;
+    status?: string;
+    qualityPass?: boolean;
   }>,
   remediationPass: true,
+  englishBody: false,
+  judgeNatural: vi.fn<(post: string) => Promise<{ natural: boolean; reason: string }>>(async () => ({ natural: true, reason: "" })),
+  judgeReadable: vi.fn<(post: string, firstComment: string) => Promise<{ readable: boolean; reason: string }>>(async () => ({ readable: true, reason: "" })),
 }));
 
 const DIVERSE_POST_BODIES = [
@@ -56,7 +61,9 @@ vi.mock("@anthropic-ai/sdk", () => ({
     messages = {
       create: vi.fn(async (request: unknown) => {
         state.prompts.push(JSON.stringify(request));
-        const body = DIVERSE_POST_BODIES[mockPostCallCounter % DIVERSE_POST_BODIES.length];
+        const body = state.englishBody
+          ? `Your birth hour is probably off by an hour ${mockPostCallCounter}.\n\nMost charts shift when it moves.`
+          : DIVERSE_POST_BODIES[mockPostCallCounter % DIVERSE_POST_BODIES.length];
         const count = mockPostCallCounter++;
         return {
           content: [{
@@ -250,6 +257,16 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// The naturalness judge is an LLM call; each case sets its verdict.
+vi.mock("@/lib/english-naturalness", () => ({
+  judgeEnglishNaturalness: (post: string) => state.judgeNatural(post),
+}));
+
+// The readability judge is an LLM call too; each case sets its verdict.
+vi.mock("@/lib/readability-judge", () => ({
+  judgeReadability: (post: string, firstComment: string) => state.judgeReadable(post, firstComment),
+}));
+
 // The heuristic scorer isn't under test here; each case sets whether drafts clear it.
 vi.mock("@/lib/remediation-engine", () => ({
   remediatePostAlgorithmic: vi.fn(async (content: string, firstComment: string | null) => ({
@@ -379,6 +396,23 @@ describe("POST /api/generate viral sprint matrix", () => {
     expect(new Set(state.createdPosts.map((post) => post.targetAudience)).size).toBe(4);
   }, 10000);
 
+  // Nobody reviews drafts by hand: NEEDS_REVIEW for unproven formulas stalled the queue and refill.
+  it("queues a gate-passing draft from an unproven formula as PENDING", async () => {
+    state.createdPosts.length = 0;
+    const { POST } = await import("@/app/api/generate/route");
+    const response = await POST(new Request("http://localhost/api/generate", {
+      method: "POST",
+      body: JSON.stringify({ brandId: "brand_1", count: 2, campaignId: "career_timing_wedge_399" }),
+    }) as never);
+
+    expect(response.status).toBe(200);
+    expect(state.createdPosts).toHaveLength(2);
+    for (const post of state.createdPosts) {
+      expect(post.status).toBe("PENDING");
+      expect(post.qualityPass).toBe(true);
+    }
+  }, 10000);
+
   // Drafts under the algorithm score used to be saved as NEEDS_REVIEW and filled the approval queue.
   it("drops drafts that stay under the algorithm score instead of queueing them", async () => {
     state.createdPosts.length = 0;
@@ -443,6 +477,60 @@ describe("POST /api/generate viral sprint matrix", () => {
     for (const { formulaId, modeId } of pairs) {
       expect(formulaId).toBeDefined();
       expect(modeId).toBe(normalizeViralIntentModeId(formulaId));
+    }
+  }, 20000);
+
+  it("feeds an unnatural-English verdict into the retry prompt for English brands only", async () => {
+    state.createdPosts.length = 0;
+    state.prompts.length = 0;
+    state.judgeNatural.mockClear();
+    state.judgeNatural.mockResolvedValueOnce({ natural: false, reason: "stacked hedges in line 1" });
+    state.englishBody = true;
+    try {
+      const { POST } = await import("@/app/api/generate/route");
+      await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cosmicpath-global", count: 1 }),
+      }) as never);
+      expect(state.judgeNatural.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(state.prompts.slice(1).join("\n")).toContain("unnatural English: stacked hedges in line 1");
+
+      state.englishBody = false;
+      state.judgeNatural.mockClear();
+      await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 1, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      expect(state.judgeNatural).not.toHaveBeenCalled();
+    } finally {
+      state.englishBody = false;
+      state.judgeNatural.mockImplementation(async () => ({ natural: true, reason: "" }));
+    }
+  }, 20000);
+
+  it("feeds an unreadable verdict into the retry prompt for saju_viral brands only", async () => {
+    state.createdPosts.length = 0;
+    state.prompts.length = 0;
+    state.judgeReadable.mockClear();
+    state.judgeReadable.mockResolvedValueOnce({ readable: false, reason: "재성 풀이 없음" });
+    try {
+      const { POST } = await import("@/app/api/generate/route");
+      await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 1, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      expect(state.judgeReadable.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(state.judgeReadable.mock.calls[0]?.[1]).toEqual(expect.any(String));
+      expect(state.prompts.slice(1).join("\n")).toContain("읽힘 판정 실패: 재성 풀이 없음");
+
+      state.judgeReadable.mockClear();
+      await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "brand_1", count: 1, campaignId: "career_timing_wedge_399" }),
+      }) as never);
+      expect(state.judgeReadable).not.toHaveBeenCalled();
+    } finally {
+      state.judgeReadable.mockImplementation(async () => ({ readable: true, reason: "" }));
     }
   }, 20000);
 

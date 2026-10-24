@@ -143,7 +143,7 @@ describe("threads-algorithm-scorer", () => {
 describe("threads-algorithm-scorer english hooks", () => {
   it("rewards research-proven english hooks and choice endings", () => {
     const post = [
-      "That Goat birth year on your phone? Probably wrong.",
+      "That Goat birth year on your phone is probably wrong.",
       "",
       "Korean saju flips the year at Ipchun (Feb 4), not January 1st.",
       "",
@@ -161,5 +161,26 @@ describe("threads-algorithm-scorer english hooks", () => {
   it("gives a declarative english hook full hook tension without a question mark", () => {
     const result = scoreThreadsPostAlgorithmic("Your zodiac animal is probably wrong.\n\nSaju flips the year at Ipchun.");
     expect(result.dimensions.hookTension.score).toBe(25);
+  });
+
+  it("does not reward a question mark on an English first line", () => {
+    const q = scoreThreadsPostAlgorithmic("Is your birth hour actually wrong, instead?\nbody line").dimensions.hookTension.score;
+    const flat = scoreThreadsPostAlgorithmic("Your birth hour is not the problem.\nbody line").dimensions.hookTension.score;
+    expect(flat).toBeGreaterThan(q);
+  });
+
+  // The English hook rule forbids "vs": no contrast bonus and no flat-hook bonus for it.
+  it("gives no hook bonus for 'vs' on an English first line", () => {
+    const result = scoreThreadsPostAlgorithmic("Saturn return vs midlife crisis.\nbody line");
+    expect(result.dimensions.hookTension.score).toBe(10);
+  });
+
+  // Values measured on e40642a before the English hook change; Korean lines must not move.
+  it("keeps Korean hook scoring unchanged", () => {
+    const question = scoreThreadsPostAlgorithmic("혹시 너도 이거 착각하고 있어?\n본문");
+    expect(question.dimensions.hookTension.score).toBe(25);
+    expect(question.totalScore).toBe(83);
+    expect(scoreThreadsPostAlgorithmic("그건 착각이야\n본문").dimensions.hookTension.score).toBe(18);
+    expect(scoreThreadsPostAlgorithmic("이직 vs 존버 중 진짜 당신에게 맞는 선택은 뭘까요?\n본문").totalScore).toBe(87);
   });
 });

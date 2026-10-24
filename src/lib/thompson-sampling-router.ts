@@ -6,7 +6,7 @@
  * without getting trapped in local optima due to lucky/unlucky view streaks.
  *
  * Supports:
- * - Informative Bayesian Priors: Prevents cold-start noise collapse
+ * - Neutral Bayesian Priors: every arm starts equal and learns from successes and failures
  * - Blended Dual-Objective Reward: Viral Engagement Rate + Funnel Conversion Rate
  * - 4:4:2 Golden Quota Track Enforcement: Portfolio balance across A/B/C tracks
  * - Batch Updates & Sample Size Thresholds: Stabilizes noisy social feedback
@@ -53,40 +53,8 @@ export interface ThompsonSelectionResult {
   reason: string;
 }
 
-// Default Informative Priors for verified core formulas
-// alpha / (alpha + beta) represents baseline success probability
-export const DEFAULT_INFORMATIVE_PRIORS: Record<string, BetaPrior> = {
-  // Top-of-Funnel Viral Reach (Track A)
-  sal_hierarchy_ego: { alpha: 18, beta: 2 },            // 120k verified tier hierarchy (90% prior mean)
-  concept_hierarchy: { alpha: 16, beta: 4 },            // 80% prior mean
-  lotto_zero_friction: { alpha: 15, beta: 5 },          // 300k verified 3-choice dilemma (75% prior mean)
-  career_mismatch: { alpha: 12, beta: 8 },              // 60% prior mean
-  self_classification: { alpha: 12, beta: 8 },          // 60% prior mean
-  imagination_dilemma: { alpha: 11, beta: 9 },          // 55% prior mean
-  identity_profile: { alpha: 12, beta: 8 },             // 22k verified profiling post (60% prior mean)
-  relationship_tension: { alpha: 12, beta: 8 },         // 23k verified relationship post (60% prior mean)
-  beginner_qa: { alpha: 12, beta: 8 },                  // untested; matches the verified tier so it gets explored, data takes over
-  cost_loss_punch: { alpha: 10, beta: 10 },             // 50% prior mean
-
-  // Mid-of-Funnel Authority & Fact Bombs (Track B)
-  fact_bomb_incumbent_attack: { alpha: 15, beta: 5 },   // 30k verified data attack (75% prior mean)
-  energy_reset_cycle: { alpha: 12, beta: 8 },           // 60% prior mean
-  multi_engine_audit: { alpha: 11, beta: 9 },           // 55% prior mean
-  talent_reality_check: { alpha: 12, beta: 8 },         // 60% prior mean
-  wealth_vault_unlock: { alpha: 11, beta: 9 },          // 55% prior mean
-  destiny_partner_sign: { alpha: 12, beta: 8 },         // 60% prior mean
-  controversy_stunt: { alpha: 10, beta: 10 },
-  warning: { alpha: 10, beta: 10 },
-  contrarian: { alpha: 10, beta: 10 },
-  reveal: { alpha: 10, beta: 10 },
-
-  // Bottom-of-Funnel Conversion & Offer (Track C)
-  consensus_matrix_offer: { alpha: 14, beta: 6 },       // High intent offer matrix (70% prior mean)
-  save: { alpha: 12, beta: 8 },                         // Practical checklist (60% prior mean)
-  saveable_tool: { alpha: 12, beta: 8 },
-  pinned_anchor: { alpha: 11, beta: 9 },
-  friend_share: { alpha: 10, beta: 10 },
-};
+// Every arm starts neutral (mean 0.5, weak evidence). Real results, including failures, move it from here.
+export const NEUTRAL_PRIOR: BetaPrior = { alpha: 2, beta: 2 };
 
 /**
  * Standard Beta Distribution Sampling using Gamma variates
@@ -167,7 +135,7 @@ export function updateThompsonPriors(
     reward?: (observation: FormulaPerformanceObservation) => number; // 0..1 success; defaults to the revenue-first blend
   } = {}
 ): Record<string, BetaPrior> {
-  const minViews = options.minViewsForUpdate ?? 200; // Ignore tiny noisy samples (<200 views)
+  const minViews = options.minViewsForUpdate ?? 0; // Low-view posts are failures to learn from, not noise to drop
   const decay = options.decayFactor ?? 0.95;
   const reward = options.reward ?? ((observation: FormulaPerformanceObservation) => calculateBlendedPerformance(observation).blendedScore);
 
@@ -184,21 +152,21 @@ export function updateThompsonPriors(
   // Aggregate observations by formula
   const grouped: Record<string, FormulaPerformanceObservation[]> = {};
   for (const obs of observations) {
-    if (obs.views < minViews) continue; // Filter out zero/insignificant traffic noise
+    if (obs.views < minViews) continue;
     if (!grouped[obs.formulaId]) grouped[obs.formulaId] = [];
     grouped[obs.formulaId].push(obs);
   }
 
   // Perform conjugate update
   for (const [formulaId, obsList] of Object.entries(grouped)) {
-    const existing = updated[formulaId] ?? DEFAULT_INFORMATIVE_PRIORS[formulaId] ?? { alpha: 5, beta: 5 };
+    const existing = updated[formulaId] ?? NEUTRAL_PRIOR;
     let successAddition = 0;
     let failureAddition = 0;
 
     for (const obs of obsList) {
       const blendedScore = Math.min(1, Math.max(0, reward(obs)));
-      // Pseudo-count evidence update scaled by sample confidence (up to 5 pseudo-counts per qualified post)
-      const evidenceScale = Math.min(5, Math.log10(obs.views));
+      // Pseudo-count evidence update scaled by sample confidence (1 to 5 pseudo-counts per post)
+      const evidenceScale = Math.min(5, Math.max(1, Math.log10(obs.views + 1)));
       successAddition += blendedScore * evidenceScale;
       failureAddition += (1 - blendedScore) * evidenceScale;
     }
@@ -222,7 +190,7 @@ export function sampleBestArm(
   let armId = armIds[0];
   let sampledValue = -1;
   for (const id of armIds) {
-    const prior = priors[id] ?? DEFAULT_INFORMATIVE_PRIORS[id] ?? { alpha: 5, beta: 5 };
+    const prior = priors[id] ?? NEUTRAL_PRIOR;
     const sample = sampleBeta(prior.alpha, prior.beta);
     if (sample > sampledValue) {
       sampledValue = sample;
@@ -264,7 +232,7 @@ export function selectFormulaWithThompsonSampling(
 
   const { armId: bestFormulaId, sampledValue: bestSampledValue } = sampleBestArm(
     candidatePool,
-    options.customPriors ?? DEFAULT_INFORMATIVE_PRIORS
+    options.customPriors ?? {}
   );
 
   const roundedSample = Math.round(bestSampledValue * 100) / 100;

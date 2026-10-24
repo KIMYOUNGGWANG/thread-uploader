@@ -23,8 +23,8 @@ const passing: QualityResult = { pass: true, score: 3, profile: "saju_viral", re
 const failing: QualityResult = { pass: false, score: 1, profile: "saju_viral", reasons: ["사주 용어 없음"] };
 
 describe("reconcileRemediation", () => {
-  it("keeps the remediated draft when it still passes the quality gate", () => {
-    const outcome = reconcileRemediation({
+  it("keeps the remediated draft when it still passes the quality gate", async () => {
+    const outcome = await reconcileRemediation({
       rawContent: raw,
       rawFirstComment: "원래 첫 댓글",
       remediation: remediation({}),
@@ -38,8 +38,8 @@ describe("reconcileRemediation", () => {
     expect(outcome.extraReasons).toEqual([]);
   });
 
-  it("reverts to the gate-passing original when the rewrite breaks the quality gate", () => {
-    const outcome = reconcileRemediation({
+  it("reverts to the gate-passing original when the rewrite breaks the quality gate", async () => {
+    const outcome = await reconcileRemediation({
       rawContent: raw,
       rawFirstComment: "원래 첫 댓글",
       remediation: remediation({}),
@@ -58,9 +58,9 @@ describe("reconcileRemediation", () => {
     expect(outcome.remediation.pass).toBe(outcome.remediation.scoreResult.totalScore >= 80);
   });
 
-  it("skips the re-gate when remediation left the content untouched", () => {
+  it("skips the re-gate when remediation left the content untouched", async () => {
     let calls = 0;
-    const outcome = reconcileRemediation({
+    const outcome = await reconcileRemediation({
       rawContent: raw,
       rawFirstComment: null,
       remediation: remediation({ content: raw, firstComment: null, method: "INITIAL_PASS", rewriteCount: 0 }),
@@ -70,5 +70,19 @@ describe("reconcileRemediation", () => {
 
     expect(calls).toBe(0);
     expect(outcome.reverted).toBe(false);
+  });
+
+  it("reverts when an async regate (English naturalness judge) rejects the rewrite", async () => {
+    const outcome = await reconcileRemediation({
+      rawContent: raw,
+      rawFirstComment: "원래 첫 댓글",
+      remediation: remediation({}),
+      regate: async () => ({ ...failing, reasons: ["unnatural English: stacked hedge"] }),
+      threshold: 80,
+    });
+
+    expect(outcome.content).toBe(raw);
+    expect(outcome.reverted).toBe(true);
+    expect(outcome.extraReasons[0]).toContain("unnatural English");
   });
 });

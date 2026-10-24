@@ -100,7 +100,51 @@ describe("pickClosingFormat", () => {
     expect(formats.filter((format) => format === "choices")).toHaveLength(2);
   });
 
+  it("turns a numbered-choice slot into a question once the numbered-choice cap is hit", () => {
+    const formats = Array.from({ length: 6 }, (_, index) => pickClosingFormat(index, "concept_hierarchy", true));
+    expect(formats).not.toContain("choices");
+    expect(formats[3]).toBe("question");
+  });
+
   it("keeps the 3-choice dilemma on numbered choices whatever the slot", () => {
     for (let index = 0; index < 6; index++) expect(pickClosingFormat(index, "imagination_dilemma")).toBe("choices");
+  });
+});
+
+describe("winner_replay mode", () => {
+  it("resolves winner_replay to its own mode", () => {
+    expect(resolveViralIntentMode("winner_replay", 0).id).toBe("winner_replay");
+  });
+
+  it("stays out of the standard rotation", () => {
+    expect(VIRAL_INTENT_MODES.map((mode) => mode.id)).not.toContain("winner_replay");
+  });
+});
+
+describe("global offer formulas", () => {
+  it.each([
+    ["synastry_blueprint_offer", "relationship_tension"],
+    ["d2c_etsy_offer", "quiet_contrarian"],
+  ])("maps %s to %s, not self_classification", (id, mode) => {
+    for (const index of [0, 3, 6]) expect(resolveViralIntentMode(id, index).id).toBe(mode);
+  });
+
+  it("does not make offer ids campaign-normalizable", () => {
+    expect(normalizeViralIntentModeId("d2c_etsy_offer")).toBeNull();
+    expect(normalizeViralIntentModeId("synastry_blueprint_offer")).toBeNull();
+  });
+
+  it("concept_hierarchy no longer asks for 2-3 saju concepts or the reader's chart", () => {
+    const mode = resolveViralIntentMode("concept_hierarchy", 0);
+    const text = [mode.instruction, ...mode.rules].join("\n");
+    expect(text).not.toMatch(/2~3개|십신|원국/);
+    expect(mode.rules).toContain("첫 댓글: 독자가 자기 경험으로 답할 수 있는 질문 한 줄. 링크·홍보 문구는 넣지 않는다.");
+  });
+
+  it("keeps first comments and jargon in the lean modes answerable by a reader who does not know saju", () => {
+    const identity = VIRAL_INTENT_MODES.find((mode) => mode.id === "identity_profile")?.rules.join("\n") ?? "";
+    expect(identity).not.toContain("자기 일주나 살을 꺼내게");
+    const beginner = VIRAL_INTENT_MODES.find((mode) => mode.id === "beginner_qa")?.rules.join("\n") ?? "";
+    expect(beginner).not.toContain("1~2개");
   });
 });

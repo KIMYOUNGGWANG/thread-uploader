@@ -86,9 +86,19 @@ describe("Domain Intelligence Registry", () => {
     const formulas = Object.values(getDomainPreset("saju_viral").trackFormulas).flat();
     const hierarchy = formulas.find((formula) => formula.id === "concept_hierarchy");
 
-    expect(hierarchy?.instruction).toContain("2~3개");
+    expect(hierarchy?.instruction).not.toMatch(/2~3개|십신|원국/);
+    expect(hierarchy?.instruction).toContain("1개까지");
     expect(hierarchy?.instruction).not.toContain("보다 센 홍염보다 센");
     expect(hierarchy?.instruction).not.toContain("브릿지");
+  });
+
+  it("keeps the sal hierarchy formula to one saju concept and a reader-answerable first comment", () => {
+    const formulas = Object.values(getDomainPreset("saju_viral").trackFormulas).flat();
+    const instruction = formulas.find((formula) => formula.id === "sal_hierarchy_ego")?.instruction ?? "";
+
+    expect(instruction).not.toMatch(/도화.*홍염|백호|괴강|결핍 브릿지/);
+    expect(instruction).toContain("1개까지");
+    expect(instruction).toContain("보다");
   });
 });
 
@@ -110,6 +120,12 @@ describe("ecommerce_d2c batch keeps one claim per formula", () => {
     expect(findBorrowedYearBoundaryClaim("all_twelve_series", "Saju starts the year at lichun.")).not.toBeNull();
     const compatibility = "A Fire Horse and a Water Rat fall fast.\n\nThe pull is real; so is the friction.\n\nSend this to your Rat.";
     expect(findBorrowedYearBoundaryClaim("two_birthday_compatibility", compatibility)).toBeNull();
+  });
+
+  // The rule told the model to use wrong/instead, which produced "Is your birth hour actually wrong, instead?".
+  it("no longer tells the model to use wrong/instead", () => {
+    expect(ENGLISH_HOOK_RULE).not.toMatch(/wrong|instead/);
+    expect(ENGLISH_HOOK_RULE).toMatch(/no question mark/);
   });
 
   it("does not seed a concrete claim in the hook rule every formula shares", () => {

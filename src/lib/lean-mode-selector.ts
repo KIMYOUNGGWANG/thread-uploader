@@ -4,6 +4,7 @@ import {
   selectViralIntentMode,
   type ViralIntentMode,
   type ViralIntentModeId,
+  WINNER_REPLAY_MODE,
 } from "@/lib/viral-intent-modes";
 
 export interface GenerationFormula {
@@ -63,20 +64,29 @@ const LEAN_ARM_IDS: readonly ViralIntentModeId[] = [
 
 // Lean sprint picks its viral mode by Thompson sampling over learned priors, so the
 // learn cron actually steers CosmicPath output. Without priors it keeps the fixed allocation.
+// winner_replay joins the pool only when the caller found a high-view source post to replay.
 export function selectLeanViralMode(
   batchIndex: number,
   formulas: GenerationFormula[],
   priors: Record<string, BetaPrior> | undefined,
-  recentFormulaIds: string[]
+  recentFormulaIds: string[],
+  winnerReplayAvailable = false,
+  excludedModeIds: readonly string[] = []
 ): ViralIntentMode {
   const fixedMode = selectViralIntentMode(batchIndex, { sprintType: "lean_15post" });
-  if (!priors) return fixedMode;
+  if (!priors && !excludedModeIds.includes(fixedMode.id)) return fixedMode;
 
-  const modes = LEAN_ARM_IDS.map((id) => resolveViralIntentMode(id, 0));
+  const allModes = [
+    ...LEAN_ARM_IDS.map((id) => resolveViralIntentMode(id, 0)),
+    ...(winnerReplayAvailable ? [WINNER_REPLAY_MODE] : []),
+  ];
+  // Excluded modes (template cap reached) leave the pool; an emptied pool falls back to everything.
+  const allowed = allModes.filter((mode) => !excludedModeIds.includes(mode.id));
+  const modes = allowed.length > 0 ? allowed : allModes;
   const armFormulaId = (mode: ViralIntentMode) => selectCampaignFormulaForViralMode(formulas, mode).id;
   const previous = recentFormulaIds[recentFormulaIds.length - 1];
   const candidates = modes.filter((mode) => armFormulaId(mode) !== previous);
   const pool = candidates.length > 0 ? candidates : modes;
-  const { armId } = sampleBestArm(pool.map(armFormulaId), priors);
+  const { armId } = sampleBestArm(pool.map(armFormulaId), priors ?? {});
   return pool.find((mode) => armFormulaId(mode) === armId) ?? fixedMode;
 }

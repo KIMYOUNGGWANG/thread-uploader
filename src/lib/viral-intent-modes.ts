@@ -10,7 +10,8 @@ export type ViralIntentModeId =
   | "imagination_dilemma"
   | "identity_profile"
   | "relationship_tension"
-  | "beginner_qa";
+  | "beginner_qa"
+  | "winner_replay";
 
 export interface ViralIntentMode {
   readonly id: ViralIntentModeId;
@@ -205,13 +206,13 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
     id: "concept_hierarchy",
     label: "개념 서열 비교 & 상식 파괴 (Concept Hierarchy)",
     primaryMetric: "saves",
-    instruction: "대중이 아는 통념적 개념(A)보다 더 본질적인 B, C를 비교하여 상식을 깨고 극단적 1줄 앵커로 저장과 인게이지먼트를 유도한다.",
+    instruction: "사람들이 먼저 보는 것(A)보다 먼저 봐야 할 것(B)을 쉬운 말로 비교해 통념을 깨고, 극단적 1줄 앵커로 저장과 인게이지먼트를 유도한다.",
     rules: [
-      "실제 사주 개념 2~3개(살·십신·일주)를 서열이나 대비로 비교한다. 최근 글에 쓰인 비교 문장 틀은 반복하지 않는다.",
+      "A보다 먼저 봐야 할 B처럼 판단 순서를 비교한다. 사주 개념은 근거로 1개까지만 쓰고 쉬운 말로 풀어서 쓴다. 최근 글에 쓰인 비교 문장 틀은 반복하지 않는다.",
       "근거 없는 미신이나 공포 조장 금지. 결정론적/구조적 프레임으로 설명.",
       "본문 내 직접 링크 노출 금지.",
       "단순 A/B/C 자가분류 댓글 강요 금지.",
-      "첫 댓글: 독자 원국에 이 개념이 있는지 묻는 한 줄로 쓴다. 링크·홍보 문구는 넣지 않는다.",
+      "첫 댓글: 독자가 자기 경험으로 답할 수 있는 질문 한 줄. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
   {
@@ -236,7 +237,7 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
       "두루뭉술한 위로 대신 날카로운 양면성(치명적 무기 vs 발목 잡는 덫)을 짚는다.",
       "본문 링크 금지.",
       "번호 선택지를 쓰지 않고, 독자에게 직접 묻는 한 문장으로 끝낸다.",
-      "첫 댓글: 독자가 자기 일주나 살을 꺼내게 하는 한 줄로 쓴다. 링크·홍보 문구는 넣지 않는다.",
+      "첫 댓글: 독자가 자기 경험으로 답할 수 있는 질문 한 줄. 독자의 일주나 살을 묻지 않는다. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
   {
@@ -258,13 +259,26 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
     instruction: "사주를 처음 보는 사람이 실제로 묻는 질문 하나를 첫 줄에 그대로 던지고, 짧고 쉽게 풀어준다.",
     rules: [
       "첫 줄은 입문자가 진짜 할 법한 질문 한 문장이다. 예: 태어난 시간 모르면 사주 못 봐? / 양력 음력 뭘로 넣어? / 대운이 뭔데?",
-      "답은 결론 먼저 한 줄, 이유는 사주 용어 1~2개를 쉬운 말로 풀어서 짧게 쓴다.",
+      "답은 결론 먼저 한 줄, 이유는 사주 용어 1개를 쉬운 말로 풀어서 짧게 쓴다.",
       "겁주거나 '모르면 큰일' 식으로 불안을 팔지 않는다.",
       "번호 선택지를 쓰지 않고, 독자가 비슷하게 헷갈렸던 걸 묻는 한 문장으로 끝낸다.",
       "첫 댓글: 다음엔 뭐가 궁금한지 가볍게 묻는 한 줄로 쓴다. 답글 약속, 링크·홍보 문구는 넣지 않는다.",
     ],
   },
 ];
+
+// Rewrites the structure of one of the brand's own high-view posts with a new topic. Kept out of
+// VIRAL_INTENT_MODES so index rotation is unchanged; the lean selector offers it only when a source exists.
+export const WINNER_REPLAY_MODE: ViralIntentMode = {
+  id: "winner_replay",
+  label: "승자 재현",
+  primaryMetric: "shares",
+  instruction: "아래 참고 글의 구조(첫 줄 방식, 줄 구성, 마무리 방식)만 따라 새 글을 쓴다. 주제·문장·표현은 그대로 쓰지 않는다.",
+  rules: [
+    "참고 글의 문장이나 표현을 그대로 옮기지 않는다.",
+    "주제는 이번 글의 [주제]에서 가져온다.",
+  ],
+};
 
 const SPRINT_GROUP_SIZE = 7;
 const LEGACY_FORMULA_MAP: Record<string, ViralIntentModeId> = {
@@ -349,8 +363,16 @@ export function selectViralIntentMode(
   return VIRAL_INTENT_MODES[modeIndex] ?? VIRAL_INTENT_MODES[0];
 }
 
+// Offer formulas live outside LEGACY_FORMULA_MAP on purpose: campaign normalization uses that map and would rename them.
+const OFFER_FORMULA_MODES: Record<string, ViralIntentModeId> = {
+  synastry_blueprint_offer: "relationship_tension",
+  d2c_etsy_offer: "quiet_contrarian",
+};
+
 export function resolveViralIntentMode(formulaId: string | null, fallbackIndex: number): ViralIntentMode {
-  const normalizedId = normalizeViralIntentModeId(formulaId);
+  if (formulaId === WINNER_REPLAY_MODE.id) return WINNER_REPLAY_MODE;
+  const normalizedId = normalizeViralIntentModeId(formulaId)
+    ?? (formulaId ? OFFER_FORMULA_MODES[formulaId] ?? null : null);
   return VIRAL_INTENT_MODES.find((mode) => mode.id === normalizedId) ?? selectViralIntentMode(fallbackIndex);
 }
 
@@ -458,6 +480,14 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
       "Close by asking what else confused them, not with numbered choices.",
     ],
   },
+  winner_replay: {
+    label: "Winner Replay",
+    instruction: "Follow only the structure of the reference post below (opening move, line layout, closing move) and write a new post. Never reuse its topic, sentences or phrasing.",
+    rules: [
+      "Do not copy any sentence or phrase from the reference post.",
+      "Take the topic from this post's [Topic].",
+    ],
+  },
 };
 
 export function formatViralIntentModePrompt(mode: ViralIntentMode, isEnglish = false): string {
@@ -528,9 +558,11 @@ export type ClosingFormat = "choices" | "question" | "statement";
 
 const CLOSING_FORMAT_ROTATION: readonly ClosingFormat[] = ["question", "statement", "question", "choices", "question", "statement"];
 
-export function pickClosingFormat(index: number, modeId?: ViralIntentModeId | null): ClosingFormat {
+// choicesCapped: the numbered-choice template cap is already hit, so the gate would reject a numbered-choice ending.
+export function pickClosingFormat(index: number, modeId?: ViralIntentModeId | null, choicesCapped = false): ClosingFormat {
   if (modeId === "imagination_dilemma") return "choices";
-  return CLOSING_FORMAT_ROTATION[((index % CLOSING_FORMAT_ROTATION.length) + CLOSING_FORMAT_ROTATION.length) % CLOSING_FORMAT_ROTATION.length];
+  const format = CLOSING_FORMAT_ROTATION[((index % CLOSING_FORMAT_ROTATION.length) + CLOSING_FORMAT_ROTATION.length) % CLOSING_FORMAT_ROTATION.length];
+  return choicesCapped && format === "choices" ? "question" : format;
 }
 
 export const CLOSING_FORMAT_PROMPT_KO: Record<ClosingFormat, string> = {
