@@ -19,6 +19,7 @@ import {
   updateThompsonPriors,
   type FormulaPerformanceObservation,
 } from "@/lib/thompson-sampling-router";
+import { isNewYearModeId } from "@/lib/new-year/new-year-season";
 import { MATURITY_HOURS } from "@/lib/weekly-scorecard";
 import { calculateGoalReward, calculateLearningScore, medianViews, resolveOptimizationGoal } from "@/lib/optimization-goal";
 
@@ -101,6 +102,7 @@ export async function learnBrandGrowth(brandId: string) {
     const matureBefore = Date.now() - MATURITY_HOURS * 60 * 60 * 1000;
     const observations: FormulaPerformanceObservation[] = learningPosts
       .filter((p) => Boolean(p.formulaId) && typeof p.views === "number")
+      .filter((p) => !isNewYearModeId(p.formulaId))
       .filter((p) => p.publishedAt != null && p.publishedAt.getTime() <= matureBefore)
       .map((p) => ({
         formulaId: p.formulaId!,

@@ -110,4 +110,21 @@ describe("learnBrandGrowth", () => {
     const priors = (JSON.parse(saved[0].data.brandConfig) as { thompsonPriors: Record<string, unknown> }).thompsonPriors;
     expect(Object.keys(priors)).toEqual(["mature"]);
   });
+
+  it("keeps New Year posts out of the formula priors and the reward median", async () => {
+    const savedPriors = async (fixture: ReturnType<typeof post>[]) => {
+      mocks.updateBrand.mockClear();
+      mocks.findPosts.mockResolvedValue(fixture);
+      await learnBrandGrowth("brand_1");
+      const saved = mocks.updateBrand.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
+      return (JSON.parse(saved[0].data.brandConfig) as { thompsonPriors: Record<string, unknown> }).thompsonPriors;
+    };
+    const normal = posts("a", "normal", [100, 120, 140]);
+
+    const withSeason = await savedPriors([...normal, ...posts("n", "ny_ranking", [5000, 5000])]);
+    const withoutSeason = await savedPriors(normal);
+
+    expect(Object.keys(withSeason)).toEqual(["normal"]);
+    expect(withSeason).toEqual(withoutSeason);
+  });
 });
