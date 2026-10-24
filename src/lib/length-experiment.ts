@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isNewYearModeId } from "@/lib/new-year/new-year-season";
 import { MAX_REFILL_PER_RUN } from "@/lib/queue-refill";
 import { THREADS_CONTENT_MAX_LENGTH } from "@/lib/threads-limits";
 import type { BrandConfig } from "@/types/brand";
@@ -20,9 +21,9 @@ export function classifyLength(content: string, config: LengthExperimentConfig):
   return "MID";
 }
 
-/** GROWTH posts outside the promo video rotation; card carousels count, since every generated KR post has them. */
+/** GROWTH posts outside the promo video rotation and the New Year season (its modes set their own length); card carousels count, since every generated KR post has them. */
 export function isExperimentPost(post: Pick<ExperimentPostShape, "postCategory" | "formulaId">): boolean {
-  return post.postCategory === "GROWTH" && !(post.formulaId ?? "").startsWith("video:");
+  return post.postCategory === "GROWTH" && !(post.formulaId ?? "").startsWith("video:") && !isNewYearModeId(post.formulaId);
 }
 
 /** Drafts made before startAt were written without the arm's length target, so they sit the experiment out. */

@@ -5,6 +5,7 @@ import { evaluate72hFeedbackLoop, type MaturePostMetric } from "@/lib/campaign-f
 import { mergeNegativePhrasesIntoBrandConfig } from "@/lib/trend-radar/negative-pattern-learner";
 import { calculateLearningScore, resolveOptimizationGoal } from "@/lib/optimization-goal";
 import { parseBrandConfig } from "@/types/brand";
+import { isNewYearModeId } from "@/lib/new-year/new-year-season";
 
 export const maxDuration = 60;
 
@@ -40,6 +41,7 @@ export async function GET(request: NextRequest) {
         id: true,
         content: true,
         campaignFormulaId: true,
+        formulaId: true,
         publishedAt: true,
         metricsAt: true,
         views: true,
@@ -54,7 +56,8 @@ export async function GET(request: NextRequest) {
     });
 
     const goal = resolveOptimizationGoal(parseBrandConfig(brand.brandConfig));
-    const report = evaluate72hFeedbackLoop(posts as MaturePostMetric[], {
+    // New Year posts are seasonal; their hooks must not become top performers that every later prompt reuses.
+    const report = evaluate72hFeedbackLoop(posts.filter((post) => !isNewYearModeId(post.formulaId)) as MaturePostMetric[], {
       brandId: brand.id,
       now: new Date(),
       scorePost: (post) => calculateLearningScore(goal, { ...post, likes: null }),

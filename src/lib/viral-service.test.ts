@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getViralReport, learnViralPatterns } from "@/lib/viral-service";
+import { discoverViralExamples, getViralReport, learnViralPatterns } from "@/lib/viral-service";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     viralExample: { findMany: vi.fn(async () => []), count: vi.fn(async () => 0) },
     viralPattern: { findMany: vi.fn(async () => []), deleteMany: vi.fn(), create: vi.fn() },
+    post: { findMany: vi.fn(async () => []) },
     brand: { findUnique: vi.fn(async () => ({ id: "b1", viralMemory: "{}", brandConfig: "{}" })), update: vi.fn() },
     $transaction: vi.fn(async (ops: unknown[]) => ops),
   },
@@ -34,6 +35,20 @@ describe("viral-service shorts exclusion", () => {
 
     expect(prisma.viralExample.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: EXCLUDE_SHORTS }),
+    );
+  });
+});
+
+describe("viral-service own-post candidates", () => {
+  it("excludes New Year posts but keeps NULL formulaId rows", async () => {
+    await discoverViralExamples("b1", { includeOwnPosts: true });
+
+    expect(prisma.post.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: [{ OR: [{ formulaId: null }, { formulaId: { notIn: ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick"] } }] }],
+        }),
+      }),
     );
   });
 });

@@ -1,5 +1,5 @@
 import type { Brand } from "@prisma/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const SOURCE = {
   id: "winner_1",
@@ -121,11 +121,16 @@ const brand = {
 const input = { count: 1, insertAtFront: false, requestedCampaignId: null, approvedCampaignStart: false, postCategory: "GENERAL" };
 
 describe("winner_replay draft gate", () => {
+  // These cases run on the real clock with the cosmicpath slug; inside the New Year season a slot would take a ny mode.
   beforeEach(() => {
+    vi.stubEnv("NEW_YEAR_SEASON_DISABLED", "1");
     state.created.length = 0;
     state.requests.length = 0;
     state.recent = null;
     vi.mocked(selectLeanViralMode).mockClear();
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("drops a replay draft that copies its source even when 10+ recent posts fill the anti-repeat window", async () => {

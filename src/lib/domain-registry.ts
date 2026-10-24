@@ -11,6 +11,7 @@
  */
 
 import type { ContentTrack } from "./quota-bandit-router";
+import { isNewYearModeId } from "./new-year/new-year-season";
 
 export interface DomainFormulaConfig {
   id: string;
@@ -454,7 +455,8 @@ const YEAR_BOUNDARY_OWNER = "real_sign_boundary";
 const YEAR_BOUNDARY_PATTERN = /\b(?:ip[\s-]?chun|li[\s-]?chun|feb(?:ruary)?\.?\s+4(?:th)?|born in (?:january|early february)|before lunar new year)\b/i;
 
 export function findBorrowedYearBoundaryClaim(formulaId: string, post: string): string | null {
-  if (formulaId === YEAR_BOUNDARY_OWNER || !YEAR_BOUNDARY_PATTERN.test(post)) return null;
+  // New Year season modes are built on the Lichun boundary (ny_ipchun, ny_monthly), so they co-own the angle.
+  if (formulaId === YEAR_BOUNDARY_OWNER || isNewYearModeId(formulaId) || !YEAR_BOUNDARY_PATTERN.test(post)) return null;
   return `Off-formula claim: the ipchun year-boundary angle belongs to ${YEAR_BOUNDARY_OWNER}. Write what the ${formulaId} formula asks for, without ipchun or January/February birthdays.`;
 }
 

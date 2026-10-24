@@ -106,6 +106,20 @@ describe("pickPublishCandidate", () => {
   });
 });
 
+describe("New Year posts sit the length experiment out", () => {
+  const nyMid = draft("ny-MID", 300, { formulaId: "ny_monthly" });
+  const nyShort = draft("ny-S", 200, { formulaId: "ny_pick" });
+  const nyLong = draft("ny-L", 420, { formulaId: "ny_ranking" });
+
+  it("publishes a MID New Year post like any non-experiment post", () => {
+    expect(pickPublishCandidate([nyMid, draft("new-S", 200)], config, "S")?.id).toBe("ny-MID");
+  });
+  it("does not count S/L New Year posts toward the sequence or the pending arms", () => {
+    expect(sequencePosition([nyShort, nyLong, draft("s", 200)], config)).toBe(1);
+    expect(countPendingByArm([nyShort, nyLong], config)).toEqual({ S: 0, L: 0 });
+  });
+});
+
 describe("countPendingByArm", () => {
   it("counts only experiment drafts per arm", () => {
     const pending = [draft("a", 200), draft("b", 420), draft("c", 420), draft("d", 300), draft("e", 200, { createdAt: beforeStart })];

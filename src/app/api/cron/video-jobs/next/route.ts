@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { generateTikTokScript } from "@/lib/tiktok/tiktok-script-engine";
+import { dailyVideoSeason } from "@/lib/new-year/new-year-season";
 import { buildTikTokRenderSpec } from "@/lib/tiktok/tiktok-render-worker";
 import { buildTikTokDraftCreateData, draftToScriptResult, pickDailyDayMaster, pickDailyHookVariant } from "@/lib/tiktok/tiktok-draft-service";
 
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 
   const brands = await prisma.brand.findMany({ where: { slug: { in: slugs } }, select: { id: true, slug: true } });
   for (const brand of brands) {
-    const draft = await claimQueuedDraft(brand.id) ?? await createDailyDraft(brand.id);
+    const draft = await claimQueuedDraft(brand.id) ?? await createDailyDraft(brand.id, brand.slug);
     if (!draft) continue;
     return NextResponse.json({
       job: { draftId: draft.id, brandSlug: brand.slug, renderSpec: buildTikTokRenderSpec(draftToScriptResult(draft)) },
@@ -53,7 +54,7 @@ async function claimQueuedDraft(brandId: string) {
   return claimed.count === 1 ? queued : null;
 }
 
-async function createDailyDraft(brandId: string) {
+async function createDailyDraft(brandId: string, brandSlug: string) {
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
   const todays = await prisma.tikTokVideoDraft.count({
@@ -67,6 +68,7 @@ async function createDailyDraft(brandId: string) {
     dayMaster: pickDailyDayMaster(now),
     variant: pickDailyHookVariant(now),
     tone: "mysterious",
+    season: dailyVideoSeason(brandSlug, now),
   });
   // A draft that fails the quality gate is recorded with its reasons but never rendered.
   if (!script.qualityPass) {

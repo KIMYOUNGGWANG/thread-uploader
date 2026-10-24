@@ -1,6 +1,7 @@
 import { decryptToken } from "@/lib/crypto";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { NEW_YEAR_MODE_IDS } from "@/lib/new-year/new-year-season";
 import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 import {
   analyzeViralText,
@@ -276,6 +277,8 @@ async function collectOwnPostCandidates(brandId: string, limit: number): Promise
         { metricsAt: { not: null } },
         { performanceScore: { not: null } },
       ],
+      // Seasonal New Year posts must not become examples; NULL formulaId stays in (SQL `NOT IN` drops NULL).
+      AND: [{ OR: [{ formulaId: null }, { formulaId: { notIn: [...NEW_YEAR_MODE_IDS] } }] }],
     },
     orderBy: [
       { performanceScore: "desc" },

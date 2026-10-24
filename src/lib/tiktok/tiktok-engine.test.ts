@@ -16,6 +16,8 @@ import {
   TIKTOK_FORMAT_IDS,
 } from "./tiktok-draft-service";
 import { findFirstLineChartGate } from "@/lib/quality-gate";
+import { DAY_MASTER_2027 } from "@/lib/new-year/new-year-2027-data";
+import { isKoNewYearSeason, dailyVideoSeason } from "@/lib/new-year/new-year-season";
 import { alignTikTokScenes } from "./tiktok-audio-aligner";
 import { buildTikTokRenderSpec, executeTikTokRender } from "./tiktok-render-worker";
 
@@ -61,6 +63,37 @@ describe("TikTok Short-form Engine", () => {
       expect(script.scenes[1].spokenLine).toContain(dayMaster);
     }
   );
+
+  it.each(DAY_MASTERS)("%s 2027 버전: 게이트 통과, 첫 줄 사주 전제 없음, 답에 일간·십신", (dayMaster) => {
+    const script = generateTikTokScript({ topic: "사주", dayMaster, season: "new_year_2027" });
+    expect(script.qualityReasons).toEqual([]);
+    expect(findFirstLineChartGate(script.scenes[0].onScreenText[0])).toBeNull();
+    expect(script.scenes[1].spokenLine).toContain(`${dayMaster} 일간에게 ${DAY_MASTER_2027[dayMaster].tenGod}의 해`);
+    expect(script.cta).toBe("프로필 링크 → 홈 맨 위 2027 캘린더");
+  });
+
+  it("2027 버전: 답 단어가 없으면 게이트가 떨어진다", () => {
+    const script = generateTikTokScript({ topic: "사주", dayMaster: "갑목", season: "new_year_2027" });
+    const quality = evaluateExplainerQuality(script, "갑목", "존재하지않는단어");
+    expect(quality.qualityPass).toBe(false);
+  });
+
+  it("크론: KST 11/24 이후 생성분은 2027 버전, 11/23은 평소 버전", () => {
+    expect(isKoNewYearSeason(new Date("2026-11-23T14:30:00Z"))).toBe(false);
+    expect(isKoNewYearSeason(new Date("2026-11-23T15:10:00Z"))).toBe(true);
+    expect(isKoNewYearSeason(new Date("2027-02-06T14:59:00Z"))).toBe(true);
+    expect(isKoNewYearSeason(new Date("2027-02-06T15:00:00Z"))).toBe(false);
+    expect(isKoNewYearSeason(new Date("2026-12-20T00:00:00Z"), { ...process.env, NEW_YEAR_SEASON_DISABLED: "1" })).toBe(false);
+  });
+
+  it("일일 영상 시즌 판정: ko 브랜드가 시즌 안일 때만 2027 버전", () => {
+    const inSeason = new Date("2026-12-20T00:00:00Z");
+    expect(dailyVideoSeason("cosmicpath", inSeason)).toBe("new_year_2027");
+    expect(dailyVideoSeason("other-brand", inSeason)).toBeUndefined();
+    expect(dailyVideoSeason("cosmicpath-global", inSeason)).toBeUndefined();
+    expect(dailyVideoSeason("cosmicpath", new Date("2026-11-01T00:00:00Z"))).toBeUndefined();
+    expect(dailyVideoSeason("cosmicpath", inSeason, { ...process.env, NEW_YEAR_SEASON_DISABLED: "1" })).toBeUndefined();
+  });
 
   it("20일 동안 같은 훅이 두 번 나오지 않는다", () => {
     const start = Date.UTC(2026, 9, 24);

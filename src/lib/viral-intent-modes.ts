@@ -1,3 +1,5 @@
+import { isNewYearModeId, type NewYearModeId } from "@/lib/new-year/new-year-season";
+
 export type ViralIntentModeId =
   | "self_classification"
   | "saveable_tool"
@@ -11,7 +13,8 @@ export type ViralIntentModeId =
   | "identity_profile"
   | "relationship_tension"
   | "beginner_qa"
-  | "winner_replay";
+  | "winner_replay"
+  | NewYearModeId;
 
 export interface ViralIntentMode {
   readonly id: ViralIntentModeId;
@@ -281,6 +284,65 @@ export const WINNER_REPLAY_MODE: ViralIntentMode = {
   ],
 };
 
+// 2027 New Year slot modes. Like WINNER_REPLAY_MODE they stay out of VIRAL_INTENT_MODES so index rotation
+// is unchanged; the generation loop assigns them by season slot. Saju values come from the brief, never the LLM.
+export const NEW_YEAR_MODES: Record<NewYearModeId, ViralIntentMode> = {
+  ny_ranking: {
+    id: "ny_ranking",
+    label: "2027 일간별 분류",
+    primaryMetric: "shares",
+    instruction: "2027년에 일간별로 바빠지는 영역이 다르다는 걸, [자료]의 5개 결로 10개 일간을 묶은 분류표처럼 보여준다. 순위나 점수가 아니라 분류다.",
+    rules: [
+      "[자료]에 적힌 결과 일간 묶음만 쓴다. 일간을 다른 결로 옮기거나 새 결을 만들지 않는다.",
+      "TOP N, 1위, 점수, 퍼센트 같은 순위·수치 표현을 쓰지 않는다.",
+      "첫 줄은 일간 이름 없이 '2027년엔 사람마다 바쁜 데가 다르다'는 한 줄로 쓴다. 일간 이름은 둘째 줄부터 나온다.",
+      "한 줄에 같은 결의 일간만 묶는다. 예: 갑목·을목: (그 결의 한 줄 설명)",
+      "일간은 태어난 날의 천간이라는 풀이를 한 번만 짧게 붙인다.",
+      "'~하기 쉬운' 수준으로만 쓰고 확정 예언('반드시', '무조건')은 쓰지 않는다. 지어낸 경험담도 쓰지 않는다.",
+      "본문에 링크를 넣지 않는다. 첫 댓글에 샘플 링크가 자동으로 붙는다.",
+    ],
+  },
+  ny_ipchun: {
+    id: "ny_ipchun",
+    label: "입춘 반전",
+    primaryMetric: "shares",
+    instruction: "사주의 해는 1월 1일이 아니라 입춘부터 바뀐다는 반전을 쉬운 말로 푼다. 1월에 보는 신년운세가 사실 지난해 흐름일 수 있다는 점이 핵심이다.",
+    rules: [
+      "첫 줄은 '1월에 보는 신년운세, 사실 작년 흐름일 수 있어' 같은 반전 한 문장이다. 사주 용어 전제 없이 쓴다.",
+      "입춘 날짜와 시각은 [자료]의 값만 쓴다. 다른 날짜나 시각을 지어내지 않는다.",
+      "입춘 전에 태어난 사람은 사주에서 전년생으로 본다는 사실을 쉬운 말로 한 번 설명한다.",
+      "'~하기 쉬운' 수준으로만 쓰고 확정 예언은 쓰지 않는다. 지어낸 경험담도 쓰지 않는다.",
+      "본문에 링크를 넣지 않는다. 첫 댓글에 샘플 링크가 자동으로 붙는다.",
+    ],
+  },
+  ny_monthly: {
+    id: "ny_monthly",
+    label: "2027 월별 흐름표",
+    primaryMetric: "saves",
+    instruction: "2027년 1~12월 월주를 한 줄에 한 달씩 순서대로 정리해, 저장해 두고 달이 바뀔 때 꺼내 보는 달력형 글로 쓴다.",
+    rules: [
+      "[자료]의 12개 월주를 글자 그대로 순서대로 쓴다. 월주를 바꾸거나 빼지 않는다.",
+      "1월은 아직 2026년 병오해의 흐름이고 입춘(2월)부터 2027년 사주의 해라는 점을 한 번만 짚는다.",
+      "달마다 한 줄 이내로 '~하기 쉬운' 수준의 분위기만 쓴다. 확정 예언과 지어낸 숫자는 쓰지 않는다.",
+      "마지막에 저장해 두고 달이 바뀔 때 다시 보라는 한 줄을 붙인다.",
+      "본문에 링크를 넣지 않는다. 첫 댓글에 샘플 링크가 자동으로 붙는다.",
+    ],
+  },
+  ny_pick: {
+    id: "ny_pick",
+    label: "2027 사람·일·돈 고르기",
+    primaryMetric: "replies",
+    instruction: "2027년에 가장 신경 쓰일 것 하나를 사람/일/돈 중에서 고르게 하고, 번호 선택지로 끝낸다.",
+    rules: [
+      "첫 줄은 '2027년, 제일 신경 쓰일 건?' 같은 질문이다. 일간이나 사주 용어를 전제하지 않는다.",
+      "선택지는 1. 사람 2. 일 3. 돈 세 개이고, 한 줄 설명은 [자료]의 결 설명만 쓴다.",
+      "번호 선택지로 글을 끝낸다. 번호 하나만 답하면 되게 쓰고, 댓글로 풀이해 주겠다는 약속은 쓰지 않는다.",
+      "'~하기 쉬운' 수준으로만 쓰고 확정 예언은 쓰지 않는다. 지어낸 경험담도 쓰지 않는다.",
+      "본문에 링크를 넣지 않는다. 첫 댓글에 샘플 링크가 자동으로 붙는다.",
+    ],
+  },
+};
+
 const SPRINT_GROUP_SIZE = 7;
 const LEGACY_FORMULA_MAP: Record<string, ViralIntentModeId> = {
   comment_diagnosis: "self_classification",
@@ -372,6 +434,7 @@ const OFFER_FORMULA_MODES: Record<string, ViralIntentModeId> = {
 
 export function resolveViralIntentMode(formulaId: string | null, fallbackIndex: number): ViralIntentMode {
   if (formulaId === WINNER_REPLAY_MODE.id) return WINNER_REPLAY_MODE;
+  if (isNewYearModeId(formulaId)) return NEW_YEAR_MODES[formulaId];
   const normalizedId = normalizeViralIntentModeId(formulaId)
     ?? (formulaId ? OFFER_FORMULA_MODES[formulaId] ?? null : null);
   return VIRAL_INTENT_MODES.find((mode) => mode.id === normalizedId) ?? selectViralIntentMode(fallbackIndex);
@@ -479,6 +542,52 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
       "Lead with the answer, then explain with one or two terms in plain language.",
       "Never sell anxiety or imply something is wrong with the reader.",
       "Close by asking what else confused them, not with numbered choices.",
+    ],
+  },
+  ny_ranking: {
+    label: "2027 Day Master Grouping",
+    instruction: "Show that different day masters get busy in different areas in 2027, grouping all 10 day masters into the 5 themes in the brief. A grouping, not a ranking or a score.",
+    rules: [
+      "Use only the themes and day master groups in the brief; never move a day master to another theme or invent a theme.",
+      "No TOP N, no 'No. 1', no scores or percentages.",
+      "The first line names no day master (just 'what keeps you busy in 2027 differs by person'); day master names start from the second line.",
+      "Group only day masters of the same theme on one line.",
+      "Explain once, briefly, that the day master is the heavenly stem of the birth day.",
+      "Stay at the 'likely' level; no certainty and no invented personal stories.",
+      "No link in the body; the sample link is added in the first comment.",
+    ],
+  },
+  ny_ipchun: {
+    label: "Lichun Twist",
+    instruction: "Explain simply that the saju year turns at Lichun (start of spring), not on January 1, so a January 'new year reading' may describe last year's flow.",
+    rules: [
+      "The first line is the twist in one sentence, with no saju jargon assumed.",
+      "Use only the Lichun date and time in the brief; never invent another date or time.",
+      "Explain once that people born before Lichun count as the previous year's birth in saju.",
+      "Stay at the 'likely' level; no certainty and no invented personal stories.",
+      "No link in the body; the sample link is added in the first comment.",
+    ],
+  },
+  ny_monthly: {
+    label: "2027 Month-by-Month Chart",
+    instruction: "List the 12 month pillars of 2027 in order, one line per month, as a calendar-style post worth saving and revisiting each month.",
+    rules: [
+      "Use the 12 month pillars in the brief exactly and in order; never change or skip one.",
+      "Mention once that January still belongs to the 2026 Fire Horse year and the 2027 saju year starts at Lichun in February.",
+      "One line or less per month, at the 'likely' level; no certainty and no invented numbers.",
+      "End with one line telling readers to save it and come back when the month changes.",
+      "No link in the body; the sample link is added in the first comment.",
+    ],
+  },
+  ny_pick: {
+    label: "2027 People / Work / Money Pick",
+    instruction: "Ask which one will matter most in 2027 among people, work and money, and end with numbered choices.",
+    rules: [
+      "The first line is a question like 'What will matter most to you in 2027?' with no saju jargon assumed.",
+      "Exactly three choices: 1. People 2. Work 3. Money, each described only with the theme text in the brief.",
+      "End the post with the numbered choices; one number is enough, and never promise to reply with a reading.",
+      "Stay at the 'likely' level; no certainty and no invented personal stories.",
+      "No link in the body; the sample link is added in the first comment.",
     ],
   },
   winner_replay: {

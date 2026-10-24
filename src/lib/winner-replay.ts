@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { NEW_YEAR_MODE_IDS } from "@/lib/new-year/new-year-season";
 import { WINNER_REPLAY_MODE } from "@/lib/viral-intent-modes";
 
 // Stored in a replay draft's qualityReasons so the same source is not replayed again within the cooldown.
@@ -53,8 +54,8 @@ export async function loadWinnerReplaySource(brandId: string, now: Date): Promis
         status: "PUBLISHED",
         views: { not: null },
         publishedAt: { gte: new Date(now.getTime() - SOURCE_WINDOW_DAYS * DAY_MS) },
-        // No replay-of-replay. formulaId is nullable and SQL `<>` drops NULL rows, so keep them explicitly.
-        OR: [{ formulaId: null }, { formulaId: { not: WINNER_REPLAY_MODE.id } }],
+        // No replay-of-replay and no seasonal New Year posts. formulaId is nullable and SQL `<>` drops NULL rows, so keep them explicitly.
+        OR: [{ formulaId: null }, { formulaId: { notIn: [WINNER_REPLAY_MODE.id, ...NEW_YEAR_MODE_IDS] } }],
       },
       select: { id: true, content: true, views: true },
     }),

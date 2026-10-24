@@ -19,6 +19,7 @@ import {
   updateThompsonPriors,
   type FormulaPerformanceObservation,
 } from "@/lib/thompson-sampling-router";
+import { isNewYearModeId } from "@/lib/new-year/new-year-season";
 import { MATURITY_HOURS } from "@/lib/weekly-scorecard";
 import { calculateGoalReward, calculateLearningScore, medianViews, resolveOptimizationGoal } from "@/lib/optimization-goal";
 
@@ -44,7 +45,9 @@ export async function learnBrandGrowth(brandId: string) {
   });
 
   // Score with current metrics before learning, so weights never use last run's stale scores
-  const posts = fetchedPosts.map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
+  const allScoredPosts = fetchedPosts.map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
+  // New Year posts are seasonally inflated, so no learner sees them (their score is still written back).
+  const posts = allScoredPosts.filter((post) => !isNewYearModeId(post.formulaId));
   const config = parseBrandConfig(brand?.brandConfig ?? "{}");
   const goal = resolveOptimizationGoal(config);
 
@@ -143,7 +146,7 @@ export async function learnBrandGrowth(brandId: string) {
   let scoredPosts = 0;
   let scoreWriteFailures = 0;
 
-  for (const post of posts) {
+  for (const post of allScoredPosts) {
     const { performanceScore } = post;
     try {
       await prisma.post.update({
