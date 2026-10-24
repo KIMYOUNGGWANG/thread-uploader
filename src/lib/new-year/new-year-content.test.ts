@@ -25,6 +25,23 @@ describe("new year content", () => {
     expect(checkNewYearFacts("5월 병오는 바쁜 달", "ny_monthly", "ko")).toEqual([expect.stringContaining("5월")]);
     expect(checkNewYearFacts("5월 을사, 6월 병오", "ny_monthly", "ko")).toEqual([]);
   });
+  it("월주 검사는 월에 붙은 간지만 비교한다 (일상 단어·연도 간지는 통과)", () => {
+    for (const ok of [
+      "3월엔 갑자기 바빠져",
+      "5월 정해진 일이 많아",
+      "5월 임신 계획 있으면",
+      "2월 4일 입춘부터 정미년",
+      "1월 1일엔 아직 병오년",
+      "1월은 아직 작년 병오해 흐름이야",
+      "5·6월 을사·병오",
+      "7월 정미월",
+      "5월(을사)",
+    ]) {
+      expect(checkNewYearFacts(ok, "ny_monthly", "ko"), ok).toEqual([]);
+    }
+    expect(checkNewYearFacts("5월(병오)", "ny_monthly", "ko")).toEqual([expect.stringContaining("5월")]);
+    expect(checkNewYearFacts("7월 을사월", "ny_monthly", "ko")).toEqual([expect.stringContaining("7월")]);
+  });
   it("2026·2027 외 연도는 떨어진다", () => {
     expect(checkNewYearFacts("2028년엔 더 좋아짐", "ny_pick", "ko")).toEqual([expect.stringContaining("2028")]);
     expect(checkNewYearFacts("2027 and 2026 overlap", "ny_pick", "en")).toEqual([]);

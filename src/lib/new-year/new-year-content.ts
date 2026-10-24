@@ -84,8 +84,6 @@ export function buildNewYearBrief(modeId: NewYearModeId, lang: NewYearLang, slot
   return [header, ...body].join("\n");
 }
 
-const GANJI = /[갑을병정무기경신임계][자축인묘진사오미신유술해]/;
-
 // Returns problems found in the draft; an empty array means it passes.
 export function checkNewYearFacts(post: string, modeId: NewYearModeId, lang: NewYearLang): string[] {
   const problems: string[] = [];
@@ -101,15 +99,14 @@ export function checkNewYearFacts(post: string, modeId: NewYearModeId, lang: New
 
   if (lang !== "ko") return problems;
 
-  // Month and ganji checks apply to every KO mode; a wrong pillar is wrong wherever it appears.
-  for (const m of post.matchAll(/(\d{1,2})월/g)) {
+  // The pillar must be attached to its month ("5월 을사는", "5월(을사)", "7월 정미월"). Looser matching
+  // flags ordinary words (갑자기, 정해진, 임신) and year ganji (병오년, 병오해), and each false positive
+  // silently drops a good draft, so an ambiguous mention is skipped rather than rejected.
+  // After the pair: 월, a particle, ")", "," or end of text. Whitespace, "·" and any other hangul do not count.
+  const MONTH_PILLAR = /(\d{1,2})월(?:은|에|엔|의|이|도)?[ (]?([갑을병정무기경신임계][자축인묘진사오미신유술해])(?=월|[은는이가](?![가-힣])|[),]|$)/gm;
+  for (const m of post.matchAll(MONTH_PILLAR)) {
     const entry = MONTHS_2027.find((x) => x.month === Number(m[1]));
-    if (!entry) continue;
-    const after = post.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 12);
-    // Stop at the next "N월" so a later month's pillar is not attributed to this one.
-    const near = after.split(/\d{1,2}월/)[0];
-    const found = near.match(GANJI)?.[0];
-    if (found && found !== entry.pillar) problems.push(`${m[1]}월 월주가 틀림: ${found} (정답 ${entry.pillar})`);
+    if (entry && m[2] !== entry.pillar) problems.push(`${m[1]}월 월주가 틀림: ${m[2]} (정답 ${entry.pillar})`);
   }
 
   if (modeId === "ny_ranking") {
