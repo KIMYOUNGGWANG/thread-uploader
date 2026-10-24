@@ -38,6 +38,13 @@ export interface HarvestResult {
   candidates: HarvestedCandidate[];
   errors: ViralSourceError[];
   totalDiscovered: number;
+  /** Keyword + profile sources actually queried; each failure adds exactly one error. */
+  attemptedSources: number;
+}
+
+/** True when external sources were tried and none came back (e.g. missing Threads app permission). */
+export function allExternalSourcesFailed(result: Pick<HarvestResult, "attemptedSources" | "errors">): boolean {
+  return result.attemptedSources > 0 && result.errors.length >= result.attemptedSources;
 }
 
 export function hashContent(content: string): string {
@@ -136,6 +143,7 @@ export async function harvestFromThreadsSources(options: HarvestOptions): Promis
       candidates: [],
       errors: [{ adapter: "threads_keyword", source: "auth", message: "Threads access token is missing" }],
       totalDiscovered: 0,
+      attemptedSources: 0,
     };
   }
 
@@ -190,5 +198,6 @@ export async function harvestFromThreadsSources(options: HarvestOptions): Promis
     candidates: unique,
     errors,
     totalDiscovered: rawCandidates.length,
+    attemptedSources: Math.min(keywords.length, 5) + Math.min(handles.length, 5),
   };
 }
