@@ -112,15 +112,18 @@ describe("new year content", () => {
     expect(checkNewYearFacts("In saju the year turns at Ipchun, not January 1", "ny_ipchun")).toEqual([]);
     expect(checkNewYearFacts("The new year starts in January", "ny_ipchun")).not.toEqual([]);
   });
-  it("링크에 추적 파라미터가 다 붙는다", () => {
+  it("링크는 홈페이지로 가고 추적 파라미터가 다 붙는다", () => {
     const url = new URL(buildNewYearLink("post_1", "ny_ranking", "ko"));
-    expect(url.origin + url.pathname).toBe("https://www.cosmicpath.app/2027/sample");
-    expect(Object.fromEntries(url.searchParams)).toMatchObject({ source: "threads", utm_source: "threads", utm_campaign: "new_year_2027", pid: "post_1", fid: "ny_ranking" });
-    expect(new URL(buildNewYearLink("p", "ny_pick", "en")).pathname).toBe("/en/2027/sample");
+    expect(url.origin + url.pathname).toBe("https://www.cosmicpath.app/");
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({ ref: "threads", utm_source: "threads", utm_campaign: "new_year_2027", pid: "post_1", fid: "ny_ranking" });
+    const en = new URL(buildNewYearLink("p", "ny_pick", "en"));
+    expect(en.pathname).toBe("/");
+    expect(en.searchParams.get("lang")).toBe("en");
+    expect(en.searchParams.get("pid")).toBe("p");
   });
-  it("첫 댓글은 고정 문구 + 링크뿐이다", () => {
-    expect(newYearFirstComment("ko", "https://x/r/1")).toBe("내 2027 캘린더, 샘플 먼저 보기:\nhttps://x/r/1");
-    expect(newYearFirstComment("en", "https://x/r/1")).toBe("See a sample 2027 calendar first:\nhttps://x/r/1");
+  it("첫 댓글은 홈 맨 위 2027 캘린더로 안내하는 고정 문구 + 링크뿐이다", () => {
+    expect(newYearFirstComment("ko", "https://x/r/1")).toBe("내 2027 캘린더는 홈 맨 위에서:\nhttps://x/r/1");
+    expect(newYearFirstComment("en", "https://x/r/1")).toBe("Your 2027 calendar is at the top of the home page:\nhttps://x/r/1");
   });
   it("신년 모드 프롬프트는 첫 줄 사주 전제·지어낸 경험담을 요구하지 않는다", () => {
     for (const mode of Object.values(NEW_YEAR_MODES)) {

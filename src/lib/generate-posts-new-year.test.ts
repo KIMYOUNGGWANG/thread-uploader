@@ -155,8 +155,8 @@ describe("New Year season slots in generatePostsForBrand", () => {
     await generatePostsForBrand(cosmicBrand, { ...input, count: 5 });
     const ny = state.created.filter((p) => p.formulaId?.startsWith("ny_"));
     expect(ny).toHaveLength(2);
-    expect(state.updates.filter((u) => u.linkUrl?.includes("/2027/sample"))).toHaveLength(2);
-    expect(state.updates.find((u) => u.linkUrl?.includes("/2027/sample"))?.firstComment).toMatch(/^내 2027 캘린더, 샘플 먼저 보기:\nhttps?:\/\/.+\/r\//);
+    expect(state.updates.filter((u) => u.linkUrl?.includes("utm_campaign=new_year_2027"))).toHaveLength(2);
+    expect(state.updates.find((u) => u.linkUrl?.includes("utm_campaign=new_year_2027"))?.firstComment).toMatch(/^내 2027 캘린더는 홈 맨 위에서:\nhttps?:\/\/.+\/r\//);
   });
 
   it("신년 칸의 프롬프트에 신년 자료가 들어간다", async () => {
@@ -192,8 +192,8 @@ describe("New Year season slots in generatePostsForBrand", () => {
     const formulaBlock = prompt.slice(prompt.indexOf("[Formula:"), prompt.indexOf("\\n\\n", prompt.indexOf("[Formula:")));
     expect(formulaBlock).toContain("[Formula: Lichun Twist]");
     expect(formulaBlock).not.toMatch(/[가-힣]/);
-    const update = state.updates.find((u) => u.linkUrl?.includes("/en/2027/sample"));
-    expect(update?.firstComment).toMatch(/^See a sample 2027 calendar first:\nhttps?:\/\/.+\/r\//);
+    const update = state.updates.find((u) => u.linkUrl?.includes("lang=en") && u.linkUrl?.includes("utm_campaign=new_year_2027"));
+    expect(update?.firstComment).toMatch(/^Your 2027 calendar is at the top of the home page:\nhttps?:\/\/.+\/r\//);
   });
 
   it("사실 검사에 걸린 신년 초안은 저장되지 않는다", async () => {
