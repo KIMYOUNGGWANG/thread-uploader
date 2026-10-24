@@ -4,6 +4,7 @@ import { parseBrandConfig } from "@/types/brand";
 import type { ViralSourceError } from "@/types/viral";
 import { mergeStoredRawMetrics } from "@/lib/viral-analysis";
 import { harvestShorts, type ShortsCandidate } from "./shorts-harvester";
+import { BASELINE_KEYS, computeOutlier, readStoredBaseline } from "./shorts-baseline";
 import { calculateShortsVelocity } from "./shorts-velocity";
 import { createYoutubeClient, YoutubeQuotaError, type YoutubeClient, type YoutubeVideo } from "./youtube-api";
 
@@ -40,15 +41,18 @@ async function hasSnapshotThisHour(exampleId: string, now: Date): Promise<boolea
   return Boolean(existing);
 }
 
-async function refreshVelocity(exampleId: string, publishedAt: Date, now: Date): Promise<void> {
+async function refreshVelocity(exampleId: string, publishedAt: Date, now: Date, views: number): Promise<void> {
   const snapshots = await prisma.viralExampleSnapshot.findMany({
     where: { exampleId, capturedAt: { gte: new Date(now.getTime() - VELOCITY_WINDOW_MS) } },
     orderBy: { capturedAt: "asc" },
   });
   const { velocity, windowHours } = calculateShortsVelocity({ snapshots, publishedAt, now });
   const row = await prisma.viralExample.findUnique({ where: { id: exampleId }, select: { rawMetrics: true } });
-  const rawMetrics = JSON.stringify({ ...parseRecord(row?.rawMetrics), velocityWindowHours: windowHours });
-  await prisma.viralExample.update({ where: { id: exampleId }, data: { velocityScore: velocity, rawMetrics } });
+  const record = parseRecord(row?.rawMetrics);
+  const median = readStoredBaseline(record)?.channelMedianViews ?? null;
+  const { outlierRatio, viralScore } = computeOutlier(views, median !== null && median > 0 ? median : null);
+  const rawMetrics = JSON.stringify({ ...record, velocityWindowHours: windowHours, outlierRatio });
+  await prisma.viralExample.update({ where: { id: exampleId }, data: { velocityScore: velocity, viralScore, rawMetrics } });
 }
 
 export async function recordSnapshot(exampleId: string, stats: Stats, publishedAt: Date, now: Date): Promise<void> {
@@ -56,13 +60,17 @@ export async function recordSnapshot(exampleId: string, stats: Stats, publishedA
     const { views, likes, comments } = stats;
     await prisma.viralExampleSnapshot.create({ data: { exampleId, capturedAt: now, views, likes, comments } });
   }
-  await refreshVelocity(exampleId, publishedAt, now);
+  await refreshVelocity(exampleId, publishedAt, now, stats.views);
 }
 
 async function buildRawMetrics(where: Prisma.ViralExampleWhereUniqueInput, c: ShortsCandidate, now: Date): Promise<string> {
   const existing = await prisma.viralExample.findUnique({ where, select: { rawMetrics: true } });
-  const firstSeenAt = parseRecord(existing?.rawMetrics).firstSeenAt ?? now.toISOString();
+  const previous = parseRecord(existing?.rawMetrics);
+  const firstSeenAt = previous.firstSeenAt ?? now.toISOString();
+  // mergeStoredRawMetrics replaces keys with incoming values, so carry the stored baseline in explicitly.
+  const baseline = Object.fromEntries(BASELINE_KEYS.filter((k) => k in previous).map((k) => [k, previous[k]]));
   const incoming = {
+    ...baseline,
     channelId: c.channelId,
     durationSec: c.durationSec,
     thumbnailUrl: c.thumbnailUrl,

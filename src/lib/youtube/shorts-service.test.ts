@@ -71,6 +71,30 @@ beforeEach(async () => {
 });
 
 describe("saveShortsCandidate", () => {
+  const baseline = { baselineStatus: "measured", channelMedianViews: 250, baselineSampleSize: 12, baselineComputedAt: "2026-10-21T00:00:00.000Z" };
+
+  it("carries the stored baseline through a re-save (regression: merge used to drop it)", async () => {
+    db.viralExample.findUnique.mockResolvedValue({ rawMetrics: JSON.stringify({ firstSeenAt: "old", ...baseline }) });
+    await saveShortsCandidate("b1", candidate, NOW);
+    expect(JSON.parse(upsertArgs().update.rawMetrics as string)).toMatchObject(baseline);
+  });
+
+  it("rewrites outlierRatio and viralScore from the snapshot views", async () => {
+    db.viralExample.findUnique.mockResolvedValue({ rawMetrics: JSON.stringify(baseline) });
+    await saveShortsCandidate("b1", candidate, NOW);
+    const call = db.viralExample.update.mock.calls[0][0];
+    expect(call.data.viralScore).toBe(400);
+    expect(JSON.parse(call.data.rawMetrics).outlierRatio).toBe(4);
+  });
+
+  it("writes viralScore 0 and outlierRatio null when there is no baseline", async () => {
+    db.viralExample.findUnique.mockResolvedValue({ rawMetrics: "not json" });
+    await saveShortsCandidate("b1", candidate, NOW);
+    const call = db.viralExample.update.mock.calls[0][0];
+    expect(call.data.viralScore).toBe(0);
+    expect(JSON.parse(call.data.rawMetrics).outlierRatio).toBeNull();
+  });
+
   it("creates the example with firstSeenAt and one snapshot on first save", async () => {
     await saveShortsCandidate("b1", candidate, NOW);
     const { where, create } = upsertArgs();
@@ -244,6 +268,16 @@ describe("discoverShorts save isolation", () => {
 });
 
 describe("snapshotShorts", () => {
+  it("refreshes the ratio on hourly snapshots without extra API calls", async () => {
+    db.viralExample.findMany.mockResolvedValue([row("e1", "v1")]);
+    db.viralExample.findUnique.mockResolvedValue({ rawMetrics: JSON.stringify({ baselineStatus: "measured", channelMedianViews: 5, baselineSampleSize: 6, baselineComputedAt: "x" }) });
+    const listVideos = vi.fn().mockResolvedValue([video("v1")]);
+    stubClient(listVideos);
+    await snapshotShorts(NOW);
+    expect(listVideos).toHaveBeenCalledTimes(1);
+    expect(db.viralExample.update.mock.calls[0][0].data.viralScore).toBe(200);
+  });
+
   it("only reads youtube_shorts examples published within 72h", async () => {
     vi.stubEnv("YOUTUBE_API_KEY", "key");
     await snapshotShorts(NOW);
