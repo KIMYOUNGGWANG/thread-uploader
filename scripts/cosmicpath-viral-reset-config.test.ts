@@ -79,6 +79,8 @@ describe("buildCosmicPathViralResetConfig", () => {
     expect(hierarchy?.instruction).toContain("쉬운 말로 비교");
     expect(hierarchy?.instruction).toContain("1개까지만");
     expect(hierarchy?.instruction).toContain("자기 경험만으로");
+    // "(A)…(B)" in the instruction came back as literal "A:" / "B:" label lines in published posts.
+    expect(hierarchy?.instruction).not.toMatch(/\([AB]\)/);
   });
 
   it("asks identity_profile to name one concept, not a 살·일주·글자 list", () => {

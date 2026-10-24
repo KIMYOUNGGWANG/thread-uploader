@@ -47,6 +47,8 @@ export interface AlgorithmicPredictionResult {
 const HOOK_VS = /\svs\s/i;
 const HOOK_CONTRAST_PATTERNS = [
   /보다\s*센/,
+  // "감정보다 먼저": the comparison the reversal-opener cap steers drafts to ("보다가" is not one)
+  /[가-힣]보다(?=[\s.,!?]|$)/,
   /비교/,
   /상식/,
   /불편한\s*진실/,
