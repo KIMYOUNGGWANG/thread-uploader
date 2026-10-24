@@ -36,10 +36,14 @@ describe("new year content", () => {
       "5·6월 을사·병오",
       "7월 정미월",
       "5월(을사)",
+      "5월 을사(乙巳) — 2027-05-06부터",
     ]) {
       expect(checkNewYearFacts(ok, "ny_monthly", "ko"), ok).toEqual([]);
     }
     expect(checkNewYearFacts("5월(병오)", "ny_monthly", "ko")).toEqual([expect.stringContaining("5월")]);
+    for (const bad of ["5월 병오(丙午)", "5월 병오:", "5월 병오 — x", "5월: 병오", "1월 임인.", "5월 병오!", "5월 = 병오", "5월 → 병오"]) {
+      expect(checkNewYearFacts(bad, "ny_monthly", "ko"), bad).toEqual([expect.stringContaining("월 월주가 틀림")]);
+    }
     expect(checkNewYearFacts("7월 을사월", "ny_monthly", "ko")).toEqual([expect.stringContaining("7월")]);
   });
   it("2026·2027 외 연도는 떨어진다", () => {

@@ -102,8 +102,10 @@ export function checkNewYearFacts(post: string, modeId: NewYearModeId, lang: New
   // The pillar must be attached to its month ("5월 을사는", "5월(을사)", "7월 정미월"). Looser matching
   // flags ordinary words (갑자기, 정해진, 임신) and year ganji (병오년, 병오해), and each false positive
   // silently drops a good draft, so an ambiguous mention is skipped rather than rejected.
-  // After the pair: 월, a particle, ")", "," or end of text. Whitespace, "·" and any other hangul do not count.
-  const MONTH_PILLAR = /(\d{1,2})월(?:은|에|엔|의|이|도)?[ (]?([갑을병정무기경신임계][자축인묘진사오미신유술해])(?=월|[은는이가](?![가-힣])|[),]|$)/gm;
+  // Between month and pair: a particle, then a space, "(" or a ":" / "=" / "→" separator (the brief's own
+  // "- 5월 을사(乙巳) — ..." shape). After the pair: 월, a particle, or ")", "(", ":", ".", "!", "?", "—"
+  // (a space is fine only before "—"). Bare whitespace, "·", "~" and other hangul do not count.
+  const MONTH_PILLAR = /(\d{1,2})월(?:은|에|엔|의|이|도)?(?:\s*[:=→]\s*|[ (])?([갑을병정무기경신임계][자축인묘진사오미신유술해])(?=월|[은는이가](?![가-힣])|[):(.!?,—]|\s+—|$)/gm;
   for (const m of post.matchAll(MONTH_PILLAR)) {
     const entry = MONTHS_2027.find((x) => x.month === Number(m[1]));
     if (entry && m[2] !== entry.pillar) problems.push(`${m[1]}월 월주가 틀림: ${m[2]} (정답 ${entry.pillar})`);
