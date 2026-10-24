@@ -1,5 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
+import { callTextJudge, extractJsonObject } from "@/lib/llm-judge";
 
 export interface ReadabilityVerdict {
   readable: boolean;
@@ -34,39 +33,17 @@ ${firstComment}
 
 // Fail-open: anything unreadable counts as readable so the judge can never block generation.
 export function parseReadabilityVerdict(text: string): ReadabilityVerdict {
-  const block = text.match(/\{[\s\S]*\}/)?.[0];
-  if (!block) return PASS;
-  try {
-    const parsed: unknown = JSON.parse(block);
-    if (typeof parsed !== "object" || parsed === null) return PASS;
-    const { keepReading, understandable, takeaway, reason } = parsed as Record<string, unknown>;
-    if (typeof keepReading !== "boolean" || typeof understandable !== "boolean" || typeof takeaway !== "boolean") return PASS;
-    if (keepReading && understandable && takeaway) return PASS;
-    // Retry feedback needs something to act on even when the model leaves the reason out.
-    const detail = typeof reason === "string" ? reason.trim() : "";
-    return { readable: false, reason: detail || "사주를 모르는 독자가 읽기 어려움" };
-  } catch {
-    return PASS;
-  }
+  const parsed = extractJsonObject(text);
+  if (!parsed) return PASS;
+  const { keepReading, understandable, takeaway, reason } = parsed;
+  if (typeof keepReading !== "boolean" || typeof understandable !== "boolean" || typeof takeaway !== "boolean") return PASS;
+  if (keepReading && understandable && takeaway) return PASS;
+  // Retry feedback needs something to act on even when the model leaves the reason out.
+  const detail = typeof reason === "string" ? reason.trim() : "";
+  return { readable: false, reason: detail || "사주를 모르는 독자가 읽기 어려움" };
 }
 
 export async function judgeReadability(post: string, firstComment: string): Promise<ReadabilityVerdict> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return PASS;
-
-  // Same client settings as english-naturalness: a stalled request must not block the batch.
-  const anthropic = new Anthropic({ apiKey, timeout: 20000, maxRetries: 1 });
-  try {
-    const response = await anthropic.messages.create({
-      model: CLAUDE_TEXT_MODEL,
-      max_tokens: 200,
-      thinking: { type: "disabled" },
-      output_config: { effort: "low" },
-      messages: [{ role: "user", content: buildPrompt(post, firstComment) }],
-    });
-    return parseReadabilityVerdict(readMessageText(response));
-  } catch (error) {
-    console.warn("[ReadabilityJudge] Judge failed; treating the post as readable:", error);
-    return PASS;
-  }
+  const text = await callTextJudge(buildPrompt(post, firstComment), "ReadabilityJudge");
+  return text === null ? PASS : parseReadabilityVerdict(text);
 }

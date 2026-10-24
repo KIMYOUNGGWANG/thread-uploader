@@ -1,5 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
+import { callTextJudge, extractJsonObject } from "@/lib/llm-judge";
 
 export interface NaturalnessVerdict {
   natural: boolean;
@@ -24,39 +23,16 @@ ${post}
 
 // Fail-open: anything unreadable counts as natural so the judge can never block generation.
 export function parseNaturalnessVerdict(text: string): NaturalnessVerdict {
-  const block = text.match(/\{[\s\S]*\}/)?.[0];
-  if (!block) return PASS;
-  try {
-    const parsed: unknown = JSON.parse(block);
-    if (typeof parsed !== "object" || parsed === null) return PASS;
-    const { natural, reason } = parsed as Record<string, unknown>;
-    if (typeof natural !== "boolean") return PASS;
-    if (natural) return PASS;
-    // Retry feedback needs something to act on even when the model leaves the reason out.
-    const text = typeof reason === "string" ? reason.trim() : "";
-    return { natural, reason: text || "awkward phrasing" };
-  } catch {
-    return PASS;
-  }
+  const parsed = extractJsonObject(text);
+  if (!parsed) return PASS;
+  const { natural, reason } = parsed;
+  if (typeof natural !== "boolean" || natural) return PASS;
+  // Retry feedback needs something to act on even when the model leaves the reason out.
+  const detail = typeof reason === "string" ? reason.trim() : "";
+  return { natural, reason: detail || "awkward phrasing" };
 }
 
 export async function judgeEnglishNaturalness(post: string): Promise<NaturalnessVerdict> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return PASS;
-
-  // Same client settings as remediation-engine: a stalled request must not block the batch.
-  const anthropic = new Anthropic({ apiKey, timeout: 20000, maxRetries: 1 });
-  try {
-    const response = await anthropic.messages.create({
-      model: CLAUDE_TEXT_MODEL,
-      max_tokens: 200,
-      thinking: { type: "disabled" },
-      output_config: { effort: "low" },
-      messages: [{ role: "user", content: buildPrompt(post) }],
-    });
-    return parseNaturalnessVerdict(readMessageText(response));
-  } catch (error) {
-    console.warn("[EnglishNaturalness] Judge failed; treating the post as natural:", error);
-    return PASS;
-  }
+  const text = await callTextJudge(buildPrompt(post), "EnglishNaturalness");
+  return text === null ? PASS : parseNaturalnessVerdict(text);
 }
