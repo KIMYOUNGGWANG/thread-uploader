@@ -86,7 +86,8 @@ describe("Domain Intelligence Registry", () => {
     const formulas = Object.values(getDomainPreset("saju_viral").trackFormulas).flat();
     const hierarchy = formulas.find((formula) => formula.id === "concept_hierarchy");
 
-    expect(hierarchy?.instruction).toContain("2~3개");
+    expect(hierarchy?.instruction).not.toMatch(/2~3개|십신|원국/);
+    expect(hierarchy?.instruction).toContain("1개까지");
     expect(hierarchy?.instruction).not.toContain("보다 센 홍염보다 센");
     expect(hierarchy?.instruction).not.toContain("브릿지");
   });

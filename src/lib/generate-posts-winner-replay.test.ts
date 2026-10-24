@@ -10,12 +10,16 @@ const SOURCE = {
 const state = vi.hoisted(() => ({
   reply: "",
   created: [] as Array<{ formulaId: string | null; qualityReasons: string }>,
+  requests: [] as string[],
 }));
 
 vi.mock("@anthropic-ai/sdk", () => ({
   default: class MockAnthropic {
     messages = {
-      create: vi.fn(async () => ({ content: [{ type: "text", text: `${state.reply}\n\n===FIRST_COMMENT===\n저장해두고 다시 봐` }] })),
+      create: vi.fn(async (request: unknown) => {
+        state.requests.push(JSON.stringify(request));
+        return { content: [{ type: "text", text: `${state.reply}\n\n===FIRST_COMMENT===\n저장해두고 다시 봐` }] };
+      }),
     };
   },
 }));
@@ -117,6 +121,7 @@ const input = { count: 1, insertAtFront: false, requestedCampaignId: null, appro
 describe("winner_replay draft gate", () => {
   beforeEach(() => {
     state.created.length = 0;
+    state.requests.length = 0;
     vi.mocked(selectLeanViralMode).mockClear();
   });
 
@@ -160,5 +165,21 @@ describe("winner_replay draft gate", () => {
     expect(result.ok).toBe(true);
     expect(state.created).toHaveLength(1);
     expect(state.created[0]?.formulaId).not.toBe("winner_replay");
+  });
+
+  it("writes the saju_viral prompt so jargon is capped at one term instead of required", async () => {
+    vi.mocked(loadLengthExperimentState).mockResolvedValueOnce({
+      config: { startAt: "2026-10-01T00:00:00Z", sequence: "SL", shortMax: 260, longMin: 390 },
+      position: 0,
+      arm: "S",
+      pending: { S: 0, L: 0 },
+    });
+    state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+    await generatePostsForBrand(brand, input);
+    const prompt = state.requests.join("\n");
+    expect(prompt).not.toContain("사주 용어를 최소 1개");
+    expect(prompt).toContain("사주 전문 용어(일간·재성·관성·도화살 등)는 1개까지만 쓰고");
+    expect(prompt).toContain("독자의 원국·일주·사주 구조를 묻지 않는다");
+    expect(prompt).toContain("지어낸 1인칭 경험담을 쓰지 않는다");
   });
 });
