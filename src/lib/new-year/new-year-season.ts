@@ -6,10 +6,10 @@ export const NEW_YEAR_BRANDS: Record<string, NewYearLang> = {
   "cosmicpath-global": "en",
 };
 
-const MODE_IDS: readonly string[] = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick"];
+export const NEW_YEAR_MODE_IDS: readonly NewYearModeId[] = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick"];
 
 export function isNewYearModeId(id: string | null | undefined): id is NewYearModeId {
-  return id != null && MODE_IDS.includes(id);
+  return id != null && (NEW_YEAR_MODE_IDS as readonly string[]).includes(id);
 }
 
 // Window bounds are KST dates as YYYYMMDD, inclusive. `positions` are the

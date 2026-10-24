@@ -133,4 +133,13 @@ describe("learnBrandGrowth", () => {
     expect(Object.keys(withSeason.weights).filter((id) => id.startsWith("ny_"))).toEqual([]);
     expect(withSeason).toEqual(withoutSeason);
   });
+
+  it("still writes back the score of New Year posts", async () => {
+    mocks.findPosts.mockResolvedValue([...posts("a", "normal", [100]), ...posts("n", "ny_ranking", [5000])]);
+
+    await learnBrandGrowth("brand_1");
+
+    const updatedIds = mocks.updatePost.mock.calls.map((call) => (call as unknown as [{ where: { id: string } }])[0].where.id);
+    expect(updatedIds.sort()).toEqual(["a0", "n0"]);
+  });
 });

@@ -46,8 +46,8 @@ describe("loadWinnerReplaySource", () => {
       status: "PUBLISHED",
       views: { not: null },
       publishedAt: { gte: new Date("2026-08-25T00:00:00Z") },
-      // No replay-of-replay; null formulaId must stay in (a bare `not` would drop NULL rows in SQL).
-      OR: [{ formulaId: null }, { formulaId: { not: "winner_replay" } }],
+      // No replay-of-replay or New Year posts; null formulaId must stay in (a bare `not` would drop NULL rows in SQL).
+      OR: [{ formulaId: null }, { formulaId: { notIn: ["winner_replay", "ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick"] } }],
     });
     expect(prismaMock.post.findMany.mock.calls[1]?.[0].where).toMatchObject({
       brandId: "b1",
