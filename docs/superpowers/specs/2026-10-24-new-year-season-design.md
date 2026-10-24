@@ -15,7 +15,7 @@ threads-uploader는 이 시즌에 **사람들을 신년 캘린더 샘플 페이�
 
 **목표** **[사용자 결정: "결제까지", "조회수도 충분해야"]**
 - 입구: 신년 글·영상이 평소 글보다 높은 조회수를 낸다.
-- 출구: 그 조회가 `/2027/sample` → `/2027` → 결제로 이어진다. 판정 기준은 cosmicpath 목표와 같은 **1/31까지 100건** **[설계자 판단]**.
+- 출구: 그 조회가 홈페이지 → 홈 맨 위 2027 캘린더(`/2027`) → 결제로 이어진다. 판정 기준은 cosmicpath 목표와 같은 **1/31까지 100건** **[설계자 판단]**.
 - 글 단위로 "어떤 유형의 신년 글이 결제를 만들었나"를 볼 수 있다.
 
 **비목표 (이번에 안 함)**
@@ -79,9 +79,9 @@ threads-uploader는 이 시즌에 **사람들을 신년 캘린더 샘플 페이�
 ## 6. 링크와 귀속
 
 - 신년 글은 **항상** 첫 댓글에 링크를 단다(평소 글의 링크 주기와 무관). 본문에는 링크를 넣지 않는다(기존 Zero-in-body URL 규칙). **[설계자 판단]**
-- 링크 목적지: KO `https://cosmicpath.app/2027/sample`, EN `https://cosmicpath.app/en/2027/sample`.
-- 링크 파라미터는 기존 `buildTrackedUrl`(`src/lib/tracking-url.ts`) 모양을 따른다: `utm_source=threads`, `utm_campaign=new_year_2027`, `pid=<Post id>`, `source=threads`, `fid=<신년 모드 ID>`. cosmicpath의 신년 결제는 `utm_source`와 `pid`를 Stripe 메타데이터로 넘기므로(`new-year-client-api.ts` `createNewYearCheckout`) 글 단위 결제 귀속이 된다.
-- 첫 댓글 문구: 1줄, 상업적 과장 없이 "내 2027 캘린더 샘플 먼저 보기" 결. 기존 첫 댓글 금지 규칙("프로필 링크/리포트/판정표" 금지)은 평소 글 기준이다. 신년 글의 첫 댓글은 링크용 고정 문구 + 링크로 대체하고, LLM이 쓴 첫 댓글은 쓰지 않는다. **[설계자 판단]**
+- 링크 목적지: 홈페이지. KO `https://www.cosmicpath.app/`, EN `https://www.cosmicpath.app/?lang=en`. **[사용자 결정, 2026-10-24: 샘플 페이지 대신 홈으로 유입]** 홈 히어로가 `landing_view`를 기록하면서 링크의 `pid`·`ref`를 브라우저에 저장하므로(`cosmicpath/src/lib/client-growth-events.ts` `getGrowthAttribution`), 홈 배너로 `/2027`에 가서 결제해도 글 단위 귀속이 유지된다.
+- 링크 파라미터는 기존 `buildTrackedUrl`(`src/lib/tracking-url.ts`) 모양을 따른다: `ref=threads`, `utm_source=threads`, `utm_medium=social`, `utm_campaign=new_year_2027`, `pid=<Post id>`, `fid=<신년 모드 ID>`. cosmicpath의 신년 결제는 `utm_source`와 `pid`를 Stripe 메타데이터로 넘기므로(`new-year-client-api.ts` `createNewYearCheckout`) 글 단위 결제 귀속이 된다.
+- 첫 댓글 문구: 1줄, 상업적 과장 없이 홈 맨 위 2027 캘린더로 안내하는 결(매일 영상 CTA와 같은 길). 기존 첫 댓글 금지 규칙("프로필 링크/리포트/판정표" 금지)은 평소 글 기준이다. 신년 글의 첫 댓글은 링크용 고정 문구 + 링크로 대체하고, LLM이 쓴 첫 댓글은 쓰지 않는다. **[설계자 판단]**
 - 지금은 링크 목적지가 캠페인 단위(`campaign.landingUrl`) 하나뿐이다. 신년 칸만 목적지를 바꿀 수 있게 실험(`GrowthExperiment`) 단위로 목적지를 덮어쓰는 길을 만든다.
 
 ## 7. 매일 영상 (KO만) **[설계자 판단]**

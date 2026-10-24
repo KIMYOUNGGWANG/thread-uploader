@@ -20,9 +20,10 @@ const PICK_AXES: ReadonlyArray<{ ko: string; en: string; tag: NewYearTag }> = [
   { ko: "돈", en: "Money", tag: "money" },
 ];
 
+// The home page records the visit's pid/ref before the reader moves on to the 2027 banner, so attribution survives.
 const LINK_BASE: Record<NewYearLang, string> = {
-  ko: "https://www.cosmicpath.app/2027/sample",
-  en: "https://www.cosmicpath.app/en/2027/sample",
+  ko: "https://www.cosmicpath.app/",
+  en: "https://www.cosmicpath.app/?lang=en",
 };
 
 const dayMastersOf = (tag: NewYearTag) => DAY_MASTERS.filter((dm) => DAY_MASTER_2027[dm].tag === tag);
@@ -176,11 +177,9 @@ export function checkNewYearFacts(post: string, modeId: NewYearModeId): string[]
 }
 
 export function buildNewYearLink(postId: string, modeId: NewYearModeId, lang: NewYearLang): string {
-  const url = new URL(buildTrackedUrl(LINK_BASE[lang], { postId, formulaId: modeId, utmCampaign: "new_year_2027" }));
-  url.searchParams.set("source", "threads");
-  return url.toString();
+  return buildTrackedUrl(LINK_BASE[lang], { postId, formulaId: modeId, utmCampaign: "new_year_2027" });
 }
 
 export function newYearFirstComment(lang: NewYearLang, shortLink: string): string {
-  return `${lang === "ko" ? "내 2027 캘린더, 샘플 먼저 보기:" : "See a sample 2027 calendar first:"}\n${shortLink}`;
+  return `${lang === "ko" ? "내 2027 캘린더는 홈 맨 위에서:" : "Your 2027 calendar is at the top of the home page:"}\n${shortLink}`;
 }
