@@ -349,7 +349,7 @@ async function generateWithQuality(
         gate = { ...gate, pass: false, reasons: [...readability.reasons, ...gate.reasons] };
       }
       // Safety net for the template cap: reversal openers, and numbered choices from a formula other than the excluded one
-      const template = checkTemplateCap(post, recentPosts);
+      const template = checkTemplateCap(post, recentPosts.filter(countsTowardTemplateCap));
       if (!template.pass) {
         gate = { ...gate, pass: false, reasons: [...template.reasons, ...gate.reasons] };
       }
@@ -944,6 +944,12 @@ export type GeneratePostsResult = { ok: false; error: string } | { ok: true; sum
  * the dashboard route checks the session owner, the refill cron checks CRON_SECRET.
  */
 const NUMBERED_CHOICE_PROBE = "1. a\n2. b";
+// The template cap counts posts readers see or will see ("발행·대기 글"). This run's drafts carry no status and count;
+// archived, failed, and review-queue posts do not, so a regate that archives choice posts frees the cap.
+const TEMPLATE_CAP_STATUSES = new Set(["PUBLISHED", "PUBLISHING", "PARTIAL_FAILED", "PENDING"]);
+function countsTowardTemplateCap(post: RecentPostSummary): boolean {
+  return post.status == null || TEMPLATE_CAP_STATUSES.has(post.status);
+}
 
 export async function generatePostsForBrand(brand: Brand, input: GeneratePostsInput): Promise<GeneratePostsResult> {
   const { count, insertAtFront, requestedCampaignId, approvedCampaignStart, postCategory } = input;
@@ -993,6 +999,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       hookType: true,
       ctaType: true,
       campaignFormulaId: true,
+      status: true,
     },
   });
   const recentPostContext = formatRecentPostContext(recentPosts);
@@ -1042,7 +1049,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       ];
       // imagination_dilemma needs numbered choices, so once the cap is hit it must not be picked at all
       // (the gate alone would only burn retries and drop the draft).
-      const excludedModeIds = isLeanSprint && !checkTemplateCap(NUMBERED_CHOICE_PROBE, inBatchPosts).pass ? ["imagination_dilemma"] : [];
+      const choicesCapped = !checkTemplateCap(NUMBERED_CHOICE_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
+      const excludedModeIds = isLeanSprint && choicesCapped ? ["imagination_dilemma"] : [];
       // No replay while the length experiment runs: an extra arm skews per-arm drop rates and its random assignment.
       const viralIntentMode = isLeanSprint
         ? selectLeanViralMode(
@@ -1092,7 +1100,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       const replaySource = formulaMode.id === WINNER_REPLAY_MODE.id ? winnerSource : null;
       // A replay keeps the source's own closing, so it gets no rotated closing format to contradict it.
       if (replaySource) experiment.winnerReference = replaySource.content;
-      else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id);
+      // The gate caps numbered choices only for saju_viral, so only there is a capped "choices" slot turned into a question.
+      else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
       return generateWithQuality(
         experiment,
         config,

@@ -558,9 +558,11 @@ export type ClosingFormat = "choices" | "question" | "statement";
 
 const CLOSING_FORMAT_ROTATION: readonly ClosingFormat[] = ["question", "statement", "question", "choices", "question", "statement"];
 
-export function pickClosingFormat(index: number, modeId?: ViralIntentModeId | null): ClosingFormat {
+// choicesCapped: the numbered-choice template cap is already hit, so the gate would reject a numbered-choice ending.
+export function pickClosingFormat(index: number, modeId?: ViralIntentModeId | null, choicesCapped = false): ClosingFormat {
   if (modeId === "imagination_dilemma") return "choices";
-  return CLOSING_FORMAT_ROTATION[((index % CLOSING_FORMAT_ROTATION.length) + CLOSING_FORMAT_ROTATION.length) % CLOSING_FORMAT_ROTATION.length];
+  const format = CLOSING_FORMAT_ROTATION[((index % CLOSING_FORMAT_ROTATION.length) + CLOSING_FORMAT_ROTATION.length) % CLOSING_FORMAT_ROTATION.length];
+  return choicesCapped && format === "choices" ? "question" : format;
 }
 
 export const CLOSING_FORMAT_PROMPT_KO: Record<ClosingFormat, string> = {

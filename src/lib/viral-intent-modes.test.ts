@@ -100,6 +100,12 @@ describe("pickClosingFormat", () => {
     expect(formats.filter((format) => format === "choices")).toHaveLength(2);
   });
 
+  it("turns a numbered-choice slot into a question once the numbered-choice cap is hit", () => {
+    const formats = Array.from({ length: 6 }, (_, index) => pickClosingFormat(index, "concept_hierarchy", true));
+    expect(formats).not.toContain("choices");
+    expect(formats[3]).toBe("question");
+  });
+
   it("keeps the 3-choice dilemma on numbered choices whatever the slot", () => {
     for (let index = 0; index < 6; index++) expect(pickClosingFormat(index, "imagination_dilemma")).toBe("choices");
   });

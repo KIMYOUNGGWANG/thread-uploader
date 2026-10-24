@@ -13,6 +13,7 @@ export interface RecentPostSummary {
   ctaType?: string | null;
   campaignFormulaId?: string | null;
   firstComment?: string | null;
+  status?: string | null;
 }
 
 export interface SimilarityCheckResult {

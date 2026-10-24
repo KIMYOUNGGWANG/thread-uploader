@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   reply: "",
   created: [] as Array<{ formulaId: string | null; qualityReasons: string }>,
   requests: [] as string[],
+  recent: null as null | Array<Record<string, unknown>>,
 }));
 
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -38,7 +39,7 @@ const RECENT_POSTS = Array.from({ length: 12 }, (_, i) => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     post: {
-      findMany: vi.fn(async () => RECENT_POSTS),
+      findMany: vi.fn(async () => state.recent ?? RECENT_POSTS),
       findFirst: vi.fn(async () => null),
       count: vi.fn(async () => 0),
       create: vi.fn(async ({ data }: { data: { formulaId: string | null; qualityReasons: string } }) => {
@@ -122,6 +123,7 @@ describe("winner_replay draft gate", () => {
   beforeEach(() => {
     state.created.length = 0;
     state.requests.length = 0;
+    state.recent = null;
     vi.mocked(selectLeanViralMode).mockClear();
   });
 
@@ -182,5 +184,63 @@ describe("winner_replay draft gate", () => {
     expect(prompt).toContain("독자의 원국·일주·사주 구조를 묻지 않는다");
     expect(prompt).toContain("지어낸 1인칭 경험담을 쓰지 않는다");
     expect(prompt).toContain("마지막 질문과 첫 댓글에는 사주 전문 용어를 쓰지 않는다");
+  });
+
+  describe("numbered-choice template cap", () => {
+    const CHOICE_POST = "새벽 연락 오면 어떻게 함?\n1. 바로 답장\n2. 아침에 답장\n3. 읽고 안 읽은 척";
+    const withChoices = (status: string) => [
+      ...Array.from({ length: 3 }, () => ({ ...RECENT_POSTS[0], content: CHOICE_POST, status })),
+      ...RECENT_POSTS.slice(3).map((post) => ({ ...post, status: "PUBLISHED" })),
+    ];
+    const lengthOn = () =>
+      vi.mocked(loadLengthExperimentState).mockResolvedValueOnce({
+        config: { startAt: "2026-10-01T00:00:00Z", sequence: "SL", shortMax: 260, longMin: 390 },
+        position: 0,
+        arm: "S",
+        pending: { S: 0, L: 0 },
+      });
+
+    it("excludes the dilemma when 3 of the last 10 published/pending posts end in numbered choices", async () => {
+      state.recent = withChoices("PUBLISHED");
+      state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+      await generatePostsForBrand(brand, input);
+      expect(vi.mocked(selectLeanViralMode).mock.calls[0]?.[5]).toEqual(["imagination_dilemma"]);
+    });
+
+    it("does not count archived, failed, or review-queue posts toward the cap", async () => {
+      for (const status of ["ARCHIVED", "FAILED", "NEEDS_REVIEW"]) {
+        vi.mocked(selectLeanViralMode).mockClear();
+        state.recent = withChoices(status);
+        state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+        await generatePostsForBrand(brand, input);
+        expect(vi.mocked(selectLeanViralMode).mock.calls[0]?.[5]).toEqual([]);
+      }
+    });
+
+    it("lets a numbered-choice draft through the gate when only archived posts used numbered choices", async () => {
+      lengthOn();
+      state.recent = withChoices("ARCHIVED");
+      state.reply = "카톡 읽씹 당하면 제일 먼저 뭐 함?\n1. 한 번 더 보냄\n2. 그냥 기다림\n3. 나도 읽씹";
+      const result = await generatePostsForBrand(brand, input);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.summary.failureReasons.join(" ")).not.toContain("번호 선택지 글이 이미");
+      expect(state.created).toHaveLength(1);
+    });
+
+    it("never tells a non-dilemma draft to end in numbered choices once the cap is hit", async () => {
+      // Length experiment on: no replay arm, so every slot gets a rotated closing format (slot 3 is "choices").
+      lengthOn();
+      state.recent = withChoices("PUBLISHED");
+      state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+      await generatePostsForBrand(brand, { ...input, count: 4 });
+      expect(state.requests.join("\n")).not.toContain("1/2/3으로 끝낸다");
+    });
+
+    it("still rotates numbered choices in when the cap is not hit", async () => {
+      lengthOn();
+      state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+      await generatePostsForBrand(brand, { ...input, count: 4 });
+      expect(state.requests.join("\n")).toContain("1/2/3으로 끝낸다");
+    });
   });
 });
