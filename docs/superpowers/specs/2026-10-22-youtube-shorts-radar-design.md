@@ -144,6 +144,7 @@ saveShortsCandidate:
   insert ViralExampleSnapshot (capturedAt = now, 같은 시(hour)에 이미 있으면 건너뜀)
   velocityScore 재계산 → update
   viralScore = 0 고정 (Threads 점수 체계와 섞이지 않게)
+  (대체됨: 2026-10-24-shorts-outlier-score-design.md 에서 viralScore = 평소 대비 × 100)
 ```
 
 - **학습 제외:** `learnViralPatterns`의 `findMany`와 `analyzeTopViralExamples`의 `findMany`에 `source: { not: "youtube_shorts" }`를 넣는다. 이게 "실패로 칠 것" 1번의 방어선이다. 두 함수에 각각 회귀 테스트를 둔다.

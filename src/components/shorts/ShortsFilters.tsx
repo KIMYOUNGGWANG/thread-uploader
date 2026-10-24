@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ShortsRegion, ShortsWindow } from "@/lib/youtube/shorts-feed";
+import type { ShortsRegion, ShortsSort, ShortsWindow } from "@/lib/youtube/shorts-feed";
 
 const WINDOWS: Array<{ value: ShortsWindow; label: string }> = [
   { value: "24", label: "24시간" },
@@ -11,6 +11,11 @@ const REGIONS: Array<{ value: ShortsRegion; label: string }> = [
   { value: "all", label: "전체" },
 ];
 
+const SORTS: Array<{ value: ShortsSort; label: string }> = [
+  { value: "velocity", label: "급상승순" },
+  { value: "outlier", label: "평소 대비순" },
+];
+
 const CHIP =
   "rounded-full border px-3 py-1.5 text-base outline-none focus-visible:ring-2 focus-visible:ring-violet-500";
 const ACTIVE = "border-violet-600 bg-violet-600 text-white";
@@ -20,9 +25,10 @@ const INACTIVE =
 interface ShortsFiltersProps {
   window: ShortsWindow;
   region: ShortsRegion;
+  sort: ShortsSort;
 }
 
-export function ShortsFilters({ window, region }: ShortsFiltersProps) {
+function WindowRegionNav({ window, region, sort }: ShortsFiltersProps) {
   return (
     <nav aria-label="쇼츠 필터" className="flex flex-wrap gap-2">
       {WINDOWS.flatMap((w) =>
@@ -31,7 +37,7 @@ export function ShortsFilters({ window, region }: ShortsFiltersProps) {
           return (
             <Link
               key={`${w.value}-${r.value}`}
-              href={`?window=${w.value}&region=${r.value}`}
+              href={`?window=${w.value}&region=${r.value}&sort=${sort}`}
               aria-current={active ? "page" : undefined}
               className={`${CHIP} ${active ? ACTIVE : INACTIVE}`}
             >
@@ -41,5 +47,31 @@ export function ShortsFilters({ window, region }: ShortsFiltersProps) {
         })
       )}
     </nav>
+  );
+}
+
+function SortNav({ window, region, sort }: ShortsFiltersProps) {
+  return (
+    <nav aria-label="쇼츠 정렬" className="flex flex-wrap gap-2">
+      {SORTS.map((s) => (
+        <Link
+          key={s.value}
+          href={`?window=${window}&region=${region}&sort=${s.value}`}
+          aria-current={s.value === sort ? "page" : undefined}
+          className={`${CHIP} ${s.value === sort ? ACTIVE : INACTIVE}`}
+        >
+          {s.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+export function ShortsFilters(props: ShortsFiltersProps) {
+  return (
+    <div className="flex flex-col gap-2">
+      <WindowRegionNav {...props} />
+      <SortNav {...props} />
+    </div>
   );
 }
