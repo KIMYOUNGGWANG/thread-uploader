@@ -51,7 +51,7 @@ import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
-import { checkReadabilityRules } from "@/lib/readability-rules";
+import { checkReadabilityRules, checkTemplateCap } from "@/lib/readability-rules";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
@@ -346,6 +346,11 @@ async function generateWithQuality(
       const readability = checkReadabilityRules(post, firstComment);
       if (!readability.pass) {
         gate = { ...gate, pass: false, reasons: [...readability.reasons, ...gate.reasons] };
+      }
+      // Safety net for the template cap: reversal openers, and numbered choices from a formula other than the excluded one
+      const template = checkTemplateCap(post, recentPosts);
+      if (!template.pass) {
+        gate = { ...gate, pass: false, reasons: [...template.reasons, ...gate.reasons] };
       }
     }
     return gate;
@@ -925,6 +930,8 @@ export type GeneratePostsResult = { ok: false; error: string } | { ok: true; sum
  * Generates, scores and queues posts for one brand. Callers own authorization:
  * the dashboard route checks the session owner, the refill cron checks CRON_SECRET.
  */
+const NUMBERED_CHOICE_PROBE = "1. a\n2. b";
+
 export async function generatePostsForBrand(brand: Brand, input: GeneratePostsInput): Promise<GeneratePostsResult> {
   const { count, insertAtFront, requestedCampaignId, approvedCampaignStart, postCategory } = input;
   const brandId = brand.id;
@@ -1015,11 +1022,20 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   for (let i = 0; i < count; i += BATCH) {
     const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
       const batchIndex = i + j;
+      // Newest first, so the anti-repeat windows and the template cap look at the latest drafts.
+      const inBatchPosts: RecentPostSummary[] = [
+        ...[...results].reverse().map((result) => ({ content: result.post, topic: result.topic, hookType: result.hookType, firstComment: result.firstComment })),
+        ...recentPosts,
+      ];
+      // imagination_dilemma needs numbered choices, so once the cap is hit it must not be picked at all
+      // (the gate alone would only burn retries and drop the draft).
+      const excludedModeIds = isLeanSprint && !checkTemplateCap(NUMBERED_CHOICE_PROBE, inBatchPosts).pass ? ["imagination_dilemma"] : [];
       // No replay while the length experiment runs: an extra arm skews per-arm drop rates and its random assignment.
       const viralIntentMode = isLeanSprint
         ? selectLeanViralMode(
             batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds,
-            Boolean(winnerSource) && !lengthExperiment && !pickedFormulaIds.includes(WINNER_REPLAY_MODE.id)
+            Boolean(winnerSource) && !lengthExperiment && !pickedFormulaIds.includes(WINNER_REPLAY_MODE.id),
+            excludedModeIds
           )
         : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
       const quotaSelection = config.thompsonPriors
@@ -1064,11 +1080,6 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       // A replay keeps the source's own closing, so it gets no rotated closing format to contradict it.
       if (replaySource) experiment.winnerReference = replaySource.content;
       else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id);
-      // Newest first, so the anti-repeat windows look at the latest drafts.
-      const inBatchPosts: RecentPostSummary[] = [
-        ...[...results].reverse().map((result) => ({ content: result.post, topic: result.topic, hookType: result.hookType, firstComment: result.firstComment })),
-        ...recentPosts,
-      ];
       return generateWithQuality(
         experiment,
         config,

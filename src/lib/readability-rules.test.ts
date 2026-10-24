@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkReadabilityRules, findJargonTerms } from "@/lib/readability-rules";
+import { checkReadabilityRules, checkTemplateCap, endsWithNumberedChoices, findJargonTerms, opensWithReversal } from "@/lib/readability-rules";
 
 describe("checkReadabilityRules", () => {
   it("fails a post with several jargon terms", () => {
@@ -91,5 +91,51 @@ describe("findJargonTerms", () => {
 
   it("finds distinct terms once", () => {
     expect(findJargonTerms("겁재와 정관, 그리고 겁재 또 일주")).toEqual(["겁재", "정관", "일주"]);
+  });
+});
+
+describe("checkTemplateCap", () => {
+  const choice = "고민임\n1. 바로 간다\n2. 기다린다\n3. 기록한다";
+  const plain = "그냥 한 줄 생각\n오늘은 여기까지";
+  const toRecent = (posts: string[]) => posts.map((content) => ({ content }));
+
+  it("fails the 4th numbered-choice post in the last 10", () => {
+    const r = checkTemplateCap(choice, toRecent([choice, choice, choice, plain]));
+    expect(r.pass).toBe(false);
+    expect(r.reasons).toEqual(["최근 10개 중 번호 선택지 글이 이미 3개: 다른 마무리로"]);
+  });
+
+  it("passes when the window holds fewer than the cap", () => {
+    expect(checkTemplateCap(choice, toRecent([choice, choice, plain])).pass).toBe(true);
+  });
+
+  it("only counts the most recent 10", () => {
+    expect(checkTemplateCap(choice, toRecent([...Array(10).fill(plain), choice, choice, choice])).pass).toBe(true);
+  });
+
+  it("passes a plain candidate even when the window is full of one template", () => {
+    expect(checkTemplateCap(plain, toRecent([choice, choice, choice, choice])).pass).toBe(true);
+  });
+
+  it("caps reversal openers and tells the model how to compare instead", () => {
+    const reversal = "새벽 연락은 설렘이 아니라 계산임.\n둘째 줄";
+    const r = checkTemplateCap(reversal, toRecent([reversal, reversal, reversal]));
+    expect(r.pass).toBe(false);
+    expect(r.reasons).toEqual(["최근 10개 중 'X가 아니라 Y' 첫 줄이 이미 3개: 다른 훅으로 (비교가 필요하면 '~보다'로)"]);
+  });
+});
+
+describe("template detectors", () => {
+  it("detects a reversal opener", () => {
+    expect(opensWithReversal("새벽 연락은 설렘이 아니라 계산임.\n둘째 줄")).toBe(true);
+    expect(opensWithReversal("새벽 연락이 왔음.\n둘째 줄")).toBe(false);
+    expect(opensWithReversal("첫 줄\n둘째 줄\n셋째 줄은 사랑이 아니라 습관")).toBe(false);
+    expect(opensWithReversal("그건 아님이라 생각함")).toBe(false);
+  });
+
+  it("needs two numbered lines to count as numbered choices", () => {
+    expect(endsWithNumberedChoices("고민임\n1. 바로 간다\n2. 기다린다")).toBe(true);
+    expect(endsWithNumberedChoices("A) 가\nB) 나")).toBe(true);
+    expect(endsWithNumberedChoices("고민임\n1. 하나만")).toBe(false);
   });
 });

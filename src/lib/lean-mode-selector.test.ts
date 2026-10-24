@@ -40,6 +40,25 @@ describe("selectLeanViralMode", () => {
   });
 });
 
+describe("selectLeanViralMode exclusion", () => {
+  it("skips an excluded mode even with a dominant prior", () => {
+    const priors = { imagination_dilemma: { alpha: 1000, beta: 1 } };
+    for (let i = 0; i < 20; i++) {
+      expect(selectLeanViralMode(0, [], priors, [], false, ["imagination_dilemma"]).id).not.toBe("imagination_dilemma");
+    }
+  });
+
+  it("skips an excluded fixed-allocation mode when no priors are learned", () => {
+    // Index 0 is imagination_dilemma in the fixed allocation.
+    expect(selectLeanViralMode(0, [], undefined, [], false, ["imagination_dilemma"]).id).not.toBe("imagination_dilemma");
+  });
+
+  it("ignores the exclusion when it would empty the pool", () => {
+    const priors = { imagination_dilemma: { alpha: 1000, beta: 1 } };
+    expect(LEAN_IDS).toContain(selectLeanViralMode(0, [], priors, [], false, LEAN_IDS).id);
+  });
+});
+
 describe("isLeanSprintRun", () => {
   const base = { brandSlug: "cosmicpath-global", domainProfile: "saju_viral", campaignId: null, experimentId: null, productName: "CosmicPath Global", count: 6 };
 

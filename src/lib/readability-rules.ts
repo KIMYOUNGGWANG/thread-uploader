@@ -75,3 +75,33 @@ export function checkReadabilityRules(post: string, firstComment: string): { pas
 
   return { pass: reasons.length === 0, reasons };
 }
+
+// Template cap: a post that ends in numbered choices, or opens with "X가 아니라 Y", may fill at most
+// TEMPLATE_CAP of the last TEMPLATE_WINDOW posts so the account does not read as one mold.
+export const TEMPLATE_CAP = 3;
+export const TEMPLATE_WINDOW = 10;
+
+const CHOICE_LINE_RE = /^\s*([1-3]|[A-C])[.)]?\s/;
+const REVERSAL_RE = /아니라|아님(?![가-힣])|이 아니고/;
+
+export function endsWithNumberedChoices(post: string): boolean {
+  return post.split("\n").filter((line) => CHOICE_LINE_RE.test(line)).length >= 2;
+}
+
+export function opensWithReversal(post: string): boolean {
+  return REVERSAL_RE.test(post.split("\n").slice(0, 2).join("\n"));
+}
+
+export function checkTemplateCap(post: string, recent: readonly { content: string }[]): { pass: boolean; reasons: string[] } {
+  const window = recent.slice(0, TEMPLATE_WINDOW);
+  const reasons: string[] = [];
+  const choices = window.filter((r) => endsWithNumberedChoices(r.content)).length;
+  if (choices >= TEMPLATE_CAP && endsWithNumberedChoices(post)) {
+    reasons.push(`최근 ${TEMPLATE_WINDOW}개 중 번호 선택지 글이 이미 ${choices}개: 다른 마무리로`);
+  }
+  const reversals = window.filter((r) => opensWithReversal(r.content)).length;
+  if (reversals >= TEMPLATE_CAP && opensWithReversal(post)) {
+    reasons.push(`최근 ${TEMPLATE_WINDOW}개 중 'X가 아니라 Y' 첫 줄이 이미 ${reversals}개: 다른 훅으로 (비교가 필요하면 '~보다'로)`);
+  }
+  return { pass: reasons.length === 0, reasons };
+}
