@@ -16,13 +16,14 @@ vi.mock("./shorts-harvester", () => ({ harvestShorts: vi.fn() }));
 
 import { prisma } from "@/lib/prisma";
 import { harvestShorts, type ShortsCandidate } from "./shorts-harvester";
-import { createYoutubeClient, type YoutubeVideo } from "./youtube-api";
+import { createYoutubeClient, YoutubeQuotaError, type YoutubeVideo } from "./youtube-api";
 import {
   SHORTS_SOURCE,
   cleanupShorts,
   discoverShorts,
   saveShortsCandidate,
   snapshotShorts,
+  updateChannelBaselines,
 } from "./shorts-service";
 
 const HOUR = 60 * 60 * 1000;
@@ -183,6 +184,23 @@ describe("discoverShorts", () => {
     expect(db.viralExample.upsert).not.toHaveBeenCalled();
     expect(db.viralExampleSnapshot.create).not.toHaveBeenCalled();
   });
+
+  it("runs the baseline pass with the same client and adds its quota", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", "key");
+    db.brand.findUnique.mockResolvedValue({ id: "b1", brandConfig: "{}" });
+    db.viralExample.findMany.mockResolvedValue([{ id: "e1", views: 1, rawMetrics: JSON.stringify({ channelId: "c1" }) }]);
+    const client = { listVideos: vi.fn(), recentUploads: vi.fn(), quotaUsed: 3, listChannels: vi.fn() };
+    client.listChannels.mockImplementation(async () => {
+      client.quotaUsed += 1;
+      return [];
+    });
+    vi.mocked(createYoutubeClient).mockReturnValue(client as never);
+    vi.mocked(harvestShorts).mockResolvedValue({ candidates: [], errors: [], quotaUsed: 3 });
+    const result = await discoverShorts("b1", NOW);
+    expect(vi.mocked(harvestShorts).mock.calls[0][0].client).toBe(client);
+    expect(result.quotaUsed).toBe(4);
+    expect(result.errors).toEqual([expect.objectContaining({ source: "baseline:c1" })]);
+  });
 });
 
 function row(id: string, sourceKey: string) {
@@ -304,5 +322,145 @@ describe("cleanupShorts", () => {
       where: { source: "youtube_shorts", publishedAt: { lt: new Date(NOW.getTime() - 7 * 24 * HOUR) } },
     });
     expect(result).toEqual({ deleted: 4 });
+  });
+});
+
+function stored(id: string, channelId: string, extra: Record<string, unknown> = {}) {
+  const meta = { channelId, velocityWindowHours: 2, llmAnalyzedAt: "y", firstSeenAt: "f", ...extra };
+  return { id, views: 1000, rawMetrics: JSON.stringify(meta) };
+}
+
+function upload(id: string, daysAgo: number, views: number): YoutubeVideo {
+  return { id, views, durationSec: 30, publishedAt: new Date(NOW.getTime() - daysAgo * 24 * HOUR) } as YoutubeVideo;
+}
+
+function clientWith(opts: { uploads?: string[]; videos?: YoutubeVideo[]; missing?: string[] }) {
+  return {
+    listChannels: vi.fn(async (ids: string[]) =>
+      ids.filter((id) => !opts.missing?.includes(id)).map((id) => ({ id, title: "", country: "KR", uploadsPlaylistId: `UU${id}` })),
+    ),
+    recentUploads: vi.fn().mockResolvedValue(opts.uploads ?? []),
+    listVideos: vi.fn().mockResolvedValue(opts.videos ?? []),
+    quotaUsed: 0,
+  };
+}
+
+function eligible(count: number) {
+  const ids = Array.from({ length: count }, (_, i) => `u${i + 1}`);
+  return { uploads: ids, videos: ids.map((id, i) => upload(id, i + 4, 250)) };
+}
+
+function updatedMetrics(index: number): Record<string, unknown> {
+  return JSON.parse(db.viralExample.update.mock.calls[index][0].data.rawMetrics);
+}
+
+describe("updateChannelBaselines", () => {
+  const run = (client: ReturnType<typeof clientWith>) =>
+    updateChannelBaselines({ brandId: "b1", client: client as never, now: NOW, maxDurationSec: 180 });
+
+  it("measures each channel once and writes the baseline, ratio and score to every row", async () => {
+    db.viralExample.findMany.mockResolvedValue([stored("e1", "c1"), stored("e2", "c1")]);
+    const client = clientWith(eligible(5));
+    const result = await run(client);
+    expect(result.errors).toEqual([]);
+    expect(client.recentUploads).toHaveBeenCalledTimes(1);
+    expect(client.recentUploads).toHaveBeenCalledWith("UUc1", 50);
+    const updates = db.viralExample.update.mock.calls.map((c) => c[0]);
+    expect(updates.map((u) => u.where.id)).toEqual(["e1", "e2"]);
+    expect(updates[0].data.viralScore).toBe(400);
+    expect(updatedMetrics(0)).toMatchObject({
+      baselineStatus: "measured",
+      channelMedianViews: 250,
+      baselineSampleSize: 5,
+      baselineComputedAt: NOW.toISOString(),
+      outlierRatio: 4,
+      velocityWindowHours: 2,
+      llmAnalyzedAt: "y",
+      firstSeenAt: "f",
+    });
+  });
+
+  it("reads only this brand's shorts rows inside the 48h feed window", async () => {
+    db.viralExample.findMany.mockResolvedValue([]);
+    await run(clientWith({}));
+    expect(db.viralExample.findMany).toHaveBeenCalledWith({
+      where: { brandId: "b1", source: "youtube_shorts", publishedAt: { gte: new Date(NOW.getTime() - 48 * HOUR) } },
+      select: { id: true, rawMetrics: true, views: true },
+    });
+  });
+
+  it("reuses a fresh baseline from a sibling row without calling the API", async () => {
+    const fresh = {
+      baselineStatus: "measured",
+      channelMedianViews: 500,
+      baselineSampleSize: 12,
+      baselineComputedAt: new Date(NOW.getTime() - 6 * HOUR).toISOString(),
+    };
+    db.viralExample.findMany.mockResolvedValue([stored("e1", "c1", fresh), stored("e2", "c1")]);
+    const client = clientWith({});
+    await run(client);
+    expect(client.listChannels).not.toHaveBeenCalled();
+    expect(db.viralExample.update).toHaveBeenCalledTimes(1);
+    expect(db.viralExample.update.mock.calls[0][0].where.id).toBe("e2");
+    expect(db.viralExample.update.mock.calls[0][0].data.viralScore).toBe(200);
+  });
+
+  it("stores insufficient when fewer than 5 eligible uploads", async () => {
+    db.viralExample.findMany.mockResolvedValue([stored("e1", "c1")]);
+    const result = await run(clientWith(eligible(4)));
+    expect(result.errors).toEqual([]);
+    expect(updatedMetrics(0)).toMatchObject({
+      baselineStatus: "insufficient",
+      channelMedianViews: null,
+      baselineSampleSize: 4,
+      baselineComputedAt: NOW.toISOString(),
+      outlierRatio: null,
+    });
+    expect(db.viralExample.update.mock.calls[0][0].data.viralScore).toBe(0);
+  });
+
+  it("ignores rows with broken rawMetrics or no channelId", async () => {
+    db.viralExample.findMany.mockResolvedValue([
+      { id: "bad", views: 1, rawMetrics: "{" },
+      { id: "nochan", views: 1, rawMetrics: "{}" },
+    ]);
+    const result = await run(clientWith({}));
+    expect(result.errors).toEqual([]);
+    expect(db.viralExample.update).not.toHaveBeenCalled();
+  });
+
+  it("marks a channel without an uploads playlist as skipped and continues", async () => {
+    db.viralExample.findMany.mockResolvedValue([stored("e1", "c1"), stored("e2", "c2")]);
+    const result = await run(clientWith({ ...eligible(5), missing: ["c1"] }));
+    expect(result.errors).toEqual([{ adapter: "youtube_shorts", source: "baseline:c1", message: "uploads playlist not found" }]);
+    expect(updatedMetrics(0)).toMatchObject({ baselineStatus: "skipped", channelMedianViews: null, baselineSampleSize: 0, baselineComputedAt: null, outlierRatio: null });
+    expect(db.viralExample.update.mock.calls[0][0].data.viralScore).toBe(0);
+    expect(updatedMetrics(1)).toMatchObject({ baselineStatus: "measured", channelMedianViews: 250 });
+  });
+
+  it("on quota error marks the remaining channels skipped and reports once", async () => {
+    db.viralExample.findMany.mockResolvedValue([stored("e1", "c1"), stored("e2", "c2")]);
+    const client = clientWith({});
+    client.recentUploads.mockRejectedValue(new YoutubeQuotaError());
+    const result = await run(client);
+    expect(result.errors).toEqual([{ adapter: "youtube_shorts", source: "baseline", message: "youtube quota exceeded" }]);
+    expect(client.recentUploads).toHaveBeenCalledTimes(1);
+    expect(updatedMetrics(0)).toMatchObject({ baselineStatus: "skipped" });
+    expect(updatedMetrics(1)).toMatchObject({ baselineStatus: "skipped" });
+  });
+
+  it("never throws: a findMany failure becomes one baseline error", async () => {
+    db.viralExample.findMany.mockRejectedValue(new Error("db down"));
+    await expect(run(clientWith({}))).resolves.toEqual({
+      errors: [{ adapter: "youtube_shorts", source: "baseline", message: "db down" }],
+    });
+  });
+
+  it("skips the update when the row already holds the target baseline", async () => {
+    const same = { baselineStatus: "skipped", channelMedianViews: null, baselineSampleSize: 0, baselineComputedAt: null };
+    db.viralExample.findMany.mockResolvedValue([stored("e1", "c1", same)]);
+    const client = clientWith({ missing: ["c1"] });
+    await run(client);
+    expect(db.viralExample.update).not.toHaveBeenCalled();
   });
 });

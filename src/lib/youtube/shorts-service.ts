@@ -4,7 +4,15 @@ import { parseBrandConfig } from "@/types/brand";
 import type { ViralSourceError } from "@/types/viral";
 import { mergeStoredRawMetrics } from "@/lib/viral-analysis";
 import { harvestShorts, type ShortsCandidate } from "./shorts-harvester";
-import { BASELINE_KEYS, computeOutlier, readStoredBaseline } from "./shorts-baseline";
+import {
+  BASELINE_KEYS,
+  BASELINE_UPLOADS,
+  computeChannelBaseline,
+  computeOutlier,
+  planBaselineWork,
+  readStoredBaseline,
+  type StoredBaseline,
+} from "./shorts-baseline";
 import { calculateShortsVelocity } from "./shorts-velocity";
 import { createYoutubeClient, YoutubeQuotaError, type YoutubeClient, type YoutubeVideo } from "./youtube-api";
 
@@ -15,6 +23,7 @@ const VELOCITY_WINDOW_MS = 6 * HOUR_MS;
 const SNAPSHOT_WINDOW_MS = 72 * HOUR_MS;
 const CLEANUP_AGE_MS = 7 * 24 * HOUR_MS;
 const ID_CHUNK = 50;
+const FEED_WINDOW_MS = 48 * HOUR_MS;
 const AUTH_ERROR: ViralSourceError = { adapter: SHORTS_SOURCE, source: "auth", message: "YOUTUBE_API_KEY is not set" };
 
 type Stats = { views: number; likes: number | null; comments: number | null };
@@ -114,14 +123,30 @@ export async function discoverShorts(brandId: string, now: Date = new Date()) {
   const brand = await prisma.brand.findUnique({ where: { id: brandId } });
   if (!brand) throw new Error(`brand not found: ${brandId}`);
   const config = parseBrandConfig(brand.brandConfig);
-  const { candidates, errors, quotaUsed } = await harvestShorts({
-    client: getClient(),
+  const client = getClient();
+  const harvest = await harvestShorts({
+    client,
     config: config.viralDiscovery.youtube,
     fallbackKeywords: config.topics,
     now,
   });
-  const { saved, errors: saveErrors } = await saveCandidates(brandId, candidates, now);
-  return { discovered: candidates.length, saved, quotaUsed, errors: [...errors, ...saveErrors] };
+  const { saved, errors: saveErrors } = await saveCandidates(brandId, harvest.candidates, now);
+  const pass = await baselinePass({ brandId, client, now, maxDurationSec: config.viralDiscovery.youtube.maxDurationSec });
+  return {
+    discovered: harvest.candidates.length,
+    saved,
+    quotaUsed: harvest.quotaUsed + pass.quotaUsed,
+    errors: [...harvest.errors, ...saveErrors, ...pass.errors],
+  };
+}
+
+type BaselineInput = { brandId: string; client: YoutubeClient; now: Date; maxDurationSec: number };
+
+async function baselinePass({ client, ...rest }: Omit<BaselineInput, "client"> & { client: YoutubeClient | null }) {
+  if (!client) return { errors: [], quotaUsed: 0 };
+  const before = client.quotaUsed;
+  const { errors } = await updateChannelBaselines({ ...rest, client });
+  return { errors, quotaUsed: client.quotaUsed - before };
 }
 
 async function saveCandidates(brandId: string, candidates: ShortsCandidate[], now: Date) {
@@ -212,4 +237,116 @@ export async function cleanupShorts(now: Date = new Date()): Promise<{ deleted: 
     where: { source: SHORTS_SOURCE, publishedAt: { lt: new Date(now.getTime() - CLEANUP_AGE_MS) } },
   });
   return { deleted: count };
+}
+
+type BaselineRow = { id: string; views: number | null; record: Record<string, unknown> };
+type Targets = { targets: Map<string, StoredBaseline>; errors: ViralSourceError[] };
+
+const SKIPPED: StoredBaseline = { baselineStatus: "skipped", channelMedianViews: null, baselineSampleSize: 0, baselineComputedAt: null };
+
+async function loadBaselineRows(brandId: string, now: Date): Promise<Map<string, BaselineRow[]>> {
+  const rows = await prisma.viralExample.findMany({
+    where: { brandId, source: SHORTS_SOURCE, publishedAt: { gte: new Date(now.getTime() - FEED_WINDOW_MS) } },
+    select: { id: true, rawMetrics: true, views: true },
+  });
+  const byChannel = new Map<string, BaselineRow[]>();
+  for (const { id, views, rawMetrics } of rows) {
+    const record = parseRecord(rawMetrics);
+    if (typeof record.channelId !== "string" || !record.channelId) continue;
+    byChannel.set(record.channelId, [...(byChannel.get(record.channelId) ?? []), { id, views, record }]);
+  }
+  return byChannel;
+}
+
+async function fetchBaseline(client: YoutubeClient, playlistId: string, input: BaselineInput): Promise<StoredBaseline> {
+  const ids = await client.recentUploads(playlistId, BASELINE_UPLOADS);
+  const videos = ids.length > 0 ? await client.listVideos(ids) : [];
+  const { medianViews, sampleSize } = computeChannelBaseline(videos, input);
+  return {
+    baselineStatus: medianViews === null ? "insufficient" : "measured",
+    channelMedianViews: medianViews,
+    baselineSampleSize: sampleSize,
+    baselineComputedAt: input.now.toISOString(),
+  };
+}
+
+// A quota error escapes on purpose: the caller stops the whole pass. Any other failure only skips this channel.
+async function measureChannel(playlistId: string | undefined, channelId: string, input: BaselineInput, state: Targets) {
+  try {
+    if (!playlistId) throw new Error("uploads playlist not found");
+    state.targets.set(channelId, await fetchBaseline(input.client, playlistId, input));
+  } catch (error) {
+    if (error instanceof YoutubeQuotaError) throw error;
+    state.targets.set(channelId, SKIPPED);
+    state.errors.push(toSourceError(`baseline:${channelId}`, error));
+  }
+}
+
+async function measureGroup(ids: string[], input: BaselineInput, state: Targets): Promise<void> {
+  let playlists: Map<string, string>;
+  try {
+    playlists = new Map((await input.client.listChannels(ids)).map((c) => [c.id, c.uploadsPlaylistId]));
+  } catch (error) {
+    if (error instanceof YoutubeQuotaError) throw error;
+    for (const id of ids) {
+      state.targets.set(id, SKIPPED);
+      state.errors.push(toSourceError(`baseline:${id}`, error));
+    }
+    return;
+  }
+  for (const id of ids) await measureChannel(playlists.get(id), id, input, state);
+}
+
+async function measureChannels(ids: string[], input: BaselineInput, state: Targets): Promise<void> {
+  try {
+    for (let i = 0; i < ids.length; i += ID_CHUNK) await measureGroup(ids.slice(i, i + ID_CHUNK), input, state);
+  } catch (error) {
+    if (!(error instanceof YoutubeQuotaError)) throw error;
+    state.errors.push(toSourceError("baseline", error));
+  }
+  for (const id of ids) if (!state.targets.has(id)) state.targets.set(id, SKIPPED);
+}
+
+async function resolveTargets(byChannel: Map<string, BaselineRow[]>, input: BaselineInput, errors: ViralSourceError[]) {
+  const channels = [...byChannel].map(([channelId, rows]) => ({
+    channelId,
+    baselines: rows.map((r) => readStoredBaseline(r.record)),
+  }));
+  const plan = planBaselineWork(channels, input.now);
+  const state: Targets = { targets: new Map(plan.reuse), errors };
+  for (const id of plan.skip) state.targets.set(id, SKIPPED);
+  if (plan.measure.length > 0) await measureChannels(plan.measure, input, state);
+  return state.targets;
+}
+
+async function writeBaseline(row: BaselineRow, target: StoredBaseline): Promise<void> {
+  if (BASELINE_KEYS.every((k) => row.record[k] === target[k])) return;
+  const median = target.channelMedianViews !== null && target.channelMedianViews > 0 ? target.channelMedianViews : null;
+  const { outlierRatio, viralScore } = computeOutlier(row.views ?? 0, median);
+  const rawMetrics = JSON.stringify({ ...row.record, ...target, outlierRatio });
+  await prisma.viralExample.update({ where: { id: row.id }, data: { rawMetrics, viralScore } });
+}
+
+async function writeBaselines(byChannel: Map<string, BaselineRow[]>, targets: Map<string, StoredBaseline>, errors: ViralSourceError[]) {
+  for (const [channelId, rows] of byChannel) {
+    const target = targets.get(channelId) ?? SKIPPED;
+    for (const row of rows) {
+      try {
+        await writeBaseline(row, target);
+      } catch (error) {
+        errors.push(toSourceError(`baseline:${channelId}`, error));
+      }
+    }
+  }
+}
+
+export async function updateChannelBaselines(input: BaselineInput): Promise<{ errors: ViralSourceError[] }> {
+  const errors: ViralSourceError[] = [];
+  try {
+    const byChannel = await loadBaselineRows(input.brandId, input.now);
+    await writeBaselines(byChannel, await resolveTargets(byChannel, input, errors), errors);
+  } catch (error) {
+    errors.push(toSourceError("baseline", error));
+  }
+  return { errors };
 }
