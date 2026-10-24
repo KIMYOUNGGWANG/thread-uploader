@@ -192,6 +192,12 @@ describe("winner_replay draft gate", () => {
     expect(prompt).toContain("마지막 질문과 첫 댓글에는 사주 전문 용어를 쓰지 않는다");
   });
 
+  // A refill whose every draft fails used to report only "All N drafts failed", so the gate reason was lost.
+  it("keeps the per-draft failure reasons when every draft fails", async () => {
+    state.reply = "재성 약하고 관성 센데 겁재까지 있는 사람이 이직하면 생기는 일\n\n통장부터 마름\n\n너는 어때?";
+    await expect(generatePostsForBrand(brand, input)).rejects.toThrow(/All 1 drafts failed to generate: .*사주 용어 3개/);
+  });
+
   describe("saju_viral prompt agrees with the readability gate", () => {
     const PASSING_REPLY = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
     // Every string inside the captured LLM requests (system + messages), unescaped.

@@ -1221,7 +1221,10 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     }
   }
 
-  if (results.length === 0) throw new Error(`All ${count} drafts failed to generate`);
+  // Callers (refill cron, dashboard) only see this message, so carry the per-draft reasons in it.
+  if (results.length === 0) {
+    throw new Error(`All ${count} drafts failed to generate${failureReasons.length > 0 ? `: ${failureReasons.join(" | ")}` : ""}`);
+  }
 
   let linkedCount = 0;
   const createdPosts = [];
