@@ -91,6 +91,15 @@ describe("Domain Intelligence Registry", () => {
     expect(hierarchy?.instruction).not.toContain("보다 센 홍염보다 센");
     expect(hierarchy?.instruction).not.toContain("브릿지");
   });
+
+  it("keeps the sal hierarchy formula to one saju concept and a reader-answerable first comment", () => {
+    const formulas = Object.values(getDomainPreset("saju_viral").trackFormulas).flat();
+    const instruction = formulas.find((formula) => formula.id === "sal_hierarchy_ego")?.instruction ?? "";
+
+    expect(instruction).not.toMatch(/도화.*홍염|백호|괴강|결핍 브릿지/);
+    expect(instruction).toContain("1개까지");
+    expect(instruction).toContain("보다");
+  });
 });
 
 describe("ecommerce_d2c batch keeps one claim per formula", () => {
