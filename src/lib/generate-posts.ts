@@ -10,6 +10,7 @@ import { checkQuality, type QualityResult } from "@/lib/quality-gate";
 import {
   checkAntiRepeatSimilarity,
   checkStructureRepeat,
+  extractStructureSignature,
   formatAntiRepeatContext,
   type RecentPostSummary,
 } from "@/lib/anti-repeat-memory";
@@ -52,7 +53,7 @@ import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/struct
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
 import { judgeReadability } from "@/lib/readability-judge";
-import { checkReadabilityRules, checkTemplateCap } from "@/lib/readability-rules";
+import { checkReadabilityRules, checkTemplateCap, opensWithReversal, tightenChoiceLines } from "@/lib/readability-rules";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
@@ -86,7 +87,7 @@ interface GrowthExperiment {
   shouldLink: boolean;
   sequenceIndex?: number;
   closingFormat?: ClosingFormat;
-  // The reversal-opener template cap is already full, so the prompt must not ask for one (saju_viral only).
+  // The "X가 아니라 Y" opener cap is already hit, so the prompt forbids that opener up front.
   reversalCapped?: boolean;
   // Content of a high-view past post whose structure the winner_replay draft follows.
   winnerReference?: string;
@@ -147,7 +148,7 @@ function cleanGeneratedContentLabels(content: string): string {
   // If still starts with **본문** or similar standalone line
   cleaned = cleaned.replace(/^\s*\*\*본문\*\*\s*\n+/gi, "").trim();
 
-  return normalizeIpchunSpelling(cleaned);
+  return normalizeIpchunSpelling(tightenChoiceLines(cleaned));
 }
 
 function enforceGeneratedSurfaceSafety<T extends QualityResult>(
@@ -535,11 +536,10 @@ function buildGenerationPrompt(
         "[Threads 압축 바이럴 규격 및 12만 뷰 검증 구조]",
         lengthLines?.rule ?? `- 본문 목표 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(이상적 범위: 140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하)로 극도로 압축한다.`,
         `- 상단 100자(피드 접히기 전 Fold)에서 스크롤을 멈추게 해야 한다. 지루한 배경 설명, 훈계조 사주 강의, 불필요한 증상 나열(□)은 절대 금지한다.`,
-        `- [Charlie Hills 2-Line Contrast Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내의 반전/대립각(Contrast)으로 상식을 뒤집는다.`,
-        ...(experiment.reversalCapped
-          ? ["- [반전 문형 상한]: 최근 글에 'X가 아니라 Y'로 여는 글이 이미 많다. 이번 글은 첫 두 줄에 '아니라'·'아님'을 쓰지 말고, 둘째 줄 반전을 장면·질문·대비되는 두 행동으로 만든다."]
-          : []),
-        "- [첫 줄 스크롤 멈춤]: 첫 줄은 사주를 몰라도 읽히는 단언, 통념 반박, 누구나 겪는 장면 중 하나로 스크롤을 멈추게 한다. 숫자는 프롬프트에 주어진 것만 쓰고, 독자의 일주·살을 전제하는 호명('○○ 일주라면', '화개살 있으면')으로 열지 않는다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
+        // Mirrors the template cap and the first-line chart gate: asking for a reversal or a 살·일주 callout here
+        // produced drafts the gate then dropped.
+        `- [Charlie Hills 2-Line Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내로 그 단언의 이유나 의외의 결과를 보여준다. 'X가 아니라 Y' 뒤집기 틀은 쓰지 않고, 비교가 필요하면 '~보다'를 한 번만 쓴다.`,
+        "- [첫 줄 스크롤 멈춤]: 첫 줄은 누구나 겪어본 구체 상황이나 통념 반박으로 스크롤을 멈추게 한다. 숫자는 프롬프트에 주어진 것만 쓰고 지어내지 않는다. 첫 줄은 사주를 모르는 사람도 읽히게 쓰고, '신금 일주는', '일간이 ~', '도화살 있으면' 같은 독자 사주 전제로 시작하지 않는다. 살·일주는 둘째 줄 이후에 근거로만 쓴다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
         "- [Single-Point Razor]: 원문이나 여러 주제를 요약/나열하지 말고, 상식을 뒤집는 단 하나의 반직관적 주장(Contrarian Insight)에만 모든 문장을 집중할 것.",
         "- [Focused Conflict]: 타겟과 상황에 제시된 페르소나의 실전 마찰 1개만 깊게 파고들고, 여러 갈등이나 딜레마를 백화점식으로 나열하지 말 것.",
         "- [No Factual Hallucination]: 프롬프트에 제공되지 않은 가짜 개인 일화나 날조된 매출/사례 숫자를 지어내지 말고, 구조적 관찰과 냉철한 논리로 설득할 것.",
@@ -627,6 +627,7 @@ function buildGenerationPrompt(
         `[CTA 유형]\n${experiment.ctaType}`,
         `[이번 글 변주]\n각도: ${experiment.angleVariation ?? viralIntentMode.label}\n구조: ${experiment.structureVariation ?? viralIntentMode.instruction}`,
         ...(experiment.closingFormat ? [`[마무리 형식]\n${CLOSING_FORMAT_PROMPT_KO[experiment.closingFormat]}`] : []),
+        ...(experiment.reversalCapped ? [REVERSAL_CAPPED_PROMPT_KO] : []),
         ...(creatorPatternContext ? [creatorPatternContext] : []),
         `[성과 학습 메모리]\n${growthContext}`,
         `[바이럴 레퍼런스 학습 메모리]\n${viralContext}`,
@@ -950,8 +951,16 @@ export type GeneratePostsResult = { ok: false; error: string } | { ok: true; sum
  */
 const NUMBERED_CHOICE_PROBE = "1. a\n2. b";
 const REVERSAL_PROBE = "a가 아니라 b";
+const REVERSAL_CAPPED_PROMPT_KO =
+  "[첫 줄 제한]\n첫 두 줄에 '~가 아니라', '~아님', '~이 아니고' 같은 뒤집기를 쓰지 않는다. 비교가 필요하면 '~보다'로 쓴다.";
 // The template cap counts posts readers see or will see ("발행·대기 글"). This run's drafts carry no status and count;
 // archived, failed, and review-queue posts do not, so a regate that archives choice posts frees the cap.
+// Reference hooks shown as "검증 훅" get copied, so saju_viral only shows ones its gate would let through:
+// jargon cap, no "X가 아니라 Y" opener, no chained "A보다 센 B" ranking.
+function isReadableSajuHook(hook: string): boolean {
+  return checkReadabilityRules(hook, "").pass && !opensWithReversal(hook) && extractStructureSignature(hook).opener !== "hierarchy";
+}
+
 const TEMPLATE_CAP_STATUSES = new Set(["PUBLISHED", "PUBLISHING", "PARTIAL_FAILED", "PENDING"]);
 function countsTowardTemplateCap(post: RecentPostSummary): boolean {
   return post.status == null || TEMPLATE_CAP_STATUSES.has(post.status);
@@ -989,7 +998,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   const prohibitedPhrases = readProhibitedPhrases(brand.brandConfig);
   const growthContext = formatGrowthPromptContext(growthMemory);
   const viralContext = [
-    formatViralPromptContext(parseViralMemory(brand.viralMemory)),
+    formatViralPromptContext(parseViralMemory(brand.viralMemory), domainProfile === "saju_viral" ? isReadableSajuHook : undefined),
     formatTrendRadarContext(readTrendRadar(brand.brandConfig)),
   ].filter(Boolean).join("\n\n");
   const notAnchor = { brandId, status: { not: INSTAGRAM_BIO_ANCHOR_STATUS } };
@@ -1056,6 +1065,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       // imagination_dilemma needs numbered choices, so once the cap is hit it must not be picked at all
       // (the gate alone would only burn retries and drop the draft).
       const choicesCapped = !checkTemplateCap(NUMBERED_CHOICE_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
+      const reversalCapped = !checkTemplateCap(REVERSAL_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
       const excludedModeIds = isLeanSprint && choicesCapped ? ["imagination_dilemma"] : [];
       // No replay while the length experiment runs: an extra arm skews per-arm drop rates and its random assignment.
       const viralIntentMode = isLeanSprint
@@ -1090,7 +1100,13 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       // formula the same Type A/B/C self-check. A formula mapped to its own mode keeps that mode.
       const formulaMode = isLeanSprint ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
 
-      const topic = topics[batchIndex % topics.length];
+      // relationship_tension must open with a relationship word, so a career slot from the alternating quota
+      // gets a relationship topic instead (otherwise the fidelity gate drops the draft after every retry).
+      const plannedTopic = topics[batchIndex % topics.length];
+      const relationshipTopics = allTopics.filter(isRelationshipTopic);
+      const topic = formulaMode.id === "relationship_tension" && !isRelationshipTopic(plannedTopic) && relationshipTopics.length
+        ? relationshipTopics[batchIndex % relationshipTopics.length]
+        : plannedTopic;
       // The matrix follows the topic's axis, not the sprint: a career topic in the relationship matrix
       // produced "이직 고민 (헤어지면 불안해지는 거리감 맥락)" posts.
       const useRelationshipContext = isSajuDomain && isRelationshipTopic(topic);
@@ -1103,13 +1119,13 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         recentSituations
       );
       experiment.lengthTarget = lengthArms[batchIndex];
+      // The gate caps reversal openers only for saju_viral (same scope as the numbered-choice cap).
+      experiment.reversalCapped = reversalCapped && experiment.qualityProfile === "saju_viral";
       const replaySource = formulaMode.id === WINNER_REPLAY_MODE.id ? winnerSource : null;
       // A replay keeps the source's own closing, so it gets no rotated closing format to contradict it.
       if (replaySource) experiment.winnerReference = replaySource.content;
       // The gate caps numbered choices only for saju_viral, so only there is a capped "choices" slot turned into a question.
       else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
-      experiment.reversalCapped = experiment.qualityProfile === "saju_viral"
-        && !checkTemplateCap(REVERSAL_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
       return generateWithQuality(
         experiment,
         config,

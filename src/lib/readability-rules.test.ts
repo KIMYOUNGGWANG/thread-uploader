@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkReadabilityRules, checkTemplateCap, endsWithNumberedChoices, findJargonTerms, opensWithReversal } from "@/lib/readability-rules";
+import { checkReadabilityRules, checkTemplateCap, endsWithNumberedChoices, findJargonTerms, opensWithReversal, tightenChoiceLines } from "@/lib/readability-rules";
 
 describe("checkReadabilityRules", () => {
   it("fails a post with several jargon terms", () => {
@@ -170,6 +170,13 @@ describe("template detectors", () => {
     expect(opensWithReversal("새벽 연락이 왔음.\n둘째 줄")).toBe(false);
     expect(opensWithReversal("첫 줄\n둘째 줄\n셋째 줄은 사랑이 아니라 습관")).toBe(false);
     expect(opensWithReversal("그건 아님이라 생각함")).toBe(false);
+  });
+
+  it("closes blank lines between consecutive numbered choices only", () => {
+    expect(tightenChoiceLines("너라면?\n1. 일단 버틴다\n\n2. 이력서부터 돌린다\n3. 계산하고 움직인다")).toBe(
+      "너라면?\n1. 일단 버틴다\n2. 이력서부터 돌린다\n3. 계산하고 움직인다"
+    );
+    expect(tightenChoiceLines("첫 문단\n\n1. 하나\n2. 둘\n\n마지막 문단")).toBe("첫 문단\n\n1. 하나\n2. 둘\n\n마지막 문단");
   });
 
   it("needs two numbered lines to count as numbered choices", () => {
