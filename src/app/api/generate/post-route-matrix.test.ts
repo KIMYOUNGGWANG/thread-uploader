@@ -21,6 +21,7 @@ const state = vi.hoisted(() => ({
   remediationPass: true,
   englishBody: false,
   judgeNatural: vi.fn<(post: string) => Promise<{ natural: boolean; reason: string }>>(async () => ({ natural: true, reason: "" })),
+  judgeReadable: vi.fn<(post: string, firstComment: string) => Promise<{ readable: boolean; reason: string }>>(async () => ({ readable: true, reason: "" })),
 }));
 
 const DIVERSE_POST_BODIES = [
@@ -261,6 +262,11 @@ vi.mock("@/lib/english-naturalness", () => ({
   judgeEnglishNaturalness: (post: string) => state.judgeNatural(post),
 }));
 
+// The readability judge is an LLM call too; each case sets its verdict.
+vi.mock("@/lib/readability-judge", () => ({
+  judgeReadability: (post: string, firstComment: string) => state.judgeReadable(post, firstComment),
+}));
+
 // The heuristic scorer isn't under test here; each case sets whether drafts clear it.
 vi.mock("@/lib/remediation-engine", () => ({
   remediatePostAlgorithmic: vi.fn(async (content: string, firstComment: string | null) => ({
@@ -499,6 +505,32 @@ describe("POST /api/generate viral sprint matrix", () => {
     } finally {
       state.englishBody = false;
       state.judgeNatural.mockImplementation(async () => ({ natural: true, reason: "" }));
+    }
+  }, 20000);
+
+  it("feeds an unreadable verdict into the retry prompt for saju_viral brands only", async () => {
+    state.createdPosts.length = 0;
+    state.prompts.length = 0;
+    state.judgeReadable.mockClear();
+    state.judgeReadable.mockResolvedValueOnce({ readable: false, reason: "재성 풀이 없음" });
+    try {
+      const { POST } = await import("@/app/api/generate/route");
+      await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "cmqpj5tjf0002eize6v2ui2lg", count: 1, campaignId: "cosmicpath_lean_sprint" }),
+      }) as never);
+      expect(state.judgeReadable.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(state.judgeReadable.mock.calls[0]?.[1]).toEqual(expect.any(String));
+      expect(state.prompts.slice(1).join("\n")).toContain("읽힘 판정 실패: 재성 풀이 없음");
+
+      state.judgeReadable.mockClear();
+      await POST(new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ brandId: "brand_1", count: 1, campaignId: "career_timing_wedge_399" }),
+      }) as never);
+      expect(state.judgeReadable).not.toHaveBeenCalled();
+    } finally {
+      state.judgeReadable.mockImplementation(async () => ({ readable: true, reason: "" }));
     }
   }, 20000);
 

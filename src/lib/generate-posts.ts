@@ -51,6 +51,7 @@ import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
+import { judgeReadability } from "@/lib/readability-judge";
 import { checkReadabilityRules, checkTemplateCap } from "@/lib/readability-rules";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
@@ -356,22 +357,30 @@ async function generateWithQuality(
     return gate;
   };
 
-  // The LLM naturalness check runs only for English drafts that already pass the sync gate (saves a call per failed draft).
-  // It is also the post-remediation regate, so an English rewrite that reads unnatural reverts to the judged original.
-  const gateWithNaturalness = async (post: string, firstComment: string): Promise<QualityResult> => {
-    const gate = runQualityGate(post, firstComment);
-    if (!isEnglish || !gate.pass) return gate;
-    const verdict = await judgeEnglishNaturalness(post);
-    return verdict.natural ? gate : { ...gate, pass: false, reasons: [`unnatural English: ${verdict.reason}`, ...gate.reasons] };
+  // The LLM judges run only for drafts that already pass the sync gate (saves a call per failed draft):
+  // English naturalness for English drafts, and readability for a non-saju reader on saju_viral drafts.
+  // This is also the post-remediation regate, so a rewrite that fails a judge reverts to the judged original.
+  const gateWithJudges = async (post: string, firstComment: string): Promise<QualityResult> => {
+    let gate = runQualityGate(post, firstComment);
+    if (!gate.pass) return gate;
+    if (isEnglish) {
+      const verdict = await judgeEnglishNaturalness(post);
+      if (!verdict.natural) gate = { ...gate, pass: false, reasons: [`unnatural English: ${verdict.reason}`, ...gate.reasons] };
+    }
+    if (gate.pass && experiment.qualityProfile === "saju_viral") {
+      const verdict = await judgeReadability(post, firstComment);
+      if (!verdict.readable) gate = { ...gate, pass: false, reasons: [`읽힘 판정 실패: ${verdict.reason}`, ...gate.reasons] };
+    }
+    return gate;
   };
 
   let lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext);
-  let qualityResult = await gateWithNaturalness(lastResult.post, lastResult.firstComment);
+  let qualityResult = await gateWithJudges(lastResult.post, lastResult.firstComment);
 
   for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
     console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
     lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, qualityResult.reasons);
-    qualityResult = await gateWithNaturalness(lastResult.post, lastResult.firstComment);
+    qualityResult = await gateWithJudges(lastResult.post, lastResult.firstComment);
   }
 
   if (!qualityResult.pass) {
@@ -405,7 +414,7 @@ async function generateWithQuality(
     careerDecisionType: qualityResult.careerDecisionType ?? null,
     shouldLink: experiment.shouldLink,
     lengthTarget: experiment.lengthTarget,
-    regate: gateWithNaturalness,
+    regate: gateWithJudges,
   };
 }
 
