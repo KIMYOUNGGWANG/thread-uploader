@@ -14,7 +14,7 @@ import {
   mergeStoredRawMetrics,
 } from "@/lib/viral-analysis";
 import { fetchPublicProfilePosts, searchThreadsByKeyword, type ThreadsPublicPost } from "@/lib/threads-api";
-import { harvestFromThreadsSources } from "@/lib/viral-harvester";
+import { allExternalSourcesFailed, harvestFromThreadsSources } from "@/lib/viral-harvester";
 import { parseBrandConfig } from "@/types/brand";
 import {
   parseViralMemory,
@@ -129,6 +129,7 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
   const runConfig = buildDiscoveryRunConfig(config, options, brandTopics);
   const errors: ViralSourceError[] = [];
   const candidates: CandidateExample[] = [];
+  let externalAllFailed = false;
 
   if (runConfig.includeOwnPosts) {
     candidates.push(...await collectOwnPostCandidates(brandId, runConfig.limit));
@@ -152,6 +153,7 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
     });
 
     errors.push(...harvestResult.errors);
+    externalAllFailed = allExternalSourcesFailed(harvestResult);
 
     for (const harvested of harvestResult.candidates) {
       candidates.push({
@@ -188,6 +190,7 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
     discovered: candidates.length,
     saved,
     errors,
+    externalAllFailed,
     ...(await getViralReport(brandId)),
   };
 }

@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
 
   const brands = await prisma.brand.findMany({ select: { id: true, slug: true } });
   const results = [];
+  const externalSourcesFailed: string[] = [];
 
   for (const brand of brands) {
     try {
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
         error: error instanceof Error ? error.message : "Claude analysis failed",
       }));
       const learning = await learnViralPatterns(brand.id);
+      if (discovery.externalAllFailed) externalSourcesFailed.push(brand.slug);
       results.push({
         slug: brand.slug,
         success: true,
@@ -40,5 +42,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Own-post learning still ran above, but a run where every keyword/profile source failed has
+  // collected no outside references, so surface it as a failure instead of a silent green run.
+  if (externalSourcesFailed.length > 0) {
+    return NextResponse.json({ success: false, externalSourcesFailed, brands: results }, { status: 500 });
+  }
   return NextResponse.json({ success: true, brands: results });
 }

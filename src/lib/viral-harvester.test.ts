@@ -5,6 +5,7 @@ import {
   deduplicateHarvestedCandidates,
   convertThreadsPostToCandidate,
   annotateSearchSignals,
+  allExternalSourcesFailed,
   type HarvestedCandidate,
 } from "./viral-harvester";
 
@@ -91,5 +92,13 @@ describe("annotateSearchSignals", () => {
     const profilePost = convertThreadsPostToCandidate({ id: "p", text: "profile" }, "threads_profile", "profile:@x");
     if (!profilePost) throw new Error("fixture must convert");
     expect(annotateSearchSignals([profilePost])[0].rawMetrics.keywordHits).toBeUndefined();
+  });
+
+  it("flags a harvest only when every attempted external source failed", () => {
+    const error = { adapter: "threads_keyword" as const, source: "saju", message: "no permission" };
+    expect(allExternalSourcesFailed({ attemptedSources: 2, errors: [error, error] })).toBe(true);
+    expect(allExternalSourcesFailed({ attemptedSources: 2, errors: [error] })).toBe(false);
+    // A brand with no keywords/handles never tried an external source, so there is nothing to fail.
+    expect(allExternalSourcesFailed({ attemptedSources: 0, errors: [] })).toBe(false);
   });
 });
