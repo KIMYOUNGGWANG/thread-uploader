@@ -1,6 +1,6 @@
 // Weekly New Year 2027 season report (read-only: findMany only, no writes).
 // Per brand x New Year type: posts, median views, link clicks per 1,000 views, paid conversions;
-// plus each brand's normal-post median views and season paid conversions vs the goal.
+// plus each brand's normal-post median views and Threads-attributed paid conversions.
 // Usage: node scripts/new-year-report.mjs
 //        node scripts/new-year-report.mjs --self-test   (no database needed)
 import assert from "node:assert/strict";
@@ -10,7 +10,6 @@ import { fileURLToPath } from "node:url";
 
 const BRANDS = ["cosmicpath", "cosmicpath-global"];
 const NY_TYPES = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick"];
-const GOAL = 100;
 const FROM = new Date("2026-11-24T00:00:00+09:00");
 const TO = new Date("2027-02-07T00:00:00+09:00"); // exclusive: 2027-02-06 KST end of day
 
@@ -108,7 +107,12 @@ try {
   for (const r of rows) console.log([r.brand, r.type, r.posts, f(r.medianViews), f(r.clicksPer1k, 1), r.paid].join("\t"));
   console.log("\nnormal-post median views (same period)");
   for (const [b, m] of Object.entries(normalMedian)) console.log(`${b}\t${f(m)}`);
-  console.log(`\nseason paid conversions: ${totalPaid} / ${GOAL} (${((totalPaid / GOAL) * 100).toFixed(0)}%)`);
+  const unattributed = await prisma.conversionEvent.count({
+    where: { eventType: "paid_conversion", postId: null, brand: { slug: { in: BRANDS } }, createdAt: { gte: FROM, lt: TO } },
+  });
+  console.log(`\nThreads-attributed paid conversions (ny_* posts): ${totalPaid}`);
+  console.log(`unattributed paid conversions (postId null, same window/brands): ${unattributed}`);
+  console.log("note: the 100-sale goal counts ALL 2027 calendar sales; check total sales in the cosmicpath admin.");
 } finally {
   await prisma.$disconnect();
 }
