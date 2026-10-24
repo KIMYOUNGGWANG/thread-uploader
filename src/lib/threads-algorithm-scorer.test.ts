@@ -200,4 +200,23 @@ describe("threads-algorithm-scorer english hooks", () => {
     expect(comparison.dimensions.hookTension.score).toBe(18);
     expect(scoreThreadsPostAlgorithmic("드라마 보다가 생각난 거 있음.\n본문").dimensions.hookTension.score).toBe(10);
   });
+
+  // checkViralModeFidelity and the mode rules put the comparison anywhere in the first two lines; scoring only
+  // line 1 dropped a concept_hierarchy draft whose "~보다" sat on line 2 (simulated refill 2026-10-24).
+  it("scores a '~보다' comparison on line 2 as hook contrast, but not one further down", () => {
+    const lineTwo = scoreThreadsPostAlgorithmic("대기업 명함만 믿고 버티는 사람 많음.\n회사 간판보다 먼저 봐야 할 건 버틸 달 수임.\n본문");
+    const lineThree = scoreThreadsPostAlgorithmic("대기업 명함만 믿고 버티는 사람 많음.\n본문\n회사 간판보다 먼저 봐야 할 건 버틸 달 수임.");
+    expect(lineTwo.dimensions.hookTension.score).toBe(18);
+    expect(lineThree.dimensions.hookTension.score).toBe(10);
+  });
+
+  // The remediation rewrite follows these fixes; a 살·일주 callout or myth-busting first line fails the
+  // first-line chart gate and the reversal cap, so the rewrite was reverted and the draft dropped.
+  it("never tells a weak hook to open with a 살·일주 callout or a myth-busting reversal", () => {
+    const flat = scoreThreadsPostAlgorithmic("오늘 회사에서 있었던 일.\n본문");
+    const hint = flat.actionableFixes.join(" ");
+    expect(hint).not.toContain("살/일주 호명");
+    expect(hint).not.toContain("통념 반박");
+    expect(hint).toContain("~보다");
+  });
 });

@@ -127,7 +127,9 @@ export function scoreThreadsPostAlgorithmic(
 
   const isEnglishFirstLine = !/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(firstLine);
   const hasFlatEnglishHook = isEnglishFirstLine && isFlatEnglishHook(firstLine);
-  const hasContrast = HOOK_CONTRAST_PATTERNS.some((p) => p.test(firstLine)) ||
+  // The comparison may sit on line 2: mode rules and checkViralModeFidelity both read the first two lines.
+  const openingLines = content.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 2).join("\n");
+  const hasContrast = HOOK_CONTRAST_PATTERNS.some((p) => p.test(openingLines)) ||
     (!isEnglishFirstLine && (HOOK_VS.test(firstLine) || ENGLISH_CONTRAST_WORDS.test(firstLine)));
   const hasCuriosity = HOOK_CURIOSITY_PATTERNS.some((p) => p.test(firstLine)) ||
     (!isEnglishFirstLine && QUESTION_MARK.test(firstLine));
@@ -153,7 +155,8 @@ export function scoreThreadsPostAlgorithmic(
 
   if (!hasContrast && !hasCuriosity && !hasFlatEnglishHook) {
     hookWeaknesses.push("첫 문장에 긴장감(대비/호기심 갭)이 부족함");
-    actionableFixes.push("첫 줄에 구체 숫자, 특정 살/일주 호명, 통념 반박 중 하나를 넣으십시오.");
+    // The remediation rewrite follows this; it must not ask for what the first-line gate and reversal cap reject.
+    actionableFixes.push("첫 줄에 구체 숫자나 누구나 겪는 상황을 넣고, 비교가 필요하면 첫 두 줄 안에서 '~보다'로 쓰십시오. 첫 줄을 살·일주 호명이나 '~가 아니라' 뒤집기로 시작하지 마십시오.");
   }
   hookScore = Math.max(0, Math.min(25, hookScore));
 
