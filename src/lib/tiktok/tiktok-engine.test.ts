@@ -7,7 +7,15 @@ import {
   buildIgPickCardScript,
   IG_REELS_CTA,
 } from "./tiktok-script-engine";
-import { buildTikTokDraftCreateData, parseFormatId, FORMAT_COMPOSITIONS, TIKTOK_FORMAT_IDS } from "./tiktok-draft-service";
+import {
+  buildTikTokDraftCreateData,
+  parseFormatId,
+  pickDailyDayMaster,
+  pickDailyHookVariant,
+  FORMAT_COMPOSITIONS,
+  TIKTOK_FORMAT_IDS,
+} from "./tiktok-draft-service";
+import { findFirstLineChartGate } from "@/lib/quality-gate";
 import { alignTikTokScenes } from "./tiktok-audio-aligner";
 import { buildTikTokRenderSpec, executeTikTokRender } from "./tiktok-render-worker";
 
@@ -39,18 +47,28 @@ describe("TikTok Short-form Engine", () => {
     expect(dayPillar?.heavenly.name).toBe(dayMaster);
   });
 
-  it.each(DAY_MASTERS)("%s: 훅이 질문을 열고 바로 다음 장면이 그 답을 준다", (dayMaster) => {
-    const script = generateTikTokScript({ topic: "사주", dayMaster });
+  it.each(DAY_MASTERS.flatMap((dayMaster) => [[dayMaster, 0], [dayMaster, 1]] as const))(
+    "%s 훅 %i: 사주를 몰라도 읽히는 질문으로 열고, 다음 장면이 일간으로 답한다",
+    (dayMaster, variant) => {
+      const script = generateTikTokScript({ topic: "사주", dayMaster, variant });
+      const hook = script.scenes[0].onScreenText[0];
 
-    expect(script.qualityReasons).toEqual([]);
-    expect(script.qualityPass).toBe(true);
-    expect(script.scenes[0].onScreenText[0]).toContain(dayMaster);
-    expect(script.scenes[0].onScreenText[0]).toMatch(/이유|\?/);
-  });
+      expect(script.qualityReasons).toEqual([]);
+      expect(script.qualityPass).toBe(true);
+      expect(hook).not.toContain(dayMaster);
+      expect(findFirstLineChartGate(hook)).toBeNull();
+      expect(hook).toMatch(/\?/);
+      expect(script.scenes[1].spokenLine).toContain(dayMaster);
+    }
+  );
 
-  it("일간마다 훅이 다르다 (같은 문구를 10번 돌리지 않는다)", () => {
-    const hooks = new Set(DAY_MASTERS.map((dayMaster) => generateTikTokScript({ topic: "사주", dayMaster }).spokenHook));
-    expect(hooks.size).toBe(DAY_MASTERS.length);
+  it("20일 동안 같은 훅이 두 번 나오지 않는다", () => {
+    const start = Date.UTC(2026, 9, 24);
+    const hooks = Array.from({ length: 20 }, (_, day) => {
+      const date = new Date(start + day * 24 * 60 * 60 * 1000);
+      return generateTikTokScript({ topic: "사주", dayMaster: pickDailyDayMaster(date), variant: pickDailyHookVariant(date) }).spokenHook;
+    });
+    expect(new Set(hooks).size).toBe(20);
   });
 
   it("품질 게이트: 과장·막연한 떡밥 훅은 떨어진다", () => {
