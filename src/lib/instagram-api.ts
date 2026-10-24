@@ -13,6 +13,9 @@ export interface InstagramCredentials {
 
 export type InstagramContainerStatus = (typeof CONTAINER_STATUSES)[number];
 
+// The grid cover defaults to frame 0, where the promo videos' first text is still fading in.
+const REEL_COVER_OFFSET_MS = 1500;
+
 export async function createReelsContainer(
   credentials: InstagramCredentials,
   input: { videoUrl: string; caption: string },
@@ -22,6 +25,7 @@ export async function createReelsContainer(
     video_url: input.videoUrl,
     caption: input.caption,
     share_to_feed: "true",
+    thumb_offset: String(REEL_COVER_OFFSET_MS),
     access_token: credentials.accessToken,
   });
   const data = await requestInstagram("container creation", `${INSTAGRAM_GRAPH_BASE}/${credentials.userId}/media`, {

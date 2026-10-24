@@ -24,6 +24,12 @@ export function pickDailyDayMaster(date: Date): string {
   return DAY_MASTERS[dayIndex % DAY_MASTERS.length];
 }
 
+// After each full ten-day pass the hook variant moves on, so the same video does not return every ten days.
+export function pickDailyHookVariant(date: Date): number {
+  const dayIndex = Math.floor(date.getTime() / (24 * 60 * 60 * 1000));
+  return Math.floor(dayIndex / DAY_MASTERS.length);
+}
+
 export function buildTikTokDraftCreateData(brandId: string, script: TikTokScriptResult, status: string) {
   return {
     brandId,

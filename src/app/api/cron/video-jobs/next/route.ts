@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { generateTikTokScript } from "@/lib/tiktok/tiktok-script-engine";
 import { buildTikTokRenderSpec } from "@/lib/tiktok/tiktok-render-worker";
-import { buildTikTokDraftCreateData, draftToScriptResult, pickDailyDayMaster } from "@/lib/tiktok/tiktok-draft-service";
+import { buildTikTokDraftCreateData, draftToScriptResult, pickDailyDayMaster, pickDailyHookVariant } from "@/lib/tiktok/tiktok-draft-service";
 
 const STALE_RENDER_MS = 30 * 60 * 1000;
 
@@ -61,7 +61,13 @@ async function createDailyDraft(brandId: string) {
   });
   if (todays > 0) return null;
 
-  const script = generateTikTokScript({ topic: "사주 대운 분석", dayMaster: pickDailyDayMaster(new Date()), tone: "mysterious" });
+  const now = new Date();
+  const script = generateTikTokScript({
+    topic: "사주 대운 분석",
+    dayMaster: pickDailyDayMaster(now),
+    variant: pickDailyHookVariant(now),
+    tone: "mysterious",
+  });
   // A draft that fails the quality gate is recorded with its reasons but never rendered.
   if (!script.qualityPass) {
     await prisma.tikTokVideoDraft.create({ data: buildTikTokDraftCreateData(brandId, script, "FAILED") });

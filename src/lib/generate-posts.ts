@@ -529,7 +529,7 @@ function buildGenerationPrompt(
         "- [Focused Conflict]: Zero in on one specific persona friction and internal conflict.",
         "- [Zero-in-body URL]: Never place links or URLs inside the post body.",
         "- [Zero AI Slop]: Avoid cliché patterns like 'Here is the truth', 'Imagine if', 'Let's dive in', or checkbox emojis.",
-        `- [Zero-Promo Conversation Igniter First Comment]: Below the delimiter (${SEPARATOR}), write 1-2 lines of an honest personal confession / admission or a raw provocative question that compels readers to reply. Never write sales pitches or spam links in the first comment.`,
+        `- [Zero-Promo Conversation Igniter First Comment]: Below the delimiter (${SEPARATOR}), write 1-2 lines: a raw provocative question readers can answer from their own life. Never invent a personal story or confession, and never write sales pitches or spam links in the first comment.`,
         "- [Strictly No Meta Text]: Never output character counts, draft labels, headers (# Title), or explanations.",
       ]
     : [
@@ -539,7 +539,7 @@ function buildGenerationPrompt(
         // Mirrors the template cap and the first-line chart gate: asking for a reversal or a 살·일주 callout here
         // produced drafts the gate then dropped.
         `- [Charlie Hills 2-Line Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내로 그 단언의 이유나 의외의 결과를 보여준다. 'X가 아니라 Y' 뒤집기 틀은 쓰지 않고, 비교가 필요하면 '~보다'를 한 번만 쓴다.`,
-        "- [첫 줄 스크롤 멈춤]: 첫 줄은 구체 숫자(예: 10명 중 7명)나 누구나 겪어본 구체 상황으로 스크롤을 멈추게 한다. 첫 줄은 사주를 모르는 사람도 읽히게 쓰고, '신금 일주는', '일간이 ~', '도화살 있으면' 같은 독자 사주 전제로 시작하지 않는다. 살·일주는 둘째 줄 이후에 근거로만 쓴다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
+        "- [첫 줄 스크롤 멈춤]: 첫 줄은 누구나 겪어본 구체 상황이나 통념 반박으로 스크롤을 멈추게 한다. 숫자는 프롬프트에 주어진 것만 쓰고 지어내지 않는다. 첫 줄은 사주를 모르는 사람도 읽히게 쓰고, '신금 일주는', '일간이 ~', '도화살 있으면' 같은 독자 사주 전제로 시작하지 않는다. 살·일주는 둘째 줄 이후에 근거로만 쓴다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
         "- [Single-Point Razor]: 원문이나 여러 주제를 요약/나열하지 말고, 상식을 뒤집는 단 하나의 반직관적 주장(Contrarian Insight)에만 모든 문장을 집중할 것.",
         "- [Focused Conflict]: 타겟과 상황에 제시된 페르소나의 실전 마찰 1개만 깊게 파고들고, 여러 갈등이나 딜레마를 백화점식으로 나열하지 말 것.",
         "- [No Factual Hallucination]: 프롬프트에 제공되지 않은 가짜 개인 일화나 날조된 매출/사례 숫자를 지어내지 말고, 구조적 관찰과 냉철한 논리로 설득할 것.",
@@ -793,7 +793,7 @@ function formatCareerCampaignPrompt(experiment: CampaignGrowthExperiment): strin
     "[작성 가이드: 날것의 스토리텔링과 자연스러운 참여 유도]",
     "- 설명충 같은 훈계조나 사주 이론 강의(표준시 30분 왜곡, 타로 폐기 등)를 절대 반복하지 않는다.",
     "- 기질-조직 미스매치(식상 vs 관성), 10년 대운 교운기 번아웃 리스크, 단일 사주 맹점 등 실전 의사결정 팩트를 날것의 독백체로 쓴다.",
-    "- 친구나 본인의 실제 관찰 썰, 직장인들의 소름 돋는 현실 딜레마를 100% 반말/독백체(~임, ~했음, ~있냐)로 쓴다.",
+    "- 직장인이면 한 번쯤 겪는 현실 딜레마를 옆에서 본 장면처럼 100% 반말/독백체(~임, ~했음, ~있냐)로 쓴다. 지어낸 1인칭 경험담('나도 ~했음')은 쓰지 않는다.",
     "- 절대 금지 어휘: '심리적 자유', '타이밍 손실 리스크', '리스크', '손익', '시나리오', '골든타임', '의사결정', '데이터상' 등 기획서/보고서용 단어 절대 사용 금지.",
     "- 댓글 강요 대신, 글 말미에 독자가 본인의 상황을 스스로 점검할 수 있는 3가지 선택 프레임(예: 'A. 버팀형 / B. 이동형 / C. 준비형 중 어디에 가까운지 체크해' 또는 '7대 엔진 감사표: 1단계~5단계 체크 후 기준 삼아봐')을 명확한 셀프체크/행동선으로 제시하여 마무리한다.",
     "- 모듈러 감사형(modular_audit)인 경우: 1~5단계는 자가진단 기준을 명확히 주고, 6~7단계(손절선/탈출 윈도우)는 첫 댓글 링크를 통해 정밀 진단받도록 결핍 구조를 유지한다.",

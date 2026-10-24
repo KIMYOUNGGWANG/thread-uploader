@@ -331,4 +331,28 @@ describe("winner_replay draft gate", () => {
       expect(state.requests.join("\n")).not.toContain(NOTICE);
     });
   });
+
+  // The prompt must not ask for what the gates reject (2026-10-24 plugin audit).
+  describe("prompt matches the gates", () => {
+    it("does not suggest invented stats or chart-presupposing first lines", async () => {
+      state.reply = "카톡 읽씹 당하면 제일 먼저 뭐 함?";
+      await generatePostsForBrand(brand, input);
+      const prompt = state.requests.join("\n");
+      expect(prompt).not.toContain("10명 중 7명");
+      expect(prompt).toContain("숫자는 프롬프트에 주어진 것만 쓰고 지어내지 않는다");
+    });
+
+    it("never asks the English first comment for a personal confession", async () => {
+      const globalBrand = {
+        ...brand,
+        brandConfig: JSON.stringify({ ...JSON.parse(brand.brandConfig), productProfile: { productName: "CosmicPath Global" } }),
+      } as Brand;
+      state.reply = "Most people call it bad luck.";
+      // The mocked Korean first comment fails the English gate; only the prompt sent matters here.
+      await generatePostsForBrand(globalBrand, input).catch(() => undefined);
+      const prompt = state.requests.join("\n");
+      expect(prompt).not.toMatch(/personal confession/i);
+      expect(prompt).toContain("Never invent a personal story or confession");
+    });
+  });
 });
