@@ -1,0 +1,41 @@
+name: Regate Pending Posts
+
+# 수동 실행 전용 — 대기 중(PENDING) 글을 읽히는 글 기준으로 다시 검사한다.
+# apply를 끄면 미리보기만, 켜면 떨어진 글을 ARCHIVED로 바꾼다 (삭제 안 함).
+on:
+  workflow_dispatch:
+    inputs:
+      brand:
+        description: 'Brand slug (saju_viral 브랜드만)'
+        required: true
+        default: 'cosmicpath'
+      apply:
+        description: '떨어진 글을 ARCHIVED로 바꾸기 (끄면 미리보기)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: regate-pending
+  cancel-in-progress: false
+
+jobs:
+  regate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Regate pending posts
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BRAND: ${{ inputs.brand }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          # Inputs reach the shell through env only; reject anything that isn't a slug.
+          [[ "$BRAND" =~ ^[a-z0-9-]+$ ]] || { echo "invalid brand: $BRAND"; exit 1; }
+          query="brand=${BRAND}"
+          if [ "$APPLY" = "true" ]; then query="${query}&apply=true"; fi
+          curl --fail-with-body --show-error --silent --location --max-time 300 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/regate-pending?${query}"
+          echo
