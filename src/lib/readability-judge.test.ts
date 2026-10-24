@@ -81,7 +81,7 @@ describe("judgeReadability", () => {
     });
     expect(await judgeReadability("본문", "댓글")).toEqual({ readable: false, reason: "비겁 설명 없음" });
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ max_tokens: 200, thinking: { type: "disabled" }, output_config: { effort: "low" } })
+      expect.objectContaining({ max_tokens: 300, thinking: { type: "disabled" }, output_config: { effort: "low" } })
     );
   });
 

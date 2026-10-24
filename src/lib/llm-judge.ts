@@ -11,7 +11,7 @@ export async function callTextJudge(prompt: string, tag: string): Promise<string
   try {
     const response = await anthropic.messages.create({
       model: CLAUDE_TEXT_MODEL,
-      max_tokens: 200,
+      max_tokens: 300, // long Korean reasons cut off at 200, and a cut-off JSON silently fails open
       thinking: { type: "disabled" },
       output_config: { effort: "low" },
       messages: [{ role: "user", content: prompt }],

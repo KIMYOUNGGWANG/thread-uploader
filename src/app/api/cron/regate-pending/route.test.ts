@@ -129,4 +129,13 @@ describe("GET /api/cron/regate-pending", () => {
     expect(reasonsOf("p2")).toEqual({ status: "ARCHIVED", reasons: ["regate_readability_failed: 룰 위반"] });
     expect(reasonsOf("p3")).toEqual({ status: "ARCHIVED", reasons: ["regate_readability_failed: 룰 위반"] });
   });
+
+  it("judges the first comment generation wrote, without the bridge header and link lines added at save time", async () => {
+    mocks.findPosts.mockResolvedValue([
+      post("p1", { firstComment: "너라면 바로 답장해?\n\n📌 5대 계산 엔진(사주·점성술·자미두수) 교차 판정 리포트:\nhttps://cosmicpath.app/r/abc" }),
+    ]);
+    await call("brand=cosmicpath");
+    expect(mocks.rules).toHaveBeenCalledWith("본문 p1", "너라면 바로 답장해?");
+    expect(mocks.judge).toHaveBeenCalledWith("본문 p1", "너라면 바로 답장해?");
+  });
 });

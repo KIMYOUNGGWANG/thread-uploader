@@ -75,7 +75,7 @@ describe("judgeEnglishNaturalness", () => {
     });
     expect(await judgeEnglishNaturalness(POST)).toEqual({ natural: false, reason: "stacked hedges" });
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ max_tokens: 200, thinking: { type: "disabled" }, output_config: { effort: "low" } })
+      expect.objectContaining({ max_tokens: 300, thinking: { type: "disabled" }, output_config: { effort: "low" } })
     );
   });
 

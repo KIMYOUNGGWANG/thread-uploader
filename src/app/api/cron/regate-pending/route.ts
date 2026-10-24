@@ -16,6 +16,15 @@ function parseReasons(raw: string): string[] {
   }
 }
 
+// Stored first comments get a "📌 ... 리포트:" bridge header and a link line after the gate ran; judge what generation wrote.
+function generatedFirstComment(stored: string | null): string {
+  return (stored ?? "")
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("📌") && !/https?:\/\//.test(line))
+    .join("\n")
+    .trim();
+}
+
 // Re-checks PENDING posts against the readability rules. Preview by default; apply=true archives (never deletes) the failures.
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
@@ -39,7 +48,7 @@ export async function GET(request: NextRequest) {
   const skipped: { id: string; reason: string }[] = [];
   let archived = 0;
   for (const post of posts) {
-    const firstComment = post.firstComment ?? "";
+    const firstComment = generatedFirstComment(post.firstComment);
     const rules = checkReadabilityRules(post.content, firstComment);
     const reasons = [...rules.reasons];
     if (rules.pass) {
