@@ -37,6 +37,16 @@ describe("ShortsCard outlier badge", () => {
     expect(out).not.toMatch(/<span[^>]*orange[^>]*>평소의/);
   });
 
+  it("rounds before comparing so 1.96x shows orange 2.0배", () => {
+    const out = html({ ...base, outlierRatio: 1.96, channelMedianViews: 10000, baselineSampleSize: 12 });
+    expect(out).toMatch(/<span[^>]*text-orange-700[^>]*>평소의 2\.0배<\/span>/);
+  });
+
+  it("is orange at exactly 2x and slate at 1.94x", () => {
+    expect(html({ ...base, outlierRatio: 2 })).toMatch(/<span[^>]*text-orange-700[^>]*>평소의 2\.0배<\/span>/);
+    expect(html({ ...base, outlierRatio: 1.94 })).toMatch(/<span[^>]*bg-slate-100[^>]*>평소의 1\.9배<\/span>/);
+  });
+
   it("says no baseline instead of showing 0x", () => {
     const out = html(base);
     expect(out).toContain("평소 기준 없음");

@@ -59,7 +59,7 @@ async function refreshVelocity(exampleId: string, publishedAt: Date, now: Date, 
   const row = await prisma.viralExample.findUnique({ where: { id: exampleId }, select: { rawMetrics: true } });
   const record = parseRecord(row?.rawMetrics);
   const median = readStoredBaseline(record)?.channelMedianViews ?? null;
-  const { outlierRatio, viralScore } = computeOutlier(views, median !== null && median > 0 ? median : null);
+  const { outlierRatio, viralScore } = computeOutlier(views, median);
   const rawMetrics = JSON.stringify({ ...record, velocityWindowHours: windowHours, outlierRatio });
   await prisma.viralExample.update({ where: { id: exampleId }, data: { velocityScore: velocity, viralScore, rawMetrics } });
 }
@@ -321,8 +321,7 @@ async function resolveTargets(byChannel: Map<string, BaselineRow[]>, input: Base
 
 async function writeBaseline(row: BaselineRow, target: StoredBaseline): Promise<void> {
   if (BASELINE_KEYS.every((k) => row.record[k] === target[k])) return;
-  const median = target.channelMedianViews !== null && target.channelMedianViews > 0 ? target.channelMedianViews : null;
-  const { outlierRatio, viralScore } = computeOutlier(row.views ?? 0, median);
+  const { outlierRatio, viralScore } = computeOutlier(row.views ?? 0, target.channelMedianViews);
   const rawMetrics = JSON.stringify({ ...row.record, ...target, outlierRatio });
   await prisma.viralExample.update({ where: { id: row.id }, data: { rawMetrics, viralScore } });
 }

@@ -43,7 +43,7 @@ export function computeChannelBaseline(
 ): { medianViews: number | null; sampleSize: number } {
   const cutoff = opts.now.getTime() - MIN_AGE_MS;
   const sample = videos
-    .filter((x) => x.publishedAt.getTime() <= cutoff && x.durationSec !== null && x.durationSec <= opts.maxDurationSec)
+    .filter((x) => x.publishedAt.getTime() <= cutoff && x.durationSec !== null && x.durationSec > 0 && x.durationSec <= opts.maxDurationSec)
     .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
     .slice(0, SAMPLE);
   if (sample.length < MIN_SAMPLE) return { medianViews: null, sampleSize: sample.length };
@@ -52,7 +52,7 @@ export function computeChannelBaseline(
 }
 
 export function computeOutlier(views: number, medianViews: number | null): { outlierRatio: number | null; viralScore: number } {
-  if (medianViews === null) return { outlierRatio: null, viralScore: 0 };
+  if (medianViews === null || medianViews <= 0) return { outlierRatio: null, viralScore: 0 };
   const outlierRatio = Math.round((views / medianViews) * 100) / 100;
   return { outlierRatio, viralScore: Math.round(outlierRatio * 100) };
 }

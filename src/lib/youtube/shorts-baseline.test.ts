@@ -39,6 +39,11 @@ describe("computeChannelBaseline", () => {
     const videos = [4, 5, 6, 7].map((d) => v(`a${d}`, d, 100));
     expect(computeChannelBaseline(videos, { now: NOW, maxDurationSec: 180 })).toEqual({ medianViews: null, sampleSize: 4 });
   });
+  it("excludes 0-second videos (scheduled live/premiere) from the sample", () => {
+    const real = [4, 5, 6, 7, 8].map((d) => v(`a${d}`, d, 100));
+    const out = computeChannelBaseline([...real, v("live", 9, 0, 0)], { now: NOW, maxDurationSec: 180 });
+    expect(out).toEqual({ medianViews: 100, sampleSize: 5 });
+  });
   it("returns null when the median is 0", () => {
     const videos = [4, 5, 6, 7, 8].map((d) => v(`a${d}`, d, 0));
     expect(computeChannelBaseline(videos, { now: NOW, maxDurationSec: 180 }).medianViews).toBeNull();
@@ -52,6 +57,10 @@ describe("computeOutlier", () => {
   });
   it("returns null ratio and score 0 without a baseline", () => {
     expect(computeOutlier(32_000, null)).toEqual({ outlierRatio: null, viralScore: 0 });
+  });
+  it("treats a zero or negative median as no baseline", () => {
+    expect(computeOutlier(32_000, 0)).toEqual({ outlierRatio: null, viralScore: 0 });
+    expect(computeOutlier(32_000, -5)).toEqual({ outlierRatio: null, viralScore: 0 });
   });
 });
 
@@ -74,6 +83,12 @@ describe("planBaselineWork", () => {
   it("reuses a fresh measured or insufficient baseline from any row of the channel", () => {
     const plan = planBaselineWork([{ channelId: "c1", baselines: [null, measured(1)] }], NOW);
     expect(plan.reuse.get("c1")).toEqual(measured(1));
+    expect(plan.measure).toEqual([]);
+  });
+  it("does not re-measure a fresh insufficient baseline next run", () => {
+    const insufficient: StoredBaseline = { ...measured(1), baselineStatus: "insufficient", channelMedianViews: null, baselineSampleSize: 3 };
+    const plan = planBaselineWork([{ channelId: "c1", baselines: [insufficient] }], NOW);
+    expect(plan.reuse.get("c1")).toEqual(insufficient);
     expect(plan.measure).toEqual([]);
   });
   it("re-measures baselines older than 7 days, skipped, or missing", () => {

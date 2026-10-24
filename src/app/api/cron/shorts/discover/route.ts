@@ -5,7 +5,7 @@ import { isAdapterEnabled } from "@/lib/viral-service";
 import { parseBrandConfig } from "@/types/brand";
 import { discoverShorts } from "@/lib/youtube/shorts-service";
 
-export const maxDuration = 300; // search.list + videos.list per brand
+export const maxDuration = 300; // search.list + videos.list per brand, plus the channel baseline pass (up to 40 channels)
 
 async function loadTargetBrands(slugs: string[]) {
   const brands = await prisma.brand.findMany({

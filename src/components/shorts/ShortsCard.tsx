@@ -10,14 +10,15 @@ const BADGE_NEUTRAL = "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-s
 
 function OutlierBadge({ item }: { item: ShortsFeedItem }) {
   if (item.outlierRatio === null) return <span className={`${BADGE} ${BADGE_NEUTRAL}`}>평소 기준 없음</span>;
-  const hot = item.outlierRatio >= OUTLIER_HIGHLIGHT_RATIO;
+  const shown = Math.round(item.outlierRatio * 10) / 10; // compare what is displayed, so 1.96 -> "2.0배" is not grey
+  const hot = shown >= OUTLIER_HIGHLIGHT_RATIO;
   const title =
     item.channelMedianViews === null
       ? undefined
       : `채널 최근 쇼츠 ${item.baselineSampleSize}개 중앙값 ${compact.format(item.channelMedianViews)}회 기준`;
   return (
     <span className={`${BADGE} ${hot ? BADGE_HOT : BADGE_NEUTRAL}`} title={title}>
-      평소의 {item.outlierRatio.toFixed(1)}배
+      평소의 {shown.toFixed(1)}배
     </span>
   );
 }
