@@ -41,6 +41,7 @@ export function buildTikTokDraftCreateData(brandId: string, script: TikTokScript
     qualityProfile: "tiktok_saju_retention",
     qualityPass: script.qualityPass,
     qualityScore: script.qualityScore,
+    qualityReasons: JSON.stringify(script.qualityReasons ?? []),
     durationSeconds: Math.round(script.totalDurationSeconds),
   };
 }

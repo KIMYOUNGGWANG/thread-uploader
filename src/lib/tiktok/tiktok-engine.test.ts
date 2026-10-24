@@ -1,6 +1,12 @@
 // tiktok-engine.test.ts — Unit tests for TikTok short-form script, alignment, and render worker.
 import { describe, it, expect } from "vitest";
-import { generateTikTokScript, buildIgRankScript, buildIgPickCardScript, IG_REELS_CTA } from "./tiktok-script-engine";
+import {
+  generateTikTokScript,
+  evaluateExplainerQuality,
+  buildIgRankScript,
+  buildIgPickCardScript,
+  IG_REELS_CTA,
+} from "./tiktok-script-engine";
 import { buildTikTokDraftCreateData, parseFormatId, FORMAT_COMPOSITIONS, TIKTOK_FORMAT_IDS } from "./tiktok-draft-service";
 import { alignTikTokScenes } from "./tiktok-audio-aligner";
 import { buildTikTokRenderSpec, executeTikTokRender } from "./tiktok-render-worker";
@@ -21,6 +27,60 @@ describe("TikTok Short-form Engine", () => {
     expect(script.qualityPass).toBe(true);
     expect(script.totalDurationSeconds).toBeGreaterThanOrEqual(15);
     expect(script.totalDurationSeconds).toBeLessThanOrEqual(30);
+  });
+
+  const DAY_MASTERS = ["갑목", "을목", "병화", "정화", "무토", "기토", "경금", "신금", "임수", "계수"];
+
+  it.each(DAY_MASTERS)("%s: 명식 카드의 일주 천간이 요청한 일간과 같다", (dayMaster) => {
+    const script = generateTikTokScript({ topic: "사주", dayMaster });
+    const pillars = script.scenes[2].visualProps?.sajuData?.pillars ?? [];
+    const dayPillar = pillars.find((pillar) => pillar.role === "일주 (본인)");
+
+    expect(dayPillar?.heavenly.name).toBe(dayMaster);
+  });
+
+  it.each(DAY_MASTERS)("%s: 훅이 질문을 열고 바로 다음 장면이 그 답을 준다", (dayMaster) => {
+    const script = generateTikTokScript({ topic: "사주", dayMaster });
+
+    expect(script.qualityReasons).toEqual([]);
+    expect(script.qualityPass).toBe(true);
+    expect(script.scenes[0].onScreenText[0]).toContain(dayMaster);
+    expect(script.scenes[0].onScreenText[0]).toMatch(/이유|\?/);
+  });
+
+  it("일간마다 훅이 다르다 (같은 문구를 10번 돌리지 않는다)", () => {
+    const hooks = new Set(DAY_MASTERS.map((dayMaster) => generateTikTokScript({ topic: "사주", dayMaster }).spokenHook));
+    expect(hooks.size).toBe(DAY_MASTERS.length);
+  });
+
+  it("품질 게이트: 과장·막연한 떡밥 훅은 떨어진다", () => {
+    const script = generateTikTokScript({ topic: "사주", dayMaster: "갑목" });
+    const baited = {
+      ...script,
+      scenes: script.scenes.map((scene, index) =>
+        index === 0 ? { ...scene, onScreenText: ["갑목 일주, 이번 달 절대 놓치지 마세요"] } : scene
+      ),
+    };
+
+    const result = evaluateExplainerQuality(baited, "갑목");
+    expect(result.qualityPass).toBe(false);
+    expect(result.qualityScore).toBeLessThan(100);
+    expect(result.qualityReasons.join(" ")).toMatch(/과장|떡밥/);
+  });
+
+  it("품질 게이트: 모르는 일간은 답을 줄 수 없으니 떨어진다", () => {
+    const script = generateTikTokScript({ topic: "사주", dayMaster: "없는일간" });
+
+    expect(script.qualityPass).toBe(false);
+    expect(script.qualityReasons?.length).toBeGreaterThan(0);
+  });
+
+  it("품질 사유가 초안에 저장된다", () => {
+    const script = generateTikTokScript({ topic: "사주", dayMaster: "없는일간" });
+    const data = buildTikTokDraftCreateData("brand-1", script, "DRAFT");
+
+    expect(data.qualityPass).toBe(false);
+    expect(JSON.parse(data.qualityReasons)).toEqual(script.qualityReasons);
   });
 
   it("aligns scenes to 30fps frames and formats valid SRT cues", () => {
