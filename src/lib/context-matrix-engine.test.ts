@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DOMAIN_MATRICES,
   resolveDynamicContext, isRelationshipTopic, planTopicQuota } from "./context-matrix-engine";
+import { findJargonTerms } from "./readability-rules";
 
 describe("context-matrix-engine", () => {
   it("has complete 8x8x8 dimensions for each defined domain", () => {
@@ -15,13 +16,14 @@ describe("context-matrix-engine", () => {
     }
   });
 
+  // paired domains (saju_*) only have persona x tension = 64 distinct tuples, so the 512 check uses an unpaired domain.
   it("guarantees 0% tuple duplication over all 512 consecutive generations using affine state-space permutation", () => {
     const seenTuples = new Set<string>();
     const totalGenerations = 512;
 
     for (let i = 0; i < totalGenerations; i++) {
       const context = resolveDynamicContext({
-        domainId: "saju_viral",
+        domainId: "career_decision",
         index: i,
       });
 
@@ -133,6 +135,48 @@ describe("context-matrix-engine", () => {
     // promoted count should be substantially higher than uniform (>= 8).
     expect(promotedPersonaCount).toBeGreaterThan(8);
     expect(promotedFrictionCount).toBeGreaterThan(8);
+  });
+});
+
+describe("paired persona and friction", () => {
+  it.each(["saju_relationship", "saju_viral"])("always pairs persona i with friction i in %s", (domainId) => {
+    for (let index = 0; index < 200; index++) {
+      const ctx = resolveDynamicContext({ domainId, index });
+      const matrix = DOMAIN_MATRICES[domainId];
+      expect(matrix.personas.indexOf(ctx.persona)).toBe(matrix.frictions.indexOf(ctx.friction));
+    }
+  });
+
+  it("keeps pairing when contextWeights pick the persona", () => {
+    const ctx = resolveDynamicContext({
+      domainId: "saju_relationship",
+      index: 2,
+      contextWeights: { personaWeights: { "친한 친구에게 동업을 제안받은 직장인": 100 }, epsilon: 0.01 },
+    });
+    expect(ctx.persona).toBe("친한 친구에게 동업을 제안받은 직장인");
+    expect(ctx.friction).toBe("친한 사이라 거절하기 어려운 동업 제안");
+  });
+
+  it("ignores frictionWeights on a paired matrix", () => {
+    const ctx = resolveDynamicContext({
+      domainId: "saju_relationship",
+      index: 2,
+      contextWeights: {
+        personaWeights: { "친한 친구에게 동업을 제안받은 직장인": 100 },
+        frictionWeights: { "읽씹과 칼답이 번갈아 오는 연락 패턴": 1000 },
+        epsilon: 0.01,
+      },
+    });
+    expect(ctx.friction).toBe("친한 사이라 거절하기 어려운 동업 제안");
+  });
+
+  it.each(["saju_viral", "saju_relationship"])("has at most one jargon term per seed line in %s", (domainId) => {
+    const { personas, frictions, tensions } = DOMAIN_MATRICES[domainId];
+    for (const line of [...personas, ...frictions, ...tensions]) expect(findJargonTerms(line).length).toBeLessThanOrEqual(1);
+  });
+
+  it("leaves other matrices unpaired", () => {
+    expect(DOMAIN_MATRICES.career_decision.pairedFrictions).toBeUndefined();
   });
 });
 
