@@ -188,6 +188,10 @@ describe("New Year season slots in generatePostsForBrand", () => {
     const prompt = state.requests.join("\n");
     expect(prompt).toContain("[New Year facts:");
     expect(prompt).not.toContain("[신년 자료:");
+    // The formula block runs from "[Formula:" to the first blank line (requests are JSON, so "\n" is escaped).
+    const formulaBlock = prompt.slice(prompt.indexOf("[Formula:"), prompt.indexOf("\\n\\n", prompt.indexOf("[Formula:")));
+    expect(formulaBlock).toContain("[Formula: Lichun Twist]");
+    expect(formulaBlock).not.toMatch(/[가-힣]/);
     const update = state.updates.find((u) => u.linkUrl?.includes("/en/2027/sample"));
     expect(update?.firstComment).toMatch(/^See a sample 2027 calendar first:\nhttps?:\/\/.+\/r\//);
   });

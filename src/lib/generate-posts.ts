@@ -653,10 +653,12 @@ function buildGenerationPrompt(
         "본문과 첫 댓글에 실제 URL은 쓰지 마. 시스템이 저장 후 필요한 경우 UTM 링크를 붙인다.",
       ];
 
+  // A New Year formula is built from the KO mode label, so an English prompt takes the English one.
+  const enNewYearFormula = isEnglish && experiment.newYearMode ? ENGLISH_VIRAL_MODE_LABELS[experiment.newYearMode] : null;
   return [
     ...languageMandate,
-    isEnglish ? `[Formula: ${experiment.formula.name}]` : `[공식: ${experiment.formula.name}]`,
-    experiment.formula.instruction,
+    isEnglish ? `[Formula: ${enNewYearFormula?.label ?? experiment.formula.name}]` : `[공식: ${experiment.formula.name}]`,
+    enNewYearFormula?.instruction ?? experiment.formula.instruction,
     "",
     ...formatProductPrompt(config),
     ...formatCampaignPrompt(experiment),
