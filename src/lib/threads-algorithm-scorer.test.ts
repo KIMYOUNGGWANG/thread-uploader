@@ -184,6 +184,16 @@ describe("threads-algorithm-scorer english hooks", () => {
     expect(scoreThreadsPostAlgorithmic("이직 vs 존버 중 진짜 당신에게 맞는 선택은 뭘까요?\n본문").totalScore).toBe(87);
   });
 
+  // Once numbered choices are capped, drafts close with a direct question instead; that is the same
+  // one-second reply device, so it must not cost the 9 points that sank concept_hierarchy drafts to 68-76.
+  it("scores a closing direct question like numbered choices for conversation depth", () => {
+    const body = "동업 제안, 감정보다 먼저 볼 게 있음.\n속도가 다른 두 사람은 지분보다 먼저 부딪힘.\n";
+    const question = scoreThreadsPostAlgorithmic(`${body}\n지금 더 흔들리는 건 너야, 상대야?`);
+    const choices = scoreThreadsPostAlgorithmic(`${body}\n1. 나\n2. 상대`);
+    expect(question.dimensions.conversationDepth.score).toBe(choices.dimensions.conversationDepth.score);
+    expect(scoreThreadsPostAlgorithmic(`${body}\n그래서 속도부터 맞춰야 함.`).dimensions.conversationDepth.score).toBe(8);
+  });
+
   // The reversal-opener cap tells drafts to compare with "~보다" instead; that hook must score as a contrast too.
   it("scores a Korean '~보다' comparison hook as contrast", () => {
     const comparison = scoreThreadsPostAlgorithmic("친구 동업 제안, 감정보다 먼저 볼 게 따로 있음.\n본문");

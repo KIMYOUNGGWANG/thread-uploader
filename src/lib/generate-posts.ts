@@ -1100,7 +1100,13 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       // formula the same Type A/B/C self-check. A formula mapped to its own mode keeps that mode.
       const formulaMode = isLeanSprint ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
 
-      const topic = topics[batchIndex % topics.length];
+      // relationship_tension must open with a relationship word, so a career slot from the alternating quota
+      // gets a relationship topic instead (otherwise the fidelity gate drops the draft after every retry).
+      const plannedTopic = topics[batchIndex % topics.length];
+      const relationshipTopics = allTopics.filter(isRelationshipTopic);
+      const topic = formulaMode.id === "relationship_tension" && !isRelationshipTopic(plannedTopic) && relationshipTopics.length
+        ? relationshipTopics[batchIndex % relationshipTopics.length]
+        : plannedTopic;
       // The matrix follows the topic's axis, not the sprint: a career topic in the relationship matrix
       // produced "이직 고민 (헤어지면 불안해지는 거리감 맥락)" posts.
       const useRelationshipContext = isSajuDomain && isRelationshipTopic(topic);
