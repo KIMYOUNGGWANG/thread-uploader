@@ -52,6 +52,7 @@ describe("instagram api", () => {
     expect(body.get("video_url")).toBe("https://v/x.mp4");
     expect(body.get("caption")).toBe("hi");
     expect(body.get("share_to_feed")).toBe("true");
+    expect(body.get("thumb_offset")).toBe("1500");
     expect(body.get("access_token")).toBe("tok");
   });
 
