@@ -5,7 +5,7 @@ import {
   normalizeViralIntentModeId,
   resolveViralIntentMode,
   selectViralIntentMode,
-  VIRAL_INTENT_MODES, pickClosingFormat } from "./viral-intent-modes";
+  VIRAL_INTENT_MODES, pickClosingFormat, type ViralIntentModeId } from "./viral-intent-modes";
 
 describe("viral intent mode rotation", () => {
   it("cycles a 28-post sprint into four 7-post mode groups", () => {
@@ -59,6 +59,17 @@ describe("viral mode shapes", () => {
   it("still rejects a myth-bust opener that never compares anything", () => {
     const result = checkViralModeFidelity("설렘이 커질수록 빨리 고백해야 한다? 그건 감정 온도만 잰 거임.\n진짜 기준은 헤어진 뒤 불안이 어디로 튀느냐임.", "concept_hierarchy");
     expect(result.failureCodes).toContain("missing_hierarchy");
+  });
+
+  // checkViralModeFidelity reads only the first two lines, and the first-line chart gate rejects a 살·일주 callout
+  // on line 1, so each structured mode's rules must say what goes in those two lines (simulated 2026-10-24 refill:
+  // 5/9 drops were these three codes).
+  it("tells structured modes to put their shape in the first two lines, with no 살·일주 callout on line 1", () => {
+    const rules = (id: ViralIntentModeId) => modeById.get(id)?.rules.join(" ") ?? "";
+    expect(rules("identity_profile")).not.toContain("1줄에 직설적으로 호명");
+    expect(rules("identity_profile")).toContain("둘째 줄");
+    expect(rules("concept_hierarchy")).toContain("첫 두 줄");
+    expect(rules("relationship_tension")).toContain("첫 두 줄");
   });
 
   it("drops the copied hierarchy sentence from the hierarchy rules", () => {
