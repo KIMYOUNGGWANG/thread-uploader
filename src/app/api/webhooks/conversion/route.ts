@@ -14,6 +14,8 @@ const CLICK_EVENTS = new Set(["click", "landing_view"]);
 const CONVERSION_EVENTS = new Set([
   "test_start", "first_result_view", "conversion", "analysis_start", "decision_question_submit", "ritual_action_viewed",
   "signup", "checkout_intent", "match_created", "match_create",
+  // CosmicPath relays getCanonicalGrowthEvent() names, not the raw event names.
+  "checkout_start", "ritual_action", "invite_conversion",
 ]);
 const PAID_EVENTS = new Set(["paid_conversion", "checkout_success", "payment", "order_complete"]);
 
@@ -59,6 +61,8 @@ export async function POST(request: NextRequest) {
 
     const normalizedEvent = normalizeEvent(eventType);
     if (!normalizedEvent) {
+      // Senders only log non-200s, so a renamed event would otherwise vanish silently.
+      console.warn(`[conversion-webhook] Ignored unknown eventType "${String(eventType)}"`, { postId: targetPostId });
       return NextResponse.json({ success: true, ignored: true, eventType });
     }
     if (normalizedEvent === "paid_conversion" && !isPaidEventAuthorized(request)) {

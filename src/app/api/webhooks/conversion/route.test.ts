@@ -103,10 +103,21 @@ describe("POST /api/webhooks/conversion", () => {
     expect((await res.json()).deduped).toBe(true);
   });
 
-  it("ignores unknown event types without counting", async () => {
+  it("ignores unknown event types without counting, but warns so name drift is visible", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const res = await webhook({ postId: "post_1", eventType: "page_scroll" });
     expect((await res.json()).ignored).toBe(true);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("page_scroll"), expect.anything());
+    warn.mockRestore();
+  });
+
+  // CosmicPath relays getCanonicalGrowthEvent() names, not the raw event names.
+  it.each(["checkout_start", "ritual_action", "invite_conversion"])("counts CosmicPath canonical %s as a conversion", async (eventType) => {
+    const res = await webhook({ postId: "post_1", eventType, sessionId: `s-${eventType}` });
+    expect(res.status).toBe(200);
+    expect((await res.json()).eventType).toBe("conversion");
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
   it.each(["signup", "checkout_intent", "match_created"])("counts %s as a conversion", async (eventType) => {
