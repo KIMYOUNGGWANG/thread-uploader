@@ -116,9 +116,10 @@ describe("ecommerce_d2c batch keeps one claim per formula", () => {
     }
   });
 
-  // ny_ipchun is a New Year season mode built on the same claim (Ruling R7), so it co-owns the angle.
-  it("lets ny_ipchun use the year-boundary claim while other formulas still borrow it", () => {
+  // New Year season modes are built on the same claim (Rulings R7/R7b), so they co-own the angle.
+  it("lets New Year modes use the year-boundary claim while other formulas still borrow it", () => {
     expect(findBorrowedYearBoundaryClaim("ny_ipchun", "Your zodiac year starts Feb 4")).toBeNull();
+    expect(findBorrowedYearBoundaryClaim("ny_monthly", "The 2027 saju year starts at Lichun in February")).toBeNull();
     expect(findBorrowedYearBoundaryClaim("all_twelve_series", "Your zodiac year starts Feb 4")).toContain("real_sign_boundary");
   });
 
