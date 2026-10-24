@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   perPostLinks: true,
@@ -291,6 +291,14 @@ vi.mock("@/lib/quality-gate", () => ({
 }));
 
 describe("POST /api/generate viral sprint matrix", () => {
+  // These cases run on the real clock with cosmicpath slugs; inside the New Year season some slots would take a ny mode.
+  beforeEach(() => {
+    vi.stubEnv("NEW_YEAR_SEASON_DISABLED", "1");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("persists 28 generated campaign posts into four 7-post viral mode buckets", async () => {
     state.checkStructureRepeat.mockClear();
     state.createdPosts.length = 0;
