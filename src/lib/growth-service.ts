@@ -45,7 +45,8 @@ export async function learnBrandGrowth(brandId: string) {
   });
 
   // Score with current metrics before learning, so weights never use last run's stale scores
-  const posts = fetchedPosts.map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
+  // New Year posts are seasonally inflated, so no learner sees them.
+  const posts = fetchedPosts.filter((post) => !isNewYearModeId(post.formulaId)).map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
   const config = parseBrandConfig(brand?.brandConfig ?? "{}");
   const goal = resolveOptimizationGoal(config);
 
@@ -102,7 +103,6 @@ export async function learnBrandGrowth(brandId: string) {
     const matureBefore = Date.now() - MATURITY_HOURS * 60 * 60 * 1000;
     const observations: FormulaPerformanceObservation[] = learningPosts
       .filter((p) => Boolean(p.formulaId) && typeof p.views === "number")
-      .filter((p) => !isNewYearModeId(p.formulaId))
       .filter((p) => p.publishedAt != null && p.publishedAt.getTime() <= matureBefore)
       .map((p) => ({
         formulaId: p.formulaId!,
