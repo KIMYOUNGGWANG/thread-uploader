@@ -164,7 +164,10 @@ export function scoreThreadsPostAlgorithmic(
   const convStrengths: string[] = [];
   const convWeaknesses: string[] = [];
 
-  const hasChoice = CONVERSATION_CHOICE_PATTERNS.some((p) => p.test(content));
+  // A closing direct question is the same one-second reply device as numbered choices; once choices are
+  // capped (readability template cap) drafts end this way, and scoring it lower dropped them under 80.
+  const lastLine = content.split("\n").map((line) => line.trim()).filter(Boolean).pop() ?? "";
+  const hasChoice = CONVERSATION_CHOICE_PATTERNS.some((p) => p.test(content)) || /[?？]$/.test(lastLine);
   const hasInvitation = CONVERSATION_INVITATION_PATTERNS.some((p) => p.test(content));
   // "한 줄로 적어줘" style asks invite a reply as much as a question mark does
   const hasFirstCommentPrompt = firstComment && /\?|댓글|적어|알려줘|말해줘/.test(firstComment);
