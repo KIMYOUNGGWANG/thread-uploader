@@ -40,6 +40,21 @@ describe("checkReadabilityRules", () => {
   });
 });
 
+describe("invented first-person story", () => {
+  it.each([
+    "난 그때 연락했음",
+    "난 어제 걔 차단했어",
+    "나는 작년에 헤어졌음",
+    "난 솔직히 3번 골랐음",
+  ])("fails: %s", (comment) => {
+    expect(checkReadabilityRules("본문 한 줄", comment).reasons).toContain("첫 댓글에 지어낸 1인칭 경험담 금지");
+  });
+
+  it.each(["나는 어느 쪽인지 골라봐", "너라면 바로 답장해, 아침까지 둬?"])("passes: %s", (comment) => {
+    expect(checkReadabilityRules("본문 한 줄", comment).pass).toBe(true);
+  });
+});
+
 describe("findJargonTerms", () => {
   it.each([
     "갑자기 연락 옴",
@@ -49,8 +64,22 @@ describe("findJargonTerms", () => {
     "인성 좋은 사람",
     "일주일 동안 연락 없음",
     "세운 계획대로 감",
+    "습관성 연락",
+    "식상한 멘트",
+    "다른 사람과 비견됨",
+    "일간지 기사",
+    "정관 수술",
+    "대운하 공사",
+    "신약 개발",
   ])("does not count everyday words: %s", (text) => {
     expect(findJargonTerms(text)).toEqual([]);
+  });
+
+  it("still counts real uses of guarded terms", () => {
+    expect(findJargonTerms("식상이 강하면 말이 앞섬")).toEqual(["식상"]);
+    expect(findJargonTerms("관성이 강한 편")).toEqual(["관성"]);
+    expect(findJargonTerms("올해 대운이 바뀜")).toEqual(["대운"]);
+    expect(findJargonTerms("일간이 약하면 신약")).toEqual(["일간", "신약"]);
   });
 
   it("finds distinct terms once", () => {
