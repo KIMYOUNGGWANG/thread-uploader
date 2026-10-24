@@ -1,5 +1,5 @@
 const CAMPAIGN_ID = "cosmicpath_viral_reset_v1";
-const CONCEPT_HIERARCHY_INSTRUCTION = "실제 사주 개념 2~3개(살·십신·일주)를 서열이나 대비로 비교한다. 같은 비교 문장 틀을 반복하지 않는다.";
+const CONCEPT_HIERARCHY_INSTRUCTION = "사람들이 먼저 보는 것(A)보다 먼저 봐야 할 것(B)을 쉬운 말로 비교한다. 사주 개념은 근거로 1개까지만 쓰고 바로 풀어서 쓴다. 첫 댓글은 독자가 자기 경험만으로 답할 수 있게 한다. 같은 비교 문장 틀을 반복하지 않는다.";
 
 const FORMULAS = [
   {
@@ -18,7 +18,7 @@ const FORMULAS = [
     id: "identity_profile",
     name: "기질 프로파일링",
     weight: 4,
-    instruction: "구체적인 살, 일주, 글자를 첫 줄에 호명하고 강점과 맹점을 함께 짚는다.",
+    instruction: "구체적인 살이나 일주 하나를 첫 줄에 호명해 쉬운 말로 풀고 강점과 맹점을 함께 짚는다.",
   },
   {
     id: "relationship_tension",

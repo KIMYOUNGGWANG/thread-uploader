@@ -68,13 +68,26 @@ describe("buildCosmicPathViralResetConfig", () => {
     });
   });
 
-  it("describes the hierarchy formula without forcing a two-step 'A보다 센' sentence", () => {
+  it("describes the hierarchy formula as a plain-word comparison with at most one explained saju concept", () => {
     const result = buildCosmicPathViralResetConfig({ campaigns: [] }) as {
       campaigns: Array<{ formulas: Array<{ id: string; instruction: string }> }>;
     };
     const hierarchy = result.campaigns[0]?.formulas.find((formula) => formula.id === "concept_hierarchy");
 
-    expect(hierarchy?.instruction).toContain("2~3개");
+    expect(hierarchy?.instruction).not.toContain("2~3개");
     expect(hierarchy?.instruction).not.toContain("A보다 센");
+    expect(hierarchy?.instruction).toContain("쉬운 말로 비교");
+    expect(hierarchy?.instruction).toContain("1개까지만");
+    expect(hierarchy?.instruction).toContain("자기 경험만으로");
+  });
+
+  it("asks identity_profile to name one concept, not a 살·일주·글자 list", () => {
+    const result = buildCosmicPathViralResetConfig({ campaigns: [] }) as {
+      campaigns: Array<{ formulas: Array<{ id: string; instruction: string }> }>;
+    };
+    const identity = result.campaigns[0]?.formulas.find((formula) => formula.id === "identity_profile");
+
+    expect(identity?.instruction).not.toContain("살, 일주, 글자를");
+    expect(identity?.instruction).toContain("하나");
   });
 });
