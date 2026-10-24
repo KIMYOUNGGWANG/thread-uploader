@@ -164,9 +164,9 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
     id: "friend_share",
     label: "친구/실화 관찰 썰형",
     primaryMetric: "replies",
-    instruction: "친구의 실제 고민 관찰 썰이나 본인 경험담으로 훅을 열고, 공감과 함께 댓글로 참여하게 만든다.",
+    instruction: "친구·동료 사이에서 누구나 한 번쯤 본 흔한 장면을 관찰하듯 묘사해 훅을 열고, 공감과 함께 댓글로 참여하게 만든다.",
     rules: [
-      "실제 겪은 일처럼 날것의 대화체(반말/독백체)로 쓴다.",
+      "옆에서 본 장면처럼 날것의 대화체(반말/독백체)로 쓰되, 지어낸 1인칭 경험담('나도 ~했음')은 쓰지 않는다.",
       "광고성 설명충 문장을 빼고, 궁금증을 자극해 댓글로 반응하게 만든다.",
     ],
   },
@@ -404,9 +404,9 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
   },
   friend_share: {
     label: "Relatable Observation / Share Hook",
-    instruction: "Open with a real-life observation or raw personal confession that sparks immediate resonance.",
+    instruction: "Open with a familiar real-life scene, described as an observation, that sparks immediate resonance.",
     rules: [
-      "Write in a raw, authentic first-person voice.",
+      "Write in a raw, conversational voice, but never invent a first-person story or confession.",
       "Eliminate corporate sales tone to drive organic engagement.",
     ],
   },

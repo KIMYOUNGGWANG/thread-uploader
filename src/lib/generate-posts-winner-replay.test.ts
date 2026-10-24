@@ -243,4 +243,46 @@ describe("winner_replay draft gate", () => {
       expect(state.requests.join("\n")).toContain("1/2/3으로 끝낸다");
     });
   });
+
+  // The prompt must not ask for what the gates reject (2026-10-24 plugin audit).
+  describe("prompt matches the gates", () => {
+    const REVERSAL_POST = "돈 못 모으는 건 의지 문제가 아니라\n돈 들어오는 타이밍 문제임";
+
+    it("does not suggest invented stats or chart-presupposing first lines", async () => {
+      state.reply = "카톡 읽씹 당하면 제일 먼저 뭐 함?";
+      await generatePostsForBrand(brand, input);
+      const prompt = state.requests.join("\n");
+      expect(prompt).not.toContain("10명 중 7명");
+      expect(prompt).not.toContain("특정 살·일주 호명");
+      expect(prompt).toContain("독자의 일주·살을 전제하는 호명");
+    });
+
+    it("forbids a reversal opener only once 3 of the last 10 posts used one", async () => {
+      state.reply = "카톡 읽씹 당하면 제일 먼저 뭐 함?";
+      state.recent = [
+        ...Array.from({ length: 3 }, () => ({ ...RECENT_POSTS[0], content: REVERSAL_POST, status: "PUBLISHED" })),
+        ...RECENT_POSTS.slice(3).map((post) => ({ ...post, status: "PUBLISHED" })),
+      ];
+      await generatePostsForBrand(brand, input);
+      expect(state.requests.join("\n")).toContain("[반전 문형 상한]");
+
+      state.requests.length = 0;
+      state.recent = null;
+      await generatePostsForBrand(brand, input);
+      expect(state.requests.join("\n")).not.toContain("[반전 문형 상한]");
+    });
+
+    it("never asks the English first comment for a personal confession", async () => {
+      const globalBrand = {
+        ...brand,
+        brandConfig: JSON.stringify({ ...JSON.parse(brand.brandConfig), productProfile: { productName: "CosmicPath Global" } }),
+      } as Brand;
+      state.reply = "Most people call it bad luck.";
+      // The mocked Korean first comment fails the English gate; only the prompt sent matters here.
+      await generatePostsForBrand(globalBrand, input).catch(() => undefined);
+      const prompt = state.requests.join("\n");
+      expect(prompt).not.toMatch(/personal confession/i);
+      expect(prompt).toContain("Never invent a personal story or confession");
+    });
+  });
 });

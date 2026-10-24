@@ -5,7 +5,16 @@ import {
   normalizeViralIntentModeId,
   resolveViralIntentMode,
   selectViralIntentMode,
-  VIRAL_INTENT_MODES, pickClosingFormat } from "./viral-intent-modes";
+  VIRAL_INTENT_MODES, pickClosingFormat, formatViralIntentModePrompt } from "./viral-intent-modes";
+
+describe("mode prompts never ask for invented first-person stories", () => {
+  it.each([false, true])("every mode (isEnglish=%s)", (isEnglish) => {
+    for (const mode of VIRAL_INTENT_MODES) {
+      const prompt = formatViralIntentModePrompt(mode, isEnglish);
+      expect(prompt, mode.id).not.toMatch(/본인 경험담으로|실제 겪은 일처럼|raw personal confession|authentic first-person/i);
+    }
+  });
+});
 
 describe("viral intent mode rotation", () => {
   it("cycles a 28-post sprint into four 7-post mode groups", () => {

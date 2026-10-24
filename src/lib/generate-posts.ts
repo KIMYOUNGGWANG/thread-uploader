@@ -86,6 +86,8 @@ interface GrowthExperiment {
   shouldLink: boolean;
   sequenceIndex?: number;
   closingFormat?: ClosingFormat;
+  // The reversal-opener template cap is already full, so the prompt must not ask for one (saju_viral only).
+  reversalCapped?: boolean;
   // Content of a high-view past post whose structure the winner_replay draft follows.
   winnerReference?: string;
 }
@@ -526,7 +528,7 @@ function buildGenerationPrompt(
         "- [Focused Conflict]: Zero in on one specific persona friction and internal conflict.",
         "- [Zero-in-body URL]: Never place links or URLs inside the post body.",
         "- [Zero AI Slop]: Avoid cliché patterns like 'Here is the truth', 'Imagine if', 'Let's dive in', or checkbox emojis.",
-        `- [Zero-Promo Conversation Igniter First Comment]: Below the delimiter (${SEPARATOR}), write 1-2 lines of an honest personal confession / admission or a raw provocative question that compels readers to reply. Never write sales pitches or spam links in the first comment.`,
+        `- [Zero-Promo Conversation Igniter First Comment]: Below the delimiter (${SEPARATOR}), write 1-2 lines: a raw provocative question readers can answer from their own life. Never invent a personal story or confession, and never write sales pitches or spam links in the first comment.`,
         "- [Strictly No Meta Text]: Never output character counts, draft labels, headers (# Title), or explanations.",
       ]
     : [
@@ -534,7 +536,10 @@ function buildGenerationPrompt(
         lengthLines?.rule ?? `- 본문 목표 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(이상적 범위: 140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하)로 극도로 압축한다.`,
         `- 상단 100자(피드 접히기 전 Fold)에서 스크롤을 멈추게 해야 한다. 지루한 배경 설명, 훈계조 사주 강의, 불필요한 증상 나열(□)은 절대 금지한다.`,
         `- [Charlie Hills 2-Line Contrast Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내의 반전/대립각(Contrast)으로 상식을 뒤집는다.`,
-        "- [첫 줄 스크롤 멈춤]: 첫 줄은 구체 숫자(예: 10명 중 7명), 특정 살·일주 호명, 통념 반박 중 하나로 스크롤을 멈추게 한다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
+        ...(experiment.reversalCapped
+          ? ["- [반전 문형 상한]: 최근 글에 'X가 아니라 Y'로 여는 글이 이미 많다. 이번 글은 첫 두 줄에 '아니라'·'아님'을 쓰지 말고, 둘째 줄 반전을 장면·질문·대비되는 두 행동으로 만든다."]
+          : []),
+        "- [첫 줄 스크롤 멈춤]: 첫 줄은 사주를 몰라도 읽히는 단언, 통념 반박, 누구나 겪는 장면 중 하나로 스크롤을 멈추게 한다. 숫자는 프롬프트에 주어진 것만 쓰고, 독자의 일주·살을 전제하는 호명('○○ 일주라면', '화개살 있으면')으로 열지 않는다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
         "- [Single-Point Razor]: 원문이나 여러 주제를 요약/나열하지 말고, 상식을 뒤집는 단 하나의 반직관적 주장(Contrarian Insight)에만 모든 문장을 집중할 것.",
         "- [Focused Conflict]: 타겟과 상황에 제시된 페르소나의 실전 마찰 1개만 깊게 파고들고, 여러 갈등이나 딜레마를 백화점식으로 나열하지 말 것.",
         "- [No Factual Hallucination]: 프롬프트에 제공되지 않은 가짜 개인 일화나 날조된 매출/사례 숫자를 지어내지 말고, 구조적 관찰과 냉철한 논리로 설득할 것.",
@@ -787,7 +792,7 @@ function formatCareerCampaignPrompt(experiment: CampaignGrowthExperiment): strin
     "[작성 가이드: 날것의 스토리텔링과 자연스러운 참여 유도]",
     "- 설명충 같은 훈계조나 사주 이론 강의(표준시 30분 왜곡, 타로 폐기 등)를 절대 반복하지 않는다.",
     "- 기질-조직 미스매치(식상 vs 관성), 10년 대운 교운기 번아웃 리스크, 단일 사주 맹점 등 실전 의사결정 팩트를 날것의 독백체로 쓴다.",
-    "- 친구나 본인의 실제 관찰 썰, 직장인들의 소름 돋는 현실 딜레마를 100% 반말/독백체(~임, ~했음, ~있냐)로 쓴다.",
+    "- 직장인이면 한 번쯤 겪는 현실 딜레마를 옆에서 본 장면처럼 100% 반말/독백체(~임, ~했음, ~있냐)로 쓴다. 지어낸 1인칭 경험담('나도 ~했음')은 쓰지 않는다.",
     "- 절대 금지 어휘: '심리적 자유', '타이밍 손실 리스크', '리스크', '손익', '시나리오', '골든타임', '의사결정', '데이터상' 등 기획서/보고서용 단어 절대 사용 금지.",
     "- 댓글 강요 대신, 글 말미에 독자가 본인의 상황을 스스로 점검할 수 있는 3가지 선택 프레임(예: 'A. 버팀형 / B. 이동형 / C. 준비형 중 어디에 가까운지 체크해' 또는 '7대 엔진 감사표: 1단계~5단계 체크 후 기준 삼아봐')을 명확한 셀프체크/행동선으로 제시하여 마무리한다.",
     "- 모듈러 감사형(modular_audit)인 경우: 1~5단계는 자가진단 기준을 명확히 주고, 6~7단계(손절선/탈출 윈도우)는 첫 댓글 링크를 통해 정밀 진단받도록 결핍 구조를 유지한다.",
@@ -944,6 +949,7 @@ export type GeneratePostsResult = { ok: false; error: string } | { ok: true; sum
  * the dashboard route checks the session owner, the refill cron checks CRON_SECRET.
  */
 const NUMBERED_CHOICE_PROBE = "1. a\n2. b";
+const REVERSAL_PROBE = "a가 아니라 b";
 // The template cap counts posts readers see or will see ("발행·대기 글"). This run's drafts carry no status and count;
 // archived, failed, and review-queue posts do not, so a regate that archives choice posts frees the cap.
 const TEMPLATE_CAP_STATUSES = new Set(["PUBLISHED", "PUBLISHING", "PARTIAL_FAILED", "PENDING"]);
@@ -1102,6 +1108,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       if (replaySource) experiment.winnerReference = replaySource.content;
       // The gate caps numbered choices only for saju_viral, so only there is a capped "choices" slot turned into a question.
       else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
+      experiment.reversalCapped = experiment.qualityProfile === "saju_viral"
+        && !checkTemplateCap(REVERSAL_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
       return generateWithQuality(
         experiment,
         config,
