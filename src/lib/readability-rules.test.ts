@@ -24,9 +24,34 @@ describe("checkReadabilityRules", () => {
   it("fails a closing question the reader can't answer", () => {
     expect(checkReadabilityRules("연락 텀보다 중요한 게 있음.\n너 원국에서 정관이 어느 자리에 앉아 있어?", "").pass).toBe(false);
     expect(checkReadabilityRules("연락 텀보다 중요한 게 있음.\n도화살이 어느 자리에 앉아 있어?", "").reasons).toContain(
-      "독자가 답할 수 없는 질문: 자기 경험만으로 답할 수 있게"
+      "독자가 답할 수 없는 질문(도화살): 마지막 질문·첫 댓글엔 사주 용어 없이, 자기 경험만으로 답할 수 있게"
     );
     expect(checkReadabilityRules("본문 한 줄", "혹시 네 사주에도 이런 구조 있는지 떠올려 봐.").pass).toBe(false);
+  });
+
+  it("names the generic cause when the question asks about the reader's chart", () => {
+    expect(checkReadabilityRules("본문 한 줄", "혹시 네 사주에도 이런 구조 있어?").reasons).toContain(
+      "독자가 답할 수 없는 질문(사주 구조): 마지막 질문·첫 댓글엔 사주 용어 없이, 자기 경험만으로 답할 수 있게"
+    );
+  });
+
+  it("fails a closing question that repeats the hook's 살", () => {
+    expect(checkReadabilityRules("화개살 있는 사람 특징?\n혼자 있는 시간이 꼭 필요함.\n너 주변 화개살 있는 사람도 그래?", "").pass).toBe(false);
+  });
+
+  it.each([
+    "대운이 뭔데?\n10년마다 바뀌는 큰 흐름이라고 보면 됨.\n그래서 요즘 꼬이는 게 다 네 탓은 아님.",
+    "도화살 있는 사람 특징?\n사람을 끄는 힘이 강함.\n본인은 정작 잘 모름.",
+  ])("treats a line-1 question as the hook, not the closing question: %s", (post) => {
+    expect(checkReadabilityRules(post, "").pass).toBe(true);
+  });
+
+  it.each(["그렇네 사주 얘기 좀 해보자", "궁합 보니 사주가 비슷함"])("does not read a word ending in 네/니 as the reader's chart: %s", (comment) => {
+    expect(checkReadabilityRules("본문 한 줄", comment).pass).toBe(true);
+  });
+
+  it.each(["네 사주 한번 봐봐", "너의 사주엔 뭐가 있어?", "당신 사주에는 이런 거 없어?"])("still catches the reader's chart: %s", (comment) => {
+    expect(checkReadabilityRules("본문 한 줄", comment).pass).toBe(false);
   });
 
   it("ignores jargon in the link line of the first comment", () => {
@@ -46,6 +71,7 @@ describe("invented first-person story", () => {
     "난 어제 걔 차단했어",
     "나는 작년에 헤어졌음",
     "난 솔직히 3번 골랐음",
+    "난 솔직히 3번 골랐다가 후회함",
   ])("fails: %s", (comment) => {
     expect(checkReadabilityRules("본문 한 줄", comment).reasons).toContain("첫 댓글에 지어낸 1인칭 경험담 금지");
   });
@@ -57,6 +83,9 @@ describe("invented first-person story", () => {
     "난 궁금한 게 있어, 너는?",
     "나는 이쪽 고르겠어 너는?",
     "내가 그 자리에 있다면 어떻게 할까?",
+    "난 2번. 너넨 몇 번 골랐어?",
+    "나도 궁금함. 너는 먼저 연락했어?",
+    "난 1번 고를 듯. 너는 어땠어?",
   ])("passes: %s", (comment) => {
     expect(checkReadabilityRules("본문 한 줄", comment).pass).toBe(true);
   });
@@ -78,6 +107,12 @@ describe("findJargonTerms", () => {
     "정관 수술",
     "대운하 공사",
     "신약 개발",
+    "연락 빠른 편인 사람",
+    "너는 먼저 연락하는 편인지 궁금함",
+    "예민한 편인데 티는 안 냄",
+    "고정관념",
+    "비겁하게 굴지 마",
+    "세계일주",
   ])("does not count everyday words: %s", (text) => {
     expect(findJargonTerms(text)).toEqual([]);
   });
@@ -87,6 +122,10 @@ describe("findJargonTerms", () => {
     expect(findJargonTerms("관성이 강한 편")).toEqual(["관성"]);
     expect(findJargonTerms("올해 대운이 바뀜")).toEqual(["대운"]);
     expect(findJargonTerms("일간이 약하면 신약")).toEqual(["일간", "신약"]);
+    expect(findJargonTerms("편인이 강하면 생각이 많음")).toEqual(["편인"]);
+    expect(findJargonTerms("정관이 있으면 선을 지킴")).toEqual(["정관"]);
+    expect(findJargonTerms("비겁이 많으면 고집이 셈")).toEqual(["비겁"]);
+    expect(findJargonTerms("일주가 같으면 잘 맞음")).toEqual(["일주"]);
   });
 
   it("finds distinct terms once", () => {

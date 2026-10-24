@@ -10,14 +10,16 @@ export const SAJU_JARGON_TERMS: readonly string[] = [
 
 // Terms that collide with everyday words get a guard (regex source) so the everyday sense is not counted.
 const TERM_GUARDS: Readonly<Record<string, string>> = {
-  일주: "일주(?!일)", // 일주일
+  일주: "(?<!(?:세계|전국|국토)\\s?)일주(?![일년])", // 일주일, 세계일주
   관성: "(?<!습)관성", // 습관성
   식상: "식상(?![하한])", // 식상하다/식상한 멘트
   비견: "비견(?!되|됨)", // 비견되다
   일간: "일간(?!지)", // 일간지
-  정관: "정관(?!\\s*수술)", // 정관 수술
+  정관: "(?<!고)정관(?!\\s*수술)", // 고정관념, 정관 수술
   대운: "대운(?!하)", // 대운하
   신약: "신약(?!\\s*개발)", // 신약 개발
+  편인: "편인(?![데지가]|\\s*(?:거|걸|것|듯|사람|쪽))", // 빠른 편인 사람, 하는 편인지/편인데
+  비겁: "비겁(?![하한해했함])", // 비겁하게/비겁한
 };
 
 const TERM_PATTERNS: ReadonlyArray<{ term: string; re: RegExp }> = SAJU_JARGON_TERMS.map((term) => ({
@@ -25,7 +27,7 @@ const TERM_PATTERNS: ReadonlyArray<{ term: string; re: RegExp }> = SAJU_JARGON_T
   re: new RegExp(TERM_GUARDS[term] ?? term),
 }));
 
-const READER_SAJU_RE = /(네|너의?|니|본인|당신의?)\s*사주/;
+const READER_SAJU_RE = /(^|[^가-힣])(네|너의?|니|본인|당신의?)\s*사주/; // left boundary: "그렇네 사주", "보니 사주"
 
 // Every Hangul syllable with a ㅆ final (했 갔 봤 줬 었 았 였 ...): past-tense contractions.
 // 있 (present: "시간 있어") and 겠 (future: "고르겠어") also end in ㅆ but are not past tense, so they are excluded.
@@ -33,18 +35,21 @@ const NON_PAST_SS = new Set(["있", "겠"]);
 const PAST_SYLLABLES = Array.from({ length: 19 * 21 }, (_, i) => String.fromCharCode(0xac00 + i * 28 + 20))
   .filter((ch) => !NON_PAST_SS.has(ch))
   .join("");
-const INVENTED_STORY_RE = new RegExp(`(^|\\s)(난|나도|나는|내가)\\s[^\\n]{0,60}(다가|[${PAST_SYLLABLES}][음어다])`);
+// Stops at a sentence end so "난 2번. 너는 골랐어?" is not one claim, and a past ending right before "?" is a question to the reader.
+const INVENTED_STORY_RE = new RegExp(`(^|\\s)(난|나도|나는|내가)\\s[^\\n.!?？]{0,60}(다가|[${PAST_SYLLABLES}][음어다](?![?？]))`);
 
 export function findJargonTerms(text: string): string[] {
   return TERM_PATTERNS.filter(({ re }) => re.test(text)).map(({ term }) => term);
 }
 
 function lastQuestionSentence(post: string): string | null {
-  const end = post.lastIndexOf("?");
+  // Line 1 is the hook (beginner_qa must open with a question), so the closing question is looked for after it.
+  const body = post.trim().split("\n").slice(1).join("\n");
+  const end = body.lastIndexOf("?");
   if (end === -1) return null;
-  const before = post.slice(0, end);
+  const before = body.slice(0, end);
   const start = Math.max(before.lastIndexOf("\n"), before.lastIndexOf("."), before.lastIndexOf("!"), before.lastIndexOf("?"));
-  return post.slice(start + 1, end + 1);
+  return body.slice(start + 1, end + 1);
 }
 
 export function checkReadabilityRules(post: string, firstComment: string): { pass: boolean; reasons: string[] } {
@@ -60,13 +65,9 @@ export function checkReadabilityRules(post: string, firstComment: string): { pas
     .filter((line) => !/https?:\/\//.test(line))
     .join("\n");
   const question = lastQuestionSentence(post) ?? "";
-  const unanswerable =
-    findJargonTerms(question).length > 0 ||
-    findJargonTerms(commentText).length > 0 ||
-    READER_SAJU_RE.test(question) ||
-    READER_SAJU_RE.test(commentText);
-  if (unanswerable) {
-    reasons.push("독자가 답할 수 없는 질문: 자기 경험만으로 답할 수 있게");
+  const hits = [...new Set([...findJargonTerms(question), ...findJargonTerms(commentText)])];
+  if (hits.length > 0 || READER_SAJU_RE.test(question) || READER_SAJU_RE.test(commentText)) {
+    reasons.push(`독자가 답할 수 없는 질문(${hits.join(", ") || "사주 구조"}): 마지막 질문·첫 댓글엔 사주 용어 없이, 자기 경험만으로 답할 수 있게`);
   }
 
   if (INVENTED_STORY_RE.test(commentText)) {

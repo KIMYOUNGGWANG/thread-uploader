@@ -181,5 +181,6 @@ describe("winner_replay draft gate", () => {
     expect(prompt).toContain("사주 전문 용어(일간·재성·관성·도화살 등)는 1개까지만 쓰고");
     expect(prompt).toContain("독자의 원국·일주·사주 구조를 묻지 않는다");
     expect(prompt).toContain("지어낸 1인칭 경험담을 쓰지 않는다");
+    expect(prompt).toContain("마지막 질문과 첫 댓글에는 사주 전문 용어를 쓰지 않는다");
   });
 });
