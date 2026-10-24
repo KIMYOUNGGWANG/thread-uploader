@@ -53,6 +53,12 @@ export function isKoNewYearSeason(date: Date, env: NodeJS.ProcessEnv = process.e
   return ymd >= wins[0].start && ymd <= wins[wins.length - 1].end;
 }
 
+// Daily video season: only brands mapped to "ko" get the 2027 version (its CTA points at the KO site).
+export function dailyVideoSeason(brandSlug: string, now: Date, env: NodeJS.ProcessEnv = process.env): "new_year_2027" | undefined {
+  const ko = Object.hasOwn(NEW_YEAR_BRANDS, brandSlug) && NEW_YEAR_BRANDS[brandSlug] === "ko";
+  return ko && isKoNewYearSeason(now, env) ? "new_year_2027" : undefined;
+}
+
 export function newYearSlotMode(input: {
   brandSlug: string;
   plannedAt: Date;

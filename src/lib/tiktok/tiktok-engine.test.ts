@@ -17,7 +17,7 @@ import {
 } from "./tiktok-draft-service";
 import { findFirstLineChartGate } from "@/lib/quality-gate";
 import { DAY_MASTER_2027 } from "@/lib/new-year/new-year-2027-data";
-import { isKoNewYearSeason } from "@/lib/new-year/new-year-season";
+import { isKoNewYearSeason, dailyVideoSeason } from "@/lib/new-year/new-year-season";
 import { alignTikTokScenes } from "./tiktok-audio-aligner";
 import { buildTikTokRenderSpec, executeTikTokRender } from "./tiktok-render-worker";
 
@@ -84,6 +84,15 @@ describe("TikTok Short-form Engine", () => {
     expect(isKoNewYearSeason(new Date("2027-02-06T14:59:00Z"))).toBe(true);
     expect(isKoNewYearSeason(new Date("2027-02-06T15:00:00Z"))).toBe(false);
     expect(isKoNewYearSeason(new Date("2026-12-20T00:00:00Z"), { ...process.env, NEW_YEAR_SEASON_DISABLED: "1" })).toBe(false);
+  });
+
+  it("일일 영상 시즌 판정: ko 브랜드가 시즌 안일 때만 2027 버전", () => {
+    const inSeason = new Date("2026-12-20T00:00:00Z");
+    expect(dailyVideoSeason("cosmicpath", inSeason)).toBe("new_year_2027");
+    expect(dailyVideoSeason("other-brand", inSeason)).toBeUndefined();
+    expect(dailyVideoSeason("cosmicpath-global", inSeason)).toBeUndefined();
+    expect(dailyVideoSeason("cosmicpath", new Date("2026-11-01T00:00:00Z"))).toBeUndefined();
+    expect(dailyVideoSeason("cosmicpath", inSeason, { ...process.env, NEW_YEAR_SEASON_DISABLED: "1" })).toBeUndefined();
   });
 
   it("20일 동안 같은 훅이 두 번 나오지 않는다", () => {
