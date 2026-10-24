@@ -25,6 +25,17 @@ describe("newYearSlotMode", () => {
     expect(count("2026-12-01T12:00:00")).toBe(0);
     expect(count("2027-01-10T12:00:00")).toBe(1);
   });
+  it("EN은 값 검사가 없는 ny_ranking·ny_monthly를 쓰지 않고, 연속 신년 칸 유형이 다르다", () => {
+    for (const at of ["2027-01-10T12:00:00", "2027-02-03T12:00:00"]) {
+      for (const capped of [false, true]) {
+        const modes = Array.from({ length: 200 }, (_, i) => slot("cosmicpath-global", at, i, capped)).filter(Boolean);
+        expect(modes.length).toBe(50);
+        expect(new Set(modes)).not.toContain("ny_ranking");
+        expect(new Set(modes)).not.toContain("ny_monthly");
+        if (!capped) modes.slice(1).forEach((mode, i) => expect(mode).not.toBe(modes[i]));
+      }
+    }
+  });
   it("다른 브랜드는 시즌 중에도 null", () => {
     expect([0, 1, 2, 3, 4].map((i) => slot("other-brand", "2027-01-10T12:00:00", i))).toEqual([null, null, null, null, null]);
   });

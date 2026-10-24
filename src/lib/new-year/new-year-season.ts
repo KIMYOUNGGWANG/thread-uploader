@@ -70,14 +70,17 @@ export function newYearSlotMode(input: {
   if (env.NEW_YEAR_SEASON_DISABLED === "1") return null;
   if (!Object.hasOwn(NEW_YEAR_BRANDS, brandSlug)) return null;
 
+  const lang = NEW_YEAR_BRANDS[brandSlug];
   const ymd = kstYmd(plannedAt);
-  const win = NEW_YEAR_WINDOWS[NEW_YEAR_BRANDS[brandSlug]].find((w) => ymd >= w.start && ymd <= w.end);
+  const win = NEW_YEAR_WINDOWS[lang].find((w) => ymd >= w.start && ymd <= w.end);
   if (!win) return null;
 
   const pos = win.positions.indexOf(slotIndex % win.period);
   if (pos < 0) return null;
 
   const nth = Math.floor(slotIndex / win.period) * win.positions.length + pos;
+  // EN has no value checks for ranking/monthly (English day-master and month text), so it alternates the other two.
+  if (lang === "en") return choicesCapped || nth % 2 === 1 ? "ny_ipchun" : "ny_pick";
   let mode = MODE_CYCLE[nth % MODE_CYCLE.length];
   // Final stretch: lean on the ipchun (start of spring) post.
   if (ymd >= 20270201) mode = nth % 2 === 0 ? "ny_ipchun" : mode === "ny_ipchun" ? "ny_ranking" : mode;
