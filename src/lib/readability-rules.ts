@@ -85,6 +85,19 @@ export const TEMPLATE_WINDOW = 10;
 const CHOICE_LINE_RE = /^\s*([1-3]|[A-C])[.)]?\s/;
 const REVERSAL_RE = /아니라|아님(?![가-힣])|이 아니고/;
 
+// Drafts sometimes put a blank line between choice 1 and 2; numbered choices read as one block.
+export function tightenChoiceLines(post: string): string {
+  const lines = post.split("\n");
+  return lines
+    .filter((line, i) => {
+      if (line.trim() !== "") return true;
+      const prev = lines.slice(0, i).reverse().find((l) => l.trim() !== "");
+      const next = lines.slice(i + 1).find((l) => l.trim() !== "");
+      return !(prev && next && CHOICE_LINE_RE.test(prev) && CHOICE_LINE_RE.test(next));
+    })
+    .join("\n");
+}
+
 export function endsWithNumberedChoices(post: string): boolean {
   return post.split("\n").filter((line) => CHOICE_LINE_RE.test(line)).length >= 2;
 }
