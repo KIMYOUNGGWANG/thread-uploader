@@ -36,6 +36,8 @@ export async function GET(request: NextRequest) {
   const posts = pending.filter((post) => !(post.formulaId ?? "").startsWith("video:"));
 
   const failed: { id: string; reasons: string[] }[] = [];
+  const skipped: { id: string; reason: string }[] = [];
+  let archived = 0;
   for (const post of posts) {
     const firstComment = post.firstComment ?? "";
     const rules = checkReadabilityRules(post.content, firstComment);
@@ -48,8 +50,14 @@ export async function GET(request: NextRequest) {
     failed.push({ id: post.id, reasons });
     if (apply) {
       const qualityReasons = [...parseReasons(post.qualityReasons), `regate_readability_failed: ${reasons.join(" / ")}`];
-      await prisma.post.update({ where: { id: post.id }, data: { status: "ARCHIVED", qualityReasons: JSON.stringify(qualityReasons) } });
+      // The judge loop is slow: the publish cron may have claimed this post since we read it, so only archive while still PENDING.
+      const { count } = await prisma.post.updateMany({
+        where: { id: post.id, status: "PENDING" },
+        data: { status: "ARCHIVED", qualityReasons: JSON.stringify(qualityReasons) },
+      });
+      if (count === 0) skipped.push({ id: post.id, reason: "no longer PENDING" });
+      else archived += count;
     }
   }
-  return NextResponse.json({ brand: slug, apply, checked: posts.length, failed });
+  return NextResponse.json({ brand: slug, apply, checked: posts.length, failed, archived, skipped });
 }

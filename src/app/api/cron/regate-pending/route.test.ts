@@ -4,14 +4,14 @@ const mocks = vi.hoisted(() => ({
   verify: vi.fn(),
   findBrand: vi.fn(),
   findPosts: vi.fn(),
-  updatePost: vi.fn(),
+  updatePost: vi.fn<(args: { where: { id: string }; data: { status: string; qualityReasons: string } }) => Promise<{ count: number }>>(async () => ({ count: 1 })),
   rules: vi.fn(),
   judge: vi.fn(),
 }));
 
 vi.mock("@/lib/cron-auth", () => ({ verifyCronSecret: mocks.verify }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { brand: { findUnique: mocks.findBrand }, post: { findMany: mocks.findPosts, update: mocks.updatePost } },
+  prisma: { brand: { findUnique: mocks.findBrand }, post: { findMany: mocks.findPosts, updateMany: mocks.updatePost } },
 }));
 vi.mock("@/lib/readability-rules", () => ({ checkReadabilityRules: mocks.rules }));
 vi.mock("@/lib/readability-judge", () => ({ judgeReadability: mocks.judge }));
@@ -34,6 +34,7 @@ const post = (id: string, extra: Record<string, unknown> = {}) => ({
 describe("GET /api/cron/regate-pending", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.updatePost.mockResolvedValue({ count: 1 });
     mocks.verify.mockReturnValue(true);
     mocks.findBrand.mockResolvedValue({ id: "b1", slug: "cosmicpath", brandConfig: JSON.stringify({ qualityProfile: "saju_viral" }) });
     mocks.rules.mockImplementation((content: string) =>
@@ -60,7 +61,7 @@ describe("GET /api/cron/regate-pending", () => {
   it("reports failures without writing when apply is not set", async () => {
     mocks.findPosts.mockResolvedValue([post("p1", { content: "bad" }), post("p2")]);
     const { body } = await call("brand=cosmicpath");
-    expect(body).toEqual({ brand: "cosmicpath", apply: false, checked: 2, failed: [{ id: "p1", reasons: ["룰 위반"] }] });
+    expect(body).toEqual({ brand: "cosmicpath", apply: false, checked: 2, failed: [{ id: "p1", reasons: ["룰 위반"] }], archived: 0, skipped: [] });
     expect(mocks.updatePost).not.toHaveBeenCalled();
   });
 
@@ -77,10 +78,26 @@ describe("GET /api/cron/regate-pending", () => {
     ]);
     expect(mocks.updatePost).toHaveBeenCalledTimes(2);
     expect(mocks.updatePost).toHaveBeenCalledWith({
-      where: { id: "p1" },
+      where: { id: "p1", status: "PENDING" },
       data: { status: "ARCHIVED", qualityReasons: JSON.stringify(["regate_readability_failed: 룰 위반"]) },
     });
-    expect(mocks.updatePost).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: "p2" } }));
+    expect(mocks.updatePost).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: "p2", status: "PENDING" } }));
+  });
+
+  it("does not write for apply=1 and reports apply: false", async () => {
+    mocks.findPosts.mockResolvedValue([post("p1", { content: "bad" })]);
+    const { body } = await call("brand=cosmicpath&apply=1");
+    expect(body.apply).toBe(false);
+    expect(mocks.updatePost).not.toHaveBeenCalled();
+  });
+
+  it("reports a post that left PENDING mid-run as skipped, not archived", async () => {
+    mocks.findPosts.mockResolvedValue([post("p1", { content: "bad" }), post("p2", { content: "bad" })]);
+    mocks.updatePost.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 1 });
+    const { body } = await call("brand=cosmicpath&apply=true");
+    expect(body.failed).toHaveLength(2);
+    expect(body.skipped).toEqual([{ id: "p1", reason: "no longer PENDING" }]);
+    expect(body.archived).toBe(1);
   });
 
   it("skips the judge when the rules already failed", async () => {
@@ -105,6 +122,7 @@ describe("GET /api/cron/regate-pending", () => {
     await call("brand=cosmicpath&apply=true");
     const reasonsOf = (id: string) => {
       const arg = mocks.updatePost.mock.calls.map(([a]) => a).find((a) => a.where.id === id);
+      if (!arg) throw new Error(`no update for ${id}`);
       return { status: arg.data.status, reasons: JSON.parse(arg.data.qualityReasons) };
     };
     expect(reasonsOf("p1")).toEqual({ status: "ARCHIVED", reasons: ["old", "regate_readability_failed: 룰 위반"] });
