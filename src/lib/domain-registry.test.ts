@@ -116,6 +116,12 @@ describe("ecommerce_d2c batch keeps one claim per formula", () => {
     }
   });
 
+  // ny_ipchun is a New Year season mode built on the same claim (Ruling R7), so it co-owns the angle.
+  it("lets ny_ipchun use the year-boundary claim while other formulas still borrow it", () => {
+    expect(findBorrowedYearBoundaryClaim("ny_ipchun", "Your zodiac year starts Feb 4")).toBeNull();
+    expect(findBorrowedYearBoundaryClaim("all_twelve_series", "Your zodiac year starts Feb 4")).toContain("real_sign_boundary");
+  });
+
   it("catches the lichun spelling and passes a post on its own formula", () => {
     expect(findBorrowedYearBoundaryClaim("all_twelve_series", "Saju starts the year at lichun.")).not.toBeNull();
     const compatibility = "A Fire Horse and a Water Rat fall fast.\n\nThe pull is real; so is the friction.\n\nSend this to your Rat.";

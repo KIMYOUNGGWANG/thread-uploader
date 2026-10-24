@@ -85,6 +85,7 @@ export function buildNewYearBrief(modeId: NewYearModeId, lang: NewYearLang, slot
 }
 
 // Returns problems found in the draft; an empty array means it passes.
+// EN accepts Ipchun too: normalizeIpchunSpelling rewrites Lichun to Ipchun before the gate runs.
 export function checkNewYearFacts(post: string, modeId: NewYearModeId, lang: NewYearLang): string[] {
   const problems: string[] = [];
 
@@ -93,7 +94,7 @@ export function checkNewYearFacts(post: string, modeId: NewYearModeId, lang: New
   }
 
   if (modeId === "ny_ipchun") {
-    const ok = lang === "ko" ? /입춘|2월\s*4일/.test(post) : /Feb(?:ruary)?\.?\s*4|Lichun/i.test(post);
+    const ok = lang === "ko" ? /입춘|2월\s*4일/.test(post) : /Feb(?:ruary)?\.?\s*4|Lichun|Ipchun/i.test(post);
     if (!ok) problems.push("입춘(또는 2월 4일) 언급이 없다");
   }
 

@@ -5,8 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // and the existing gates, so the slot tests measure slot assignment rather than fact checks.
 const NY_SAFE_REPLY = "1월에 보는 신년운세, 사실 작년 흐름일 수 있어\n\n사주에서 해가 바뀌는 날은 1월 1일이 아니라 입춘이야\n2027년 흐름은 2월부터 시작되는 셈\n\n너는 새해 계획 언제 세우는 편이야?";
 
+// Mentions only "Lichun" (rewritten to "Ipchun" on cleanup) and 2027, so it passes only when ny_ipchun owns
+// the year-boundary claim and the EN fact check accepts the Ipchun spelling.
+const EN_IPCHUN_REPLY = "Your January horoscope may be reading last year.\n\nIn saju the year turns at Lichun, not on January 1.\n\nSo 2027 really starts a little later.\n\nWhen do you usually make your yearly plans?";
+
 const state = vi.hoisted(() => ({
   reply: "",
+  comment: "",
+  postCount: 0,
   created: [] as Array<{ formulaId: string | null }>,
   updates: [] as Array<{ linkUrl?: string; firstComment?: string }>,
   requests: [] as string[],
@@ -17,7 +23,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
     messages = {
       create: vi.fn(async (request: unknown) => {
         state.requests.push(JSON.stringify(request));
-        return { content: [{ type: "text", text: `${state.reply}\n\n===FIRST_COMMENT===\n저장해두고 다시 봐` }] };
+        return { content: [{ type: "text", text: `${state.reply}\n\n===FIRST_COMMENT===\n${state.comment}` }] };
       }),
     };
   },
@@ -38,7 +44,7 @@ vi.mock("@/lib/prisma", () => ({
     post: {
       findMany: vi.fn(async () => RECENT_POSTS),
       findFirst: vi.fn(async () => null),
-      count: vi.fn(async () => 0),
+      count: vi.fn(async () => state.postCount),
       create: vi.fn(async ({ data }: { data: { formulaId: string | null } }) => {
         state.created.push(data);
         return { id: `post_${state.created.length}`, ...data };
@@ -104,6 +110,30 @@ const cosmicBrand = {
   growthMemory: "{}",
   viralMemory: "{}",
 } as unknown as Brand;
+const globalBrand = {
+  ...cosmicBrand,
+  id: "brand_global",
+  slug: "cosmicpath-global",
+  brandConfig: JSON.stringify({
+    systemPrompt: "Write concise posts in English.",
+    topics: ["career switch timing"],
+    targets: ["people thinking about a job change"],
+    situations: ["stuck between staying and leaving"],
+    websiteUrl: "",
+    productProfile: { productName: "CosmicPath Global" },
+    voiceProfile: { language: "en" },
+    campaigns: [{
+      id: "cosmicpath_global_d2c",
+      name: "CosmicPath Global",
+      mode: "landing-test",
+      qualityProfile: "ecommerce_d2c",
+      perPostLinks: false,
+      formulas: [{ id: "two_birthday_compatibility", name: "Two birthdays", weight: 1, instruction: "Compare two birthdays" }],
+    }],
+    activeCampaignId: "cosmicpath_global_d2c",
+    qualityProfile: "ecommerce_d2c",
+  }),
+} as unknown as Brand;
 const input = { count: 1, insertAtFront: false, requestedCampaignId: null, approvedCampaignStart: false, postCategory: "GENERAL" };
 
 describe("New Year season slots in generatePostsForBrand", () => {
@@ -113,6 +143,8 @@ describe("New Year season slots in generatePostsForBrand", () => {
     state.updates.length = 0;
     state.requests.length = 0;
     state.reply = NY_SAFE_REPLY;
+    state.comment = "저장해두고 다시 봐";
+    state.postCount = 0;
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -143,6 +175,21 @@ describe("New Year season slots in generatePostsForBrand", () => {
     vi.setSystemTime(new Date("2027-01-10T03:00:00Z"));
     await generatePostsForBrand({ ...cosmicBrand, slug: "other-brand" } as Brand, { ...input, count: 5 });
     expect(state.created.filter((p) => p.formulaId?.startsWith("ny_"))).toHaveLength(0);
+  });
+
+  it("EN 시즌 정점의 ny_ipchun 초안은 Lichun을 써도 저장되고, 프롬프트 헤더는 영어", async () => {
+    vi.setSystemTime(new Date("2027-01-10T03:00:00Z"));
+    // Four existing posts make this run's first slot the 2nd EN New Year slot, which is ny_ipchun.
+    state.postCount = 4;
+    state.reply = EN_IPCHUN_REPLY;
+    state.comment = "Save this for February";
+    await generatePostsForBrand(globalBrand, input);
+    expect(state.created.map((p) => p.formulaId)).toEqual(["ny_ipchun"]);
+    const prompt = state.requests.join("\n");
+    expect(prompt).toContain("[New Year facts:");
+    expect(prompt).not.toContain("[신년 자료:");
+    const update = state.updates.find((u) => u.linkUrl?.includes("/en/2027/sample"));
+    expect(update?.firstComment).toMatch(/^See a sample 2027 calendar first:\nhttps?:\/\/.+\/r\//);
   });
 
   it("사실 검사에 걸린 신년 초안은 저장되지 않는다", async () => {

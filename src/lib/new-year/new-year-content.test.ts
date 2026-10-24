@@ -55,6 +55,8 @@ describe("new year content", () => {
     expect(checkNewYearFacts("1월 신년운세는 사실 작년 운", "ny_ipchun", "ko")).not.toEqual([]);
     expect(checkNewYearFacts("사주의 해는 입춘부터 바뀜", "ny_ipchun", "ko")).toEqual([]);
     expect(checkNewYearFacts("The saju year turns on Feb 4", "ny_ipchun", "en")).toEqual([]);
+    // normalizeIpchunSpelling rewrites Lichun to Ipchun before the gate runs.
+    expect(checkNewYearFacts("In saju the year turns at Ipchun, not January 1", "ny_ipchun", "en")).toEqual([]);
     expect(checkNewYearFacts("The new year starts in January", "ny_ipchun", "en")).not.toEqual([]);
   });
   it("링크에 추적 파라미터가 다 붙는다", () => {

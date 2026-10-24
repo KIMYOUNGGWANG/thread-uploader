@@ -665,7 +665,9 @@ function buildGenerationPrompt(
       ? [`[참고 글: 조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써]\n---\n${experiment.winnerReference}\n---`]
       : []),
     ...(experiment.newYearBrief
-      ? [`[신년 자료: 이 값만 쓰고 다른 일간·달·간지를 지어내지 마]\n${experiment.newYearBrief}`]
+      ? [`${isEnglish
+          ? "[New Year facts: use only these values; never invent other day masters, months or ganji]"
+          : "[신년 자료: 이 값만 쓰고 다른 일간·달·간지를 지어내지 마]"}\n${experiment.newYearBrief}`]
       : []),
     ...(marketingSkillsContext ? [marketingSkillsContext] : []),
     ...crossDomainGuardrails,
