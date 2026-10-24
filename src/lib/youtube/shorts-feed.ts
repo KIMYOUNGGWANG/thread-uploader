@@ -1,9 +1,13 @@
 import type { Prisma, ViralExample } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { readStoredBaseline } from "@/lib/youtube/shorts-baseline";
 import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 
 export type ShortsWindow = "24" | "48";
 export type ShortsRegion = "kr" | "global" | "all";
+export type ShortsSort = "velocity" | "outlier";
+
+export const OUTLIER_HIGHLIGHT_RATIO = 2; // at or above this multiple of the channel's usual views, the card is highlighted
 
 type MinViews = { kr: number; global: number };
 
@@ -21,6 +25,9 @@ export interface ShortsFeedItem {
   velocity: number;
   velocityWindowHours: number;
   country: string;
+  outlierRatio: number | null;
+  channelMedianViews: number | null;
+  baselineSampleSize: number;
 }
 
 const FEED_LIMIT = 60;
@@ -31,10 +38,17 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 
 export function parseShortsFilters(
   searchParams: Record<string, string | string[] | undefined>
-): { window: ShortsWindow; region: ShortsRegion } {
+): { window: ShortsWindow; region: ShortsRegion; sort: ShortsSort } {
   const window = firstValue(searchParams.window) === "48" ? "48" : "24";
   const region = firstValue(searchParams.region);
-  return { window, region: region === "global" || region === "all" ? region : "kr" };
+  const sort = firstValue(searchParams.sort) === "outlier" ? "outlier" : "velocity";
+  return { window, region: region === "global" || region === "all" ? region : "kr", sort };
+}
+
+export function buildShortsOrderBy(sort: ShortsSort): Prisma.ViralExampleOrderByWithRelationInput[] {
+  return sort === "outlier"
+    ? [{ viralScore: "desc" }, { velocityScore: "desc" }]
+    : [{ velocityScore: "desc" }, { views: "desc" }];
 }
 
 export function buildShortsWhere(input: {
@@ -57,7 +71,15 @@ export function buildShortsWhere(input: {
   return { ...base, OR: [kr, global] };
 }
 
-function parseRawMetrics(raw: string): { thumbnailUrl: string; velocityWindowHours: number } {
+interface ParsedRawMetrics {
+  thumbnailUrl: string;
+  velocityWindowHours: number;
+  outlierRatio: number | null;
+  channelMedianViews: number | null;
+  baselineSampleSize: number;
+}
+
+function parseRawMetrics(raw: string): ParsedRawMetrics {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -66,14 +88,19 @@ function parseRawMetrics(raw: string): { thumbnailUrl: string; velocityWindowHou
   }
   const record = typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
   const hours = record.velocityWindowHours;
+  const baseline = readStoredBaseline(record);
   return {
     thumbnailUrl: typeof record.thumbnailUrl === "string" ? record.thumbnailUrl : "",
     velocityWindowHours: typeof hours === "number" && hours > 0 ? hours : 1,
+    outlierRatio: typeof record.outlierRatio === "number" ? record.outlierRatio : null,
+    channelMedianViews: baseline?.channelMedianViews ?? null,
+    baselineSampleSize: baseline?.baselineSampleSize ?? 0,
   };
 }
 
 function toFeedItem(row: ViralExample): ShortsFeedItem {
-  const { thumbnailUrl, velocityWindowHours } = parseRawMetrics(row.rawMetrics);
+  const { thumbnailUrl, velocityWindowHours, outlierRatio, channelMedianViews, baselineSampleSize } =
+    parseRawMetrics(row.rawMetrics);
   return {
     id: row.id,
     videoId: row.sourceKey,
@@ -88,6 +115,9 @@ function toFeedItem(row: ViralExample): ShortsFeedItem {
     velocity: row.velocityScore ?? 0,
     velocityWindowHours,
     country: row.country ?? "UNKNOWN",
+    outlierRatio,
+    channelMedianViews,
+    baselineSampleSize,
   };
 }
 
@@ -95,6 +125,7 @@ export async function loadShortsFeed(input: {
   brandId: string;
   window: ShortsWindow;
   region: ShortsRegion;
+  sort: ShortsSort;
   minViews: MinViews;
   now?: Date;
 }): Promise<{ items: ShortsFeedItem[]; lastCapturedAt: Date | null }> {
@@ -102,7 +133,7 @@ export async function loadShortsFeed(input: {
   const [rows, snapshot] = await Promise.all([
     prisma.viralExample.findMany({
       where,
-      orderBy: [{ velocityScore: "desc" }, { views: "desc" }],
+      orderBy: buildShortsOrderBy(input.sort),
       take: FEED_LIMIT,
     }),
     prisma.viralExampleSnapshot.findFirst({

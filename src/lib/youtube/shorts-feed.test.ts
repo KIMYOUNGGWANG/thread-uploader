@@ -1,13 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { buildShortsWhere, parseShortsFilters } from "./shorts-feed";
+import { buildShortsOrderBy, buildShortsWhere, parseShortsFilters } from "./shorts-feed";
 
 const minViews = { kr: 10000, global: 50000 };
 const now = new Date("2026-10-22T12:00:00.000Z");
 const base = { brandId: "b1", minViews, now };
 
 describe("shorts-feed", () => {
-  it("defaults to 24h and kr", () => {
-    expect(parseShortsFilters({})).toEqual({ window: "24", region: "kr" });
+  it("defaults to 24h, kr and velocity", () => {
+    expect(parseShortsFilters({})).toEqual({ window: "24", region: "kr", sort: "velocity" });
+  });
+
+  it("accepts sort=outlier and falls back to velocity otherwise", () => {
+    expect(parseShortsFilters({ sort: "outlier" }).sort).toBe("outlier");
+    expect(parseShortsFilters({ sort: "views" }).sort).toBe("velocity");
+    expect(parseShortsFilters({ sort: ["outlier", "x"] }).sort).toBe("outlier");
+  });
+
+  it("orders by viralScore then velocity for outlier, unchanged for velocity", () => {
+    expect(buildShortsOrderBy("outlier")).toEqual([{ viralScore: "desc" }, { velocityScore: "desc" }]);
+    expect(buildShortsOrderBy("velocity")).toEqual([{ velocityScore: "desc" }, { views: "desc" }]);
   });
 
   it("kr region filters country = KR with the kr floor", () => {
