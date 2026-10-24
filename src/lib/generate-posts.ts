@@ -30,9 +30,12 @@ import {
   type ViralIntentMode,
   type ClosingFormat,
   CLOSING_FORMAT_PROMPT_KO,
+  NEW_YEAR_MODES,
   pickClosingFormat,
   WINNER_REPLAY_MODE,
 } from "@/lib/viral-intent-modes";
+import { NEW_YEAR_BRANDS, newYearSlotMode, type NewYearModeId } from "@/lib/new-year/new-year-season";
+import { buildNewYearBrief, buildNewYearLink, checkNewYearFacts, newYearFirstComment } from "@/lib/new-year/new-year-content";
 import { formatViralPromptContext } from "@/lib/viral-analysis";
 import {
   formatMarketingSkillsPrompt,
@@ -67,6 +70,7 @@ const client = new Anthropic({
 const SEPARATOR = "===FIRST_COMMENT===";
 const RETRYABLE_STATUSES = new Set([429, 529]);
 const RECENT_POST_AVOIDANCE_COUNT = 24;
+const POST_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours between posts
 
 interface GrowthExperiment {
   // Pre-registered length experiment arm for this draft (docs/experiments/2026-10-16-post-length.md).
@@ -90,6 +94,9 @@ interface GrowthExperiment {
   reversalCapped?: boolean;
   // Content of a high-view past post whose structure the winner_replay draft follows.
   winnerReference?: string;
+  // 2027 New Year season slot: the mode and the only saju values the draft may use (src/lib/new-year).
+  newYearMode?: NewYearModeId;
+  newYearBrief?: string;
 }
 
 interface GenerationFormula {
@@ -284,6 +291,7 @@ async function generateWithQuality(
   careerDecisionType: string | null;
   shouldLink: boolean;
   lengthTarget?: LengthArm;
+  newYearMode?: NewYearModeId;
   regate: (post: string, firstComment: string) => Promise<QualityResult>;
 }> {
   const isEnglish =
@@ -335,6 +343,13 @@ async function generateWithQuality(
       const copy = checkAntiRepeatSimilarity(post, [{ content: experiment.winnerReference }]);
       if (copy.isDuplicate) {
         gate = { ...gate, pass: false, reasons: [`승자 원본과 너무 비슷함: ${copy.reason ?? "유사도 과다"}`, ...gate.reasons] };
+      }
+    }
+    // Posts auto-publish unreviewed, so saju values that disagree with the New Year data never pass.
+    if (experiment.newYearMode) {
+      const factProblems = checkNewYearFacts(post, experiment.newYearMode, isEnglish ? "en" : "ko");
+      if (factProblems.length > 0) {
+        gate = { ...gate, pass: false, reasons: [...factProblems, ...gate.reasons] };
       }
     }
     // A miss retries the same formula with the arm's band as feedback, and makes a too-short rewrite revert.
@@ -416,6 +431,7 @@ async function generateWithQuality(
     careerDecisionType: qualityResult.careerDecisionType ?? null,
     shouldLink: experiment.shouldLink,
     lengthTarget: experiment.lengthTarget,
+    newYearMode: experiment.newYearMode,
     regate: gateWithJudges,
   };
 }
@@ -647,6 +663,9 @@ function buildGenerationPrompt(
     formatViralIntentModePrompt(viralIntentMode, isEnglish),
     ...(experiment.winnerReference
       ? [`[참고 글: 조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써]\n---\n${experiment.winnerReference}\n---`]
+      : []),
+    ...(experiment.newYearBrief
+      ? [`[신년 자료: 이 값만 쓰고 다른 일간·달·간지를 지어내지 마]\n${experiment.newYearBrief}`]
       : []),
     ...(marketingSkillsContext ? [marketingSkillsContext] : []),
     ...crossDomainGuardrails,
@@ -957,6 +976,29 @@ function countsTowardTemplateCap(post: RecentPostSummary): boolean {
   return post.status == null || TEMPLATE_CAP_STATUSES.has(post.status);
 }
 
+// First publish slot for this run: after the queue's last pending post, or squeezed in front of the first one.
+async function resolveQueueBaseTime(brandId: string, insertAtFront: boolean, count: number, now: number): Promise<number> {
+  let baseTime = now + POST_INTERVAL_MS;
+  if (insertAtFront) {
+    const earliest = await prisma.post.findFirst({
+      where: { status: "PENDING", brandId },
+      orderBy: { scheduledAt: "asc" },
+    });
+    if (earliest && earliest.scheduledAt.getTime() > now) {
+      baseTime = Math.max(now + 10 * 60 * 1000, earliest.scheduledAt.getTime() - count * POST_INTERVAL_MS);
+    }
+  } else {
+    const latest = await prisma.post.findFirst({
+      where: { status: "PENDING", brandId },
+      orderBy: { scheduledAt: "desc" },
+    });
+    if (latest && latest.scheduledAt.getTime() > now) {
+      baseTime = latest.scheduledAt.getTime() + POST_INTERVAL_MS;
+    }
+  }
+  return baseTime;
+}
+
 export async function generatePostsForBrand(brand: Brand, input: GeneratePostsInput): Promise<GeneratePostsResult> {
   const { count, insertAtFront, requestedCampaignId, approvedCampaignStart, postCategory } = input;
   const brandId = brand.id;
@@ -1045,6 +1087,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         return null;
       })
     : null;
+  // Computed before generation because New Year slots are decided by each draft's planned publish date.
+  const now = Date.now();
+  const baseTime = await resolveQueueBaseTime(brandId, insertAtFront, count, now);
   for (let i = 0; i < count; i += BATCH) {
     const batch = Array.from({ length: Math.min(BATCH, count - i) }, (_, j) => {
       const batchIndex = i + j;
@@ -1057,28 +1102,41 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       // (the gate alone would only burn retries and drop the draft).
       const choicesCapped = !checkTemplateCap(NUMBERED_CHOICE_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
       const excludedModeIds = isLeanSprint && choicesCapped ? ["imagination_dilemma"] : [];
+      // A New Year slot takes its mode from the season schedule, skipping the bandit and the replay arm.
+      const slotIndex = contextOffset + batchIndex;
+      const newYearMode = newYearSlotMode({
+        brandSlug: brand.slug,
+        plannedAt: new Date(baseTime + batchIndex * POST_INTERVAL_MS),
+        slotIndex,
+        choicesCapped,
+      });
       // No replay while the length experiment runs: an extra arm skews per-arm drop rates and its random assignment.
-      const viralIntentMode = isLeanSprint
-        ? selectLeanViralMode(
-            batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds,
-            Boolean(winnerSource) && !lengthExperiment && !pickedFormulaIds.includes(WINNER_REPLAY_MODE.id),
-            excludedModeIds
-          )
-        : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
-      const quotaSelection = config.thompsonPriors
-        ? selectFormulaWithThompsonSampling(batchIndex, {
-            domainProfile,
-            customPriors: config.thompsonPriors,
-            recentFormulaIds: pickedFormulaIds,
-          })
-        : selectFormulaWithQuota(batchIndex, {
-            domainProfile,
-            customWeights: dbWeights,
-            recentFormulaIds: pickedFormulaIds,
-          });
+      const viralIntentMode = newYearMode
+        ? NEW_YEAR_MODES[newYearMode]
+        : isLeanSprint
+          ? selectLeanViralMode(
+              batchIndex, sourceFormulas, config.thompsonPriors, pickedFormulaIds,
+              Boolean(winnerSource) && !lengthExperiment && !pickedFormulaIds.includes(WINNER_REPLAY_MODE.id),
+              excludedModeIds
+            )
+          : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
+      const quotaSelection = newYearMode
+        ? null
+        : config.thompsonPriors
+          ? selectFormulaWithThompsonSampling(batchIndex, {
+              domainProfile,
+              customPriors: config.thompsonPriors,
+              recentFormulaIds: pickedFormulaIds,
+            })
+          : selectFormulaWithQuota(batchIndex, {
+              domainProfile,
+              customWeights: dbWeights,
+              recentFormulaIds: pickedFormulaIds,
+            });
 
-      const matchedFormula = sourceFormulas.find((f) => f.id === quotaSelection.formulaId);
-      const formula = isLeanSprint
+      const matchedFormula = quotaSelection ? sourceFormulas.find((f) => f.id === quotaSelection.formulaId) : undefined;
+      // A mode without a campaign formula becomes its own formula, so New Year posts carry formulaId "ny_*".
+      const formula = newYearMode || isLeanSprint
         ? selectCampaignFormulaForViralMode(sourceFormulas, viralIntentMode)
         : (matchedFormula ?? (
             activeCampaign
@@ -1088,7 +1146,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       pickedFormulaIds.push(formula.id);
       // Outside the lean sprint the mode rotates by batch index, so a 4-post global refill gave every
       // formula the same Type A/B/C self-check. A formula mapped to its own mode keeps that mode.
-      const formulaMode = isLeanSprint ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
+      const formulaMode = newYearMode || isLeanSprint ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
 
       const topic = topics[batchIndex % topics.length];
       // The matrix follows the topic's axis, not the sprint: a career topic in the relationship matrix
@@ -1104,8 +1162,17 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       );
       experiment.lengthTarget = lengthArms[batchIndex];
       const replaySource = formulaMode.id === WINNER_REPLAY_MODE.id ? winnerSource : null;
+      if (newYearMode) {
+        // newYearSlotMode only returns a mode for a slug in NEW_YEAR_BRANDS.
+        experiment.newYearMode = newYearMode;
+        experiment.newYearBrief = buildNewYearBrief(newYearMode, NEW_YEAR_BRANDS[brand.slug], slotIndex);
+        // The modes set their own length (a 12-month list cannot fit a short arm), and every one carries the sample link.
+        experiment.lengthTarget = undefined;
+        experiment.shouldLink = true;
+        experiment.closingFormat = newYearMode === "ny_pick" ? "choices" : undefined;
+      }
       // A replay keeps the source's own closing, so it gets no rotated closing format to contradict it.
-      if (replaySource) experiment.winnerReference = replaySource.content;
+      else if (replaySource) experiment.winnerReference = replaySource.content;
       // The gate caps numbered choices only for saju_viral, so only there is a capped "choices" slot turned into a question.
       else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
       experiment.reversalCapped = experiment.qualityProfile === "saju_viral"
@@ -1135,27 +1202,6 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   }
 
   if (results.length === 0) throw new Error(`All ${count} drafts failed to generate`);
-
-  const POST_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours between posts
-  const now = Date.now();
-  let baseTime = now + POST_INTERVAL_MS;
-  if (insertAtFront) {
-    const earliest = await prisma.post.findFirst({
-      where: { status: "PENDING", brandId },
-      orderBy: { scheduledAt: "asc" },
-    });
-    if (earliest && earliest.scheduledAt.getTime() > now) {
-      baseTime = Math.max(now + 10 * 60 * 1000, earliest.scheduledAt.getTime() - count * POST_INTERVAL_MS);
-    }
-  } else {
-    const latest = await prisma.post.findFirst({
-      where: { status: "PENDING", brandId },
-      orderBy: { scheduledAt: "desc" },
-    });
-    if (latest && latest.scheduledAt.getTime() > now) {
-      baseTime = latest.scheduledAt.getTime() + POST_INTERVAL_MS;
-    }
-  }
 
   let linkedCount = 0;
   const createdPosts = [];
@@ -1250,11 +1296,15 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       },
     });
 
+    // newYearMode is only set for a slug in NEW_YEAR_BRANDS.
+    const newYearLang = result.newYearMode ? NEW_YEAR_BRANDS[brand.slug] : null;
     if (result.shouldLink) {
       let finalLinkUrl: string | null = null;
       let finalUtmContent: string | null = post.id;
 
-      if (activeCampaign) {
+      if (result.newYearMode && newYearLang) {
+        finalLinkUrl = buildNewYearLink(post.id, result.newYearMode, newYearLang);
+      } else if (activeCampaign) {
         const utm = buildCampaignUtmLink(config.websiteUrl, activeCampaign, post.id);
         if (utm) {
           finalLinkUrl = utm.url;
@@ -1298,7 +1348,10 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
           config.productProfile?.productName?.toLowerCase().includes("cosmic")
         );
 
-        if (isCosmicOrLean) {
+        // A New Year post's first comment is the fixed sample line only: the LLM comment and bridge header are dropped.
+        if (newYearLang) {
+          updateData.firstComment = newYearFirstComment(newYearLang, shortRedirectUrl);
+        } else if (isCosmicOrLean) {
           const isGlobal = brand.slug === "cosmicpath-global" ||
             config.voiceProfile?.language === "en" ||
             config.qualityProfile === "ecommerce_d2c";
