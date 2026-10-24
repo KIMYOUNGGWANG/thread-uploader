@@ -92,6 +92,12 @@ describe("Domain Intelligence Registry", () => {
     expect(hierarchy?.instruction).not.toContain("브릿지");
   });
 
+  // "(A)…(B)" came back as literal "A:" / "B:" label lines in published posts.
+  it("does not hand the model A/B placeholder labels", () => {
+    const formulas = Object.values(getDomainPreset("saju_viral").trackFormulas).flat();
+    for (const formula of formulas) expect(formula.instruction).not.toMatch(/\([AB]\)|A보다 B/);
+  });
+
   it("keeps the sal hierarchy formula to one saju concept and a reader-answerable first comment", () => {
     const formulas = Object.values(getDomainPreset("saju_viral").trackFormulas).flat();
     const instruction = formulas.find((formula) => formula.id === "sal_hierarchy_ego")?.instruction ?? "";

@@ -192,7 +192,8 @@ export function keepFeedbackFields(next: ViralMemory, previousRaw: string | null
   };
 }
 
-export function formatViralPromptContext(memory: ViralMemory): string {
+// keepHook drops reference hooks the caller's gate would reject, so the prompt never models them.
+export function formatViralPromptContext(memory: ViralMemory, keepHook: (hook: string) => boolean = () => true): string {
   const sections: string[] = [];
 
   if (memory.sampleSize > 0 && memory.topPatterns.length > 0) {
@@ -204,15 +205,17 @@ export function formatViralPromptContext(memory: ViralMemory): string {
     );
   }
 
-  if (Array.isArray(memory.topPerformers) && memory.topPerformers.length > 0) {
-    const performerLines = memory.topPerformers.slice(0, 3).map(
+  const performers = Array.isArray(memory.topPerformers) ? memory.topPerformers.filter((tp) => keepHook(tp.hook)) : [];
+  if (performers.length > 0) {
+    const performerLines = performers.slice(0, 3).map(
       (tp) => `- [실제 상위 10% 검증 훅 예시] "${tp.hook}" (점수: ${tp.score})`
     );
     sections.push(`[실제 검증된 상위 성과 훅 레퍼런스]:\n` + performerLines.join("\n"));
   }
 
-  if (Array.isArray(memory.nextHookCandidates) && memory.nextHookCandidates.length > 0) {
-    const objectionLines = memory.nextHookCandidates.slice(0, 2).map(
+  const candidates = Array.isArray(memory.nextHookCandidates) ? memory.nextHookCandidates.filter((h) => keepHook(h.nextHeadlineHook)) : [];
+  if (candidates.length > 0) {
+    const objectionLines = candidates.slice(0, 2).map(
       (h) => `- [유저 베스트 반론 기반 훅 후보] "${h.nextHeadlineHook}" (반론: ${h.objectionCore})`
     );
     sections.push(`[유저 댓글 반론 채굴 훅 후보]:\n` + objectionLines.join("\n"));

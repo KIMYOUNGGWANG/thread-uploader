@@ -86,6 +86,7 @@ import { generatePostsForBrand } from "@/lib/generate-posts";
 import { loadWinnerReplaySource, WINNER_REPLAY_SOURCE_PREFIX } from "@/lib/winner-replay";
 import { loadLengthExperimentState } from "@/lib/length-experiment";
 import { selectLeanViralMode } from "@/lib/lean-mode-selector";
+import { resolveViralIntentMode } from "@/lib/viral-intent-modes";
 
 const LEAN_ARMS = ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension", "beginner_qa"];
 const brand = {
@@ -191,6 +192,54 @@ describe("winner_replay draft gate", () => {
     expect(prompt).toContain("마지막 질문과 첫 댓글에는 사주 전문 용어를 쓰지 않는다");
   });
 
+  describe("saju_viral prompt agrees with the readability gate", () => {
+    const PASSING_REPLY = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+    // Every string inside the captured LLM requests (system + messages), unescaped.
+    const promptStrings = (): string[] => {
+      const strings: string[] = [];
+      const walk = (value: unknown): void => {
+        if (typeof value === "string") strings.push(value);
+        else if (Array.isArray(value)) value.forEach(walk);
+        else if (value && typeof value === "object") Object.values(value).forEach(walk);
+      };
+      state.requests.forEach((request) => walk(JSON.parse(request)));
+      return strings;
+    };
+
+    // The gate fails "X가 아니라 Y" openers past the template cap and first lines that presume the reader's saju,
+    // so the prompt must not ask for a reversal on line 2 or a 살·일주 callout / myth-busting first line.
+    it("drops the hook instructions the gate rejects: reversal line 2, 살·일주 callout or myth-busting first line", async () => {
+      state.reply = PASSING_REPLY;
+      await generatePostsForBrand(brand, input);
+      const prompt = promptStrings().join("\n");
+      expect(prompt).not.toContain("반전/대립각");
+      expect(prompt).not.toContain("특정 살·일주 호명");
+      expect(prompt).not.toContain("통념 반박 중 하나로");
+    });
+
+    it("keeps reference hooks that break the readability rules out of the prompt", async () => {
+      state.reply = PASSING_REPLY;
+      const viralMemory = JSON.stringify({
+        sampleSize: 3,
+        topPatterns: [],
+        topPerformers: [
+          { hook: "혹시 '도화'보다 센 '홍염'보다 센 게 뭔지 알아? 바로 '화개'야.", score: 90 },
+          { hook: "재성 약하고 관성 센 사람이 이직하면 생기는 일", score: 80 },
+          { hook: "점집 가서 10만원 복채 내고 들은 말이 제일 쓸모없었음", score: 70 },
+        ],
+        nextHookCandidates: [
+          { nextHeadlineHook: "그건 게으른 게 아니라 배터리 용량이 다른 거임", objectionCore: "게으름" },
+        ],
+      });
+      await generatePostsForBrand({ ...brand, viralMemory } as Brand, input);
+      const prompt = promptStrings().join("\n");
+      expect(prompt).toContain("점집 가서 10만원 복채 내고 들은 말이 제일 쓸모없었음");
+      expect(prompt).not.toContain("'홍염'보다 센");
+      expect(prompt).not.toContain("재성 약하고 관성 센");
+      expect(prompt).not.toContain("배터리 용량이 다른 거임");
+    });
+  });
+
   describe("numbered-choice template cap", () => {
     const CHOICE_POST = "새벽 연락 오면 어떻게 함?\n1. 바로 답장\n2. 아침에 답장\n3. 읽고 안 읽은 척";
     const withChoices = (status: string) => [
@@ -249,32 +298,53 @@ describe("winner_replay draft gate", () => {
     });
   });
 
+  // relationship_tension must open with a relationship word; a career topic made that impossible and the draft was dropped.
+  it("gives a relationship_tension draft a relationship topic when the rotation lands on a career one", async () => {
+    const config = JSON.parse(brand.brandConfig);
+    const careerFirst = { ...brand, brandConfig: JSON.stringify({ ...config, topics: ["이직 타이밍 판정", "썸 상대 고백 타이밍"] }) } as Brand;
+    // planTopicQuota alternates axes (slot 0 relationship, slot 1 career), so the second slot is the mismatch.
+    const relationship = resolveViralIntentMode("relationship_tension", 0);
+    vi.mocked(selectLeanViralMode).mockReturnValueOnce(relationship).mockReturnValueOnce(relationship);
+    state.reply = "썸 탈 때 연락 속도보다 먼저 볼 게 있음\n\n답장은 아침에 해도 늦지 않음\n\n너라면 먼저 연락해?";
+    await generatePostsForBrand(careerFirst, { ...input, count: 2 });
+    expect(state.requests).toHaveLength(2);
+    for (const request of state.requests) {
+      expect(request).toContain("썸 상대 고백 타이밍");
+      expect(request).not.toContain("이직 타이밍 판정");
+    }
+  });
+
+  // Without an up-front notice the model kept opening with "X가 아니라 Y" and every retry hit the gate.
+  describe("reversal-opener template cap", () => {
+    const REVERSAL_POST = "연락 늦는 건 무관심이 아니라 부담임\n\n새벽 답장은 아침에 해도 됨";
+    const NOTICE = "첫 두 줄에 '~가 아니라', '~아님', '~이 아니고' 같은 뒤집기를 쓰지 않는다";
+    const reply = "새벽 2시 연락은 설렘보다 외로움일 때가 많음\n\n답장은 아침에 해도 늦지 않음\n\n너라면 바로 답장해?";
+
+    it("tells the model up front once 3 of the last 10 posts open with a reversal", async () => {
+      state.recent = [
+        ...Array.from({ length: 3 }, () => ({ ...RECENT_POSTS[0], content: REVERSAL_POST, status: "PUBLISHED" })),
+        ...RECENT_POSTS.slice(3).map((post) => ({ ...post, status: "PUBLISHED" })),
+      ];
+      state.reply = reply;
+      await generatePostsForBrand(brand, input);
+      expect(state.requests.join("\n")).toContain(NOTICE);
+    });
+
+    it("says nothing about reversals while the cap is not hit", async () => {
+      state.reply = reply;
+      await generatePostsForBrand(brand, input);
+      expect(state.requests.join("\n")).not.toContain(NOTICE);
+    });
+  });
+
   // The prompt must not ask for what the gates reject (2026-10-24 plugin audit).
   describe("prompt matches the gates", () => {
-    const REVERSAL_POST = "돈 못 모으는 건 의지 문제가 아니라\n돈 들어오는 타이밍 문제임";
-
     it("does not suggest invented stats or chart-presupposing first lines", async () => {
       state.reply = "카톡 읽씹 당하면 제일 먼저 뭐 함?";
       await generatePostsForBrand(brand, input);
       const prompt = state.requests.join("\n");
       expect(prompt).not.toContain("10명 중 7명");
-      expect(prompt).not.toContain("특정 살·일주 호명");
-      expect(prompt).toContain("독자의 일주·살을 전제하는 호명");
-    });
-
-    it("forbids a reversal opener only once 3 of the last 10 posts used one", async () => {
-      state.reply = "카톡 읽씹 당하면 제일 먼저 뭐 함?";
-      state.recent = [
-        ...Array.from({ length: 3 }, () => ({ ...RECENT_POSTS[0], content: REVERSAL_POST, status: "PUBLISHED" })),
-        ...RECENT_POSTS.slice(3).map((post) => ({ ...post, status: "PUBLISHED" })),
-      ];
-      await generatePostsForBrand(brand, input);
-      expect(state.requests.join("\n")).toContain("[반전 문형 상한]");
-
-      state.requests.length = 0;
-      state.recent = null;
-      await generatePostsForBrand(brand, input);
-      expect(state.requests.join("\n")).not.toContain("[반전 문형 상한]");
+      expect(prompt).toContain("숫자는 프롬프트에 주어진 것만 쓰고 지어내지 않는다");
     });
 
     it("never asks the English first comment for a personal confession", async () => {

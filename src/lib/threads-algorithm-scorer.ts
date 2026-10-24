@@ -47,6 +47,8 @@ export interface AlgorithmicPredictionResult {
 const HOOK_VS = /\svs\s/i;
 const HOOK_CONTRAST_PATTERNS = [
   /보다\s*센/,
+  // "감정보다 먼저": the comparison the reversal-opener cap steers drafts to ("보다가" is not one)
+  /[가-힣]보다(?=[\s.,!?]|$)/,
   /비교/,
   /상식/,
   /불편한\s*진실/,
@@ -162,7 +164,10 @@ export function scoreThreadsPostAlgorithmic(
   const convStrengths: string[] = [];
   const convWeaknesses: string[] = [];
 
-  const hasChoice = CONVERSATION_CHOICE_PATTERNS.some((p) => p.test(content));
+  // A closing direct question is the same one-second reply device as numbered choices; once choices are
+  // capped (readability template cap) drafts end this way, and scoring it lower dropped them under 80.
+  const lastLine = content.split("\n").map((line) => line.trim()).filter(Boolean).pop() ?? "";
+  const hasChoice = CONVERSATION_CHOICE_PATTERNS.some((p) => p.test(content)) || /[?？]$/.test(lastLine);
   const hasInvitation = CONVERSATION_INVITATION_PATTERNS.some((p) => p.test(content));
   // "한 줄로 적어줘" style asks invite a reply as much as a question mark does
   const hasFirstCommentPrompt = firstComment && /\?|댓글|적어|알려줘|말해줘/.test(firstComment);

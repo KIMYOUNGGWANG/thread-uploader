@@ -1,5 +1,5 @@
 const CAMPAIGN_ID = "cosmicpath_viral_reset_v1";
-const CONCEPT_HIERARCHY_INSTRUCTION = "사람들이 먼저 보는 것(A)보다 먼저 봐야 할 것(B)을 쉬운 말로 비교한다. 사주 개념은 근거로 1개까지만 쓰고 바로 풀어서 쓴다. 첫 댓글은 독자가 자기 경험만으로 답할 수 있게 한다. 같은 비교 문장 틀을 반복하지 않는다.";
+const CONCEPT_HIERARCHY_INSTRUCTION = "사람들이 먼저 보는 것보다 먼저 봐야 할 것을 쉬운 말로 비교한다. A·B 같은 라벨은 붙이지 않는다. 사주 개념은 근거로 1개까지만 쓰고 바로 풀어서 쓴다. 첫 댓글은 독자가 자기 경험만으로 답할 수 있게 한다. 같은 비교 문장 틀을 반복하지 않는다.";
 
 const FORMULAS = [
   {
