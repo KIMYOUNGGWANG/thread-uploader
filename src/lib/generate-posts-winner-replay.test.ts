@@ -86,6 +86,7 @@ import { generatePostsForBrand } from "@/lib/generate-posts";
 import { loadWinnerReplaySource, WINNER_REPLAY_SOURCE_PREFIX } from "@/lib/winner-replay";
 import { loadLengthExperimentState } from "@/lib/length-experiment";
 import { selectLeanViralMode } from "@/lib/lean-mode-selector";
+import { resolveViralIntentMode } from "@/lib/viral-intent-modes";
 
 const LEAN_ARMS = ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension", "beginner_qa"];
 const brand = {
@@ -290,6 +291,22 @@ describe("winner_replay draft gate", () => {
       await generatePostsForBrand(brand, { ...input, count: 4 });
       expect(state.requests.join("\n")).toContain("1/2/3으로 끝낸다");
     });
+  });
+
+  // relationship_tension must open with a relationship word; a career topic made that impossible and the draft was dropped.
+  it("gives a relationship_tension draft a relationship topic when the rotation lands on a career one", async () => {
+    const config = JSON.parse(brand.brandConfig);
+    const careerFirst = { ...brand, brandConfig: JSON.stringify({ ...config, topics: ["이직 타이밍 판정", "썸 상대 고백 타이밍"] }) } as Brand;
+    // planTopicQuota alternates axes (slot 0 relationship, slot 1 career), so the second slot is the mismatch.
+    const relationship = resolveViralIntentMode("relationship_tension", 0);
+    vi.mocked(selectLeanViralMode).mockReturnValueOnce(relationship).mockReturnValueOnce(relationship);
+    state.reply = "썸 탈 때 연락 속도보다 먼저 볼 게 있음\n\n답장은 아침에 해도 늦지 않음\n\n너라면 먼저 연락해?";
+    await generatePostsForBrand(careerFirst, { ...input, count: 2 });
+    expect(state.requests).toHaveLength(2);
+    for (const request of state.requests) {
+      expect(request).toContain("썸 상대 고백 타이밍");
+      expect(request).not.toContain("이직 타이밍 판정");
+    }
   });
 
   // Without an up-front notice the model kept opening with "X가 아니라 Y" and every retry hit the gate.
