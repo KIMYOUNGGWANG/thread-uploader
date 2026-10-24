@@ -76,10 +76,16 @@ describe("new year content", () => {
     expect(checkNewYearFacts("5월 5일부터 을사월", "ny_monthly")).toEqual([expect.stringContaining("5월 5일")]);
   });
   it("2027을 가리키는 연간지는 정미여야 한다", () => {
-    for (const bad of ["2027년 병오년이 온다", "2027 병오년", "2027년(병오해)", "병오년(2027)"]) {
+    for (const bad of [
+      "2027년 병오년이 온다", "2027 병오년", "2027년(병오해)", "병오년(2027)",
+      "2027년은 병오년이야", "2027년, 병오년", "2027 병오의 해",
+    ]) {
       expect(checkNewYearFacts(`입춘 ${bad}`, "ny_ipchun"), bad).toEqual([expect.stringContaining("병오")]);
     }
-    for (const ok of ["2026년 병오년", "병오년(2026)", "2027년 정미년", "2027 정미년"]) {
+    for (const ok of [
+      "2026년 병오년", "병오년(2026)", "2027년 정미년", "2027 정미년",
+      "2027년은 정미년", "2027년 갑자기 바빠짐", "2027년은 신년운세부터",
+    ]) {
       expect(checkNewYearFacts(`입춘 ${ok}`, "ny_ipchun"), ok).toEqual([]);
     }
   });

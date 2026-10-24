@@ -91,7 +91,11 @@ const GANJI = "[갑을병정무기경신임계][자축인묘진사오미신유�
 const MONTH_GROUP = /(?<!\d)(\d{1,2}(?:\s*[·,~\-–]\s*\d{1,2})*)월/g;
 // Only the 12 month pillars, so ordinary words (갑자기, 정해진, 임신) never match; 년/해 marks a year ganji.
 const MONTH_PILLAR_WORD = new RegExp(`(${MONTHS_2027.map((m) => m.pillar).join("|")})(?![년해])`, "g");
-const YEAR_GANJI_2027 = new RegExp(`(?<!\\d)2027(?!\\d)\\s*년?\\s*[(（]?\\s*(${GANJI})[년해]|(${GANJI})[년해]\\s*[(（]\\s*2027(?!\\d)`, "g");
+// A particle or separator may sit between the year and its ganji ("2027년은 병오년", "2027년, 병오년", "2027 병오의 해").
+const YEAR_GANJI_2027 = new RegExp(
+  `(?<!\\d)2027(?!\\d)\\s*년?\\s*(?:[은는도이가]|[,:=]|→)?\\s*[(（]?\\s*(${GANJI})(?:[년해]|의\\s*해)|(${GANJI})[년해]\\s*[(（]\\s*2027(?!\\d)`,
+  "g",
+);
 const DATE = /(?<!\d)(\d{1,2})월\s*(\d{1,2})일/g;
 
 const pillarOf = (month: number) => MONTHS_2027.find((m) => m.month === month)?.pillar;
