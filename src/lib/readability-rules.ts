@@ -28,7 +28,11 @@ const TERM_PATTERNS: ReadonlyArray<{ term: string; re: RegExp }> = SAJU_JARGON_T
 const READER_SAJU_RE = /(네|너의?|니|본인|당신의?)\s*사주/;
 
 // Every Hangul syllable with a ㅆ final (했 갔 봤 줬 었 았 였 ...): past-tense contractions.
-const PAST_SYLLABLES = Array.from({ length: 19 * 21 }, (_, i) => String.fromCharCode(0xac00 + i * 28 + 20)).join("");
+// 있 (present: "시간 있어") and 겠 (future: "고르겠어") also end in ㅆ but are not past tense, so they are excluded.
+const NON_PAST_SS = new Set(["있", "겠"]);
+const PAST_SYLLABLES = Array.from({ length: 19 * 21 }, (_, i) => String.fromCharCode(0xac00 + i * 28 + 20))
+  .filter((ch) => !NON_PAST_SS.has(ch))
+  .join("");
 const INVENTED_STORY_RE = new RegExp(`(^|\\s)(난|나도|나는|내가)\\s[^\\n]{0,60}(다가|[${PAST_SYLLABLES}][음어다])`);
 
 export function findJargonTerms(text: string): string[] {

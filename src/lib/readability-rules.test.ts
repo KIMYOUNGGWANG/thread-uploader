@@ -50,7 +50,14 @@ describe("invented first-person story", () => {
     expect(checkReadabilityRules("본문 한 줄", comment).reasons).toContain("첫 댓글에 지어낸 1인칭 경험담 금지");
   });
 
-  it.each(["나는 어느 쪽인지 골라봐", "너라면 바로 답장해, 아침까지 둬?"])("passes: %s", (comment) => {
+  it.each([
+    "나는 어느 쪽인지 골라봐",
+    "너라면 바로 답장해, 아침까지 둬?",
+    "나도 궁금한데 너는 시간 있어?",
+    "난 궁금한 게 있어, 너는?",
+    "나는 이쪽 고르겠어 너는?",
+    "내가 그 자리에 있다면 어떻게 할까?",
+  ])("passes: %s", (comment) => {
     expect(checkReadabilityRules("본문 한 줄", comment).pass).toBe(true);
   });
 });
