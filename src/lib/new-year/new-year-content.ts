@@ -182,11 +182,12 @@ export function checkNewYearFacts(post: string, modeId: NewYearModeId, slotIndex
   return [...new Set(problems)];
 }
 
-// Zodiac posts name one theme's animals. The season holds at most one zodiac post per 5-slot block
-// (verified by Task 3's test), so floor(slotIndex / 5) is distinct for every zodiac post and the 8 topics
-// rotate without an immediate repeat. EN zodiac posts sit 8 slots apart, so floor(slotIndex / 5) alone would
-// cycle through only 5 of the 8 topics; the slow floor(slotIndex / 80) drift (0 below slot 80) reaches the rest
-// and, with a block step of 1-3, never makes two consecutive posts equal.
+// Zodiac posts name one theme's animals; the topic rotates over the 8 ZODIAC_TOPICS by slotIndex.
+// Within one window's steady cycle (KO early, KO peak, EN) consecutive zodiac posts get different topics: they
+// fall in different 5-slot blocks (block step 1-3), and the floor(slotIndex / 80) drift (0 below slot 80) keeps
+// EN's 8-slot spacing from cycling through only 5 topics. The tests cover exactly those windows.
+// ponytail: at KO window switches (12/14 to 12/15, 1/31 to 2/1) and inside 2/1~2/6 (block gap 8) two consecutive
+// zodiac posts can share a topic; if that shows up in practice, key topics on a season-wide zodiac ordinal.
 export function zodiacTopicFor(slotIndex: number): ZodiacTopic {
   return ZODIAC_TOPICS[(Math.floor(slotIndex / 5) + Math.floor(slotIndex / 80)) % ZODIAC_TOPICS.length];
 }

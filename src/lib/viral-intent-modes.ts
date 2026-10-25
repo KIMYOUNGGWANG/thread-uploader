@@ -610,7 +610,7 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
     label: "2027 Zodiac Spotlight",
     instruction: "Pick out the one theme in the brief and only its zodiac signs, with their birth years, so readers can find their own sign.",
     rules: [
-      "The first line is a plain statement of the theme, 60 characters or fewer, and names no zodiac sign. Sign names start from the second line.",
+      "The first line is a statement of the theme, not a question: no question mark, 60 characters or fewer, and no zodiac sign name. Sign names start from the second line.",
       "One line per sign, no numbering, like 'Pig (born 1971, 1983, 1995, 2007): ...'. Use only the signs and birth years in the brief; write years as 4 digits.",
       "Add one line, at the 'may' level, saying the zodiac year turns at Ipchun (Feb 4), so early-February birthdays may count as the year before. Write it as 'Ipchun'.",
       "Mention 'saju' once.",
