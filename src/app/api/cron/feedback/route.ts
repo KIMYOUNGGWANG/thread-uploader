@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         })),
       };
 
-      // 2. Update negative failure patterns into brandConfig prohibitedPhrases
+      // 2. Replace learned negative phrases in brandConfig fidelity.learnedProhibitedPhrases
       let currentBrandConfig: Record<string, unknown> = {};
       try {
         const parsedConfig: unknown = JSON.parse(brand.brandConfig || "{}");
