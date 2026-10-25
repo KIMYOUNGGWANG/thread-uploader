@@ -1,4 +1,4 @@
-export type NewYearModeId = "ny_ranking" | "ny_ipchun" | "ny_monthly" | "ny_pick";
+export type NewYearModeId = "ny_ranking" | "ny_ipchun" | "ny_monthly" | "ny_pick" | "ny_zodiac";
 export type NewYearLang = "ko" | "en";
 
 export const NEW_YEAR_BRANDS: Record<string, NewYearLang> = {
@@ -6,7 +6,7 @@ export const NEW_YEAR_BRANDS: Record<string, NewYearLang> = {
   "cosmicpath-global": "en",
 };
 
-export const NEW_YEAR_MODE_IDS: readonly NewYearModeId[] = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick"];
+export const NEW_YEAR_MODE_IDS: readonly NewYearModeId[] = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick", "ny_zodiac"];
 
 export function isNewYearModeId(id: string | null | undefined): id is NewYearModeId {
   return id != null && (NEW_YEAR_MODE_IDS as readonly string[]).includes(id);
@@ -31,12 +31,16 @@ export const NEW_YEAR_WINDOWS: Record<NewYearLang, readonly NewYearWindow[]> = {
   en: [{ start: 20261215, end: 20270206, period: 4, positions: [0] }],
 };
 
-// 20-slot cycle: 7/6/4/3 = 35/30/20/15%, no adjacent repeats (including the
-// wrap-around, hence the trailing ny_monthly).
+// 20-slot cycle: zodiac 6 / ranking 4 / ipchun 5 / monthly 3 / pick 2 = 30/20/25/15/10%. No adjacent repeats
+// (including the wrap-around, and also when pick becomes monthly), zodiac gaps stay 3-5 slots, and positions
+// 0 and 1 stay ranking / ipchun.
 const MODE_CYCLE: NewYearModeId[] = [
-  "ny_ranking", "ny_ipchun", "ny_monthly", "ny_ranking", "ny_pick", "ny_ipchun", "ny_ranking", "ny_monthly", "ny_ipchun", "ny_ranking",
-  "ny_pick", "ny_ipchun", "ny_ranking", "ny_monthly", "ny_ipchun", "ny_ranking", "ny_pick", "ny_ipchun", "ny_ranking", "ny_monthly",
+  "ny_ranking", "ny_ipchun", "ny_zodiac", "ny_monthly", "ny_ipchun", "ny_zodiac", "ny_pick", "ny_ranking", "ny_zodiac", "ny_ipchun",
+  "ny_monthly", "ny_zodiac", "ny_ranking", "ny_pick", "ny_zodiac", "ny_ipchun", "ny_monthly", "ny_zodiac", "ny_ranking", "ny_ipchun",
 ];
+
+// EN cycle: zodiac 50%. Ranking and monthly stay out because their checks are Korean-only (day-master and month text).
+const EN_MODE_CYCLE: NewYearModeId[] = ["ny_zodiac", "ny_ipchun", "ny_zodiac", "ny_pick"];
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
@@ -79,8 +83,10 @@ export function newYearSlotMode(input: {
   if (pos < 0) return null;
 
   const nth = Math.floor(slotIndex / win.period) * win.positions.length + pos;
-  // EN has no value checks for ranking/monthly (English day-master and month text), so it alternates the other two.
-  if (lang === "en") return choicesCapped || nth % 2 === 1 ? "ny_ipchun" : "ny_pick";
+  if (lang === "en") {
+    const mode = EN_MODE_CYCLE[nth % EN_MODE_CYCLE.length];
+    return choicesCapped && mode === "ny_pick" ? "ny_ipchun" : mode;
+  }
   let mode = MODE_CYCLE[nth % MODE_CYCLE.length];
   // Final stretch: lean on the ipchun (start of spring) post.
   if (ymd >= 20270201) mode = nth % 2 === 0 ? "ny_ipchun" : mode === "ny_ipchun" ? "ny_ranking" : mode;

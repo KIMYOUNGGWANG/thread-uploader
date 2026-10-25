@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatViralIntentModePrompt, NEW_YEAR_MODES, resolveViralIntentMode, VIRAL_INTENT_MODES } from "@/lib/viral-intent-modes";
+import { ENGLISH_VIRAL_MODE_LABELS, formatViralIntentModePrompt, NEW_YEAR_MODES, resolveViralIntentMode, VIRAL_INTENT_MODES } from "@/lib/viral-intent-modes";
 import { ZODIAC_ANIMAL_PATTERNS } from "@/lib/domain-registry";
 import { DAY_MASTER_2027, MONTHS_2027, NEW_YEAR_TAGS, ZODIAC_2027 } from "./new-year-2027-data";
 import { buildNewYearBrief, buildNewYearLink, buildZodiacBrief, checkNewYearFacts, checkZodiacFacts, newYearFirstComment, zodiacTopicFor } from "./new-year-content";
@@ -220,5 +220,15 @@ describe("zodiac (ny_zodiac) content", () => {
     expect(checkZodiacFacts(`${EN_OK}\n${line}`, 5)).toEqual([]);
     const money = ["Some zodiac signs move money in 2027.", "Pig (born 1971, 1983, 1995, 2007): cash flow gets busy.", line, "In saju the year turns at Ipchun (Feb 4)."].join("\n");
     expect(checkZodiacFacts(money, 0)).toEqual([]);
+  });
+  it("buildNewYearBrief·checkNewYearFacts가 ny_zodiac을 띠 함수로 보낸다", () => {
+    expect(buildNewYearBrief("ny_zodiac", "ko", 5)).toContain("돼지띠");
+    expect(checkNewYearFacts(KO_OK, "ny_zodiac", 5)).toEqual([]);
+    expect(checkNewYearFacts(KO_OK.replace("말띠 (02·90·78년생)", "쥐띠 (96·84·72년생)"), "ny_zodiac", 5)).not.toEqual([]);
+    expect(checkNewYearFacts(EN_OK, "ny_zodiac", 5)).toEqual([]); // 2007 같은 출생년도를 연도 위반으로 보지 않음
+  });
+  it("ny_zodiac KO·EN 모드가 등록돼 있다", () => {
+    expect(NEW_YEAR_MODES.ny_zodiac.id).toBe("ny_zodiac");
+    expect(ENGLISH_VIRAL_MODE_LABELS.ny_zodiac.label).toBe("2027 Zodiac Spotlight");
   });
 });

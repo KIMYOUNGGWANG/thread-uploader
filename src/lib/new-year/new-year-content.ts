@@ -85,6 +85,7 @@ export function buildNewYearBrief(modeId: NewYearModeId, lang: NewYearLang, slot
     ny_ipchun: () => ipchunBrief(lang),
     ny_monthly: () => monthlyBrief(lang),
     ny_pick: () => pickBrief(lang, slotIndex),
+    ny_zodiac: () => buildZodiacBrief(lang, slotIndex),
   }[modeId]();
   return [header, ...body].join("\n");
 }
@@ -109,14 +110,17 @@ function monthsOf(group: string): number[] {
   return nums;
 }
 
+function strayYearMentions(post: string): string[] {
+  return [...post.matchAll(/(?<!\d)(20\d{2})(?!\d)/g)].filter(([, year]) => year !== "2026" && year !== "2027").map(([, year]) => `허용되지 않은 연도: ${year}`);
+}
+
 // Returns problems found in the draft; an empty array means it passes. Every check runs on every post
 // whatever its language: the Korean patterns are inert on English text.
-export function checkNewYearFacts(post: string, modeId: NewYearModeId): string[] {
+export function checkNewYearFacts(post: string, modeId: NewYearModeId, slotIndex = 0): string[] {
   const problems: string[] = [];
 
-  for (const [, year] of post.matchAll(/(?<!\d)(20\d{2})(?!\d)/g)) {
-    if (year !== "2026" && year !== "2027") problems.push(`허용되지 않은 연도: ${year}`);
-  }
+  // Zodiac posts list birth years (2007, 2002...), so checkZodiacFacts owns their year rules.
+  problems.push(...(modeId === "ny_zodiac" ? checkZodiacFacts(post, slotIndex) : strayYearMentions(post)));
 
   for (const m of post.matchAll(YEAR_GANJI_2027)) {
     const ganji = m[1] ?? m[2];
@@ -180,9 +184,11 @@ export function checkNewYearFacts(post: string, modeId: NewYearModeId): string[]
 
 // Zodiac posts name one theme's animals. The season holds at most one zodiac post per 5-slot block
 // (verified by Task 3's test), so floor(slotIndex / 5) is distinct for every zodiac post and the 8 topics
-// rotate without an immediate repeat.
+// rotate without an immediate repeat. EN zodiac posts sit 8 slots apart, so floor(slotIndex / 5) alone would
+// cycle through only 5 of the 8 topics; the slow floor(slotIndex / 80) drift (0 below slot 80) reaches the rest
+// and, with a block step of 1-3, never makes two consecutive posts equal.
 export function zodiacTopicFor(slotIndex: number): ZodiacTopic {
-  return ZODIAC_TOPICS[Math.floor(slotIndex / 5) % ZODIAC_TOPICS.length];
+  return ZODIAC_TOPICS[(Math.floor(slotIndex / 5) + Math.floor(slotIndex / 80)) % ZODIAC_TOPICS.length];
 }
 
 const topicZodiacs = (topic: ZodiacTopic) => ZODIAC_2027.filter((z) => topic.animals.includes(z.ko));
