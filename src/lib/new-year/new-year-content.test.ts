@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ENGLISH_VIRAL_MODE_LABELS, formatViralIntentModePrompt, NEW_YEAR_MODES, resolveViralIntentMode, VIRAL_INTENT_MODES } from "@/lib/viral-intent-modes";
 import { ZODIAC_ANIMAL_PATTERNS } from "@/lib/domain-registry";
 import { DAY_MASTER_2027, MONTHS_2027, NEW_YEAR_TAGS, ZODIAC_2027 } from "./new-year-2027-data";
+import { checkQuality, isFlatEnglishHook } from "@/lib/quality-gate";
+import { checkReadabilityRules, endsWithNumberedChoices } from "@/lib/readability-rules";
 import { buildNewYearBrief, buildNewYearLink, buildZodiacBrief, checkNewYearFacts, checkZodiacFacts, newYearFirstComment, zodiacTopicFor } from "./new-year-content";
 
 describe("new year content", () => {
@@ -226,6 +228,55 @@ describe("zodiac (ny_zodiac) content", () => {
     expect(checkNewYearFacts(KO_OK, "ny_zodiac", 5)).toEqual([]);
     expect(checkNewYearFacts(KO_OK.replace("말띠 (02·90·78년생)", "쥐띠 (96·84·72년생)"), "ny_zodiac", 5)).not.toEqual([]);
     expect(checkNewYearFacts(EN_OK, "ny_zodiac", 5)).toEqual([]); // 2007 같은 출생년도를 연도 위반으로 보지 않음
+  });
+  const KO_MONEY = [
+    "2027년, 돈이 들어오기 쉬운 띠가 있어",
+    "띠로 보는 사주 이야기야",
+    "쥐띠 (96·84·72년생): 돈이 들어오기 쉬운 해",
+    "돼지띠 (95·83·71·07년생): 돈이 들어오기 쉬운 해",
+    "사주에선 입춘(2월 4일)부터 띠를 바꿔 봐서 앞 해 띠일 수 있어",
+  ].join("\n");
+  const GOAT_KO = "양띠 (03·91·79년생): 돈이 들어오기 쉬운 해";
+  const GOAT_EN = "Goat (born 1979, 1991, 2003): your year is here.";
+  const KO_GOAT_TOPIC = (topicLines: string) =>
+    ["2027년, 자기 띠가 중요한 해야", "띠로 보는 사주 이야기야", topicLines, "사주에선 입춘(2월 4일)부터 띠를 바꿔 봐서 앞 해 띠일 수 있어"].join("\n");
+
+  it("I1: 주제 밖 양띠 줄의 출생년도는 통과시키지 않는다", () => {
+    expect(checkNewYearFacts(`${KO_MONEY}\n${GOAT_KO}`, "ny_zodiac", 0)).toEqual(expect.arrayContaining(["허용되지 않은 연도: 2003"]));
+    expect(checkNewYearFacts(`${EN_OK}\n${GOAT_EN}`, "ny_zodiac", 5)).toEqual(expect.arrayContaining([expect.stringContaining("허용되지 않은 연도")]));
+    expect(checkNewYearFacts(`${KO_MONEY}\n2027년은 양띠 해야`, "ny_zodiac", 0)).toEqual([]);
+    expect(checkNewYearFacts(`${EN_OK}\n2027 is the Year of the Goat.`, "ny_zodiac", 5)).toEqual([]);
+    // learn(35)·own_year(25)는 양이 주제 띠라 출생년도가 허용된다.
+    expect(checkNewYearFacts(KO_GOAT_TOPIC("소띠 (97·85·73년생): 배울 게 늘기 쉬운 해\n양띠 (03·91·79년생): 배울 게 늘기 쉬운 해"), "ny_zodiac", 35)).toEqual([]);
+    expect(checkNewYearFacts(KO_GOAT_TOPIC("양띠 (03·91·79년생): 내 띠의 해라 기운이 모이기 쉬운 해"), "ny_zodiac", 25)).toEqual([]);
+  });
+  it("I2: ny_zodiac도 입춘에 붙은 날짜만 검사한다", () => {
+    const ko = (d: string) => KO_OK.replace("입춘(2월 4일)", `입춘(${d})`);
+    expect(checkNewYearFacts(ko("2월 3일"), "ny_zodiac", 5)).toEqual([expect.stringContaining("입춘 날짜가 틀림")]);
+    expect(checkNewYearFacts(ko("2월 4일"), "ny_zodiac", 5)).toEqual([]);
+    expect(checkNewYearFacts(`${KO_OK}\n1월 1일~2월 3일생은 앞 해 띠일 수 있어`, "ny_zodiac", 5)).toEqual([]);
+    expect(checkNewYearFacts(EN_OK.replace("Ipchun (Feb 4)", "Ipchun (Feb 3)"), "ny_zodiac", 5)).toEqual([expect.stringContaining("입춘 날짜가 틀림")]);
+    expect(checkNewYearFacts(EN_OK, "ny_zodiac", 5)).toEqual([]);
+    expect(checkNewYearFacts("입춘은 3월 5일이야", "ny_ipchun", 0)).toEqual([expect.stringContaining("입춘 날짜가 틀림")]); // 절입일이지만 입춘 날짜는 아님
+    expect(checkNewYearFacts("입춘은 2월 3일이야", "ny_ipchun", 0)).toEqual(expect.arrayContaining([expect.stringContaining("입춘 날짜가 틀림")]));
+  });
+  it("M1: EN 두 자리 연도('97)도 검사한다", () => {
+    const rat = (years: string) => ["Some zodiac signs move money in 2027.", `Rat (born ${years}): cash flow gets busy.`, "In saju the year turns at Ipchun (Feb 4)."].join("\n");
+    expect(checkNewYearFacts(rat("'97, '85, '73"), "ny_zodiac", 0)).toEqual(expect.arrayContaining([expect.stringContaining("불일치"), "허용되지 않은 연도: 1997"]));
+    expect(checkNewYearFacts(rat("'96, '84, '72"), "ny_zodiac", 0)).toEqual([]);
+    expect(checkNewYearFacts(rat("’96, ’84, ’72"), "ny_zodiac", 0)).toEqual([]);
+    expect(checkNewYearFacts(`${rat("1996")}\nThe '90s were fun.`, "ny_zodiac", 0)).toEqual([]);
+  });
+  it("M3: 띄어 쓴 '말 띠'도 띠로 센다", () => {
+    expect(checkNewYearFacts(`${KO_MONEY}\n말 띠도 덩달아 바빠질 수 있어`, "ny_zodiac", 0)).toEqual([expect.stringContaining("다른 주제의 띠: 말")]);
+    expect(checkNewYearFacts(`${KO_MONEY}\n말이 많아지는 해라 조심해`, "ny_zodiac", 0)).toEqual([]);
+  });
+  it("I3: KO_OK·EN_OK는 실제 품질·가독성 게이트와 번호 선택지 검사를 통과한다", () => {
+    expect(checkQuality(KO_OK, "saju_viral", { viralIntentModeId: "ny_zodiac" }).pass).toBe(true);
+    expect(checkReadabilityRules(KO_OK, "").pass).toBe(true);
+    expect(endsWithNumberedChoices(KO_OK)).toBe(false);
+    expect(checkQuality(EN_OK, "ecommerce_d2c").pass).toBe(true);
+    expect(isFlatEnglishHook(EN_OK.split("\n")[0])).toBe(true);
   });
   it("ny_zodiac KO·EN 모드가 등록돼 있다", () => {
     expect(NEW_YEAR_MODES.ny_zodiac.id).toBe("ny_zodiac");
