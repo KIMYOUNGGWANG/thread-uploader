@@ -4,6 +4,7 @@ import {
   NEUTRAL_PRIOR,
   sampleBeta,
   selectFormulaWithThompsonSampling,
+  selectLearnedFormula,
   updateThompsonPriors,
   type BetaPrior,
   type FormulaPerformanceObservation,
@@ -144,5 +145,17 @@ describe("updateThompsonPriors failure recording", () => {
     const priors = updateThompsonPriors({}, [{ formulaId: "new_arm", views: 300 }] as FormulaPerformanceObservation[], { reward: () => 1 });
     expect(priors.new_arm.alpha - NEUTRAL_PRIOR.alpha).toBeGreaterThan(0);
     expect(priors.new_arm.beta).toBe(NEUTRAL_PRIOR.beta);
+  });
+});
+
+describe("selectLearnedFormula", () => {
+  it("falls back to the formula weights when learn stored an empty prior map", () => {
+    const selection = selectLearnedFormula(0, { domainProfile: "saju_viral", priors: {}, weights: {} });
+    expect(selection.reason).toContain("Exploitation");
+  });
+
+  it("uses Thompson sampling once learn has priors", () => {
+    const selection = selectLearnedFormula(0, { domainProfile: "saju_viral", priors: { any: { alpha: 5, beta: 2 } }, weights: {} });
+    expect(selection.reason).toContain("Thompson");
   });
 });

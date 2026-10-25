@@ -17,8 +17,7 @@ import {
 import { THREADS_CONTENT_MAX_LENGTH, THREADS_CONTENT_TARGET_LENGTH, THREADS_MULTI_PART_MAX_LENGTH } from "@/lib/threads-limits";
 import { buildAdmissionFirstComment, buildConversationIgniterComment } from "@/lib/charlie-viral-skills";
 import { buildShortRedirectUrl, buildTrackedUrl } from "@/lib/tracking-url";
-import { selectFormulaWithQuota } from "@/lib/quota-bandit-router";
-import { selectFormulaWithThompsonSampling } from "@/lib/thompson-sampling-router";
+import { selectLearnedFormula } from "@/lib/thompson-sampling-router";
 import { isLeanSprintRun, selectCampaignFormulaForViralMode, selectLeanViralMode } from "@/lib/lean-mode-selector";
 import { splitContentIntoThreadParts } from "@/lib/thread-splitter";
 import {
@@ -1139,17 +1138,12 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
           : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
       const quotaSelection = newYearMode
         ? null
-        : config.thompsonPriors
-          ? selectFormulaWithThompsonSampling(batchIndex, {
-              domainProfile,
-              customPriors: config.thompsonPriors,
-              recentFormulaIds: pickedFormulaIds,
-            })
-          : selectFormulaWithQuota(batchIndex, {
-              domainProfile,
-              customWeights: dbWeights,
-              recentFormulaIds: pickedFormulaIds,
-            });
+        : selectLearnedFormula(batchIndex, {
+            domainProfile,
+            priors: config.thompsonPriors,
+            weights: dbWeights,
+            recentFormulaIds: pickedFormulaIds,
+          });
 
       const matchedFormula = quotaSelection ? sourceFormulas.find((f) => f.id === quotaSelection.formulaId) : undefined;
       // A mode without a campaign formula becomes its own formula, so New Year posts carry formulaId "ny_*".
