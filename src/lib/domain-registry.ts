@@ -460,7 +460,7 @@ export function findBorrowedYearBoundaryClaim(formulaId: string, post: string): 
   return `Off-formula claim: the ipchun year-boundary angle belongs to ${YEAR_BOUNDARY_OWNER}. Write what the ${formulaId} formula asks for, without ipchun or January/February birthdays.`;
 }
 
-const ZODIAC_ANIMAL_PATTERNS = [/\brats?\b/i, /\box(?:en)?\b/i, /\btigers?\b/i, /\brabbits?\b/i, /\bdragons?\b/i, /\bsnakes?\b/i, /\bhorses?\b/i, /\b(?:goat|sheep|ram)s?\b/i, /\bmonkeys?\b/i, /\b(?:rooster|chicken)s?\b/i, /\bdogs?\b/i, /\b(?:pig|boar)s?\b/i];
+export const ZODIAC_ANIMAL_PATTERNS = [/\brats?\b/i, /\box(?:en)?\b/i, /\btigers?\b/i, /\brabbits?\b/i, /\bdragons?\b/i, /\bsnakes?\b/i, /\bhorses?\b/i, /\b(?:goat|sheep|ram)s?\b/i, /\bmonkeys?\b/i, /\b(?:rooster|chicken)s?\b/i, /\bdogs?\b/i, /\b(?:pig|boar)s?\b/i];
 // ponytail: 10 of 12 tolerates a missed or renamed animal; tighten to 12 if drafts start dropping lines.
 const MIN_ANIMALS_NAMED = 10;
 const AB_OPTION_LINE = /^\s*[AB]\)\s/m;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatViralIntentModePrompt, NEW_YEAR_MODES, resolveViralIntentMode, VIRAL_INTENT_MODES } from "@/lib/viral-intent-modes";
 import { DAY_MASTER_2027, MONTHS_2027, NEW_YEAR_TAGS } from "./new-year-2027-data";
-import { buildNewYearBrief, buildNewYearLink, checkNewYearFacts, newYearFirstComment } from "./new-year-content";
+import { buildNewYearBrief, buildNewYearLink, buildZodiacBrief, checkNewYearFacts, checkZodiacFacts, newYearFirstComment, zodiacTopicFor } from "./new-year-content";
 
 describe("new year content", () => {
   it("ranking brief에 10개 일간과 각자의 결이 다 있다", () => {
@@ -135,5 +135,63 @@ describe("new year content", () => {
       expect(VIRAL_INTENT_MODES.some((m) => m.id === id)).toBe(false);
       expect(resolveViralIntentMode(id, 0)).toBe(mode);
     }
+  });
+});
+
+describe("zodiac (ny_zodiac) content", () => {
+  const KO_OK = [
+    "2027년, 사람이 들어오기 쉬운 띠가 있어",
+    "띠로 보는 사주 이야기야",
+    "돼지띠 (95·83·71·07년생): 사람이 들어오기 쉬운 해",
+    "토끼띠 (99·87·75년생): 새 인연이 붙기 쉬운 해",
+    "말띠 (02·90·78년생): 사람이 늘기 쉬운 해",
+    "사주에선 입춘(2월 4일)부터 띠를 바꿔 봐서 1월~2월 초생이면 앞 해 띠일 수 있어",
+    "가족 띠도 찾아서 보내 줘",
+  ].join("\n");
+  const EN_OK = [
+    "Some zodiac signs meet more people in 2027.",
+    "2027 is the Year of the Fire Goat.",
+    "Pig (born 1971, 1983, 1995, 2007): new people are likely.",
+    "Rabbit (born 1975, 1987, 1999): new ties come easier.",
+    "Horse (born 1978, 1990, 2002): your circle may grow.",
+    "In saju the year turns at Ipchun (Feb 4), so early-February birthdays may count as the year before.",
+  ].join("\n");
+
+  it("주제 순환", () => {
+    expect(zodiacTopicFor(0).id).toBe("money");
+    expect(zodiacTopicFor(5).id).toBe("harmony");
+    expect(zodiacTopicFor(40).id).toBe("money");
+  });
+  it("brief에는 그 주제 띠와 출생년도만 있다", () => {
+    const ko = buildZodiacBrief("ko", 5).join("\n");
+    expect(ko).toContain("돼지띠 (95·83·71·07년생)");
+    expect(ko).not.toContain("쥐띠");
+    expect(ko).toContain("입춘");
+    const en = buildZodiacBrief("en", 5).join("\n");
+    expect(en).toContain("Pig (born 1971, 1983, 1995, 2007)");
+    expect(en).toContain("Ipchun");
+  });
+  it("올바른 KO·EN 글은 통과", () => {
+    expect(checkZodiacFacts(KO_OK, 5)).toEqual([]);
+    expect(checkZodiacFacts(EN_OK, 5)).toEqual([]);
+  });
+  it("주제 밖 띠·연도 불일치·범위 밖·첫 줄 띠·안내 없음·순위는 실패", () => {
+    expect(checkZodiacFacts(KO_OK.replace("말띠 (02·90·78년생)", "쥐띠 (96·84·72년생)"), 5)).toEqual([expect.stringContaining("다른 주제의 띠")]);
+    expect(checkZodiacFacts(KO_OK.replace("95·83·71·07", "96·83·71·07"), 5)).toEqual([expect.stringContaining("불일치")]);
+    expect(checkZodiacFacts(KO_OK.replace("95·83·71·07", "59·83·71·07"), 5)).toEqual([expect.stringContaining("불일치")]);
+    expect(checkZodiacFacts(`돼지띠 주목\n${KO_OK}`, 5)).toEqual([expect.stringContaining("첫 줄")]);
+    expect(checkZodiacFacts(KO_OK.replace(/사주에선.*\n/, ""), 5)).toEqual([expect.stringContaining("띠 기준 안내")]);
+    expect(checkZodiacFacts(KO_OK.replace("돼지띠", "1위 돼지띠"), 5)).toEqual([expect.stringContaining("순위")]);
+    // 1991은 줄 불일치와 허용 연도 위반 둘 다에 걸린다.
+    expect(checkZodiacFacts(EN_OK.replace("1990", "1991"), 5)).toEqual(expect.arrayContaining([expect.stringContaining("불일치")]));
+    expect(checkZodiacFacts(`${EN_OK}\nBorn in 1985? Check again.`, 5)).toEqual([expect.stringContaining("1985")]);
+  });
+  it("일반 단어·해 이름·별칭은 띠로 잘못 세지 않는다", () => {
+    expect(checkZodiacFacts(`${KO_OK}\n말이 많아지는 해, 소소한 개인 일정도 챙겨`, 5)).toEqual([]);
+    expect(checkZodiacFacts(`${KO_OK}\n2026년 말띠 해가 지나고 2027년은 양띠 해야`, 5)).toEqual([]);
+    expect(checkZodiacFacts(`${EN_OK}\nThe 2026 Fire Horse year is ending.`, 5)).toEqual([]);
+    const tiger = buildZodiacBrief("ko", 10).join("\n"); // express 주제(호랑이·토끼)
+    expect(tiger).toContain("호랑이띠");
+    expect(checkZodiacFacts("2027년, 말과 재주를 꺼내기 쉬운 띠\n범띠 (98·86·74년생): 표현이 늘기 쉬운 해\n토끼띠 (99·87·75년생): 재주를 꺼내기 쉬운 해\n띠로 보는 사주, 입춘부터 띠를 바꿔 봐", 10)).toEqual([]);
   });
 });
