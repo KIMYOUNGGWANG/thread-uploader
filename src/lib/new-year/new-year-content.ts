@@ -178,8 +178,9 @@ export function checkNewYearFacts(post: string, modeId: NewYearModeId): string[]
   return [...new Set(problems)];
 }
 
-// Zodiac posts name one theme's animals. Between two zodiac posts the slot gap is 2-5 (Task 3 rotation), so
-// floor(slotIndex / 5) differs by 1-5 and never by a multiple of 8: the same topic cannot repeat back to back.
+// Zodiac posts name one theme's animals. The season holds at most one zodiac post per 5-slot block
+// (verified by Task 3's test), so floor(slotIndex / 5) is distinct for every zodiac post and the 8 topics
+// rotate without an immediate repeat.
 export function zodiacTopicFor(slotIndex: number): ZodiacTopic {
   return ZODIAC_TOPICS[Math.floor(slotIndex / 5) % ZODIAC_TOPICS.length];
 }
@@ -209,11 +210,15 @@ export function buildZodiacBrief(lang: NewYearLang, slotIndex: number): string[]
 
 // Year-name phrases ("말띠 해", "Fire Horse year") are not an animal mention. A bare "Horse" still counts.
 const KO_YEAR_NAME = /(말|양)띠\s*(의\s*)?해/g;
-const EN_YEAR_NAME = /\byear\s+of\s+the\s+(?:fire\s+)?(?:horse|goat)\b|\b(?:fire\s+)?(?:horse|goat)\s+year\b/gi;
+// No 1968-2007 Horse is a Fire Horse, so "Fire Horse" alone is always the 2026 year name.
+const EN_YEAR_NAME = /\byear\s+of\s+the\s+(?:fire\s+)?(?:horse|goat)\b|\b(?:fire\s+)?(?:horse|goat)\s+year\b|\bfire\s+horse\b/gi;
 const KO_ANIMAL = /(쥐|소|호랑이|범|토끼|용|뱀|말|양|원숭이|닭|개|돼지)띠/g;
 const GUIDE_NOTE = /입춘|2월\s*4일|Feb(?:ruary)?\.?\s*4|Lichun|Ipchun/i;
-const RANK_WORD = /\d\s*위|TOP\s*\d|순위|#\s*1\b|\bNo\.?\s*1\b/i;
-const KO_BIRTH_YEARS = /(?<!\d)(\d{2}(?:\s*[·,/]\s*\d{2})*)\s*년생/g;
+const RANK_WORD = /\d위|\bTOP\s*\d|(?<!우선)순위|#\s*1\b|\bNo\.?\s*1\b/i;
+// 2-digit list: "95·83·71·07", "96, 84 그리고 07". Counted before "년생", or inside "(…)" right after a 띠.
+const TWO_DIGIT_LIST = String.raw`(?<!\d)\d{2}(?!\d)(?:[ \t]*(?:[·,/]|그리고|및)?[ \t]*\d{2}(?!\d))*`;
+const KO_BIRTH_YEARS = new RegExp(`(${TWO_DIGIT_LIST})[ \\t]*년생`, "g");
+const KO_PAREN_YEARS = new RegExp(String.raw`띠[ \t]*[(（][ \t]*(${TWO_DIGIT_LIST})`, "g");
 const FOUR_DIGIT_YEAR = /(?<!\d)(19\d{2}|20\d{2})(?!\d)/g;
 const NON_BIRTH_YEARS = new Set([2026, 2027]);
 
@@ -228,15 +233,20 @@ function animalsIn(text: string): Set<number> {
 
 // 2-digit KO years: 68 and up are 19xx, below are 20xx. EN years are 4-digit; 2026/2027 are year mentions.
 function birthYearsIn(line: string): number[] {
-  const ko = [...line.matchAll(KO_BIRTH_YEARS)].flatMap((m) => m[1].match(/\d{2}/g) ?? []).map((n) => (Number(n) >= 68 ? 1900 : 2000) + Number(n));
+  const ko = [...line.matchAll(KO_BIRTH_YEARS), ...line.matchAll(KO_PAREN_YEARS)].flatMap((m) => m[1].match(/\d{2}/g) ?? []).map((n) => (Number(n) >= 68 ? 1900 : 2000) + Number(n));
   const en = [...line.matchAll(FOUR_DIGIT_YEAR)].map((m) => Number(m[1])).filter((y) => !NON_BIRTH_YEARS.has(y));
   return [...ko, ...en];
 }
 
+// A line with years but no animal inherits the animals of the latest 띠 line that had no years of its own
+// ("돼지띠" then "96·84·72년생" on the next line); a 띠 line that carries its years is checked alone.
 function lineYearProblems(post: string): string[] {
+  let pending: number[] = [];
   return post.split("\n").flatMap((line) => {
-    const animals = [...animalsIn(line)];
+    const own = [...animalsIn(line)];
     const years = birthYearsIn(line);
+    const animals = own.length > 0 ? own : pending;
+    pending = own.length > 0 ? (years.length === 0 ? own : []) : years.length > 0 ? [] : pending;
     if (animals.length === 0 || years.length === 0) return [];
     const ok = years.every((y) => animals.some((i) => ZODIAC_2027[i].birthYears.includes(y)));
     return ok ? [] : [`띠와 출생년도 불일치: ${line.trim()}`];
@@ -244,7 +254,7 @@ function lineYearProblems(post: string): string[] {
 }
 
 function strayYearProblems(post: string, allowed: ReadonlySet<number>): string[] {
-  return [...post.matchAll(FOUR_DIGIT_YEAR)].map((m) => Number(m[1])).filter((y) => !NON_BIRTH_YEARS.has(y) && !allowed.has(y)).map((y) => `허용되지 않은 연도: ${y}`);
+  return birthYearsIn(post).filter((y) => !NON_BIRTH_YEARS.has(y) && !allowed.has(y)).map((y) => `허용되지 않은 연도: ${y}`);
 }
 
 // Returns problems found in the draft; an empty array means it passes. Detection runs both KO and EN patterns.
@@ -254,7 +264,8 @@ export function checkZodiacFacts(post: string, slotIndex: number): string[] {
   const problems = [...found].filter((i) => !topicIdx.has(i) && ZODIAC_2027[i].ko !== YEAR_ANIMAL_2027).map((i) => `다른 주제의 띠: ${ZODIAC_2027[i].ko}`);
   if (![...found].some((i) => topicIdx.has(i))) problems.push("주제 띠가 없음");
   problems.push(...lineYearProblems(post));
-  problems.push(...strayYearProblems(post, new Set([...topicIdx].flatMap((i) => ZODIAC_2027[i].birthYears))));
+  // Years of any named animal are allowed here: an off-topic animal is already reported above.
+  problems.push(...strayYearProblems(post, new Set([...topicIdx, ...found].flatMap((i) => ZODIAC_2027[i].birthYears))));
   if (animalsIn(post.split("\n")[0]).size > 0) problems.push("첫 줄에 띠 이름");
   if (!GUIDE_NOTE.test(post)) problems.push("띠 기준 안내 없음");
   if (RANK_WORD.test(post)) problems.push("순위 표현");
