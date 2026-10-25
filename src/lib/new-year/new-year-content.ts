@@ -226,10 +226,11 @@ export function buildZodiacBrief(lang: NewYearLang, slotIndex: number): string[]
 }
 
 // Year-name phrases ("말띠 해", "Fire Horse year") are not an animal mention. A bare "Horse" still counts.
-const KO_YEAR_NAME = /(말|양)\s?띠\s*(의\s*)?해/g;
+const KO_YEAR_NAME = /(말|양)[ \t]?띠\s*(의\s*)?해/g;
 // No 1968-2007 Horse is a Fire Horse, so "Fire Horse" alone is always the 2026 year name.
 const EN_YEAR_NAME = /\byear\s+of\s+the\s+(?:fire\s+)?(?:horse|goat)\b|\b(?:fire\s+)?(?:horse|goat)\s+year\b|\bfire\s+horse\b/gi;
-const KO_ANIMAL = /(쥐|소|호랑이|범|토끼|용|뱀|말|양|원숭이|닭|개|돼지)\s?띠/g;
+// One space or tab may split "말 띠", but not a line break ("…소\n띠로"); "두 개 띠" is a count, not 개띠.
+const KO_ANIMAL = /(쥐|소|호랑이|범|토끼|용|뱀|말|양|원숭이|닭|(?<!(?:한|두|세|네|몇|여러)[ \t]?)개|돼지)[ \t]?띠/g;
 const GUIDE_NOTE = /입춘|2월\s*4일|Feb(?:ruary)?\.?\s*4|Lichun|Ipchun/i;
 const RANK_WORD = /\d위|\bTOP\s*\d|(?<!우선)순위|#\s*1\b|\bNo\.?\s*1\b/i;
 // 2-digit list: "95·83·71·07", "96, 84 그리고 07". Counted before "년생", or inside "(…)" right after a 띠.
