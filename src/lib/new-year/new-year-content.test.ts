@@ -271,6 +271,14 @@ describe("zodiac (ny_zodiac) content", () => {
     expect(checkNewYearFacts(`${KO_MONEY}\n말 띠도 덩달아 바빠질 수 있어`, "ny_zodiac", 0)).toEqual([expect.stringContaining("다른 주제의 띠: 말")]);
     expect(checkNewYearFacts(`${KO_MONEY}\n말이 많아지는 해라 조심해`, "ny_zodiac", 0)).toEqual([]);
   });
+  it("줄바꿈 뒤 '띠'와 '두 개 띠'는 띠 언급으로 세지 않는다", () => {
+    expect(checkNewYearFacts(`${KO_MONEY}\n함께 볼 소\n띠로 보면 더 쉬워`, "ny_zodiac", 0)).toEqual([]);
+    for (const counted of ["이 두 개 띠는 특히 그래", "세 개 띠만 골랐어", "몇개 띠만 보면 돼"]) {
+      expect(checkNewYearFacts(`${KO_MONEY}\n${counted}`, "ny_zodiac", 0), counted).toEqual([]);
+    }
+    expect(checkNewYearFacts(`${KO_MONEY}\n개띠도 덩달아 바빠질 수 있어`, "ny_zodiac", 0)).toEqual([expect.stringContaining("다른 주제의 띠: 개")]);
+    expect(checkNewYearFacts(`${KO_MONEY}\n우리 집 개 띠도 궁금해`, "ny_zodiac", 0)).toEqual([expect.stringContaining("다른 주제의 띠: 개")]);
+  });
   it("I3: KO_OK·EN_OK는 실제 품질·가독성 게이트와 번호 선택지 검사를 통과한다", () => {
     expect(checkQuality(KO_OK, "saju_viral", { viralIntentModeId: "ny_zodiac" }).pass).toBe(true);
     expect(checkReadabilityRules(KO_OK, "").pass).toBe(true);
