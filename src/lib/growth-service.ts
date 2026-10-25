@@ -56,8 +56,11 @@ export async function learnBrandGrowth(brandId: string) {
     (post) => !post.campaignId || !post.campaignId.toLowerCase().includes("promo")
   );
 
+  // Posts younger than MATURITY_HOURS haven't collected their views yet and would be learned as failures.
+  const matureBefore = Date.now() - MATURITY_HOURS * 60 * 60 * 1000;
   // Learning ranks by the brand's goal (reach = views); the stored performanceScore stays revenue-based for display.
   const learningPosts = (organicPosts.length > 0 ? organicPosts : posts)
+    .filter((post) => post.publishedAt != null && post.publishedAt.getTime() <= matureBefore)
     .map((post) => ({ ...post, performanceScore: calculateLearningScore(goal, post) }));
   const memory = buildGrowthMemory(learningPosts);
 
@@ -92,19 +95,11 @@ export async function learnBrandGrowth(brandId: string) {
     const domainKey = DOMAIN_MATRICES[config.qualityProfile] ? config.qualityProfile : "saju_viral";
     const matrix = DOMAIN_MATRICES[domainKey] ?? DOMAIN_MATRICES.saju_viral;
 
-    contextWeightResult = computeAdaptiveContextWeights(
-      config.contextWeights?.personaWeights ?? {},
-      config.contextWeights?.frictionWeights ?? {},
-      learningPosts,
-      matrix.personas,
-      matrix.frictions
-    );
+    // Rebuilt from the default weight like formula weights, for the same reason.
+    contextWeightResult = computeAdaptiveContextWeights({}, {}, learningPosts, matrix.personas, matrix.frictions);
 
-    // Posts younger than MATURITY_HOURS haven't collected their views yet and would be learned as failures.
-    const matureBefore = Date.now() - MATURITY_HOURS * 60 * 60 * 1000;
     const observations: FormulaPerformanceObservation[] = learningPosts
       .filter((p) => Boolean(p.formulaId) && typeof p.views === "number")
-      .filter((p) => p.publishedAt != null && p.publishedAt.getTime() <= matureBefore)
       .map((p) => ({
         formulaId: p.formulaId!,
         views: p.views ?? 0,
