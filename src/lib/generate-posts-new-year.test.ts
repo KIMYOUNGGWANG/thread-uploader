@@ -9,6 +9,9 @@ const NY_SAFE_REPLY = "1월에 보는 신년운세, 사실 작년 흐름일 수 
 // the year-boundary claim and the EN fact check accepts the Ipchun spelling.
 const EN_IPCHUN_REPLY = "Your January horoscope may be reading last year.\n\nIn saju the year turns at Lichun, not on January 1.\n\nSo 2027 really starts a little later.\n\nWhen do you usually make your yearly plans?";
 
+// ny_zodiac harmony topic (돼지·토끼·말): passes the same gates as NY_SAFE_REPLY.
+const NY_ZODIAC_REPLY = "2027년, 사람이 들어오기 쉬운 띠가 있어\n\n띠로 보는 사주 이야기야\n돼지띠 (95·83·71·07년생): 사람이 들어오기 쉬운 해\n토끼띠 (99·87·75년생): 새 인연이 붙기 쉬운 해\n말띠 (02·90·78년생): 사람이 늘기 쉬운 해\n\n사주에선 입춘(2월 4일)부터 띠를 바꿔 봐서 1월~2월 초생이면 앞 해 띠일 수 있어\n가족 띠도 찾아서 보내 줘";
+
 const state = vi.hoisted(() => ({
   reply: "",
   comment: "",
@@ -201,5 +204,22 @@ describe("New Year season slots in generatePostsForBrand", () => {
     state.reply = "2028년엔 다 잘 풀림"; // year violation
     await generatePostsForBrand(cosmicBrand, { ...input, count: 5 }).catch(() => null);
     expect(state.created.filter((p) => p.formulaId?.startsWith("ny_"))).toHaveLength(0);
+  });
+
+  it("정점 KO의 띠 칸은 그 칸 주제의 띠 글을 저장한다", async () => {
+    vi.setSystemTime(new Date("2027-01-10T03:00:00Z"));
+    state.postCount = 5; // slotIndex 5 is nth 2 of the KO cycle: ny_zodiac, harmony topic
+    state.reply = NY_ZODIAC_REPLY;
+    await generatePostsForBrand(cosmicBrand, input);
+    expect(state.created.map((p) => p.formulaId)).toEqual(["ny_zodiac"]);
+    expect(state.requests.join("\n")).toContain("돼지띠");
+  });
+
+  it("띠 칸에 다른 주제 띠를 쓴 초안은 저장되지 않는다 (slotIndex가 값 검사에 전달됨)", async () => {
+    vi.setSystemTime(new Date("2027-01-10T03:00:00Z"));
+    state.postCount = 5;
+    state.reply = NY_ZODIAC_REPLY.replace("말띠 (02·90·78년생)", "쥐띠 (96·84·72년생)");
+    await generatePostsForBrand(cosmicBrand, input).catch(() => null);
+    expect(state.created.filter((p) => p.formulaId === "ny_zodiac")).toHaveLength(0);
   });
 });

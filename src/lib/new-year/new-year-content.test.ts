@@ -18,13 +18,13 @@ describe("new year content", () => {
     expect(positions.every((p, i) => p >= 0 && (i === 0 || p > positions[i - 1]))).toBe(true);
   });
   it("한 줄에 다른 결의 일간이 섞이면 떨어진다", () => {
-    expect(checkNewYearFacts("2027년 일간별로 바쁜 데가 달라\n갑목·을목: 할 말이 많아짐\n병화·임수: 사람이 늘어남", "ny_ranking"))
+    expect(checkNewYearFacts("2027년 일간별로 바쁜 데가 달라\n갑목·을목: 할 말이 많아짐\n병화·임수: 사람이 늘어남", "ny_ranking", 0))
       .toEqual([expect.stringContaining("병화")]);
-    expect(checkNewYearFacts("2027년 일간별로 바쁜 데가 달라\n갑목·을목: 할 말이 많아짐\n병화·정화: 사람이 늘어남", "ny_ranking")).toEqual([]);
+    expect(checkNewYearFacts("2027년 일간별로 바쁜 데가 달라\n갑목·을목: 할 말이 많아짐\n병화·정화: 사람이 늘어남", "ny_ranking", 0)).toEqual([]);
   });
   it("틀린 월주는 떨어진다", () => {
-    expect(checkNewYearFacts("5월 병오는 바쁜 달", "ny_monthly")).toEqual([expect.stringContaining("5월")]);
-    expect(checkNewYearFacts("5월 을사, 6월 병오", "ny_monthly")).toEqual([]);
+    expect(checkNewYearFacts("5월 병오는 바쁜 달", "ny_monthly", 0)).toEqual([expect.stringContaining("5월")]);
+    expect(checkNewYearFacts("5월 을사, 6월 병오", "ny_monthly", 0)).toEqual([]);
   });
   it("월주 검사는 월에 붙은 간지만 비교한다 (일상 단어·연도 간지는 통과)", () => {
     for (const ok of [
@@ -39,13 +39,13 @@ describe("new year content", () => {
       "5월(을사)",
       "5월 을사(乙巳) — 2027-05-06부터",
     ]) {
-      expect(checkNewYearFacts(ok, "ny_monthly"), ok).toEqual([]);
+      expect(checkNewYearFacts(ok, "ny_monthly", 0), ok).toEqual([]);
     }
-    expect(checkNewYearFacts("5월(병오)", "ny_monthly")).toEqual([expect.stringContaining("5월")]);
+    expect(checkNewYearFacts("5월(병오)", "ny_monthly", 0)).toEqual([expect.stringContaining("5월")]);
     for (const bad of ["5월 병오(丙午)", "5월 병오:", "5월 병오 — x", "5월: 병오", "1월 임인.", "5월 병오!", "5월 = 병오", "5월 → 병오"]) {
-      expect(checkNewYearFacts(bad, "ny_monthly"), bad).toEqual([expect.stringContaining("월 월주가 틀림")]);
+      expect(checkNewYearFacts(bad, "ny_monthly", 0), bad).toEqual([expect.stringContaining("월 월주가 틀림")]);
     }
-    expect(checkNewYearFacts("7월 을사월", "ny_monthly")).toEqual([expect.stringContaining("7월")]);
+    expect(checkNewYearFacts("7월 을사월", "ny_monthly", 0)).toEqual([expect.stringContaining("7월")]);
   });
   it("ny_monthly는 줄 단위로 그 달의 월주만 허용한다 (흔한 형식의 틀린 월주)", () => {
     for (const bad of [
@@ -60,58 +60,58 @@ describe("new year content", () => {
       "5월 을사, 6월 갑진 흐름",
       "갑진 기운의 5월",
     ]) {
-      expect(checkNewYearFacts(bad, "ny_monthly"), bad).toEqual([expect.stringContaining("월 월주가 틀림: 갑진")]);
+      expect(checkNewYearFacts(bad, "ny_monthly", 0), bad).toEqual([expect.stringContaining("월 월주가 틀림: 갑진")]);
     }
     for (const ok of ["4월 갑진 - 정리", "5월은 을사 흐름", "5·6월 을사·병오 흐름", "5~7월 을사·병오·정미 기운", "5월 을사 | 6월 병오"]) {
-      expect(checkNewYearFacts(ok, "ny_monthly"), ok).toEqual([]);
+      expect(checkNewYearFacts(ok, "ny_monthly", 0), ok).toEqual([]);
     }
   });
   it("EN 글도 같은 검사를 다 받는다", () => {
-    expect(checkNewYearFacts("In saju the year turns at Ipchun (Feb 4), not January 1.", "ny_ipchun")).toEqual([]);
-    expect(checkNewYearFacts("Month 5 is 5월(병오) for you", "ny_pick")).toEqual([expect.stringContaining("5월")]);
+    expect(checkNewYearFacts("In saju the year turns at Ipchun (Feb 4), not January 1.", "ny_ipchun", 0)).toEqual([]);
+    expect(checkNewYearFacts("Month 5 is 5월(병오) for you", "ny_pick", 0)).toEqual([expect.stringContaining("5월")]);
   });
   it("입춘·월별 글의 날짜는 1월 1일이나 절입일만 허용한다", () => {
-    expect(checkNewYearFacts("입춘(2월 3일)부터 새해", "ny_ipchun")).toEqual([expect.stringContaining("2월 3일")]);
-    expect(checkNewYearFacts("입춘은 2월 4일, 1월 1일이 아니야", "ny_ipchun")).toEqual([]);
-    expect(checkNewYearFacts("5월 6일부터 을사월", "ny_monthly")).toEqual([]);
-    expect(checkNewYearFacts("5월 5일부터 을사월", "ny_monthly")).toEqual([expect.stringContaining("5월 5일")]);
+    expect(checkNewYearFacts("입춘(2월 3일)부터 새해", "ny_ipchun", 0)).toEqual([expect.stringContaining("2월 3일")]);
+    expect(checkNewYearFacts("입춘은 2월 4일, 1월 1일이 아니야", "ny_ipchun", 0)).toEqual([]);
+    expect(checkNewYearFacts("5월 6일부터 을사월", "ny_monthly", 0)).toEqual([]);
+    expect(checkNewYearFacts("5월 5일부터 을사월", "ny_monthly", 0)).toEqual([expect.stringContaining("5월 5일")]);
   });
   it("2027을 가리키는 연간지는 정미여야 한다", () => {
     for (const bad of [
       "2027년 병오년이 온다", "2027 병오년", "2027년(병오해)", "병오년(2027)",
       "2027년은 병오년이야", "2027년, 병오년", "2027 병오의 해",
     ]) {
-      expect(checkNewYearFacts(`입춘 ${bad}`, "ny_ipchun"), bad).toEqual([expect.stringContaining("병오")]);
+      expect(checkNewYearFacts(`입춘 ${bad}`, "ny_ipchun", 0), bad).toEqual([expect.stringContaining("병오")]);
     }
     for (const ok of [
       "2026년 병오년", "병오년(2026)", "2027년 정미년", "2027 정미년",
       "2027년은 정미년", "2027년 갑자기 바빠짐", "2027년은 신년운세부터",
     ]) {
-      expect(checkNewYearFacts(`입춘 ${ok}`, "ny_ipchun"), ok).toEqual([]);
+      expect(checkNewYearFacts(`입춘 ${ok}`, "ny_ipchun", 0), ok).toEqual([]);
     }
   });
   it("ranking 줄은 일간의 결과 다른 결의 키워드를 쓰면 떨어진다", () => {
-    expect(checkNewYearFacts("갑목: 돈 흐름이 바빠지는 해", "ny_ranking")).toEqual([expect.stringContaining("갑목")]);
-    expect(checkNewYearFacts("갑목·을목: 돈 흐름이 바빠지는 해", "ny_ranking")).toEqual([expect.stringContaining("갑목")]);
-    expect(checkNewYearFacts("갑목·을목: 할 말이 많아지는 해", "ny_ranking")).toEqual([]);
-    expect(checkNewYearFacts("임수·계수: 돈이 들고 나는 해\n경금: 책임이 생기는 해", "ny_ranking")).toEqual([]);
+    expect(checkNewYearFacts("갑목: 돈 흐름이 바빠지는 해", "ny_ranking", 0)).toEqual([expect.stringContaining("갑목")]);
+    expect(checkNewYearFacts("갑목·을목: 돈 흐름이 바빠지는 해", "ny_ranking", 0)).toEqual([expect.stringContaining("갑목")]);
+    expect(checkNewYearFacts("갑목·을목: 할 말이 많아지는 해", "ny_ranking", 0)).toEqual([]);
+    expect(checkNewYearFacts("임수·계수: 돈이 들고 나는 해\n경금: 책임이 생기는 해", "ny_ranking", 0)).toEqual([]);
   });
   it("EN pick 자료에는 한글이 없다", () => {
     for (const i of [0, 1, 2]) expect(buildNewYearBrief("ny_pick", "en", i)).not.toMatch(/[가-힣]/);
     expect(buildNewYearBrief("ny_ipchun", "en", 0)).not.toMatch(/[가-힣]/);
   });
   it("2026·2027 외 연도는 떨어진다", () => {
-    expect(checkNewYearFacts("2028년엔 더 좋아짐", "ny_pick")).toEqual([expect.stringContaining("2028")]);
-    expect(checkNewYearFacts("2027 and 2026 overlap", "ny_pick")).toEqual([]);
-    expect(checkNewYearFacts("In 2029 things change", "ny_pick")).toEqual([expect.stringContaining("2029")]);
+    expect(checkNewYearFacts("2028년엔 더 좋아짐", "ny_pick", 0)).toEqual([expect.stringContaining("2028")]);
+    expect(checkNewYearFacts("2027 and 2026 overlap", "ny_pick", 0)).toEqual([]);
+    expect(checkNewYearFacts("In 2029 things change", "ny_pick", 0)).toEqual([expect.stringContaining("2029")]);
   });
   it("입춘 글은 입춘 날짜나 '입춘'을 말해야 한다", () => {
-    expect(checkNewYearFacts("1월 신년운세는 사실 작년 운", "ny_ipchun")).not.toEqual([]);
-    expect(checkNewYearFacts("사주의 해는 입춘부터 바뀜", "ny_ipchun")).toEqual([]);
-    expect(checkNewYearFacts("The saju year turns on Feb 4", "ny_ipchun")).toEqual([]);
+    expect(checkNewYearFacts("1월 신년운세는 사실 작년 운", "ny_ipchun", 0)).not.toEqual([]);
+    expect(checkNewYearFacts("사주의 해는 입춘부터 바뀜", "ny_ipchun", 0)).toEqual([]);
+    expect(checkNewYearFacts("The saju year turns on Feb 4", "ny_ipchun", 0)).toEqual([]);
     // normalizeIpchunSpelling rewrites Lichun to Ipchun before the gate runs.
-    expect(checkNewYearFacts("In saju the year turns at Ipchun, not January 1", "ny_ipchun")).toEqual([]);
-    expect(checkNewYearFacts("The new year starts in January", "ny_ipchun")).not.toEqual([]);
+    expect(checkNewYearFacts("In saju the year turns at Ipchun, not January 1", "ny_ipchun", 0)).toEqual([]);
+    expect(checkNewYearFacts("The new year starts in January", "ny_ipchun", 0)).not.toEqual([]);
   });
   it("링크는 홈페이지로 가고 추적 파라미터가 다 붙는다", () => {
     const url = new URL(buildNewYearLink("post_1", "ny_ranking", "ko"));

@@ -116,7 +116,7 @@ function strayYearMentions(post: string): string[] {
 
 // Returns problems found in the draft; an empty array means it passes. Every check runs on every post
 // whatever its language: the Korean patterns are inert on English text.
-export function checkNewYearFacts(post: string, modeId: NewYearModeId, slotIndex = 0): string[] {
+export function checkNewYearFacts(post: string, modeId: NewYearModeId, slotIndex: number): string[] {
   const problems: string[] = [];
 
   // Zodiac posts list birth years (2007, 2002...), so checkZodiacFacts owns their year rules.

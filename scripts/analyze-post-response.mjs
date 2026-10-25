@@ -191,7 +191,7 @@ function analyzeBrand(brand, minAgeDays) {
 // Mirrors isExperimentDraft/classifyLength in src/lib/length-experiment.ts: GROWTH, not a promo video,
 // not a New Year post (NEW_YEAR_MODE_IDS in src/lib/new-year/new-year-season.ts), created at/after the start, S or L. Only the first `total` by publish time are the experiment; later ones are not.
 // Snapshots exported before createdAt was added fall back to publishedAt.
-const NEW_YEAR_MODE_IDS = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick"];
+const NEW_YEAR_MODE_IDS = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick", "ny_zodiac"];
 function experimentSample(posts, { from, shortMax, longMin, total }) {
   const eligible = posts
     .filter((p) => p.postCategory === "GROWTH" && !(p.formulaId ?? "").startsWith("video:") && !NEW_YEAR_MODE_IDS.includes(p.formulaId))

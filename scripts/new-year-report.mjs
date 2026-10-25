@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const BRANDS = ["cosmicpath", "cosmicpath-global"];
-const NY_TYPES = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick"];
+const NY_TYPES = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick", "ny_zodiac"];
 const FROM = new Date("2026-11-24T00:00:00+09:00");
 const TO = new Date("2027-02-07T00:00:00+09:00"); // exclusive: 2027-02-06 KST end of day
 
