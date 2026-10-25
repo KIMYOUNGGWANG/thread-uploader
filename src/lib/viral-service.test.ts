@@ -46,7 +46,7 @@ describe("viral-service own-post candidates", () => {
     expect(prisma.post.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          AND: [{ OR: [{ formulaId: null }, { formulaId: { notIn: ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick"] } }] }],
+          AND: [{ OR: [{ formulaId: null }, { formulaId: { notIn: ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick", "ny_zodiac"] } }] }],
         }),
       }),
     );

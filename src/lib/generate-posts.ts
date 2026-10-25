@@ -97,6 +97,7 @@ interface GrowthExperiment {
   winnerReference?: string;
   // 2027 New Year season slot: the mode and the only saju values the draft may use (src/lib/new-year).
   newYearMode?: NewYearModeId;
+  newYearSlotIndex?: number;
   newYearBrief?: string;
 }
 
@@ -293,6 +294,7 @@ async function generateWithQuality(
   shouldLink: boolean;
   lengthTarget?: LengthArm;
   newYearMode?: NewYearModeId;
+  newYearSlotIndex?: number;
   regate: (post: string, firstComment: string) => Promise<QualityResult>;
 }> {
   const isEnglish =
@@ -348,7 +350,7 @@ async function generateWithQuality(
     }
     // Posts auto-publish unreviewed, so saju values that disagree with the New Year data never pass.
     if (experiment.newYearMode) {
-      const factProblems = checkNewYearFacts(post, experiment.newYearMode);
+      const factProblems = checkNewYearFacts(post, experiment.newYearMode, experiment.newYearSlotIndex ?? 0);
       if (factProblems.length > 0) {
         gate = { ...gate, pass: false, reasons: [...factProblems, ...gate.reasons] };
       }
@@ -433,6 +435,7 @@ async function generateWithQuality(
     shouldLink: experiment.shouldLink,
     lengthTarget: experiment.lengthTarget,
     newYearMode: experiment.newYearMode,
+    newYearSlotIndex: experiment.newYearSlotIndex,
     regate: gateWithJudges,
   };
 }
@@ -1187,6 +1190,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       if (newYearMode) {
         // newYearSlotMode only returns a mode for a slug in NEW_YEAR_BRANDS.
         experiment.newYearMode = newYearMode;
+        experiment.newYearSlotIndex = slotIndex;
         experiment.newYearBrief = buildNewYearBrief(newYearMode, NEW_YEAR_BRANDS[brand.slug], slotIndex);
         // The modes set their own length (a 12-month list cannot fit a short arm), and every one carries the sample link.
         experiment.lengthTarget = undefined;

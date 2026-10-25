@@ -89,3 +89,81 @@ export const NEW_YEAR_ALLOWED_DATES: ReadonlySet<string> = new Set([
   "1-1",
   ...MONTHS_2027.map((m) => `${Number(m.startsOn.slice(5, 7))}-${Number(m.startsOn.slice(8, 10))}`),
 ]);
+
+// 띠 (ny_zodiac). tag = 丁(음화) 기준 지지 대표 오행의 십신, 지장간 무시한 단순화.
+export interface Zodiac2027 {
+  ko: string;
+  aliases: readonly string[];
+  branch: string;
+  en: string;
+  tag: NewYearTag;
+  birthYears: readonly number[];
+}
+
+const BIRTH_YEAR_FROM = 1968;
+const BIRTH_YEAR_TO = 2007;
+
+function birthYearsOf(index: number): number[] {
+  const years: number[] = [];
+  for (let y = BIRTH_YEAR_FROM; y <= BIRTH_YEAR_TO; y++) if ((y - 4) % 12 === index) years.push(y);
+  return years;
+}
+
+// Index = 지지 번호 (子丑寅卯辰巳午未申酉戌亥).
+const ZODIAC_BASE: ReadonlyArray<Omit<Zodiac2027, "birthYears">> = [
+  { ko: "쥐", aliases: [], branch: "子", en: "Rat", tag: "money" },
+  { ko: "소", aliases: [], branch: "丑", en: "Ox", tag: "learn" },
+  { ko: "호랑이", aliases: ["범"], branch: "寅", en: "Tiger", tag: "express" },
+  { ko: "토끼", aliases: [], branch: "卯", en: "Rabbit", tag: "express" },
+  { ko: "용", aliases: [], branch: "辰", en: "Dragon", tag: "learn" },
+  { ko: "뱀", aliases: [], branch: "巳", en: "Snake", tag: "peers" },
+  { ko: "말", aliases: [], branch: "午", en: "Horse", tag: "peers" },
+  { ko: "양", aliases: [], branch: "未", en: "Goat", tag: "learn" },
+  { ko: "원숭이", aliases: [], branch: "申", en: "Monkey", tag: "role" },
+  { ko: "닭", aliases: [], branch: "酉", en: "Rooster", tag: "role" },
+  { ko: "개", aliases: [], branch: "戌", en: "Dog", tag: "learn" },
+  { ko: "돼지", aliases: [], branch: "亥", en: "Pig", tag: "money" },
+];
+
+export const ZODIAC_2027: readonly Zodiac2027[] = ZODIAC_BASE.map((z, i) => ({ ...z, birthYears: birthYearsOf(i) }));
+
+export type ZodiacTopicId = NewYearTag | "harmony" | "clash" | "own_year";
+export interface ZodiacTopic {
+  id: ZodiacTopicId;
+  ko: string;
+  en: string;
+  animals: readonly string[];
+}
+
+export const YEAR_ANIMAL_2027 = "양";
+
+function tagTopic(tag: NewYearTag): ZodiacTopic {
+  const { ko, en } = NEW_YEAR_TAGS[tag];
+  return { id: tag, ko, en, animals: ZODIAC_2027.filter((z) => z.tag === tag).map((z) => z.ko) };
+}
+
+export const ZODIAC_TOPICS: readonly ZodiacTopic[] = [
+  tagTopic("money"),
+  {
+    id: "harmony",
+    ko: "사람이 들어오기 쉬운 해",
+    en: "A year when new people are likely to come your way.",
+    animals: ["돼지", "토끼", "말"],
+  },
+  tagTopic("express"),
+  {
+    id: "clash",
+    ko: "자리나 관계가 바뀌기 쉬운 해",
+    en: "A year when your place or relationships are likely to shift.",
+    animals: ["소", "개"],
+  },
+  tagTopic("peers"),
+  {
+    id: "own_year",
+    ko: "자기 띠의 해를 맞는 해",
+    en: "A year that is your own zodiac year.",
+    animals: [YEAR_ANIMAL_2027],
+  },
+  tagTopic("role"),
+  tagTopic("learn"),
+];

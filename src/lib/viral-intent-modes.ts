@@ -341,6 +341,22 @@ export const NEW_YEAR_MODES: Record<NewYearModeId, ViralIntentMode> = {
       "본문에 링크를 넣지 않는다. 첫 댓글에 샘플 링크가 자동으로 붙는다.",
     ],
   },
+  ny_zodiac: {
+    id: "ny_zodiac",
+    label: "2027 띠별 콕 집기",
+    primaryMetric: "shares",
+    instruction: "[자료]의 주제 하나와 그 주제의 띠만 출생년도와 함께 콕 집어, 독자가 자기 띠를 찾게 한다.",
+    rules: [
+      "첫 줄은 띠 이름 없이 [자료]의 주제를 단언하는 한 줄로 쓴다. 띠 이름은 둘째 줄부터 나온다.",
+      "띠마다 한 줄, 번호 없이 '돼지띠 (95·83·71·07년생): …'처럼 쓴다. [자료]에 있는 띠와 출생년도만 쓰고 다른 띠나 연도를 지어내지 않는다.",
+      "입춘부터 띠를 바꿔 본다는 안내를 '~일 수 있어'로 한 줄 쓴다.",
+      "'사주'나 '운세'라는 말을 한 번 넣는다.",
+      "삼합·육합 같은 용어와 1위, TOP, 순위, '가장' 같은 순위·최상급 표현은 쓰지 않는다.",
+      "'~하기 쉬운' 수준으로만 쓰고 확정 예언은 쓰지 않는다. 지어낸 경험담도 쓰지 않는다.",
+      "마무리 한 줄로 저장하거나 가족·친구 띠도 찾아 공유하라고 권한다.",
+      "본문에 링크를 넣지 않는다. 첫 댓글에 샘플 링크가 자동으로 붙는다.",
+    ],
+  },
 };
 
 const SPRINT_GROUP_SIZE = 7;
@@ -587,6 +603,20 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
       "Exactly three choices: 1. People 2. Work 3. Money, each described only with the theme text in the brief.",
       "End the post with the numbered choices; one number is enough, and never promise to reply with a reading.",
       "Stay at the 'likely' level; no certainty and no invented personal stories.",
+      "No link in the body; the sample link is added in the first comment.",
+    ],
+  },
+  ny_zodiac: {
+    label: "2027 Zodiac Spotlight",
+    instruction: "Pick out the one theme in the brief and only its zodiac signs, with their birth years, so readers can find their own sign.",
+    rules: [
+      "The first line is a statement of the theme, not a question: no question mark, 60 characters or fewer, and no zodiac sign name. Sign names start from the second line.",
+      "One line per sign, no numbering, like 'Pig (born 1971, 1983, 1995, 2007): ...'. Use only the signs and birth years in the brief; write years as 4 digits.",
+      "Add one line, at the 'may' level, saying the zodiac year turns at Ipchun (Feb 4), so early-February birthdays may count as the year before. Write it as 'Ipchun'.",
+      "Mention 'saju' once.",
+      "No terms like trine or six harmonies, and no ranking words such as No. 1, TOP or rank, and no 'most ...' superlative ranking.",
+      "Stay at the 'likely' level; no certainty and no invented personal stories. You may introduce 2027 as the Year of the Fire Goat.",
+      "End with one line telling readers to save it or share it with family and friends.",
       "No link in the body; the sample link is added in the first comment.",
     ],
   },

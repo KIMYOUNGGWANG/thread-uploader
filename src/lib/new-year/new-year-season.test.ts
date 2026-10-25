@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { zodiacTopicFor } from "./new-year-content";
 import { isNewYearModeId, newYearSlotMode } from "./new-year-season";
 
 const kst = (iso: string) => new Date(`${iso}+09:00`);
@@ -25,15 +26,15 @@ describe("newYearSlotMode", () => {
     expect(count("2026-12-01T12:00:00")).toBe(0);
     expect(count("2027-01-10T12:00:00")).toBe(1);
   });
-  it("EN은 값 검사가 없는 ny_ranking·ny_monthly를 쓰지 않고, 연속 신년 칸 유형이 다르다", () => {
+  it("EN은 zodiac 50%, ranking·monthly 없음, 상한이면 pick 없음, 연속 유형 중복 없음", () => {
+    const en = (capped: boolean, at = "2027-01-10T12:00:00") => Array.from({ length: 200 }, (_, i) => slot("cosmicpath-global", at, i, capped)).filter(Boolean);
+    expect(en(false).filter((m) => m === "ny_zodiac")).toHaveLength(25);
+    expect(new Set(en(false))).toEqual(new Set(["ny_zodiac", "ny_ipchun", "ny_pick"]));
+    expect(en(true)).not.toContain("ny_pick");
     for (const at of ["2027-01-10T12:00:00", "2027-02-03T12:00:00"]) {
-      for (const capped of [false, true]) {
-        const modes = Array.from({ length: 200 }, (_, i) => slot("cosmicpath-global", at, i, capped)).filter(Boolean);
-        expect(modes.length).toBe(50);
-        expect(new Set(modes)).not.toContain("ny_ranking");
-        expect(new Set(modes)).not.toContain("ny_monthly");
-        if (!capped) modes.slice(1).forEach((mode, i) => expect(mode).not.toBe(modes[i]));
-      }
+      const modes = en(false, at);
+      expect(modes.length).toBe(50);
+      modes.slice(1).forEach((mode, i) => expect(mode).not.toBe(modes[i]));
     }
   });
   it("다른 브랜드는 시즌 중에도 null", () => {
@@ -50,13 +51,14 @@ describe("newYearSlotMode", () => {
       }),
     ).toBeNull();
   });
-  it("정점 구간 신년 칸 100개의 유형 비율이 35/30/20/15", () => {
+  it("정점 구간 신년 칸의 유형 비율이 30/20/25/15/10", () => {
     const modes = Array.from({ length: 250 }, (_, i) => slot("cosmicpath", "2027-01-10T12:00:00", i)).filter(Boolean);
     const share = (id: string) => modes.filter((m) => m === id).length / modes.length;
-    expect(share("ny_ranking")).toBeCloseTo(0.35, 2);
-    expect(share("ny_ipchun")).toBeCloseTo(0.3, 2);
-    expect(share("ny_monthly")).toBeCloseTo(0.2, 2);
-    expect(share("ny_pick")).toBeCloseTo(0.15, 2);
+    expect(share("ny_zodiac")).toBeCloseTo(0.3, 2);
+    expect(share("ny_ranking")).toBeCloseTo(0.2, 2);
+    expect(share("ny_ipchun")).toBeCloseTo(0.25, 2);
+    expect(share("ny_monthly")).toBeCloseTo(0.15, 2);
+    expect(share("ny_pick")).toBeCloseTo(0.1, 2);
   });
   it("연속한 두 신년 칸은 유형이 다르다 (같은 날 같은 유형 두 번 없음)", () => {
     const modes = Array.from({ length: 100 }, (_, i) => slot("cosmicpath", "2027-01-10T12:00:00", i)).filter(Boolean);
@@ -69,12 +71,22 @@ describe("newYearSlotMode", () => {
   it("번호 선택지 상한이 차면 ny_pick 대신 다른 유형", () => {
     const modes = Array.from({ length: 100 }, (_, i) => slot("cosmicpath", "2027-01-10T12:00:00", i, true)).filter(Boolean);
     expect(modes).not.toContain("ny_pick");
+    modes.slice(1).forEach((m, i) => expect(m).not.toBe(modes[i]));
+  });
+  it("연달아 나온 두 띠 글은 주제가 다르다 (KO 초반·정점, EN)", () => {
+    for (const [brand, at] of [["cosmicpath", "2026-12-01T12:00:00"], ["cosmicpath", "2027-01-10T12:00:00"], ["cosmicpath-global", "2027-01-10T12:00:00"]] as const) {
+      const topics = Array.from({ length: 800 }, (_, i) => i).filter((i) => slot(brand, at, i) === "ny_zodiac").map((i) => zodiacTopicFor(i).id);
+      expect(topics.length).toBeGreaterThan(10);
+      topics.slice(1).forEach((t, i) => expect(t).not.toBe(topics[i]));
+      expect(new Set(topics).size).toBe(8);
+    }
   });
 });
 
 describe("isNewYearModeId", () => {
   it("신년 유형 ID만 true", () => {
     expect(isNewYearModeId("ny_pick")).toBe(true);
+    expect(isNewYearModeId("ny_zodiac")).toBe(true);
     expect(isNewYearModeId("other")).toBe(false);
     expect(isNewYearModeId(null)).toBe(false);
     expect(isNewYearModeId(undefined)).toBe(false);
