@@ -59,38 +59,35 @@ export function extractNegativeCliches(bottomPosts: BottomPostSample[]): string[
   return Array.from(discovered);
 }
 
+// Learned phrases live apart from hand-set prohibitedPhrases and are replaced every run:
+// a bottom 10% always exists, so unioning them grew the list daily without new evidence.
 export function mergeNegativePhrasesIntoBrandConfig(
   currentConfig: Record<string, unknown>,
   newPhrases: string[]
-): Record<string, unknown> & { fidelity: { prohibitedPhrases: string[] } } {
+): Record<string, unknown> & { fidelity: Record<string, unknown> & { learnedProhibitedPhrases: string[] } } {
   const fidelity = currentConfig.fidelity;
   const currentFidelity: Record<string, unknown> =
     typeof fidelity === "object" && fidelity !== null ? (fidelity as Record<string, unknown>) : {};
-  const rawProhibited = currentFidelity.prohibitedPhrases;
-  const existingProhibited: string[] = Array.isArray(rawProhibited)
-    ? (rawProhibited as unknown[]).filter((p): p is string => typeof p === "string")
-    : [];
-
-  const merged = Array.from(new Set([...existingProhibited, ...newPhrases]));
 
   return {
     ...currentConfig,
     fidelity: {
       ...currentFidelity,
-      prohibitedPhrases: merged,
+      learnedProhibitedPhrases: Array.from(new Set(newPhrases)),
     },
   };
 }
 
-// Reads fidelity.prohibitedPhrases straight from the stored JSON (parseBrandConfig does not model fidelity).
+// Reads hand-set and learned phrases straight from the stored JSON (parseBrandConfig does not model fidelity).
 export function readProhibitedPhrases(rawBrandConfig: string | null | undefined): string[] {
   try {
     const parsed: unknown = JSON.parse(rawBrandConfig || "{}");
     if (typeof parsed !== "object" || parsed === null) return [];
     const fidelity = (parsed as Record<string, unknown>).fidelity;
     if (typeof fidelity !== "object" || fidelity === null) return [];
-    const phrases = (fidelity as Record<string, unknown>).prohibitedPhrases;
-    return Array.isArray(phrases) ? phrases.filter((phrase): phrase is string => typeof phrase === "string" && phrase.trim().length > 0) : [];
+    const { prohibitedPhrases, learnedProhibitedPhrases } = fidelity as Record<string, unknown>;
+    const phrases = [prohibitedPhrases, learnedProhibitedPhrases].flatMap((list) => (Array.isArray(list) ? list : []));
+    return Array.from(new Set(phrases.filter((phrase): phrase is string => typeof phrase === "string" && phrase.trim().length > 0)));
   } catch {
     return [];
   }

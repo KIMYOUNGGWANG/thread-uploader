@@ -111,6 +111,40 @@ describe("learnBrandGrowth", () => {
     expect(Object.keys(priors)).toEqual(["mature"]);
   });
 
+  it("keeps posts younger than 72 hours out of formula weights and growth memory", async () => {
+    const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000);
+    mocks.findPosts.mockResolvedValue([
+      ...posts("w", "winner", HIGH_VIEWS),
+      ...posts("l", "loser", LOW_VIEWS),
+      ...posts("f", "fresh", [10, 10, 10, 10, 10]).map((freshPost) => ({ ...freshPost, publishedAt: hoursAgo(6) })),
+    ]);
+
+    const result = await learnBrandGrowth("brand_1");
+
+    expect(result.demotedFormulas).not.toContain("fresh");
+    expect(result.updatedWeights?.fresh).toBe(3);
+    expect(JSON.stringify(result.memory)).not.toContain("fresh");
+  });
+
+  it("rebuilds persona and friction weights instead of stacking on stored context weights", async () => {
+    const top = "3년차 UI/UX 디자이너";
+    const bottom = "7년차 백엔드/풀스택 개발자";
+    mocks.findBrand.mockResolvedValue({
+      id: "brand_1",
+      formulaWeights: "{}",
+      brandConfig: JSON.stringify({ qualityProfile: "saju_viral", contextWeights: { personaWeights: { [top]: 10, [bottom]: 1 }, frictionWeights: {} } }),
+    });
+    mocks.findPosts.mockResolvedValue([
+      ...posts("w", "winner", HIGH_VIEWS).map((highPost) => ({ ...highPost, targetAudience: top })),
+      ...posts("l", "loser", LOW_VIEWS).map((lowPost) => ({ ...lowPost, targetAudience: bottom })),
+    ]);
+
+    const result = await learnBrandGrowth("brand_1");
+
+    expect(result.contextWeights?.personaWeights?.[top]).toBe(4);
+    expect(result.contextWeights?.personaWeights?.[bottom]).toBe(2);
+  });
+
   it("keeps New Year posts out of every learner", async () => {
     const savedConfig = async (fixture: ReturnType<typeof post>[]) => {
       mocks.updateBrand.mockClear();

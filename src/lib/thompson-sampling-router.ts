@@ -12,7 +12,7 @@
  * - Batch Updates & Sample Size Thresholds: Stabilizes noisy social feedback
  */
 
-import { ContentTrack, determineNextTrack, QUOTA_TRACKS } from "./quota-bandit-router";
+import { ContentTrack, determineNextTrack, QUOTA_TRACKS, selectFormulaWithQuota } from "./quota-bandit-router";
 import { getDomainPreset } from "./domain-registry";
 
 export interface BetaPrior {
@@ -245,4 +245,23 @@ export function selectFormulaWithThompsonSampling(
     scheduleTime: trackConfig.scheduleTime,
     reason,
   };
+}
+
+/**
+ * Learn stores an empty prior map when no post is mature yet. Sampling it would draw every arm
+ * from the neutral prior, so the learned formula weights pick until real priors exist.
+ */
+export function selectLearnedFormula(
+  batchIndex: number,
+  options: {
+    domainProfile?: string;
+    priors?: Record<string, BetaPrior>;
+    weights: Record<string, number>;
+    recentFormulaIds?: string[];
+  }
+) {
+  const { domainProfile, priors, weights, recentFormulaIds } = options;
+  return priors && Object.keys(priors).length > 0
+    ? selectFormulaWithThompsonSampling(batchIndex, { domainProfile, customPriors: priors, recentFormulaIds })
+    : selectFormulaWithQuota(batchIndex, { domainProfile, customWeights: weights, recentFormulaIds });
 }
