@@ -29,13 +29,13 @@ export type InstagramMirrorPost = Pick<Post,
   | "id" | "brandId" | "instagramStatus" | "instagramContainerId" | "instagramMediaId"
   | "instagramPublishedAt" | "instagramAttempts" | "instagramError">;
 
-const THREADS_SELECT = {
+export const THREADS_SELECT = {
   id: true, brandId: true, status: true, threadsId: true, publishedAt: true, errorLog: true,
   threadRootId: true, threadPartIds: true, threadPartsPosted: true, threadTotalParts: true,
   views: true, likes: true, replies: true, reposts: true, metricsAt: true,
 } as const;
 
-const INSTAGRAM_SELECT = {
+export const INSTAGRAM_SELECT = {
   id: true, brandId: true, instagramStatus: true, instagramContainerId: true, instagramMediaId: true,
   instagramPublishedAt: true, instagramAttempts: true, instagramError: true,
 } as const;
