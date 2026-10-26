@@ -163,3 +163,23 @@ export async function mirrorInstagramFromPost(postId: string): Promise<void> {
     console.error("[publication-mirror] instagram", postId, error);
   }
 }
+
+// REEL_STALE_MS (3 days) + 1 day margin; not imported from instagram-reels-sync to avoid a circular import.
+const INSTAGRAM_MIRROR_WINDOW_MS = 4 * 24 * 60 * 60 * 1000;
+
+/** Re-mirror every recently active Instagram post of a brand (the reels tick writes state in many places). */
+export async function mirrorRecentInstagram(brandId: string, now: Date): Promise<void> {
+  try {
+    const posts = await prisma.post.findMany({
+      where: {
+        brandId,
+        OR: [{ instagramStatus: { not: null } }, { instagramAttempts: { gt: 0 } }],
+        publishedAt: { gte: new Date(now.getTime() - INSTAGRAM_MIRROR_WINDOW_MS) },
+      },
+      select: { id: true },
+    });
+    for (const { id } of posts) await mirrorInstagramFromPost(id);
+  } catch (error: unknown) {
+    console.error("[publication-mirror] instagram-recent", brandId, error);
+  }
+}

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    post: { findUnique: vi.fn() },
+    post: { findUnique: vi.fn(), findMany: vi.fn() },
     brand: { findUnique: vi.fn() },
     channelAccount: { findFirst: vi.fn(), create: vi.fn() },
     publication: { upsert: vi.fn() },
@@ -14,6 +14,7 @@ import {
   ensureLegacyChannelAccount,
   instagramPublicationFromPost,
   mirrorInstagramFromPost,
+  mirrorRecentInstagram,
   mirrorThreadsFromPost,
   threadsPublicationFromPost,
   type InstagramMirrorPost,
@@ -170,5 +171,26 @@ describe("mirror functions", () => {
     vi.mocked(prisma.post.findUnique).mockRejectedValueOnce(new Error("db down"));
     await expect(mirrorInstagramFromPost("p1")).resolves.toBeUndefined();
     expect(consoleError).toHaveBeenCalledWith("[publication-mirror] instagram", "p1", expect.any(Error));
+  });
+
+  it("selects recent instagram posts by brand, activity and 4-day window, then mirrors each", async () => {
+    const now = new Date("2026-10-23T06:00:00Z");
+    vi.mocked(prisma.post.findMany).mockResolvedValue([{ id: "p1" }, { id: "p2" }] as never);
+    vi.mocked(prisma.post.findUnique).mockResolvedValue(ig({ instagramStatus: "PUBLISHED", instagramMediaId: "m1" }) as never);
+    await mirrorRecentInstagram("b1", now);
+    expect(prisma.post.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        brandId: "b1",
+        OR: [{ instagramStatus: { not: null } }, { instagramAttempts: { gt: 0 } }],
+        publishedAt: { gte: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000) },
+      },
+    }));
+    expect(prisma.publication.upsert).toHaveBeenCalledTimes(2);
+  });
+
+  it("swallows a failure while selecting recent instagram posts", async () => {
+    vi.mocked(prisma.post.findMany).mockRejectedValueOnce(new Error("db down"));
+    await expect(mirrorRecentInstagram("b1", new Date())).resolves.toBeUndefined();
+    expect(consoleError).toHaveBeenCalledWith("[publication-mirror] instagram-recent", "b1", expect.any(Error));
   });
 });
