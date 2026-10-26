@@ -11,5 +11,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const apply = request.nextUrl.searchParams.get("apply") === "1";
-  return NextResponse.json(await runChannelBackfill({ apply }));
+  try {
+    return NextResponse.json(await runChannelBackfill({ apply }));
+  } catch (error: unknown) {
+    console.error("[backfill-channel-structure]", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
 }

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/prisma", () => {
   const prisma = {
     brand: { findMany: vi.fn(), update: vi.fn() },
-    brandGroup: { create: vi.fn() },
+    brandGroup: { upsert: vi.fn(), findMany: vi.fn() },
     channelAccount: { findFirst: vi.fn() },
     post: { findMany: vi.fn() },
     $transaction: vi.fn(),
@@ -53,7 +53,8 @@ describe("planBrandGrouping", () => {
 describe("runChannelBackfill", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.brandGroup.create).mockResolvedValue({ id: "g_new" } as never);
+    vi.mocked(prisma.brandGroup.upsert).mockResolvedValue({ id: "g_new" } as never);
+    vi.mocked(prisma.brandGroup.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.brand.findMany).mockResolvedValue([
       dbBrand("cosmicpath"), dbBrand("cosmicpath-global", { instagramConnectedAt: new Date() }),
     ] as never);
@@ -68,7 +69,7 @@ describe("runChannelBackfill", () => {
     expect(report).toEqual({
       groupsToCreate: 1, accountsToCreate: 3, threadsPosts: 2, instagramPosts: 1, applied: false,
     });
-    expect(prisma.brandGroup.create).not.toHaveBeenCalled();
+    expect(prisma.brandGroup.upsert).not.toHaveBeenCalled();
     expect(prisma.brand.update).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(ensureLegacyChannelAccount).not.toHaveBeenCalled();
@@ -80,9 +81,12 @@ describe("runChannelBackfill", () => {
     const report = await runChannelBackfill({ apply: true });
     expect(report.applied).toBe(true);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(prisma.brandGroup.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { slug: "cosmicpath", name: "CosmicPath", ownerId: "u1" } }),
-    );
+    expect(prisma.brandGroup.upsert).toHaveBeenCalledWith({
+      where: { slug: "cosmicpath" },
+      create: { slug: "cosmicpath", name: "CosmicPath", ownerId: "u1" },
+      update: {},
+      select: { id: true },
+    });
     expect(prisma.brand.update).toHaveBeenCalledWith({
       where: { id: "cosmicpath-global" },
       data: { groupId: "g_new", marketLabel: "해외", locale: "en" },
@@ -100,6 +104,25 @@ describe("runChannelBackfill", () => {
     const r = await runChannelBackfill({ apply: true });
     expect(r.groupsToCreate).toBe(0);
     expect(r.accountsToCreate).toBe(0);
-    expect(prisma.brandGroup.create).not.toHaveBeenCalled();
+    expect(prisma.brandGroup.upsert).not.toHaveBeenCalled();
+  });
+
+  it("dry-run does not count a group whose slug already exists", async () => {
+    vi.mocked(prisma.brandGroup.findMany).mockResolvedValue([{ slug: "cosmicpath" }] as never);
+    const report = await runChannelBackfill({ apply: false });
+    expect(report.groupsToCreate).toBe(0);
+  });
+
+  it("apply adopts an existing group by slug and links every market to it", async () => {
+    vi.mocked(prisma.brandGroup.findMany).mockResolvedValue([{ slug: "cosmicpath" }] as never);
+    vi.mocked(prisma.brandGroup.upsert).mockResolvedValue({ id: "g_existing" } as never);
+    const report = await runChannelBackfill({ apply: true });
+    expect(report.groupsToCreate).toBe(0);
+    expect(prisma.brand.update).toHaveBeenCalledWith({
+      where: { id: "cosmicpath" }, data: { groupId: "g_existing", marketLabel: "국내", locale: "ko" },
+    });
+    expect(prisma.brand.update).toHaveBeenCalledWith({
+      where: { id: "cosmicpath-global" }, data: { groupId: "g_existing", marketLabel: "해외", locale: "en" },
+    });
   });
 });

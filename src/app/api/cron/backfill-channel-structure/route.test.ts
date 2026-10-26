@@ -30,4 +30,14 @@ describe("GET /api/cron/backfill-channel-structure", () => {
     await GET(new NextRequest("http://x/api/cron/backfill-channel-structure?apply=1", { headers }));
     expect(runChannelBackfill).toHaveBeenLastCalledWith({ apply: true });
   });
+
+  it("returns a JSON 500 when the backfill throws", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(runChannelBackfill).mockRejectedValueOnce(new Error("boom"));
+    const res = await GET(new NextRequest("http://x/api/cron/backfill-channel-structure", {
+      headers: { authorization: "Bearer s3cret" },
+    }));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "boom" });
+  });
 });

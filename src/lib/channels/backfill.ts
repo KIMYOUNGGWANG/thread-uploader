@@ -59,11 +59,18 @@ export async function runChannelBackfill({ apply }: { apply: boolean }): Promise
   });
 
   const plans = planBrandGrouping(brands);
+  // An existing group with the same slug is adopted (upsert), not recreated.
+  const existingGroups = plans.length
+    ? await prisma.brandGroup.findMany({ where: { slug: { in: plans.map((p) => p.slug) } }, select: { slug: true } })
+    : [];
+  const existingSlugs = new Set(existingGroups.map((g) => g.slug));
   if (apply) {
     for (const plan of plans) {
       await prisma.$transaction(async (tx) => {
-        const group = await tx.brandGroup.create({
-          data: { slug: plan.slug, name: plan.name, ownerId: plan.ownerId },
+        const group = await tx.brandGroup.upsert({
+          where: { slug: plan.slug },
+          create: { slug: plan.slug, name: plan.name, ownerId: plan.ownerId },
+          update: {},
           select: { id: true },
         });
         for (const market of plan.markets) {
@@ -102,7 +109,7 @@ export async function runChannelBackfill({ apply }: { apply: boolean }): Promise
   }
 
   return {
-    groupsToCreate: plans.length,
+    groupsToCreate: plans.filter((p) => !existingSlugs.has(p.slug)).length,
     accountsToCreate,
     threadsPosts: threadsPosts.length,
     instagramPosts: instagramPosts.length,
