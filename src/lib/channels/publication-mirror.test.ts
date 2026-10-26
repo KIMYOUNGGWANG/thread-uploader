@@ -9,7 +9,10 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/alert-service", () => ({ sendSystemAlert: vi.fn() }));
+
 import { prisma } from "@/lib/prisma";
+import { sendSystemAlert } from "@/lib/alert-service";
 import {
   ensureLegacyChannelAccount,
   instagramPublicationFromPost,
@@ -127,6 +130,7 @@ describe("mirror functions", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     consoleError.mockImplementation(() => {});
+    vi.mocked(sendSystemAlert).mockResolvedValue(true);
     vi.mocked(prisma.post.findUnique).mockResolvedValue(post() as never);
     vi.mocked(prisma.brand.findUnique).mockResolvedValue({ threadsUserId: "u1" } as never);
     vi.mocked(prisma.channelAccount.findFirst).mockResolvedValue({ id: "ca1" } as never);
@@ -165,6 +169,30 @@ describe("mirror functions", () => {
     vi.mocked(prisma.publication.upsert).mockRejectedValueOnce(new Error("db down"));
     await expect(mirrorThreadsFromPost("p1")).resolves.toBeUndefined();
     expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("[publication-mirror]"), "p1", expect.any(Error));
+  });
+
+  it("raises a warning alert once when the write fails", async () => {
+    vi.mocked(prisma.publication.upsert).mockRejectedValueOnce(new Error("db down"));
+    await mirrorThreadsFromPost("p1");
+    expect(sendSystemAlert).toHaveBeenCalledTimes(1);
+    expect(sendSystemAlert).toHaveBeenCalledWith({
+      level: "warning", title: "Publication write failed", message: "threads p1: db down",
+    });
+  });
+
+  it("still resolves when the alert itself rejects", async () => {
+    vi.mocked(prisma.publication.upsert).mockRejectedValueOnce(new Error("db down"));
+    vi.mocked(sendSystemAlert).mockRejectedValueOnce(new Error("webhook down"));
+    await expect(mirrorThreadsFromPost("p1")).resolves.toBeUndefined();
+  });
+
+  it("alerts for instagram and for the recent-instagram selection with the brand id", async () => {
+    vi.mocked(prisma.post.findUnique).mockRejectedValueOnce("plain failure");
+    await mirrorInstagramFromPost("p1");
+    expect(sendSystemAlert).toHaveBeenLastCalledWith(expect.objectContaining({ message: "instagram p1: plain failure" }));
+    vi.mocked(prisma.post.findMany).mockRejectedValueOnce(new Error("db down"));
+    await mirrorRecentInstagram("b1", new Date());
+    expect(sendSystemAlert).toHaveBeenLastCalledWith(expect.objectContaining({ message: "instagram b1: db down" }));
   });
 
   it("swallows a failure while reading the post", async () => {

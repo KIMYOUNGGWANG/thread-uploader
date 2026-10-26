@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { withThreadsMetrics } from "@/lib/channels/learning-metrics";
+import { diffLearningInputs } from "@/lib/channels/learning-input-diff";
 import {
   buildGrowthMemory,
   buildGrowthReport,
@@ -51,6 +52,9 @@ export async function learnBrandGrowth(brandId: string) {
       },
     },
   });
+
+  // Must run before withThreadsMetrics strips `publications`.
+  const inputDiff = diffLearningInputs(fetchedPosts);
 
   // Score with current metrics before learning, so weights never use last run's stale scores
   const allScoredPosts = fetchedPosts.map(withThreadsMetrics).map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
@@ -174,6 +178,11 @@ export async function learnBrandGrowth(brandId: string) {
     success: true,
     brandId,
     learnedPosts: posts.length,
+    learningInputDiff: {
+      missing: inputDiff.missing.length,
+      changed: inputDiff.changed.length,
+      changedPostIds: inputDiff.changed.slice(0, 20).map((entry) => entry.postId),
+    },
     scoredPosts,
     scoreWriteFailures,
     updatedWeights,

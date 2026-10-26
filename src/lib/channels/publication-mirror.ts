@@ -1,5 +1,6 @@
 import type { Post } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { sendSystemAlert } from "@/lib/alert-service";
 
 export type ChannelPlatform = "threads" | "instagram";
 
@@ -134,6 +135,17 @@ export async function ensureLegacyChannelAccount(brandId: string, platform: Chan
   return created.id;
 }
 
+async function reportMirrorFailure(tag: string, platform: ChannelPlatform, id: string, error: unknown): Promise<void> {
+  console.error(`[publication-mirror] ${tag}`, id, error);
+  const message = error instanceof Error ? error.message : String(error);
+  // ponytail: add a cooldown if it gets noisy
+  try {
+    await sendSystemAlert({ level: "warning", title: "Publication write failed", message: `${platform} ${id}: ${message}` });
+  } catch {
+    // the mirror must never throw into a publishing path
+  }
+}
+
 async function writeMirror(postId: string, brandId: string, platform: ChannelPlatform, mirror: PublicationMirror) {
   const channelAccountId = await ensureLegacyChannelAccount(brandId, platform);
   const data = { ...mirror, platformData: JSON.stringify(mirror.platformData) };
@@ -150,7 +162,7 @@ export async function mirrorThreadsFromPost(postId: string): Promise<void> {
     const mirror = post && threadsPublicationFromPost(post);
     if (post && mirror) await writeMirror(postId, post.brandId, "threads", mirror);
   } catch (error: unknown) {
-    console.error("[publication-mirror] threads", postId, error);
+    await reportMirrorFailure("threads", "threads", postId, error);
   }
 }
 
@@ -160,7 +172,7 @@ export async function mirrorInstagramFromPost(postId: string): Promise<void> {
     const mirror = post && instagramPublicationFromPost(post);
     if (post && mirror) await writeMirror(postId, post.brandId, "instagram", mirror);
   } catch (error: unknown) {
-    console.error("[publication-mirror] instagram", postId, error);
+    await reportMirrorFailure("instagram", "instagram", postId, error);
   }
 }
 
@@ -180,6 +192,6 @@ export async function mirrorRecentInstagram(brandId: string, now: Date): Promise
     });
     for (const { id } of posts) await mirrorInstagramFromPost(id);
   } catch (error: unknown) {
-    console.error("[publication-mirror] instagram-recent", brandId, error);
+    await reportMirrorFailure("instagram-recent", "instagram", brandId, error);
   }
 }

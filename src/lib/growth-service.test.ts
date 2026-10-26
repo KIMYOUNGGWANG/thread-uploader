@@ -61,6 +61,19 @@ describe("learnBrandGrowth", () => {
     ]);
   });
 
+  it("reports learning input differences between posts and Threads publications", async () => {
+    const pub = (views: number) => ({ views, likes: 0, replies: 0, reposts: 0, metricsAt: new Date("2026-10-05T00:00:00Z") });
+    mocks.findPosts.mockResolvedValue([
+      { ...post("same", "f", 100), publications: [pub(100)] },
+      { ...post("diff", "f", 100), publications: [pub(250)] },
+      { ...post("none", "f", 100), publications: [] },
+    ]);
+
+    const result = await learnBrandGrowth("brand_1");
+
+    expect(result.learningInputDiff).toEqual({ missing: 1, changed: 1, changedPostIds: ["diff"] });
+  });
+
   it("under the default reach goal, a paid conversion on a low-view formula does not make it the winner", async () => {
     mocks.findPosts.mockResolvedValue([
       ...posts("w", "winner", HIGH_VIEWS),
