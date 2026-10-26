@@ -315,7 +315,7 @@ model BrandGroup {
 model ChannelAccount {
   id             String    @id @default(cuid())
   brandId        String
-  brand          Brand     @relation(fields: [brandId], references: [id])
+  brand          Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
   platform       String
   mode           String
   externalUserId String?
@@ -337,9 +337,9 @@ model ChannelAccount {
 model Publication {
   id               String    @id @default(cuid())
   postId           String
-  post             Post      @relation(fields: [postId], references: [id])
+  post             Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
   channelAccountId String
-  channelAccount   ChannelAccount @relation(fields: [channelAccountId], references: [id])
+  channelAccount   ChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
   status           String    @default("QUEUED")
   body             String?
   mediaUrls        String    @default("[]")

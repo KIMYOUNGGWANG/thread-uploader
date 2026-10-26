@@ -49,10 +49,22 @@ describe("alert-service", () => {
       expect.objectContaining({
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: expect.any(AbortSignal),
       })
     );
 
     fetchSpy.mockRestore();
+  });
+
+  it("returns false instead of throwing when the webhook times out", async () => {
+    process.env.ALERT_WEBHOOK_URL = "https://example.com/hook";
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchSpy = vi.spyOn(global, "fetch").mockRejectedValue(new DOMException("timed out", "TimeoutError"));
+
+    await expect(sendSystemAlert({ level: "error", title: "t", message: "m" })).resolves.toBe(false);
+
+    fetchSpy.mockRestore();
+    errSpy.mockRestore();
   });
 
   it("triggers warning or error alert when token expires within threshold", async () => {

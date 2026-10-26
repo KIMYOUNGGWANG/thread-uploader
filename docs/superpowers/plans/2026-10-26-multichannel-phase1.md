@@ -442,8 +442,8 @@ git commit -m "feat: 학습 입력을 Threads Publication 지표 기준으로 �
 ## 롤아웃 절차 (코드 완료 후, 단계마다 사용자 승인)
 
 1. **승인 요청 → 마이그레이션 적용**: `pnpm exec prisma migrate deploy` (운영 DB). 새 테이블·칸 추가만 있고 삭제는 없음을 다시 보여 준 뒤 실행.
-2. **승인 요청 → push·배포**: `feat/multichannel-structure` push → PR → Vercel 프리뷰 확인 → main 머지. 마이그레이션이 먼저 적용돼 있어야 한다(새 코드가 새 테이블을 쓴다).
+2. **승인 요청 → push·배포**: `feat/multichannel-structure` push → PR → Vercel 프리뷰 확인 → main 머지. 마이그레이션이 먼저 적용돼 있어야 한다(새 코드가 새 테이블을 쓴다). **1단계 마이그레이션 적용 전에는 PR을 절대 머지하지 않는다.** 머지하면 곧바로 운영에 배포되는데, 테이블이 없으면 `learnBrandGrowth`의 `include: { publications }`가 모든 브랜드에서 예외를 던진다.
 3. **백필 dry-run**: `curl -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/backfill-channel-structure"` → 그룹 2개 이상, Threads 게시 수가 DB의 `threadsId` 있는 글 수와 같은지 확인.
-4. **승인 요청 → 백필 적용**: 같은 주소에 `?apply=1`. 한 번 더 돌려 `groupsToCreate: 0, accountsToCreate: 0` 확인.
-5. **패리티 2일 관찰**: `/api/cron/publication-parity`를 배포 직후, 다음 날, 그다음 날 호출해 `mismatches: []` 확인. 그동안 Threads 국내 5슬롯·해외 2슬롯·인스타 하루 1개가 평소대로 올라가고 중복 0건인지 확인.
+4. **승인 요청 → 백필 적용**: 같은 주소에 `?apply=1`. 한 번 더 돌려 `groupsToCreate: 0, accountsToCreate: 0` 확인. 적용 뒤 중복 계정 점검: `SELECT "brandId", platform, count(*) FROM "ChannelAccount" GROUP BY 1,2 HAVING count(*) > 1;` 결과는 0행이어야 한다.
+5. **패리티 2일 관찰**: `/api/cron/publication-parity`를 배포 직후, 다음 날, 그다음 날 호출해 `mismatches: []` 확인. 그동안 Threads 국내 5슬롯·해외 2슬롯·인스타 하루 1개가 평소대로 올라가고 중복 0건인지 확인. 읽는 규칙: 발행 실패로 되돌려진(demoted) 글의 `unexpected publication`, 현재 `PUBLISHING`인 글의 `missing publication`은 예상된 잡음이므로 확인만 하고 1~2건은 무시한다. 그 외는 모두 진짜 불일치다.
 6. **학습 입력 비교**: 학습 결과(`formulaWeights`)는 Thompson 샘플링 때문에 같은 입력이어도 매번 달라서 비교 기준이 될 수 없다. 대신 learn 크론(UTC 12:00) 응답의 브랜드별 `learningInputDiff`가 두 마켓 모두 **연속 2회 `changed: 0`**인지 본다(`missing`은 백필 전 글이면 0이 아닐 수 있고, 그 글은 Post 값을 그대로 쓴다). `changed`가 0이 아니면 Task 7 커밋을 되돌리고 패리티부터 다시 본다.
