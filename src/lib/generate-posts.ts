@@ -57,6 +57,7 @@ import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
 import { judgeReadability } from "@/lib/readability-judge";
 import { checkReadabilityRules, checkTemplateCap, opensWithReversal, tightenChoiceLines } from "@/lib/readability-rules";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
+import { backlogHorizon } from "@/lib/queue-refill";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
 import { loadWinnerReplaySource, WINNER_REPLAY_SOURCE_PREFIX } from "@/lib/winner-replay";
@@ -992,7 +993,7 @@ function countsTowardTemplateCap(post: RecentPostSummary): boolean {
 }
 
 // First publish slot for this run: after the queue's last pending post, or squeezed in front of the first one.
-async function resolveQueueBaseTime(brandId: string, insertAtFront: boolean, count: number, now: number): Promise<number> {
+export async function resolveQueueBaseTime(brandId: string, insertAtFront: boolean, count: number, now: number): Promise<number> {
   let baseTime = now + POST_INTERVAL_MS;
   if (insertAtFront) {
     const earliest = await prisma.post.findFirst({
@@ -1004,7 +1005,7 @@ async function resolveQueueBaseTime(brandId: string, insertAtFront: boolean, cou
     }
   } else {
     const latest = await prisma.post.findFirst({
-      where: { status: "PENDING", brandId },
+      where: { status: "PENDING", brandId, scheduledAt: { lte: backlogHorizon(new Date(now)) } },
       orderBy: { scheduledAt: "desc" },
     });
     if (latest && latest.scheduledAt.getTime() > now) {

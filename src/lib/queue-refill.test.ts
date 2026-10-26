@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { parseRefillTarget, planRefillCount } from "@/lib/queue-refill";
+import { backlogHorizon, parseRefillTarget, planRefillCount } from "@/lib/queue-refill";
 
 describe("queue refill planning", () => {
+  it("looks 48 hours ahead for the backlog", () => {
+    expect(backlogHorizon(new Date("2026-11-09T12:00:00.000Z")).toISOString()).toBe("2026-11-11T12:00:00.000Z");
+  });
+
   it("fills the gap up to the per-run cap", () => {
     expect(planRefillCount(7, 10)).toBe(3);
     expect(planRefillCount(0, 10)).toBe(6);
