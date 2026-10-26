@@ -101,8 +101,8 @@ describe("context-matrix-engine", () => {
   });
 
   it("exploits high-performing personas when contextWeights are provided", () => {
-    const promotedPersona = "3년차 UI/UX 디자이너";
-    const promotedFriction = "성과 가로채기와 사내 정치 싸움에 휘말린 상태";
+    const promotedPersona = "점집에서 10만원 내고 나온 20대";
+    const promotedFriction = "복채는 냈는데 '좋은 흐름 온다'는 말밖에 못 들은 상황";
 
     const personaWeights = {
       [promotedPersona]: 10,
