@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { mirrorThreadsFromPost } from "@/lib/channels/publication-mirror";
 import {
   publishThreadChainWithCredentials,
   type ThreadsCredentials,
@@ -108,75 +109,100 @@ export async function publishOrResumePost(
     throw new Error(`Post ${postId} is already being published or locked by another worker (status: ${current?.status})`);
   }
 
+  // Mirror the final Post state into Publication whatever happened after the lock (never throws).
   try {
-    if (content !== post.content || firstComment !== post.firstComment) {
-      await prisma.post.update({ where: { id: postId }, data: { content, firstComment } });
-    }
-
-    const result = await publishThreadChainWithCredentials(
-      content,
-      credentials,
-      imageUrls,
-      firstComment,
-      {
-        delayBetweenPartsMs: options?.delayBetweenPartsMs,
-        existingRootThreadsId: post.threadRootId || undefined,
-        existingPartIds: existingPartIds.length > 0 ? existingPartIds : undefined,
-        startFromPartIndex,
-        onPartPublished: async (checkpoint) => {
-          await prisma.post.update({
-            where: { id: postId },
-            data: {
-              threadRootId: checkpoint.allPartIds[0],
-              threadPartsPosted: checkpoint.allPartIds.length,
-              threadTotalParts: totalParts,
-              threadPartIds: JSON.stringify(checkpoint.allPartIds),
-              status: checkpoint.allPartIds.length === totalParts ? "PUBLISHED" : "PARTIAL_PUBLISHED",
-            },
-          });
-        },
+    try {
+      if (content !== post.content || firstComment !== post.firstComment) {
+        await prisma.post.update({ where: { id: postId }, data: { content, firstComment } });
       }
-    );
 
-    const isComplete = result.partIds.length === totalParts;
+      const result = await publishThreadChainWithCredentials(
+        content,
+        credentials,
+        imageUrls,
+        firstComment,
+        {
+          delayBetweenPartsMs: options?.delayBetweenPartsMs,
+          existingRootThreadsId: post.threadRootId || undefined,
+          existingPartIds: existingPartIds.length > 0 ? existingPartIds : undefined,
+          startFromPartIndex,
+          onPartPublished: async (checkpoint) => {
+            await prisma.post.update({
+              where: { id: postId },
+              data: {
+                threadRootId: checkpoint.allPartIds[0],
+                threadPartsPosted: checkpoint.allPartIds.length,
+                threadTotalParts: totalParts,
+                threadPartIds: JSON.stringify(checkpoint.allPartIds),
+                status: checkpoint.allPartIds.length === totalParts ? "PUBLISHED" : "PARTIAL_PUBLISHED",
+              },
+            });
+          },
+        }
+      );
 
-    if (isComplete) {
+      const isComplete = result.partIds.length === totalParts;
+
+      if (isComplete) {
+        await prisma.post.update({
+          where: { id: postId },
+          data: {
+            status: "PUBLISHED",
+            threadsId: result.rootThreadsId,
+            publishedAt: new Date(),
+            threadRootId: result.rootThreadsId,
+            threadPartsPosted: totalParts,
+            threadTotalParts: totalParts,
+            threadPartIds: JSON.stringify(result.partIds),
+            errorLog: result.replyError ? `Warning: ${result.replyError}` : null,
+          },
+        });
+
+        return {
+          success: true,
+          postId: post.id,
+          rootThreadsId: result.rootThreadsId,
+          partsPosted: totalParts,
+          totalParts,
+          partIds: result.partIds,
+          isResumed,
+          error: result.replyError,
+        };
+      } else {
+        // Partial failure during parts 2..N
+        const errorMsg = result.replyError || `Stopped at part ${result.partIds.length}/${totalParts}`;
+        await prisma.post.update({
+          where: { id: postId },
+          data: {
+            status: "PARTIAL_FAILED",
+            threadsId: result.rootThreadsId,
+            threadRootId: result.rootThreadsId,
+            threadPartsPosted: result.partIds.length,
+            threadTotalParts: totalParts,
+            threadPartIds: JSON.stringify(result.partIds),
+            errorLog: errorMsg,
+          },
+        });
+
+        return {
+          success: false,
+          postId: post.id,
+          rootThreadsId: result.rootThreadsId,
+          partsPosted: result.partIds.length,
+          totalParts,
+          partIds: result.partIds,
+          isResumed,
+          error: errorMsg,
+        };
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Publishing error";
+      const currentStatus = post.threadRootId ? "PARTIAL_FAILED" : "FAILED";
+
       await prisma.post.update({
         where: { id: postId },
         data: {
-          status: "PUBLISHED",
-          threadsId: result.rootThreadsId,
-          publishedAt: new Date(),
-          threadRootId: result.rootThreadsId,
-          threadPartsPosted: totalParts,
-          threadTotalParts: totalParts,
-          threadPartIds: JSON.stringify(result.partIds),
-          errorLog: result.replyError ? `Warning: ${result.replyError}` : null,
-        },
-      });
-
-      return {
-        success: true,
-        postId: post.id,
-        rootThreadsId: result.rootThreadsId,
-        partsPosted: totalParts,
-        totalParts,
-        partIds: result.partIds,
-        isResumed,
-        error: result.replyError,
-      };
-    } else {
-      // Partial failure during parts 2..N
-      const errorMsg = result.replyError || `Stopped at part ${result.partIds.length}/${totalParts}`;
-      await prisma.post.update({
-        where: { id: postId },
-        data: {
-          status: "PARTIAL_FAILED",
-          threadsId: result.rootThreadsId,
-          threadRootId: result.rootThreadsId,
-          threadPartsPosted: result.partIds.length,
-          threadTotalParts: totalParts,
-          threadPartIds: JSON.stringify(result.partIds),
+          status: currentStatus,
           errorLog: errorMsg,
         },
       });
@@ -184,35 +210,15 @@ export async function publishOrResumePost(
       return {
         success: false,
         postId: post.id,
-        rootThreadsId: result.rootThreadsId,
-        partsPosted: result.partIds.length,
+        rootThreadsId: post.threadRootId,
+        partsPosted: post.threadPartsPosted || 0,
         totalParts,
-        partIds: result.partIds,
+        partIds: existingPartIds,
         isResumed,
         error: errorMsg,
       };
     }
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : "Publishing error";
-    const currentStatus = post.threadRootId ? "PARTIAL_FAILED" : "FAILED";
-
-    await prisma.post.update({
-      where: { id: postId },
-      data: {
-        status: currentStatus,
-        errorLog: errorMsg,
-      },
-    });
-
-    return {
-      success: false,
-      postId: post.id,
-      rootThreadsId: post.threadRootId,
-      partsPosted: post.threadPartsPosted || 0,
-      totalParts,
-      partIds: existingPartIds,
-      isResumed,
-      error: errorMsg,
-    };
+  } finally {
+    await mirrorThreadsFromPost(postId);
   }
 }

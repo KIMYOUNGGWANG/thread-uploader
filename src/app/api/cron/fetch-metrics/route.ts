@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { mirrorThreadsFromPost } from "@/lib/channels/publication-mirror";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { getFreshBrandCredentials } from "@/lib/threads-api";
@@ -101,6 +102,7 @@ export async function GET(request: NextRequest) {
           performanceTier: getPerformanceTier(score),
         },
       });
+      await mirrorThreadsFromPost(post.id);
       updated++;
     } catch (err) {
       if (err instanceof ThreadsPostGoneError) {
@@ -109,6 +111,7 @@ export async function GET(request: NextRequest) {
           where: { id: post.id },
           data: { status: "ARCHIVED", errorLog: `Deleted on Threads: ${err.message}` },
         });
+        await mirrorThreadsFromPost(post.id);
         archived++;
         continue;
       }

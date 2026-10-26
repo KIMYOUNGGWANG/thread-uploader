@@ -16,7 +16,12 @@ vi.mock("@/lib/threads-api", () => ({
   getFreshBrandCredentials: vi.fn(async () => ({ accessToken: "fresh", userId: "u" })),
 }));
 
+vi.mock("@/lib/channels/publication-mirror", () => ({
+  mirrorThreadsFromPost: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { prisma } from "@/lib/prisma";
+import { mirrorThreadsFromPost } from "@/lib/channels/publication-mirror";
 import { getFreshBrandCredentials } from "@/lib/threads-api";
 import { GET } from "./route";
 
@@ -33,6 +38,7 @@ describe("GET /api/cron/fetch-metrics", () => {
     const res = await GET(new NextRequest("http://localhost/api/cron/fetch-metrics"));
     expect((await res.json()).updated).toBe(1);
     expect(getFreshBrandCredentials).toHaveBeenCalledWith("brand_1");
+    expect(mirrorThreadsFromPost).toHaveBeenCalledWith("post_1");
 
     const expected = calculatePerformanceScore({ ...published, views: 500, likes: 0, replies: 3, reposts: 0 });
     const insightsOnly = calculatePerformanceScore({ views: 500, likes: 0, replies: 3, reposts: 0 });
@@ -54,6 +60,7 @@ describe("GET /api/cron/fetch-metrics", () => {
       where: { id: "post_1" },
       data: { status: "ARCHIVED", errorLog: expect.stringContaining("Deleted on Threads") },
     });
+    expect(mirrorThreadsFromPost).toHaveBeenCalledWith("post_1");
   });
 
   it("keeps other insights failures as errors without touching the post", async () => {
@@ -64,5 +71,6 @@ describe("GET /api/cron/fetch-metrics", () => {
     expect(body).toMatchObject({ updated: 0, archived: 0 });
     expect(body.errors).toHaveLength(1);
     expect(prisma.post.update).not.toHaveBeenCalled();
+    expect(mirrorThreadsFromPost).not.toHaveBeenCalled();
   });
 });
