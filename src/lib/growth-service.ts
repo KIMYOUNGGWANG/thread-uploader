@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { withThreadsMetrics } from "@/lib/channels/learning-metrics";
 import {
   buildGrowthMemory,
   buildGrowthReport,
@@ -42,10 +43,17 @@ export async function learnBrandGrowth(brandId: string) {
     },
     orderBy: { metricsAt: "desc" },
     take: 300,
+    include: {
+      publications: {
+        where: { channelAccount: { platform: "threads" } },
+        take: 1,
+        select: { views: true, likes: true, replies: true, reposts: true, metricsAt: true },
+      },
+    },
   });
 
   // Score with current metrics before learning, so weights never use last run's stale scores
-  const allScoredPosts = fetchedPosts.map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
+  const allScoredPosts = fetchedPosts.map(withThreadsMetrics).map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
   // New Year posts are seasonally inflated, so no learner sees them (their score is still written back).
   const posts = allScoredPosts.filter((post) => !isNewYearModeId(post.formulaId));
   const config = parseBrandConfig(brand?.brandConfig ?? "{}");
