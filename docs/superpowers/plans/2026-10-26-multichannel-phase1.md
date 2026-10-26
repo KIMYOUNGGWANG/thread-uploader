@@ -416,6 +416,29 @@ git commit -m "feat: 학습 입력을 Threads Publication 지표 기준으로 �
 
 ---
 
+### Task 8: 학습 입력 차이 보고 + 거울 실패 경보 (실행 중 추가, 2026-10-26)
+
+> 다른 세션의 검토 의견 2개를 받아 추가했다. (1) 학습은 Thompson 샘플링(`thompson-sampling-router.ts`의 `Math.random`) 때문에 같은 입력이어도 결과가 매번 달라서, 롤아웃 6단계는 출력이 아니라 **입력**을 비교해야 한다. (2) 거울 쓰기 실패가 `console.error`뿐이라 조용히 비어 갈 수 있다.
+
+**Files:**
+- Create: `src/lib/channels/learning-input-diff.ts`, `src/lib/channels/learning-input-diff.test.ts`
+- Modify: `src/lib/growth-service.ts` (`learnBrandGrowth` 반환값에 차이 요약 추가), 필요하면 `src/app/api/cron/learn/route.ts` (응답에 브랜드별 요약이 실리게)
+- Modify: `src/lib/channels/publication-mirror.ts` (catch 3곳), `src/lib/channels/publication-mirror.test.ts`
+
+**Interfaces:**
+- Consumes: Task 7의 `include: { publications: … }` 결과(같은 쿼리 한 번)
+- Produces:
+  - `diffLearningInputs(posts: { id: string; views: number | null; likes: number | null; replies: number | null; reposts: number | null; publications?: { views: number | null; likes: number | null; replies: number | null; reposts: number | null; metricsAt: Date | null }[] }[]): { missing: string[]; changed: { postId: string; fields: string[] }[] }` — `missing` = 지표가 든 Threads publication이 없는 글(대체로 Post 값 사용), `changed` = publication 지표 4개 중 Post와 다른 필드가 있는 글. `metricsAt`은 비교하지 않는다(Task 7 판정: 학습은 `metricsAt`을 Post에서 읽는다).
+  - `learnBrandGrowth` 반환 객체에 `learningInputDiff: { missing: number; changed: number; changedPostIds: string[] }` (`changedPostIds`는 최대 20개)
+
+- [ ] **Step 1: 실패하는 테스트**: 같은 값이면 `{ missing: [], changed: [] }`; publication 없음 → `missing`; `views` 다름 → `changed: [{ postId, fields: ["views"] }]`; publication `metricsAt` null → `missing`. 거울: `upsert` 실패 시 `sendSystemAlert`가 `{ level: "warning", title: "Publication write failed" }`로 한 번 호출되고, `sendSystemAlert` 자체가 reject해도 `mirrorThreadsFromPost`는 resolve한다.
+- [ ] **Step 2: 실패 확인** — `pnpm exec vitest run src/lib/channels`
+- [ ] **Step 3: 구현** — 거울 catch에서 `console.error` 뒤에 `await sendSystemAlert({ level: "warning", title: "Publication write failed", message: \`${platform} ${postId}: ${message}\` }).catch(() => false)`, 그 위에 `// ponytail: add a cooldown if it gets noisy`. `learnBrandGrowth`는 `withThreadsMetrics`를 적용하기 **전에** `diffLearningInputs`를 계산한다.
+- [ ] **Step 4: 전체 검증** — `pnpm test && pnpm typecheck && pnpm lint`
+- [ ] **Step 5: Commit** — `feat: 학습 입력 차이 보고와 게시 거울 실패 경보 추가`
+
+---
+
 ## 롤아웃 절차 (코드 완료 후, 단계마다 사용자 승인)
 
 1. **승인 요청 → 마이그레이션 적용**: `pnpm exec prisma migrate deploy` (운영 DB). 새 테이블·칸 추가만 있고 삭제는 없음을 다시 보여 준 뒤 실행.
@@ -423,4 +446,4 @@ git commit -m "feat: 학습 입력을 Threads Publication 지표 기준으로 �
 3. **백필 dry-run**: `curl -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/backfill-channel-structure"` → 그룹 2개 이상, Threads 게시 수가 DB의 `threadsId` 있는 글 수와 같은지 확인.
 4. **승인 요청 → 백필 적용**: 같은 주소에 `?apply=1`. 한 번 더 돌려 `groupsToCreate: 0, accountsToCreate: 0` 확인.
 5. **패리티 2일 관찰**: `/api/cron/publication-parity`를 배포 직후, 다음 날, 그다음 날 호출해 `mismatches: []` 확인. 그동안 Threads 국내 5슬롯·해외 2슬롯·인스타 하루 1개가 평소대로 올라가고 중복 0건인지 확인.
-6. **학습 결과 비교**: 다음 learn 크론(UTC 12:00) 전후로 두 마켓의 `formulaWeights`·`growthMemory.formulaWinners`를 저장해 두고, 이전 배포의 같은 입력 결과와 같은지 비교. 다르면 Task 7을 되돌리고 패리티부터 다시 본다.
+6. **학습 입력 비교**: 학습 결과(`formulaWeights`)는 Thompson 샘플링 때문에 같은 입력이어도 매번 달라서 비교 기준이 될 수 없다. 대신 learn 크론(UTC 12:00) 응답의 브랜드별 `learningInputDiff`가 두 마켓 모두 **연속 2회 `changed: 0`**인지 본다(`missing`은 백필 전 글이면 0이 아닐 수 있고, 그 글은 Post 값을 그대로 쓴다). `changed`가 0이 아니면 Task 7 커밋을 되돌리고 패리티부터 다시 본다.
