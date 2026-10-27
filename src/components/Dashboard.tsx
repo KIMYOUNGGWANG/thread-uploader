@@ -102,6 +102,8 @@ interface ViralExampleData {
   shares: number | null;
   engagementRate: number | null;
   viralScore: number;
+  referenceScore: number;
+  timesSeen: number;
   hookType: string | null;
   topic: string | null;
   emotionalDriver: string | null;
@@ -1921,6 +1923,7 @@ function ViralExampleList({ examples }: { examples: ViralExampleData[] }) {
             <p className="line-clamp-2 text-sm text-slate-700 dark:text-slate-200">{example.content}</p>
             <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
               <span>{example.patternSummary ?? "패턴 분석 대기"}</span>
+              <span>참고 {example.referenceScore} · TOP {example.timesSeen}회</span>
               {example.permalink && (
                 <a href={example.permalink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-rose-500 hover:text-rose-600">
                   열기 <ExternalLink className="w-3 h-3" />

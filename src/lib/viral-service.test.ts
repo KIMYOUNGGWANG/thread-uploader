@@ -42,6 +42,18 @@ describe("viral-service shorts exclusion", () => {
     });
   });
 
+  it("exposes referenceScore and timesSeen from rawMetrics in the report", async () => {
+    vi.mocked(prisma.viralExample.findMany).mockResolvedValueOnce([
+      { id: "e1", discoveredAt: new Date(), rawMetrics: '{"referenceScore":73,"timesSeen":3}' },
+      { id: "e2", discoveredAt: new Date(), rawMetrics: "not json" },
+    ] as never);
+
+    const report = await getViralReport("b1");
+
+    expect(report.examples[0]).toMatchObject({ referenceScore: 73, timesSeen: 3 });
+    expect(report.examples[1]).toMatchObject({ referenceScore: 0, timesSeen: 0 });
+  });
+
   it("learnViralPatterns excludes shorts from pattern learning input", async () => {
     await learnViralPatterns("b1");
 

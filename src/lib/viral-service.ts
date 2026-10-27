@@ -95,6 +95,7 @@ export async function getViralReport(brandId: string) {
       exampleIds: parseStringArray(pattern.exampleIds),
     })),
     examples: examples.map((example) => ({
+      ...readReferenceMetrics(example.rawMetrics),
       id: example.id,
       source: example.source,
       authorUsername: example.authorUsername,
@@ -501,6 +502,18 @@ function parseDate(value: unknown): Date | null {
   if (typeof value !== "string" || !value.trim()) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function readReferenceMetrics(raw: string): { referenceScore: number; timesSeen: number } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = null;
+  }
+  const record = typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
+  const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+  return { referenceScore: num(record.referenceScore), timesSeen: num(record.timesSeen) };
 }
 
 function parseStringArray(raw: string): string[] {
