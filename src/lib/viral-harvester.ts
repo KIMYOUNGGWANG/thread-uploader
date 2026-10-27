@@ -7,6 +7,9 @@ import crypto from "crypto";
 import { fetchPublicProfilePosts, searchThreadsByKeyword, type ThreadsPublicPost } from "@/lib/threads-api";
 import type { ViralAdapterId, ViralSourceError } from "@/types/viral";
 
+const MAX_KEYWORDS = 10;
+const MAX_HANDLES = 5;
+
 export interface HarvestedCandidate {
   adapter: ViralAdapterId;
   source: string;
@@ -148,7 +151,7 @@ export async function harvestFromThreadsSources(options: HarvestOptions): Promis
   }
 
   // 1. Keyword search
-  for (const keyword of keywords.slice(0, 5)) {
+  for (const keyword of keywords.slice(0, MAX_KEYWORDS)) {
     try {
       const posts = await searchThreadsByKeyword(accessToken, keyword, maxPerSource);
       posts.forEach((post, index) => {
@@ -171,7 +174,7 @@ export async function harvestFromThreadsSources(options: HarvestOptions): Promis
   }
 
   // 2. Profile posts
-  for (const handle of handles.slice(0, 5)) {
+  for (const handle of handles.slice(0, MAX_HANDLES)) {
     try {
       const posts = await fetchPublicProfilePosts(accessToken, handle, maxPerSource);
       for (const post of posts) {
@@ -198,6 +201,6 @@ export async function harvestFromThreadsSources(options: HarvestOptions): Promis
     candidates: unique,
     errors,
     totalDiscovered: rawCandidates.length,
-    attemptedSources: Math.min(keywords.length, 5) + Math.min(handles.length, 5),
+    attemptedSources: Math.min(keywords.length, MAX_KEYWORDS) + Math.min(handles.length, MAX_HANDLES),
   };
 }

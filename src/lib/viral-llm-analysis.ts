@@ -8,7 +8,9 @@ import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
  * to explain why they spread. Labels prefer the rule vocabulary so pattern aggregation stays grouped.
  */
 
-const ANALYSIS_BATCH_SIZE = 10;
+const ANALYSIS_BATCH_SIZE = 5;
+// Newest sightings are read first, then the best reference candidates among them are analyzed.
+const ANALYSIS_CANDIDATE_POOL = 30;
 
 const LABEL_VOCABULARY = {
   hookType: ["질문형 훅", "반전형 훅", "논쟁형 훅", "고백형 훅", "체크리스트형 훅", "증거형 훅", "공감형 훅"],
@@ -118,17 +120,27 @@ function parseRawMetrics(raw: string): Record<string, unknown> {
   }
 }
 
-/** Analyzes the brand's highest-scoring references that Claude has not read yet. */
+function readReferenceScore(raw: string): number {
+  const score = parseRawMetrics(raw).referenceScore;
+  return typeof score === "number" && Number.isFinite(score) ? score : 0;
+}
+
+/** Analyzes the brand's best reference candidates that Claude has not read yet. */
 export async function analyzeTopViralExamples(brandId: string): Promise<{ analyzed: number; skipped?: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { analyzed: 0, skipped: "ANTHROPIC_API_KEY is not set" };
 
-  const examples = await prisma.viralExample.findMany({
+  const pool = await prisma.viralExample.findMany({
     where: { brandId, source: { not: SHORTS_SOURCE }, NOT: { rawMetrics: { contains: "llmAnalyzedAt" } } },
-    orderBy: { viralScore: "desc" },
-    take: ANALYSIS_BATCH_SIZE,
+    orderBy: { discoveredAt: "desc" },
+    take: ANALYSIS_CANDIDATE_POOL,
     select: { id: true, content: true, rawMetrics: true },
   });
+  const examples = pool
+    .map((example) => ({ example, score: readReferenceScore(example.rawMetrics) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, ANALYSIS_BATCH_SIZE)
+    .map(({ example }) => example);
   if (examples.length === 0) return { analyzed: 0 };
 
   const analyses = await requestAnalyses(new Anthropic({ apiKey, timeout: 60_000, maxRetries: 1 }), examples);

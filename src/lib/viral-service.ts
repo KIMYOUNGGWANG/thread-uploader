@@ -15,6 +15,7 @@ import {
 } from "@/lib/viral-analysis";
 import { fetchPublicProfilePosts, searchThreadsByKeyword, type ThreadsPublicPost } from "@/lib/threads-api";
 import { allExternalSourcesFailed, harvestFromThreadsSources } from "@/lib/viral-harvester";
+import { calculateReferenceScore, isEligibleSource, type EligibilityRules } from "@/lib/reference-radar";
 import { parseBrandConfig } from "@/types/brand";
 import {
   parseViralMemory,
@@ -179,9 +180,14 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
     .filter((candidate) => candidate.content.trim().length > 0)
     .filter((candidate) => !hasExcludedTerm(candidate.content, runConfig.excludedTerms));
   let saved = 0;
+  const rules: EligibilityRules = {
+    ownHandle: config.viralDiscovery.ownHandle ?? null,
+    excludedHandles: config.viralDiscovery.excludedHandles,
+    now: new Date(),
+  };
 
   for (const candidate of uniqueCandidates) {
-    const savedExample = await saveCandidate(brandId, candidate, brandTopics, runConfig.minViralScore);
+    const savedExample = await saveCandidate(brandId, candidate, brandTopics, runConfig.minViralScore, rules);
     if (savedExample) saved++;
   }
 
@@ -367,7 +373,8 @@ async function saveCandidate(
   brandId: string,
   candidate: CandidateExample,
   brandTopics: string[],
-  minViralScore: number
+  minViralScore: number,
+  rules: EligibilityRules
 ) {
   const discoveredAt = new Date();
   const where = { brandId_source_sourceKey: { brandId, source: candidate.source, sourceKey: candidate.sourceKey } };
@@ -378,6 +385,16 @@ async function saveCandidate(
   const searchBonus = candidate.views === null ? calculateSearchSignalScore(stored.signal) : 0;
   const viralScore = calculateViralScore(scoreMetrics, candidate.content) + searchBonus;
   if (viralScore < minViralScore) return null;
+
+  stored.merged.referenceScore = calculateReferenceScore({
+    signal: stored.signal,
+    content: candidate.content,
+    hasReplies: typeof candidate.rawMetrics.hasReplies === "boolean" ? candidate.rawMetrics.hasReplies : null,
+  });
+  stored.merged.eligibleSource = isEligibleSource(
+    { authorUsername: candidate.authorUsername, publishedAt: candidate.publishedAt, timesSeen: stored.signal.timesSeen ?? 1 },
+    rules
+  );
 
   const fields = {
     authorUsername: candidate.authorUsername,
