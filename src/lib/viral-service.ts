@@ -393,7 +393,12 @@ async function saveCandidate(
     hasReplies: typeof candidate.rawMetrics.hasReplies === "boolean" ? candidate.rawMetrics.hasReplies : null,
   });
   stored.merged.eligibleSource = isEligibleSource(
-    { authorUsername: candidate.authorUsername, publishedAt: candidate.publishedAt, timesSeen: stored.signal.timesSeen ?? 1 },
+    {
+      authorUsername: candidate.authorUsername,
+      publishedAt: candidate.publishedAt,
+      timesSeen: stored.signal.timesSeen ?? 1,
+      firstSeenAt: typeof stored.merged.firstSeenAt === "string" ? stored.merged.firstSeenAt : null,
+    },
     rules
   );
 

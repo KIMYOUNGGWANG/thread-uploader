@@ -5,10 +5,12 @@ import { parseBrandConfig } from "@/types/brand";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const now = new Date("2026-10-27T00:00:00Z");
+const HOUR_MS = 60 * 60 * 1000;
 const src = (handle: string, daysOld: number, timesSeen: number) => ({
   authorUsername: handle,
   publishedAt: new Date(now.getTime() - daysOld * DAY_MS),
   timesSeen,
+  firstSeenAt: new Date(now.getTime() - DAY_MS).toISOString(),
 });
 
 describe("calculateReferenceScore", () => {
@@ -22,6 +24,14 @@ describe("calculateReferenceScore", () => {
 describe("isEligibleSource", () => {
   const rules = { ownHandle: "cosmicpath", excludedHandles: ["forceteller_official"], now };
   it("accepts a 3-day-old post seen twice from another account", () => expect(isEligibleSource(src("the.saju", 3, 2), rules)).toBe(true));
+  it("rejects a post seen twice within minutes: two manual discover runs are not 12 hours of staying in TOP", () => {
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
+    expect(isEligibleSource({ ...src("the.saju", 3, 2), firstSeenAt: tenMinutesAgo }, rules)).toBe(false);
+  });
+  it("accepts a post first seen 12 hours ago and rejects one without a firstSeenAt", () => {
+    expect(isEligibleSource({ ...src("the.saju", 3, 2), firstSeenAt: new Date(now.getTime() - 12 * HOUR_MS).toISOString() }, rules)).toBe(true);
+    expect(isEligibleSource({ ...src("the.saju", 3, 2), firstSeenAt: null }, rules)).toBe(false);
+  });
   it("rejects a post seen only once", () => expect(isEligibleSource(src("the.saju", 3, 1), rules)).toBe(false));
   it("rejects posts older than 7 days and posts without a date", () => {
     expect(isEligibleSource(src("the.saju", 8, 2), rules)).toBe(false);

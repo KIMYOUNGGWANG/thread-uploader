@@ -149,17 +149,19 @@ export interface StoredRawMetrics {
   isLlmAnalyzed: boolean;
 }
 
-// Keys that survive a re-harvest: the Claude analysis plus the ref_replay cooldown stamp (src/lib/reference-replay.ts).
-const PERSISTED_RAW_KEYS = ["llmAnalyzedAt", "whyItWorks", "replayAttemptedAt"] as const;
+// Keys that survive a re-harvest: the Claude analysis, the ref_replay cooldown stamp (src/lib/reference-replay.ts) and the first sighting time.
+const PERSISTED_RAW_KEYS = ["llmAnalyzedAt", "whyItWorks", "replayAttemptedAt", "firstSeenAt"] as const;
 
 /** Merge a re-harvested post's raw metrics with what is stored: bump timesSeen, keep the persisted keys. */
-export function mergeStoredRawMetrics(previousRaw: string | null, next: Record<string, unknown>): StoredRawMetrics {
+export function mergeStoredRawMetrics(previousRaw: string | null, next: Record<string, unknown>, now: Date = new Date()): StoredRawMetrics {
   const previous = parseRecord(previousRaw);
   const timesSeen = (readNumber(previous.timesSeen) ?? (previousRaw ? 1 : 0)) + 1;
   const merged: Record<string, unknown> = { ...next, timesSeen };
   for (const key of PERSISTED_RAW_KEYS) {
     if (previous[key] !== undefined) merged[key] = previous[key];
   }
+  // A legacy row without the stamp starts its clock now, which only delays eligibility.
+  if (typeof merged.firstSeenAt !== "string") merged.firstSeenAt = now.toISOString();
   return {
     merged,
     signal: { searchRank: readNumber(merged.searchRank), keywordHits: readNumber(merged.keywordHits), timesSeen },

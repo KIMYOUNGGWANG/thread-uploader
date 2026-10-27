@@ -142,17 +142,22 @@ describe("viral-service reference score and eligibility", () => {
     expect(saved.every((item) => typeof item.metrics.referenceScore === "number")).toBe(true);
   });
 
-  it("a post seen in two runs becomes eligible", async () => {
+  it("a post seen in two runs 12 hours apart becomes eligible, but two runs minutes apart do not", async () => {
     mockHarvest(harvested("the.saju", "p1", new Date(Date.now() - 3 * DAY_MS)));
 
     await discoverViralExamples("b1");
     const first = JSON.parse(upsertCalls()[0].create.rawMetrics);
     expect(first).toMatchObject({ timesSeen: 1, eligibleSource: false });
+    expect(typeof first.firstSeenAt).toBe("string");
 
     vi.mocked(prisma.viralExample.findUnique).mockResolvedValue({ rawMetrics: upsertCalls()[0].create.rawMetrics } as never);
     await discoverViralExamples("b1");
-    const second = JSON.parse(upsertCalls()[1].create.rawMetrics);
-    expect(second).toMatchObject({ timesSeen: 2, eligibleSource: true });
+    expect(JSON.parse(upsertCalls()[1].create.rawMetrics)).toMatchObject({ timesSeen: 2, firstSeenAt: first.firstSeenAt, eligibleSource: false });
+
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    vi.mocked(prisma.viralExample.findUnique).mockResolvedValue({ rawMetrics: JSON.stringify({ ...first, firstSeenAt: twelveHoursAgo }) } as never);
+    await discoverViralExamples("b1");
+    expect(JSON.parse(upsertCalls()[2].create.rawMetrics)).toMatchObject({ timesSeen: 2, firstSeenAt: twelveHoursAgo, eligibleSource: true });
   });
 
   it("on a repeat sighting, ownHandle and excludedHandles posts stay ineligible while others qualify", async () => {
@@ -162,7 +167,9 @@ describe("viral-service reference score and eligibility", () => {
       harvested("cosmicpath", "p2", published),
       harvested("blocked.account", "p3", published),
     );
-    vi.mocked(prisma.viralExample.findUnique).mockResolvedValue({ rawMetrics: JSON.stringify({ timesSeen: 1 }) } as never);
+    vi.mocked(prisma.viralExample.findUnique).mockResolvedValue({
+      rawMetrics: JSON.stringify({ timesSeen: 1, firstSeenAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString() }),
+    } as never);
 
     await discoverViralExamples("b1");
 
