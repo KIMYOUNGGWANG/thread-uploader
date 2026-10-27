@@ -27,8 +27,11 @@ async function lookupUsername(brandId: string, threadsUserId: string | null): Pr
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  // Typos like --dryrun must not fall through to a real DB write.
+  const unknown = args.filter((arg) => arg !== "--dry-run" && !arg.startsWith("--own-handle="));
+  if (unknown.length > 0) throw new Error(`알 수 없는 인자: ${unknown.join(" ")}`);
   const dryRun = args.includes("--dry-run");
-  const ownHandleArg = args.find((arg) => arg.startsWith("--own-handle="))?.slice("--own-handle=".length).trim();
+  const ownHandleArg = args.find((arg) => arg.startsWith("--own-handle="))?.slice("--own-handle=".length).trim().replace(/^@+/, "");
 
   const brand = await prisma.brand.findUnique({
     where: { slug: "cosmicpath" },
@@ -57,7 +60,7 @@ async function main(): Promise<void> {
 
   const changed = Object.keys(changes);
   if (changed.length === 0) return console.log("변경할 값 없음");
-  if (dryRun) return console.log(`--dry-run: 쓰지 않음 (바뀔 필드: ${changed.join(", ")})`);
+  if (dryRun) return console.log(`--dry-run: brandConfig는 쓰지 않음 (바뀔 필드: ${changed.join(", ")})`);
 
   await prisma.brand.update({
     where: { id: brand.id },
