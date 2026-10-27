@@ -20,7 +20,7 @@ async function check(label: string, run: () => Promise<string>): Promise<boolean
 }
 
 async function main(): Promise<boolean> {
-  const brand = await prisma.brand.findUnique({ where: { slug: "cosmicpath" } });
+  const brand = await prisma.brand.findUnique({ where: { slug: "cosmicpath" }, select: { id: true } });
   if (!brand) throw new Error("Brand cosmicpath not found");
 
   const { accessToken } = await getFreshBrandCredentials(brand.id);
