@@ -203,10 +203,10 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
   career_decision: {
     domainId: "career_decision",
     name: "커리어/이직/퇴사 의사결정 (Career Decision)",
-    description: "연봉 마스킹 번아웃, 이직 후 6개월 퇴사율, 스케이프고트 신호",
+    description: "이직 제안의 숨은 조건, 홧김 퇴사, 버틸지 옮길지의 타이밍",
     defaultTopics: [
       "연봉 20% 인상 제안의 신기루와 번아웃",
-      "결산 직후 입사 = 사내정치 스케이프고트 함정",
+      "면접에서 극찬받고 입사했는데 분위기가 다른 회사, 버틸지 옮길지",
       "퇴사 전 통장 잔고 6개월치보다 중요한 심리 기저",
       "이직 타이밍 3단계 자가진단 (버팀형 vs 이동형 vs 준비형)",
     ],

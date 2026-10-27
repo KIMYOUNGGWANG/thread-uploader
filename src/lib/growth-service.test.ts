@@ -127,8 +127,8 @@ describe("learnBrandGrowth", () => {
   });
 
   it("rebuilds persona and friction weights instead of stacking on stored context weights", async () => {
-    const top = "3년차 UI/UX 디자이너";
-    const bottom = "7년차 백엔드/풀스택 개발자";
+    const top = "점집에서 10만원 내고 나온 20대";
+    const bottom = "월급이 들어오면 바로 사라지는 사람";
     mocks.findBrand.mockResolvedValue({
       id: "brand_1",
       formulaWeights: "{}",
