@@ -32,10 +32,12 @@ jobs:
           test -n "$CRON_SECRET"
           status=0
           for slug in ${PUBLISH_BRAND_SLUGS//,/ }; do
-            # Slots are UTC hours. KR: KST 09/12/18/21/23. Global (new account, 2/day): US evening + US morning.
+            # Slots are UTC hours. KR: KST 11/22/01 — 3 slots to match the campaign dailyPostTarget; 5/day halved
+            # per-post reach (2026-10-23..27 median 150 → 40) while account-level daily views stayed flat.
+            # Global (new account, 2/day): US evening + US morning.
             case "$slug" in
               cosmicpath-global) slots="0,12" ;;
-              *) slots="0,3,9,12,14" ;;
+              *) slots="2,13,16" ;;
             esac
             # Manual dispatch publishes immediately; only scheduled runs are slot-gated.
             query="brands=${slug}"
