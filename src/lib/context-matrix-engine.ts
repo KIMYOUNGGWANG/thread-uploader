@@ -316,8 +316,8 @@ export function resolveDynamicContext(options: ResolveDynamicContextOptions): Dy
 // 2026-10 cosmicpath: the match-funnel script made every topic a relationship one and the lean sprint pinned
 // every post to the relationship matrix, so 26 of 30 posts shared two scenarios while 14 of the 23 breakouts
 // were career/money posts. Each topic now picks its own matrix and a batch keeps both axes.
-export const RELATIONSHIP_TOPIC_PATTERN = /썸|연애|궁합|재회|헤어|이별|결혼|고백|연락|장거리|동업|커플|상대/;
-export const RELATIONSHIP_TOPIC_SHARE = 0.5;
+// 2026-10-28: "동업"/"상대" sent business-partner topics through the couple matrix, so only romance words count.
+export const RELATIONSHIP_TOPIC_PATTERN = /썸|연애|궁합|재회|헤어|이별|결혼|고백|연락|장거리|커플/;
 
 export function isRelationshipTopic(topic: string): boolean {
   return RELATIONSHIP_TOPIC_PATTERN.test(topic);
@@ -325,16 +325,17 @@ export function isRelationshipTopic(topic: string): boolean {
 
 /**
  * Interleaves relationship and other topics so a batch of `count` holds about `share` relationship topics.
- * With only one axis configured it degrades to a plain shuffle-and-cycle.
+ * `share` defaults to the relationship share of `topics` itself: a fixed 0.5 made 13-post batches 62% dating
+ * with 6 of 16 topics, so the brand's topic list is the only dial. With one axis it degrades to a shuffle-and-cycle.
  */
-export function planTopicQuota(topics: string[], count: number, share = RELATIONSHIP_TOPIC_SHARE, random = Math.random): string[] {
+export function planTopicQuota(topics: string[], count: number, share?: number, random = Math.random): string[] {
   const shuffle = (list: string[]) => [...list].sort(() => random() - 0.5);
   const cycle = (list: string[], length: number) => Array.from({ length }, (_, index) => list[index % list.length]);
   const relationship = shuffle(topics.filter(isRelationshipTopic));
   const other = shuffle(topics.filter((topic) => !isRelationshipTopic(topic)));
   if (!relationship.length || !other.length) return cycle(shuffle(topics), count);
 
-  const relationshipCount = Math.round(count * share);
+  const relationshipCount = Math.round(count * (share ?? relationship.length / topics.length));
   const queues = { relationship: cycle(relationship, relationshipCount), other: cycle(other, count - relationshipCount) };
   // Alternate the axes so even a 2-post dashboard chunk gets one of each.
   return Array.from({ length: count }, (_, index) => {

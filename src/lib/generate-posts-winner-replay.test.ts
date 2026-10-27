@@ -86,7 +86,6 @@ import { generatePostsForBrand } from "@/lib/generate-posts";
 import { loadWinnerReplaySource, WINNER_REPLAY_SOURCE_PREFIX } from "@/lib/winner-replay";
 import { loadLengthExperimentState } from "@/lib/length-experiment";
 import { selectLeanViralMode } from "@/lib/lean-mode-selector";
-import { resolveViralIntentMode } from "@/lib/viral-intent-modes";
 
 const LEAN_ARMS = ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension", "beginner_qa"];
 const brand = {
@@ -264,7 +263,7 @@ describe("winner_replay draft gate", () => {
       state.recent = withChoices("PUBLISHED");
       state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
       await generatePostsForBrand(brand, input);
-      expect(vi.mocked(selectLeanViralMode).mock.calls[0]?.[5]).toEqual(["imagination_dilemma"]);
+      expect(vi.mocked(selectLeanViralMode).mock.calls[0]?.[5]).toContain("imagination_dilemma");
     });
 
     it("does not count archived, failed, or review-queue posts toward the cap", async () => {
@@ -273,7 +272,7 @@ describe("winner_replay draft gate", () => {
         state.recent = withChoices(status);
         state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
         await generatePostsForBrand(brand, input);
-        expect(vi.mocked(selectLeanViralMode).mock.calls[0]?.[5]).toEqual([]);
+        expect(vi.mocked(selectLeanViralMode).mock.calls[0]?.[5]).not.toContain("imagination_dilemma");
       }
     });
 
@@ -304,20 +303,21 @@ describe("winner_replay draft gate", () => {
     });
   });
 
-  // relationship_tension must open with a relationship word; a career topic made that impossible and the draft was dropped.
-  it("gives a relationship_tension draft a relationship topic when the rotation lands on a career one", async () => {
+  // relationship_tension must open with a relationship word. Swapping a relationship topic into a career slot
+  // pushed batches to 62% dating, so the career slot drops the arm instead and keeps its own topic.
+  it("excludes relationship_tension on a career slot and keeps the planned topic", async () => {
     const config = JSON.parse(brand.brandConfig);
     const careerFirst = { ...brand, brandConfig: JSON.stringify({ ...config, topics: ["이직 타이밍 판정", "썸 상대 고백 타이밍"] }) } as Brand;
-    // planTopicQuota alternates axes (slot 0 relationship, slot 1 career), so the second slot is the mismatch.
-    const relationship = resolveViralIntentMode("relationship_tension", 0);
-    vi.mocked(selectLeanViralMode).mockReturnValueOnce(relationship).mockReturnValueOnce(relationship);
     state.reply = "썸 탈 때 연락 속도보다 먼저 볼 게 있음\n\n답장은 아침에 해도 늦지 않음\n\n너라면 먼저 연락해?";
     await generatePostsForBrand(careerFirst, { ...input, count: 2 });
+    // planTopicQuota alternates axes: slot 0 relationship, slot 1 career.
+    const excluded = vi.mocked(selectLeanViralMode).mock.calls.map((call) => call[5]);
+    expect(excluded[0]).toEqual([]);
+    expect(excluded[1]).toEqual(["relationship_tension"]);
     expect(state.requests).toHaveLength(2);
-    for (const request of state.requests) {
-      expect(request).toContain("썸 상대 고백 타이밍");
-      expect(request).not.toContain("이직 타이밍 판정");
-    }
+    expect(state.requests[0]).toContain("썸 상대 고백 타이밍");
+    expect(state.requests[1]).toContain("이직 타이밍 판정");
+    expect(state.requests[1]).not.toContain("썸 상대 고백 타이밍");
   });
 
   // Without an up-front notice the model kept opening with "X가 아니라 Y" and every retry hit the gate.
