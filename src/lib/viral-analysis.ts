@@ -284,7 +284,7 @@ function groupByDimension(
   }));
 }
 
-function calculateStructuralSignalScore(content: string): number {
+export function calculateStructuralSignalScore(content: string): number {
   let score = 10;
   const firstLine = getFirstLine(content);
   if (hasSelfClassificationMechanic(content)) score += 14;
