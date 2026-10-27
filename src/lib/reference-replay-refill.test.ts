@@ -3,25 +3,28 @@ import type { Brand } from "@prisma/client";
 
 const mocks = vi.hoisted(() => ({
   countPosts: vi.fn(),
+  findExamples: vi.fn(),
   loadSource: vi.fn(),
   markAttempted: vi.fn(async () => undefined),
   generate: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({ prisma: { post: { count: mocks.countPosts } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { post: { count: mocks.countPosts }, viralExample: { findMany: mocks.findExamples } } }));
 vi.mock("@/lib/reference-replay", () => ({ loadReferenceReplaySource: mocks.loadSource, markReferenceAttempted: mocks.markAttempted }));
 vi.mock("@/lib/generate-posts", () => ({ generatePostsForBrand: mocks.generate }));
 
 import { refillReferenceReplay } from "@/lib/reference-replay-refill";
 
 const now = new Date("2026-10-27T03:00:00.000Z");
-const brandWith = (keywords: string[]) => ({ id: "b1", slug: "cosmicpath", brandConfig: JSON.stringify({ viralDiscovery: { keywords } }) }) as unknown as Brand;
+const brandWith = (keywords: string[], ownHandle: string | null = "cosmicpath") =>
+  ({ id: "b1", slug: "cosmicpath", brandConfig: JSON.stringify({ viralDiscovery: { keywords, ...(ownHandle ? { ownHandle } : {}) } }) }) as unknown as Brand;
 const source = { id: "ex_1", content: "원문 글", authorUsername: "a", publishedAt: null, rawMetrics: "{}" };
 const okSummary = (count: number, failureReasons: string[] = []) => ({ ok: true, summary: { count, failedCount: 0, failureReasons } });
 
 describe("refillReferenceReplay", () => {
   beforeEach(() => {
     mocks.countPosts.mockReset().mockResolvedValue(0);
+    mocks.findExamples.mockReset().mockResolvedValue([]);
     mocks.loadSource.mockReset().mockResolvedValue(source);
     mocks.markAttempted.mockClear();
     mocks.generate.mockReset().mockResolvedValue(okSummary(1));
@@ -44,14 +47,39 @@ describe("refillReferenceReplay", () => {
     expect(mocks.countPosts).not.toHaveBeenCalled();
   });
 
-  it("skips when a ref_replay was created today in any status", async () => {
+  it("skips with no_own_handle so the brand's own post can never become the source", async () => {
+    expect(await refillReferenceReplay(brandWith(["운세"], null), now)).toEqual({ generated: 0, skipped: "no_own_handle" });
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.countPosts).not.toHaveBeenCalled();
+  });
+
+  it("skips when a ref_replay was created or published today in any status", async () => {
     mocks.countPosts.mockResolvedValueOnce(1);
     expect(await refillReferenceReplay(brandWith(["운세"]), now)).toEqual({ generated: 0, skipped: "already_today" });
-    const [args] = mocks.countPosts.mock.calls[0] as unknown as [{ where: { formulaId: string; status?: unknown; createdAt: { gte: Date } } }];
+    const [args] = mocks.countPosts.mock.calls[0] as unknown as [{ where: { formulaId: string; status?: unknown; OR: Array<Record<string, { gte: Date }>> } }];
     expect(args.where.formulaId).toBe("ref_replay");
     expect(args.where.status).toBeUndefined();
-    expect(args.where.createdAt.gte.toISOString()).toBe("2026-10-26T15:00:00.000Z"); // KST day start
+    // Draft made yesterday and published today (KST day start) still used today's slot.
+    expect(args.where.OR.map((clause) => Object.keys(clause)[0])).toEqual(["createdAt", "publishedAt"]);
+    for (const clause of args.where.OR) expect(Object.values(clause)[0].gte.toISOString()).toBe("2026-10-26T15:00:00.000Z");
     expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("skips with attempted_today when a source was already attempted today, even though no post exists", async () => {
+    mocks.findExamples.mockResolvedValue([
+      { rawMetrics: JSON.stringify({ replayAttemptedAt: "2026-10-26T10:00:00.000Z" }) }, // yesterday (KST)
+      { rawMetrics: JSON.stringify({ replayAttemptedAt: "2026-10-26T15:30:00.000Z" }) }, // today (KST)
+      { rawMetrics: "{broken" },
+    ]);
+    expect(await refillReferenceReplay(brandWith(["운세"]), now)).toEqual({ generated: 0, skipped: "attempted_today" });
+    expect(mocks.findExamples).toHaveBeenCalledWith({ where: { brandId: "b1", rawMetrics: { contains: "replayAttemptedAt" } }, select: { rawMetrics: true } });
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.loadSource).not.toHaveBeenCalled();
+  });
+
+  it("ignores attempts from before today", async () => {
+    mocks.findExamples.mockResolvedValue([{ rawMetrics: JSON.stringify({ replayAttemptedAt: "2026-10-26T14:59:59.000Z" }) }]);
+    expect(await refillReferenceReplay(brandWith(["운세"]), now)).toEqual({ generated: 1, sourceId: "ex_1" });
   });
 
   it("skips when a ref_replay is still PENDING but not when it is NEEDS_REVIEW", async () => {

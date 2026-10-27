@@ -70,6 +70,7 @@ const client = new Anthropic({
   maxRetries: 1, // generateOne already retries 429/529/timeouts with backoff
 });
 const SEPARATOR = "===FIRST_COMMENT===";
+const REFERENCE_COPY_REASON = "참고 원본과 너무 비슷함";
 const RETRYABLE_STATUSES = new Set([429, 529]);
 const RECENT_POST_AVOIDANCE_COUNT = 24;
 const POST_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours between posts
@@ -348,7 +349,7 @@ async function generateWithQuality(
     if (experiment.winnerReference) {
       const copy = checkAntiRepeatSimilarity(post, [{ content: experiment.winnerReference }]);
       if (copy.isDuplicate) {
-        gate = { ...gate, pass: false, reasons: [`${experiment.referenceReplay ? "참고 원본과 너무 비슷함" : "승자 원본과 너무 비슷함"}: ${copy.reason ?? "유사도 과다"}`, ...gate.reasons] };
+        gate = { ...gate, pass: false, reasons: [`${experiment.referenceReplay ? REFERENCE_COPY_REASON : "승자 원본과 너무 비슷함"}: ${copy.reason ?? "유사도 과다"}`, ...gate.reasons] };
       }
     }
     // Posts auto-publish unreviewed, so saju values that disagree with the New Year data never pass.
@@ -401,6 +402,8 @@ async function generateWithQuality(
   let qualityResult = await gateWithJudges(lastResult.post, lastResult.firstComment);
 
   for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
+    // Feeding "too close to the source" back would only paraphrase to just under the threshold; drop the draft instead.
+    if (experiment.referenceReplay && qualityResult.reasons.some((reason) => reason.startsWith(REFERENCE_COPY_REASON))) break;
     console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
     lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, qualityResult.reasons);
     qualityResult = await gateWithJudges(lastResult.post, lastResult.firstComment);

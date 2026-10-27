@@ -158,5 +158,7 @@ describe("ref_replay draft", () => {
     expect(state.created).toHaveLength(0);
     expect(result.ok && result.summary.count).toBe(0);
     expect(result.ok && result.summary.failureReasons.join(" ")).toMatch(/원본과 너무 비슷함/);
+    // A similarity miss must not feed a retry: retries would paraphrase to just under the threshold.
+    expect(state.requests).toHaveLength(1);
   });
 });
