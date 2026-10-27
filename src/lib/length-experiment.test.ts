@@ -120,6 +120,15 @@ describe("New Year posts sit the length experiment out", () => {
   });
 });
 
+describe("ref_replay posts sit the length experiment out", () => {
+  it("does not count ref_replay posts toward the sequence or the pending arms", () => {
+    const posts = [draft("r", 200, { formulaId: "ref_replay" }), draft("c", 200)];
+    expect(sequencePosition(posts, config)).toBe(1);
+    expect(countPendingByArm([draft("r-L", 420, { formulaId: "ref_replay" })], config)).toEqual({ S: 0, L: 0 });
+    expect(pickPublishCandidate([draft("r-L", 420, { formulaId: "ref_replay" })], config, "S")?.formulaId).toBe("ref_replay");
+  });
+});
+
 describe("countPendingByArm", () => {
   it("counts only experiment drafts per arm", () => {
     const pending = [draft("a", 200), draft("b", 420), draft("c", 420), draft("d", 300), draft("e", 200, { createdAt: beforeStart })];

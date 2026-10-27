@@ -37,7 +37,7 @@ export function pickWinnerReplaySource(
   return winners[0] ?? null;
 }
 
-function parseReasons(raw: string): string[] {
+export function parseReasons(raw: string): string[] {
   try {
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((reason): reason is string => typeof reason === "string") : [];

@@ -191,10 +191,11 @@ function analyzeBrand(brand, minAgeDays) {
 // Mirrors isExperimentDraft/classifyLength in src/lib/length-experiment.ts: GROWTH, not a promo video,
 // not a New Year post (NEW_YEAR_MODE_IDS in src/lib/new-year/new-year-season.ts), created at/after the start, S or L. Only the first `total` by publish time are the experiment; later ones are not.
 // Snapshots exported before createdAt was added fall back to publishedAt.
+// "ref_replay" below must match src/lib/length-experiment.ts isExperimentPost.
 const NEW_YEAR_MODE_IDS = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick", "ny_zodiac"];
 function experimentSample(posts, { from, shortMax, longMin, total }) {
   const eligible = posts
-    .filter((p) => p.postCategory === "GROWTH" && !(p.formulaId ?? "").startsWith("video:") && !NEW_YEAR_MODE_IDS.includes(p.formulaId))
+    .filter((p) => p.postCategory === "GROWTH" && !(p.formulaId ?? "").startsWith("video:") && !NEW_YEAR_MODE_IDS.includes(p.formulaId) && p.formulaId !== "ref_replay")
     .filter((p) => Date.parse(p.createdAt ?? p.publishedAt) >= Date.parse(from) && Date.parse(p.publishedAt) >= Date.parse(from))
     .filter((p) => p.content.length <= shortMax || p.content.length >= longMin)
     .sort((a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt));
@@ -254,7 +255,7 @@ function selfTest() {
   const extras = [
     { ...fake[0], postCategory: "WARMUP" }, { ...fake[0], formulaId: "video:promo" },
     { ...fake[0], createdAt: "2026-10-19T00:00:00.000Z" }, { ...fake[0], content: "가".repeat(300) },
-    { ...fake[0], formulaId: "ny_pick" },
+    { ...fake[0], formulaId: "ny_pick" }, { ...fake[0], formulaId: "ref_replay" },
   ];
   const { sample, overflow } = experimentSample([...extras, ...fake], { from, shortMax: 260, longMin: 390, total: 90 });
   assert(sample.length === 90 && overflow === 2, `experiment sample cutoff ${sample.length}/${overflow}`);
