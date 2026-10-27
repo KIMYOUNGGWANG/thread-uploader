@@ -108,7 +108,7 @@ describe("viral-service reference score and eligibility", () => {
       id: "b1",
       viralMemory: "{}",
       accessToken: "enc",
-      brandConfig: JSON.stringify({ viralDiscovery: { keywords: ["사주"], ownHandle: "@CosmicPath" } }),
+      brandConfig: JSON.stringify({ viralDiscovery: { keywords: ["사주"], ownHandle: "@CosmicPath", excludedHandles: ["@Blocked.Account"] } }),
     } as never);
     vi.mocked(prisma.viralExample.findMany).mockResolvedValue([]);
     vi.mocked(prisma.viralExample.count).mockResolvedValue(0);
@@ -141,5 +141,22 @@ describe("viral-service reference score and eligibility", () => {
     await discoverViralExamples("b1");
     const second = JSON.parse(upsertCalls()[1].create.rawMetrics);
     expect(second).toMatchObject({ timesSeen: 2, eligibleSource: true });
+  });
+
+  it("on a repeat sighting, ownHandle and excludedHandles posts stay ineligible while others qualify", async () => {
+    const published = new Date(Date.now() - 3 * DAY_MS);
+    mockHarvest(
+      harvested("the.saju", "p1", published),
+      harvested("cosmicpath", "p2", published),
+      harvested("blocked.account", "p3", published),
+    );
+    vi.mocked(prisma.viralExample.findUnique).mockResolvedValue({ rawMetrics: JSON.stringify({ timesSeen: 1 }) } as never);
+
+    await discoverViralExamples("b1");
+
+    const eligibleByAuthor = Object.fromEntries(
+      upsertCalls().map((call) => [call.create.authorUsername, JSON.parse(call.create.rawMetrics).eligibleSource]),
+    );
+    expect(eligibleByAuthor).toEqual({ "the.saju": true, cosmicpath: false, "blocked.account": false });
   });
 });

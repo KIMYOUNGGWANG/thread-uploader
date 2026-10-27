@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   hashContent,
   isContentExcluded,
@@ -17,6 +17,8 @@ vi.mock("@/lib/threads-api", () => ({
 }));
 
 describe("Viral Harvester", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("generates deterministic hashes for normalized content", () => {
     const hash1 = hashContent("  안녕하세요   반갑습니다! \n ");
     const hash2 = hashContent("안녕하세요 반갑습니다!");
