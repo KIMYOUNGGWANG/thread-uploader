@@ -149,14 +149,15 @@ export interface StoredRawMetrics {
   isLlmAnalyzed: boolean;
 }
 
-const LLM_OWNED_RAW_KEYS = ["llmAnalyzedAt", "whyItWorks"] as const;
+// Keys that survive a re-harvest: the Claude analysis plus the ref_replay cooldown stamp (src/lib/reference-replay.ts).
+const PERSISTED_RAW_KEYS = ["llmAnalyzedAt", "whyItWorks", "replayAttemptedAt"] as const;
 
-/** Merge a re-harvested post's raw metrics with what is stored: bump timesSeen, keep LLM-owned keys. */
+/** Merge a re-harvested post's raw metrics with what is stored: bump timesSeen, keep the persisted keys. */
 export function mergeStoredRawMetrics(previousRaw: string | null, next: Record<string, unknown>): StoredRawMetrics {
   const previous = parseRecord(previousRaw);
   const timesSeen = (readNumber(previous.timesSeen) ?? (previousRaw ? 1 : 0)) + 1;
   const merged: Record<string, unknown> = { ...next, timesSeen };
-  for (const key of LLM_OWNED_RAW_KEYS) {
+  for (const key of PERSISTED_RAW_KEYS) {
     if (previous[key] !== undefined) merged[key] = previous[key];
   }
   return {
