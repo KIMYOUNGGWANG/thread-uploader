@@ -348,7 +348,7 @@ async function generateWithQuality(
     if (experiment.winnerReference) {
       const copy = checkAntiRepeatSimilarity(post, [{ content: experiment.winnerReference }]);
       if (copy.isDuplicate) {
-        gate = { ...gate, pass: false, reasons: [`승자 원본과 너무 비슷함: ${copy.reason ?? "유사도 과다"}`, ...gate.reasons] };
+        gate = { ...gate, pass: false, reasons: [`${experiment.referenceReplay ? "참고 원본과 너무 비슷함" : "승자 원본과 너무 비슷함"}: ${copy.reason ?? "유사도 과다"}`, ...gate.reasons] };
       }
     }
     // Posts auto-publish unreviewed, so saju values that disagree with the New Year data never pass.
@@ -1127,7 +1127,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       const excludedModeIds = isLeanSprint && choicesCapped ? ["imagination_dilemma"] : [];
       // A New Year slot takes its mode from the season schedule, skipping the bandit and the replay arm.
       const slotIndex = contextOffset + batchIndex;
-      const newYearMode = newYearSlotMode({
+      // A reference rewrite keeps its own mode even in the season, or the reference would drop out of the prompt.
+      const newYearMode = referenceReplay ? null : newYearSlotMode({
         brandSlug: brand.slug,
         plannedAt: new Date(baseTime + batchIndex * POST_INTERVAL_MS),
         slotIndex,

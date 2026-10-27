@@ -83,6 +83,7 @@ vi.mock("@/lib/quality-gate", () => ({
 }));
 
 import { generatePostsForBrand } from "@/lib/generate-posts";
+import { loadWinnerReplaySource } from "@/lib/winner-replay";
 import { REFERENCE_REPLAY_SOURCE_PREFIX } from "@/lib/reference-replay";
 
 const brand = {
@@ -117,6 +118,7 @@ describe("ref_replay draft", () => {
     vi.stubEnv("NEW_YEAR_SEASON_DISABLED", "1");
     state.created.length = 0;
     state.requests.length = 0;
+    vi.mocked(loadWinnerReplaySource).mockClear();
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -132,6 +134,22 @@ describe("ref_replay draft", () => {
     expect(state.requests[0]).toContain("다른 계정에서 반응이 좋았던 글");
     expect(state.requests[0]).toContain("140~260자");
     expect(state.requests[0]).not.toContain("[길이 실험]");
+    expect(loadWinnerReplaySource).not.toHaveBeenCalled();
+  });
+
+  // A New Year slot used to win the branch and drop the reference from the prompt while the source was still tagged as used.
+  it("keeps the reference in the prompt when the planned slot falls in the New Year season", async () => {
+    vi.unstubAllEnvs();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-12-20T00:00:00+09:00"));
+      state.reply = "점집에서 10만원 내고 들은 말이 '좋은 흐름 온다'뿐이었다면\n\n그 돈으로 차라리 내 흐름을 직접 읽는 법을 배우는 게 낫지 않을까\n\n너라면 어느 쪽이야?";
+      await generatePostsForBrand(brand, { ...input, referenceReplay: SOURCE });
+      expect(state.requests[0]).toContain("다른 계정에서 반응이 좋았던 글");
+      expect(state.requests[0]).not.toContain("[신년 자료");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("drops a ref_replay draft that copies the source without throwing", async () => {
