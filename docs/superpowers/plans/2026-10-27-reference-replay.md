@@ -516,7 +516,7 @@ git commit -m "docs: 레퍼런스 레이더 설정 시드 스크립트와 README
 
 - [ ] **Step 4: 운영 확인 (배포 뒤, 스펙 6장)**
 
-1. 시드 실행 → `viral.yml`을 `workflow_dispatch`로 두 번(12시간 간격 또는 연속 2회) 돌려 `saved`, `errors`를 보고, `rawMetrics.timesSeen ≥ 2`인 행이 생기는지 확인.
+1. 시드 실행 → `viral.yml`을 `workflow_dispatch`로 한 번 돌리고 다음 정기 실행(11시간 이상 간격)까지 기다려 `saved`, `errors`를 보고, `rawMetrics.timesSeen ≥ 2`인 행이 생기는지 확인.
 2. 다음 refill 실행 응답의 `referenceReplay`가 `{ generated: 1 }` 또는 납득되는 `skipped`인지 확인.
 3. 이틀 뒤 아래 SQL이 하루 1건 이하:
 
@@ -532,7 +532,7 @@ FROM "Post" WHERE "formulaId" = 'ref_replay' GROUP BY 1 ORDER BY 1;
 ## 배포·운영 순서
 
 1. Task 2~8 → `pnpm test/typecheck/lint/build` → 사용자 승인 후 push·PR.
-2. 머지 → Vercel 배포 → Task 9 시드 → `viral.yml` 수동 2회 → 이틀 관찰.
+2. 머지 → Vercel 배포 → Task 9 시드 → `viral.yml` 수동 1회 + 다음 정기 실행(11시간 이상 간격) → 이틀 관찰.
 3. 20개 뒤 판정. CI 하한 < 1.0이면 `keywords`를 비워 끈다.
 4. Meta 앱 심사 통과 시 `scripts/check-threads-discovery.ts` 세 줄 ok 확인 → 스펙 9장 확장(별도 계획).
 

@@ -73,4 +73,21 @@ describe("viral cron", () => {
     await GET(request());
     expect(sendSystemAlert).not.toHaveBeenCalled();
   });
+
+  it("alerts and returns 500 when discovery throws, instead of a silent 200", async () => {
+    discoverViralExamples.mockImplementation(async (brandId: string) => {
+      if (brandId === "a") throw new Error("db down");
+      return { saved: 1, errors: [], externalAllFailed: false };
+    });
+    const response = await GET(request());
+    const body = await response.json();
+    expect(response.status).toBe(500);
+    expect(body.externalSourcesFailed).toEqual(["cosmicpath"]);
+    expect(body.brands).toContainEqual({ slug: "cosmicpath", success: false, error: "db down" });
+    expect(sendSystemAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "error", title: "Viral discovery failed", message: "db down", brandName: "cosmicpath" }),
+    );
+    // The healthy brand is still processed.
+    expect(learnViralPatterns).toHaveBeenCalledTimes(1);
+  });
 });

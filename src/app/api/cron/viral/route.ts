@@ -49,11 +49,11 @@ export async function GET(request: NextRequest) {
         errors: discovery.errors,
       });
     } catch (error) {
-      results.push({
-        slug: brand.slug,
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+      const message = error instanceof Error ? error.message : "Unknown error";
+      // A throw collects nothing either, so it alerts and turns the run red like an all-sources failure.
+      externalSourcesFailed.push(brand.slug);
+      await sendSystemAlert({ level: "error", title: "Viral discovery failed", message, brandName: brand.name });
+      results.push({ slug: brand.slug, success: false, error: message });
     }
   }
 
