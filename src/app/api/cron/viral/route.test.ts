@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import type { Brand } from "@prisma/client";
+import type { ReferenceRefillResult } from "@/lib/reference-replay-refill";
 
 const discoverViralExamples = vi.hoisted(() => vi.fn());
 const learnViralPatterns = vi.hoisted(() => vi.fn(async () => ({ learnedPatterns: 3 })));
 
+const analyzeTopViralExamples = vi.hoisted(() => vi.fn(async () => ({ analyzed: 0 })));
+const refillReferenceReplay = vi.hoisted(() =>
+  vi.fn<(brand: Brand, now: Date) => Promise<ReferenceRefillResult>>(async () => ({ generated: 0, skipped: "no_source" })),
+);
 const sendSystemAlert = vi.hoisted(() => vi.fn(async () => true));
 const withKeywords = JSON.stringify({ viralDiscovery: { keywords: ["사주"] } });
 const brandRows = vi.hoisted(() => ({ value: [] as Array<{ id: string; slug: string; name: string; brandConfig: string }> }));
@@ -13,7 +19,8 @@ vi.mock("@/lib/prisma", () => ({ prisma: { brand: { findMany } } }));
 vi.mock("@/lib/alert-service", () => ({ sendSystemAlert }));
 vi.mock("@/lib/cron-auth", () => ({ verifyCronSecret: () => true }));
 vi.mock("@/lib/viral-service", () => ({ discoverViralExamples, learnViralPatterns }));
-vi.mock("@/lib/viral-llm-analysis", () => ({ analyzeTopViralExamples: vi.fn(async () => ({ analyzed: 0 })) }));
+vi.mock("@/lib/viral-llm-analysis", () => ({ analyzeTopViralExamples }));
+vi.mock("@/lib/reference-replay-refill", () => ({ refillReferenceReplay }));
 
 import { GET } from "./route";
 
@@ -89,5 +96,33 @@ describe("viral cron", () => {
     );
     // The healthy brand is still processed.
     expect(learnViralPatterns).toHaveBeenCalledTimes(1);
+  });
+
+  it("tries a ref_replay draft for every harvested brand and reports it", async () => {
+    discoverViralExamples.mockResolvedValue({ saved: 1, errors: [], externalAllFailed: false });
+    refillReferenceReplay.mockResolvedValueOnce({ generated: 1, sourceId: "ex_1" });
+    const body = await (await GET(request())).json();
+    expect(refillReferenceReplay).toHaveBeenCalledTimes(2);
+    expect(refillReferenceReplay.mock.calls[0][0]).toMatchObject({ id: "a" });
+    expect(body.brands[0].referenceReplay).toEqual({ generated: 1, sourceId: "ex_1" });
+  });
+
+  it("skips Claude analysis when analyze=false but still harvests, learns and tries ref_replay", async () => {
+    discoverViralExamples.mockResolvedValue({ saved: 1, errors: [], externalAllFailed: false });
+    const response = await GET(new NextRequest("http://localhost/api/cron/viral?analyze=false"));
+    expect(response.status).toBe(200);
+    expect(analyzeTopViralExamples).not.toHaveBeenCalled();
+    expect(learnViralPatterns).toHaveBeenCalledTimes(2);
+    expect(refillReferenceReplay).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the brand green when refillReferenceReplay throws", async () => {
+    discoverViralExamples.mockResolvedValue({ saved: 1, errors: [], externalAllFailed: false });
+    refillReferenceReplay.mockRejectedValueOnce(new Error("generation exploded"));
+    const response = await GET(request());
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.brands[0].referenceReplay).toEqual({ generated: 0, skipped: "dropped", reason: "generation exploded" });
+    expect(body.brands[0].success).toBe(true);
   });
 });

@@ -4,6 +4,7 @@ import { discoverViralExamples, learnViralPatterns } from "@/lib/viral-service";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { analyzeTopViralExamples } from "@/lib/viral-llm-analysis";
 import { sendSystemAlert } from "@/lib/alert-service";
+import { refillReferenceReplay, type ReferenceRefillResult } from "@/lib/reference-replay-refill";
 import { parseBrandConfig } from "@/types/brand";
 
 export const maxDuration = 300; // discovery + Claude analysis per brand
@@ -13,7 +14,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const brands = await prisma.brand.findMany({ select: { id: true, slug: true, name: true, brandConfig: true } });
+  // 4시간 주기 중 분석은 09:41·21:41 두 번만(viral.yml). ref_replay는 분석 결과를 안 쓰므로 매 실행 시도한다.
+  const analyze = request.nextUrl.searchParams.get("analyze") !== "false";
+  // Full rows: refillReferenceReplay takes a whole Brand.
+  const brands = await prisma.brand.findMany();
   const results = [];
   const externalSourcesFailed: string[] = [];
 
@@ -26,11 +30,19 @@ export async function GET(request: NextRequest) {
     try {
       const discovery = await discoverViralExamples(brand.id, { includeOwnPosts: true, limit: 10 });
       // Claude analysis is an enrichment: a failure must not block pattern learning.
-      const llmAnalysis = await analyzeTopViralExamples(brand.id).catch((error: unknown) => ({
-        analyzed: 0,
-        error: error instanceof Error ? error.message : "Claude analysis failed",
-      }));
+      const llmAnalysis = analyze
+        ? await analyzeTopViralExamples(brand.id).catch((error: unknown) => ({
+            analyzed: 0,
+            error: error instanceof Error ? error.message : "Claude analysis failed",
+          }))
+        : { analyzed: 0, skipped: "analyze=false" };
       const learning = await learnViralPatterns(brand.id);
+      // One outside-structure draft per day (gates live inside); a failure must not turn the brand red.
+      const referenceReplay: ReferenceRefillResult = await refillReferenceReplay(brand, new Date()).catch((error: unknown) => ({
+        generated: 0 as const,
+        skipped: "dropped" as const,
+        reason: error instanceof Error ? error.message : "Reference replay failed",
+      }));
       if (discovery.externalAllFailed) {
         externalSourcesFailed.push(brand.slug);
         await sendSystemAlert({
@@ -46,6 +58,7 @@ export async function GET(request: NextRequest) {
         saved: discovery.saved,
         learnedPatterns: learning.learnedPatterns,
         llmAnalysis,
+        referenceReplay,
         errors: discovery.errors,
       });
     } catch (error) {
