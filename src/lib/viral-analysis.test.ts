@@ -110,6 +110,20 @@ describe("mergeStoredRawMetrics", () => {
     expect(stored.isLlmAnalyzed).toBe(true);
   });
 
+  it("keeps replayAttemptedAt across a re-harvest without marking the post as Claude-analyzed", () => {
+    const previous = JSON.stringify({ timesSeen: 2, replayAttemptedAt: "2026-10-26T00:00:00.000Z" });
+    const stored = mergeStoredRawMetrics(previous, { searchRank: 1 });
+    expect(stored.merged).toMatchObject({ timesSeen: 3, replayAttemptedAt: "2026-10-26T00:00:00.000Z", searchRank: 1 });
+    expect(stored.isLlmAnalyzed).toBe(false);
+  });
+
+  it("stamps firstSeenAt on the first save and keeps it across re-harvests", () => {
+    const first = mergeStoredRawMetrics(null, { searchRank: 1 }, new Date("2026-10-27T00:00:00.000Z"));
+    expect(first.merged.firstSeenAt).toBe("2026-10-27T00:00:00.000Z");
+    const again = mergeStoredRawMetrics(JSON.stringify(first.merged), { searchRank: 2 }, new Date("2026-10-27T12:00:00.000Z"));
+    expect(again.merged.firstSeenAt).toBe("2026-10-27T00:00:00.000Z");
+  });
+
   it("treats a legacy row without timesSeen as one prior sighting", () => {
     expect(mergeStoredRawMetrics("{}", {}).signal.timesSeen).toBe(2);
   });

@@ -141,6 +141,13 @@ describe("winner_replay mode", () => {
   });
 });
 
+describe("ref_replay mode", () => {
+  it("resolves ref_replay to its own mode and stays out of the standard rotation", () => {
+    expect(resolveViralIntentMode("ref_replay", 0).id).toBe("ref_replay");
+    expect(VIRAL_INTENT_MODES.map((mode) => mode.id)).not.toContain("ref_replay");
+  });
+});
+
 describe("global offer formulas", () => {
   it.each([
     ["synastry_blueprint_offer", "relationship_tension"],

@@ -2,6 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { analyzeTopViralExamples, buildViralAnalysisPrompt, parseViralAnalysisResponse } from "@/lib/viral-llm-analysis";
 
+const messagesCreate = vi.hoisted(() => vi.fn());
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: class {
+    messages = { create: messagesCreate };
+  },
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     viralExample: { findMany: vi.fn(async () => []), update: vi.fn() },
@@ -63,5 +69,30 @@ describe("analyzeTopViralExamples shorts exclusion", () => {
         }),
       }),
     );
+  });
+
+  it("analyzes the 5 newest-discovered examples with the highest referenceScore", async () => {
+    const rows = Array.from({ length: 30 }, (_, index) => ({
+      id: `ex${index}`,
+      content: `글 ${index}`,
+      // ex7 has no score at all and must count as 0.
+      rawMetrics: index === 7 ? "{}" : JSON.stringify({ referenceScore: index * 3 % 31 }),
+    }));
+    vi.mocked(prisma.viralExample.findMany).mockResolvedValueOnce(rows as never);
+    messagesCreate.mockResolvedValueOnce({ content: [{ type: "text", text: JSON.stringify({ analyses: [] }) }] });
+
+    await analyzeTopViralExamples("b1");
+
+    expect(prisma.viralExample.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { discoveredAt: "desc" }, take: 30 }),
+    );
+    const prompt = messagesCreate.mock.calls[0][0].messages[0].content as string;
+    const sent = [...prompt.matchAll(/<post id="(ex\d+)">/g)].map((match) => match[1]);
+    const expected = [...rows]
+      .sort((a, b) => (JSON.parse(b.rawMetrics).referenceScore ?? 0) - (JSON.parse(a.rawMetrics).referenceScore ?? 0))
+      .slice(0, 5)
+      .map((row) => row.id);
+    expect(sent).toEqual(expected);
+    expect(sent).toHaveLength(5);
   });
 });

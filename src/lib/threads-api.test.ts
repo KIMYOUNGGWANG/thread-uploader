@@ -6,7 +6,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: { brand: { findUnique: vi.fn() } } }));
 
 import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/crypto";
-import { fetchFollowersCountForBrand, getFreshBrandCredentials } from "./threads-api";
+import { fetchFollowersCountForBrand, fetchPublicProfileStats, getFreshBrandCredentials } from "./threads-api";
 
 describe("getFreshBrandCredentials", () => {
   it("decrypts the stored token so callers get the real Threads token", async () => {
@@ -63,6 +63,28 @@ describe("fetchFollowersCountForBrand", () => {
   it("returns null instead of 0 when the API rejects the token", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "Invalid OAuth access token" } }), { status: 400 })));
     expect(await fetchFollowersCountForBrand("u1", "bad")).toBeNull();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("fetchPublicProfileStats", () => {
+  it("maps profile_lookup fields to 7-day stats", async () => {
+    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({
+      username: "the.saju", follower_count: 40000, views_count: 120000, likes_count: 3000, reposts_count: 150,
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchPublicProfileStats("tok", "@the.saju")).resolves.toEqual({
+      username: "the.saju", followerCount: 40000, views7d: 120000, likes7d: 3000, reposts7d: 150,
+    });
+    const calledUrl = new URL(fetchMock.mock.calls[0][0]);
+    expect(calledUrl.pathname).toBe("/profile_lookup");
+    expect(calledUrl.searchParams.get("username")).toBe("the.saju");
+    vi.unstubAllGlobals();
+  });
+
+  it("throws the API error message when the lookup is refused", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "Application does not have permission for this action" } }), { status: 400 })));
+    await expect(fetchPublicProfileStats("tok", "the.saju")).rejects.toThrow(/permission/);
     vi.unstubAllGlobals();
   });
 });

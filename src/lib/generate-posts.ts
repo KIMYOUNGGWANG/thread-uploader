@@ -32,6 +32,7 @@ import {
   CLOSING_FORMAT_PROMPT_KO,
   NEW_YEAR_MODES,
   pickClosingFormat,
+  REFERENCE_REPLAY_MODE,
   WINNER_REPLAY_MODE,
 } from "@/lib/viral-intent-modes";
 import { NEW_YEAR_BRANDS, newYearSlotMode, type NewYearModeId } from "@/lib/new-year/new-year-season";
@@ -60,6 +61,7 @@ import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLen
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
 import { loadWinnerReplaySource, WINNER_REPLAY_SOURCE_PREFIX } from "@/lib/winner-replay";
+import { REFERENCE_REPLAY_SOURCE_PREFIX } from "@/lib/reference-replay";
 import type { LengthArm } from "@/types/length-experiment";
 
 const client = new Anthropic({
@@ -68,6 +70,7 @@ const client = new Anthropic({
   maxRetries: 1, // generateOne already retries 429/529/timeouts with backoff
 });
 const SEPARATOR = "===FIRST_COMMENT===";
+const REFERENCE_COPY_REASON = "참고 원본과 너무 비슷함";
 const RETRYABLE_STATUSES = new Set([429, 529]);
 const RECENT_POST_AVOIDANCE_COUNT = 24;
 const POST_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours between posts
@@ -94,6 +97,8 @@ interface GrowthExperiment {
   reversalCapped?: boolean;
   // Content of a high-view past post whose structure the winner_replay draft follows.
   winnerReference?: string;
+  // The reference is another account's post (ref_replay), not our own winner, so the prompt words it differently.
+  referenceReplay?: true;
   // 2027 New Year season slot: the mode and the only saju values the draft may use (src/lib/new-year).
   newYearMode?: NewYearModeId;
   newYearSlotIndex?: number;
@@ -344,7 +349,7 @@ async function generateWithQuality(
     if (experiment.winnerReference) {
       const copy = checkAntiRepeatSimilarity(post, [{ content: experiment.winnerReference }]);
       if (copy.isDuplicate) {
-        gate = { ...gate, pass: false, reasons: [`승자 원본과 너무 비슷함: ${copy.reason ?? "유사도 과다"}`, ...gate.reasons] };
+        gate = { ...gate, pass: false, reasons: [`${experiment.referenceReplay ? REFERENCE_COPY_REASON : "승자 원본과 너무 비슷함"}: ${copy.reason ?? "유사도 과다"}`, ...gate.reasons] };
       }
     }
     // Posts auto-publish unreviewed, so saju values that disagree with the New Year data never pass.
@@ -397,6 +402,8 @@ async function generateWithQuality(
   let qualityResult = await gateWithJudges(lastResult.post, lastResult.firstComment);
 
   for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
+    // Feeding "too close to the source" back would only paraphrase to just under the threshold; drop the draft instead.
+    if (experiment.referenceReplay && qualityResult.reasons.some((reason) => reason.startsWith(REFERENCE_COPY_REASON))) break;
     console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
     lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, qualityResult.reasons);
     qualityResult = await gateWithJudges(lastResult.post, lastResult.firstComment);
@@ -667,7 +674,7 @@ function buildGenerationPrompt(
     ...formatCampaignPrompt(experiment),
     formatViralIntentModePrompt(viralIntentMode, isEnglish),
     ...(experiment.winnerReference
-      ? [`[참고 글: 조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써]\n---\n${experiment.winnerReference}\n---`]
+      ? [`[참고 글: ${experiment.referenceReplay ? "다른 계정에서 반응이 좋았던 글. 구조만 따르고 주제·소재·문장은 새로 써" : "조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써"}]\n---\n${experiment.winnerReference}\n---`]
       : []),
     ...(experiment.newYearBrief
       ? [`${isEnglish
@@ -951,6 +958,8 @@ export interface GeneratePostsInput {
   requestedCampaignId: string | null;
   approvedCampaignStart: boolean;
   postCategory: string;
+  /** 있으면 count는 1로 고정되고, 이 글의 구조만 따르는 ref_replay 글 하나를 만든다. 실험 팔·Thompson 선택·승자 재현을 건너뛴다. */
+  referenceReplay?: { id: string; content: string };
 }
 
 export interface GeneratePostsSummary {
@@ -1015,7 +1024,8 @@ async function resolveQueueBaseTime(brandId: string, insertAtFront: boolean, cou
 }
 
 export async function generatePostsForBrand(brand: Brand, input: GeneratePostsInput): Promise<GeneratePostsResult> {
-  const { count, insertAtFront, requestedCampaignId, approvedCampaignStart, postCategory } = input;
+  const { insertAtFront, requestedCampaignId, approvedCampaignStart, postCategory, referenceReplay } = input;
+  const count = referenceReplay ? 1 : input.count;
   const brandId = brand.id;
   const config = parseBrandConfig(brand.brandConfig);
   const activeCampaign = getActiveCampaign(config, requestedCampaignId);
@@ -1085,7 +1095,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   const failureReasons: string[] = [];
   // Live length experiment: each draft gets the arm the queue is shortest on, so publish slots never wait long.
   const lengthExperiment = await loadLengthExperimentState(brandId, config, new Date());
-  const lengthArms = lengthExperiment ? shuffleArms(planLengthArms(lengthExperiment.pending, lengthExperiment.arm, count)) : [];
+  const lengthArms = referenceReplay ? [undefined] : lengthExperiment ? shuffleArms(planLengthArms(lengthExperiment.pending, lengthExperiment.arm, count)) : [];
   const isLeanSprint = isLeanSprintRun({
     brandSlug: brand.slug,
     domainProfile,
@@ -1096,7 +1106,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   });
   // One high-view past post per lean run can be replayed with a new topic (isLeanSprintRun already excludes
   // English D2C). It is an optional arm: a failed lookup must not abort the whole run.
-  const winnerSource = isLeanSprint
+  const winnerSource = isLeanSprint && !referenceReplay
     ? await loadWinnerReplaySource(brandId, new Date()).catch((error: unknown) => {
         console.warn("[generate] winner replay source lookup failed, skipping replay arm:", error);
         return null;
@@ -1125,14 +1135,17 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         : [];
       // A New Year slot takes its mode from the season schedule, skipping the bandit and the replay arm.
       const slotIndex = contextOffset + batchIndex;
-      const newYearMode = newYearSlotMode({
+      // A reference rewrite keeps its own mode even in the season, or the reference would drop out of the prompt.
+      const newYearMode = referenceReplay ? null : newYearSlotMode({
         brandSlug: brand.slug,
         plannedAt: new Date(baseTime + batchIndex * POST_INTERVAL_MS),
         slotIndex,
         choicesCapped,
       });
       // No replay while the length experiment runs: an extra arm skews per-arm drop rates and its random assignment.
-      const viralIntentMode = newYearMode
+      const viralIntentMode = referenceReplay
+        ? REFERENCE_REPLAY_MODE
+        : newYearMode
         ? NEW_YEAR_MODES[newYearMode]
         : isLeanSprint
           ? selectLeanViralMode(
@@ -1141,7 +1154,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
               excludedModeIds
             )
           : selectViralIntentMode(batchIndex, { sprintType: "standard_28day" });
-      const quotaSelection = newYearMode
+      const quotaSelection = newYearMode || referenceReplay
         ? null
         : selectLearnedFormula(batchIndex, {
             domainProfile,
@@ -1152,7 +1165,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
 
       const matchedFormula = quotaSelection ? sourceFormulas.find((f) => f.id === quotaSelection.formulaId) : undefined;
       // A mode without a campaign formula becomes its own formula, so New Year posts carry formulaId "ny_*".
-      const formula = newYearMode || isLeanSprint
+      const formula = newYearMode || isLeanSprint || referenceReplay
         ? selectCampaignFormulaForViralMode(sourceFormulas, viralIntentMode)
         : (matchedFormula ?? (
             activeCampaign
@@ -1162,7 +1175,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       pickedFormulaIds.push(formula.id);
       // Outside the lean sprint the mode rotates by batch index, so a 4-post global refill gave every
       // formula the same Type A/B/C self-check. A formula mapped to its own mode keeps that mode.
-      const formulaMode = newYearMode || isLeanSprint ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
+      const formulaMode = newYearMode || isLeanSprint || referenceReplay ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
 
       // Outside the lean sprint the mode comes from the formula, so a relationship formula on a career slot
       // still needs a relationship topic (otherwise the fidelity gate drops the draft after every retry).
@@ -1196,7 +1209,10 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         experiment.closingFormat = newYearMode === "ny_pick" ? "choices" : undefined;
       }
       // A replay keeps the source's own closing, so it gets no rotated closing format to contradict it.
-      else if (replaySource) experiment.winnerReference = replaySource.content;
+      else if (referenceReplay) {
+        experiment.winnerReference = referenceReplay.content;
+        experiment.referenceReplay = true;
+      } else if (replaySource) experiment.winnerReference = replaySource.content;
       // The gate caps numbered choices only for saju_viral, so only there is a capped "choices" slot turned into a question.
       else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
       return generateWithQuality(
@@ -1225,6 +1241,20 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
 
   // Callers (refill cron, dashboard) only see this message, so carry the per-draft reasons in it.
   if (results.length === 0) {
+    // A reference rewrite is one optional attempt: the caller records the miss instead of failing.
+    if (referenceReplay) {
+      return {
+        ok: true,
+        summary: {
+          count: 0,
+          failedCount: failureReasons.length,
+          failureReasons,
+          linkedCount: 0,
+          campaignId: activeCampaign?.id ?? null,
+          auditSummary: { total: 0, passed: 0, needsReview: 0 },
+        },
+      };
+    }
     throw new Error(`All ${count} drafts failed to generate${failureReasons.length > 0 ? `: ${failureReasons.join(" | ")}` : ""}`);
   }
 
@@ -1283,6 +1313,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       ...result.qualityReasons,
       ...reconciled.extraReasons,
       ...(result.formulaId === WINNER_REPLAY_MODE.id && winnerSource ? [`${WINNER_REPLAY_SOURCE_PREFIX}${winnerSource.id}`] : []),
+      ...(referenceReplay ? [`${REFERENCE_REPLAY_SOURCE_PREFIX}${referenceReplay.id}`] : []),
     ];
     const threadParts = splitContentIntoThreadParts(postContent);
     // Nobody reviews drafts by hand: every gate-passing draft is queued, learning decides which formulas get volume.
