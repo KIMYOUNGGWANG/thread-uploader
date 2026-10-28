@@ -119,7 +119,8 @@ vi.mock("@/lib/brand-access", () => ({
           slug: "cosmicpath",
           brandConfig: JSON.stringify({
             systemPrompt: "Write concise CosmicPath posts.",
-            topics: ["식상 vs 관성 기질 미스매치", "10년 대운 교운기 번아웃", "사주와 점성술 교차 판정"],
+            // Mirrors production's mixed list: relationship_tension slots are excluded on non-relationship topics.
+            topics: ["식상 vs 관성 기질 미스매치", "10년 대운 교운기 번아웃", "사주와 점성술 교차 판정", "썸 상대에게 먼저 연락할지 기다릴지 판정", "재회 후 다시 흔들릴 때 궁합 신호"],
             targets: ["이직을 고민하는 2542 직장인"],
             situations: ["퇴사와 이직 사이에서 흔들리는 상황"],
             websiteUrl: "cosmicpath.app",

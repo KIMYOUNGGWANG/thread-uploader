@@ -90,6 +90,7 @@ export async function sendSystemAlert(alert: AlertPayload): Promise<boolean> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(5000),
     });
 
     return res.ok;

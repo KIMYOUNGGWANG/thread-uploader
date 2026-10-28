@@ -3,6 +3,7 @@ import { publishOrResumePost } from "./thread-resume-engine";
 import { prisma } from "@/lib/prisma";
 import * as threadsApi from "@/lib/threads-api";
 import * as threadSplitter from "@/lib/thread-splitter";
+import { mirrorThreadsFromPost } from "@/lib/channels/publication-mirror";
 import type { Post } from "@prisma/client";
 
 vi.mock("@/lib/prisma", () => ({
@@ -17,6 +18,10 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/threads-api", () => ({
   publishThreadChainWithCredentials: vi.fn(),
+}));
+
+vi.mock("@/lib/channels/publication-mirror", () => ({
+  mirrorThreadsFromPost: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("thread-resume-engine", () => {
@@ -120,6 +125,8 @@ describe("thread-resume-engine", () => {
     expect(result.totalParts).toBe(3);
     expect(result.partIds).toEqual(["th-root-1", "th-part-2", "th-part-3"]);
     expect(result.isResumed).toBe(false);
+    expect(mirrorThreadsFromPost).toHaveBeenCalledTimes(1);
+    expect(mirrorThreadsFromPost).toHaveBeenCalledWith("post-1");
 
     // Verify final update to PUBLISHED
     expect(prisma.post.update).toHaveBeenCalledWith(
@@ -213,6 +220,7 @@ describe("thread-resume-engine", () => {
     expect(result.partsPosted).toBe(1);
     expect(result.totalParts).toBe(2);
     expect(result.rootThreadsId).toBe("th-root-fail");
+    expect(mirrorThreadsFromPost).toHaveBeenCalledWith("post-fail");
 
     // Check DB was updated with PARTIAL_FAILED and saved root info
     expect(prisma.post.update).toHaveBeenCalledWith(
@@ -339,6 +347,29 @@ describe("thread-resume-engine", () => {
     await expect(publishOrResumePost("post-concurrent", credentials)).rejects.toThrow(
       /is already being published/
     );
+    expect(mirrorThreadsFromPost).not.toHaveBeenCalled();
+  });
+
+  it("mirrors the final state when publishing throws after the lock", async () => {
+    vi.mocked(prisma.post.findUnique).mockResolvedValue({
+      id: "post-throw",
+      status: "PENDING",
+      content: "Short post",
+      imageUrls: "[]",
+      firstComment: null,
+      threadRootId: null,
+      threadPartsPosted: 0,
+      threadTotalParts: 1,
+      threadPartIds: "[]",
+    } as unknown as Post);
+    vi.spyOn(threadSplitter, "splitContentIntoThreadParts").mockReturnValue(["Short post"]);
+    vi.mocked(prisma.post.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(threadsApi.publishThreadChainWithCredentials).mockRejectedValue(new Error("boom"));
+
+    const result = await publishOrResumePost("post-throw", credentials);
+
+    expect(result.success).toBe(false);
+    expect(mirrorThreadsFromPost).toHaveBeenCalledWith("post-throw");
   });
   it("lets FAILED and NEEDS_REVIEW posts be claimed for a manual publish", async () => {
     vi.mocked(prisma.post.findUnique).mockResolvedValue({

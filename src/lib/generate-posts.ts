@@ -47,7 +47,7 @@ import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
 import { findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
-import { resolveDynamicContext, isRelationshipTopic, planTopicQuota } from "@/lib/context-matrix-engine";
+import { resolveDynamicContext, isRelationshipTopic, planTopicQuota, alignRelationshipSlots } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
 import { findSaturatedTopics, formatSaturationReason, isSituationSaturated, SATURATION_WINDOW } from "@/lib/topic-saturation-guard";
@@ -1105,6 +1105,10 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     productName: config.productProfile?.productName,
     count,
   });
+  // Without priors the lean sprint follows its fixed allocation, whose relationship_tension slots need relationship topics.
+  const slotTopics = isLeanSprint && !config.thompsonPriors
+    ? alignRelationshipSlots(topics, (index) => selectViralIntentMode(index, { sprintType: "lean_15post" }).id === "relationship_tension")
+    : topics;
   // One high-view past post per lean run can be replayed with a new topic (isLeanSprintRun already excludes
   // English D2C). It is an optional arm: a failed lookup must not abort the whole run.
   const winnerSource = isLeanSprint && !referenceReplay
@@ -1130,7 +1134,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       const reversalCapped = !checkTemplateCap(REVERSAL_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
       // relationship_tension must open with a relationship word, so on a career/money slot it leaves the pool
       // instead of pulling a relationship topic in (that swap pushed batches from 50% to 62% dating).
-      const plannedTopic = topics[batchIndex % topics.length];
+      const plannedTopic = slotTopics[batchIndex % slotTopics.length];
       const excludedModeIds = isLeanSprint
         ? [...(choicesCapped ? ["imagination_dilemma"] : []), ...(isRelationshipTopic(plannedTopic) ? [] : ["relationship_tension"])]
         : [];

@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
         slug: brand.slug,
         success: true,
         learnedPosts: result.learnedPosts,
+        learningInputDiff: result.learningInputDiff,
         promotedFormulas: result.promotedFormulas,
         demotedFormulas: result.demotedFormulas,
         weeklyLift: result.weeklyLift,

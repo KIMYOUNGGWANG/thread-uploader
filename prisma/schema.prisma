@@ -15,6 +15,7 @@ model User {
   name      String?
   createdAt DateTime @default(now())
   brands    Brand[]
+  brandGroups BrandGroup[]
 }
 
 model Brand {
@@ -44,6 +45,13 @@ model Brand {
   instagramUsername     String?
   instagramTokenExpiry  DateTime?
   instagramConnectedAt  DateTime?
+  groupId     String?
+  group       BrandGroup? @relation(fields: [groupId], references: [id])
+  marketLabel String?
+  locale      String?
+  channelAccounts ChannelAccount[]
+
+  @@index([groupId])
 }
 
 model Post {
@@ -103,6 +111,7 @@ model Post {
   instagramPublishedAt  DateTime?
   instagramAttempts     Int       @default(0)
   instagramError        String?
+  publications Publication[]
 
   @@index([brandId, instagramStatus])
   @@index([brandId, campaignId])
@@ -291,4 +300,66 @@ model TikTokVideoMetric {
   draft            TikTokVideoDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 
   @@index([draftId, measuredAt])
+}
+
+model BrandGroup {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  markets   Brand[]
+  createdAt DateTime @default(now())
+}
+
+model ChannelAccount {
+  id             String    @id @default(cuid())
+  brandId        String
+  brand          Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  platform       String
+  mode           String
+  externalUserId String?
+  handle         String?
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiry    DateTime?
+  settings       String    @default("{}")
+  enabled        Boolean   @default(true)
+  connectedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  publications   Publication[]
+
+  @@unique([brandId, platform, externalUserId])
+  @@index([brandId, enabled])
+}
+
+model Publication {
+  id               String    @id @default(cuid())
+  postId           String
+  post             Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  channelAccountId String
+  channelAccount   ChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+  status           String    @default("QUEUED")
+  body             String?
+  mediaUrls        String    @default("[]")
+  scheduledAt      DateTime?
+  publishedAt      DateTime?
+  externalId       String?
+  externalUrl      String?
+  platformData     String    @default("{}")
+  attempts         Int       @default(0)
+  errorLog         String?
+  views            Int?
+  likes            Int?
+  replies          Int?
+  reposts          Int?
+  clicks           Int?
+  metricsAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([postId, channelAccountId])
+  @@index([postId])
+  @@index([channelAccountId, status, scheduledAt])
 }

@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { startOfPublishDay } from "@/lib/account-trust-ramp";
 import { sendSystemAlert } from "@/lib/alert-service";
+import { mirrorRecentInstagram } from "@/lib/channels/publication-mirror";
 import {
   createReelsContainer,
   getContainerStatus,
@@ -81,6 +82,7 @@ export async function runInstagramReelsTick(
   const skippedStale = await skipStaleReels(brand, now);
   const blocked = advance.published.length > 0 || advance.inProgress > 0;
   const start = blocked ? { started: null, failed: [] } : await startNextReel(brand, credentials, now);
+  await mirrorRecentInstagram(brand.id, now);
   return {
     advanced: advance.advanced,
     published: advance.published,
