@@ -347,3 +347,18 @@ export function planTopicQuota(topics: string[], count: number, share?: number, 
     return (first.shift() ?? second.shift()) as string;
   });
 }
+
+/**
+ * Swaps relationship topics onto the slots whose mode needs one. The lean allocation puts relationship_tension on
+ * odd slots while planTopicQuota starts relationship topics on even ones, so that arm was always excluded and its
+ * slots went to a random arm. Swapping within the plan keeps the relationship share planTopicQuota chose.
+ */
+export function alignRelationshipSlots(plan: string[], needsRelationship: (index: number) => boolean): string[] {
+  const aligned = [...plan];
+  for (let index = 0; index < aligned.length; index++) {
+    if (!needsRelationship(index) || isRelationshipTopic(aligned[index])) continue;
+    const donor = aligned.findIndex((topic, other) => !needsRelationship(other) && isRelationshipTopic(topic));
+    if (donor >= 0) [aligned[index], aligned[donor]] = [aligned[donor], aligned[index]];
+  }
+  return aligned;
+}
