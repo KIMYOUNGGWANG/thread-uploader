@@ -152,6 +152,24 @@ export interface StoredRawMetrics {
 // Keys that survive a re-harvest: the Claude analysis, the ref_replay cooldown stamp (src/lib/reference-replay.ts) and the first sighting time.
 const PERSISTED_RAW_KEYS = ["llmAnalyzedAt", "whyItWorks", "replayAttemptedAt", "firstSeenAt"] as const;
 
+export const RANK_HISTORY_LIMIT = 12;
+
+export type RankHistoryEntry = { at: string; rank: number; hits: number };
+
+/** Read the per-sighting TOP rank history; a broken value yields [], and only entries with a numeric rank survive. */
+export function readRankHistory(raw: Record<string, unknown>): RankHistoryEntry[] {
+  if (!Array.isArray(raw.rankHistory)) return [];
+  const entries: RankHistoryEntry[] = [];
+  for (const item of raw.rankHistory as unknown[]) {
+    if (typeof item !== "object" || item === null) continue;
+    const { at, rank, hits } = item as Record<string, unknown>;
+    const parsedRank = readNumber(rank);
+    if (parsedRank === null) continue;
+    entries.push({ at: typeof at === "string" ? at : "", rank: parsedRank, hits: readNumber(hits) ?? 1 });
+  }
+  return entries;
+}
+
 /** Merge a re-harvested post's raw metrics with what is stored: bump timesSeen, keep the persisted keys. */
 export function mergeStoredRawMetrics(previousRaw: string | null, next: Record<string, unknown>, now: Date = new Date()): StoredRawMetrics {
   const previous = parseRecord(previousRaw);
@@ -162,6 +180,11 @@ export function mergeStoredRawMetrics(previousRaw: string | null, next: Record<s
   }
   // A legacy row without the stamp starts its clock now, which only delays eligibility.
   if (typeof merged.firstSeenAt !== "string") merged.firstSeenAt = now.toISOString();
+  // 48h = 4h 주기 × 12건. 순위 상승(rankGain)은 선택 시점에 sourceKey 그룹으로 합쳐 계산한다(src/lib/reference-replay.ts).
+  const history = readRankHistory(previous);
+  const rank = readNumber(next.searchRank);
+  if (rank !== null) history.push({ at: now.toISOString(), rank, hits: readNumber(next.keywordHits) ?? 1 });
+  if (history.length > 0) merged.rankHistory = history.slice(-RANK_HISTORY_LIMIT);
   return {
     merged,
     signal: { searchRank: readNumber(merged.searchRank), keywordHits: readNumber(merged.keywordHits), timesSeen },

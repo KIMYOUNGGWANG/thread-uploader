@@ -6,6 +6,7 @@ import {
   keepFeedbackFields,
   calculateSearchSignalScore,
   mergeStoredRawMetrics,
+  readRankHistory,
 } from "@/lib/viral-analysis";
 
 describe("analyzeViralText", () => {
@@ -126,5 +127,32 @@ describe("mergeStoredRawMetrics", () => {
 
   it("treats a legacy row without timesSeen as one prior sighting", () => {
     expect(mergeStoredRawMetrics("{}", {}).signal.timesSeen).toBe(2);
+  });
+
+  it("appends one rankHistory entry per sighting, newest last", () => {
+    const first = mergeStoredRawMetrics(null, { searchRank: 5, keywordHits: 1 }, new Date("2026-10-28T00:00:00.000Z"));
+    const second = mergeStoredRawMetrics(JSON.stringify(first.merged), { searchRank: 2, keywordHits: 2 }, new Date("2026-10-28T04:00:00.000Z"));
+    expect(second.merged.rankHistory).toEqual([
+      { at: "2026-10-28T00:00:00.000Z", rank: 5, hits: 1 },
+      { at: "2026-10-28T04:00:00.000Z", rank: 2, hits: 2 },
+    ]);
+  });
+
+  it("keeps only the last 12 rankHistory entries", () => {
+    let raw: string | null = null;
+    for (let i = 0; i < 14; i++) raw = JSON.stringify(mergeStoredRawMetrics(raw, { searchRank: i + 1, keywordHits: 1 }, new Date(Date.UTC(2026, 9, 28, i))).merged);
+    const history = readRankHistory(JSON.parse(raw ?? "{}"));
+    expect(history).toHaveLength(12);
+    expect(history[0].rank).toBe(3);
+    expect(history[11].rank).toBe(14);
+  });
+
+  it("starts a fresh rankHistory when the stored one is invalid and skips sightings without a rank", () => {
+    const broken = JSON.stringify({ timesSeen: 1, rankHistory: "nope" });
+    const stored = mergeStoredRawMetrics(broken, { searchRank: 4, keywordHits: 1 }, new Date("2026-10-28T00:00:00.000Z"));
+    expect(stored.merged.rankHistory).toEqual([{ at: "2026-10-28T00:00:00.000Z", rank: 4, hits: 1 }]);
+    const noRank = mergeStoredRawMetrics(JSON.stringify(stored.merged), { keywordHits: 1 }, new Date("2026-10-28T04:00:00.000Z"));
+    expect(noRank.merged.rankHistory).toEqual(stored.merged.rankHistory);
+    expect(readRankHistory({ rankHistory: [{ at: "x", rank: "1", hits: 1 }, { at: "y", rank: 2, hits: 1 }] })).toEqual([{ at: "y", rank: 2, hits: 1 }]);
   });
 });
