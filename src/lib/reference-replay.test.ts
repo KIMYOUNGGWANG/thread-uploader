@@ -94,6 +94,15 @@ describe("pickReferenceReplaySource", () => {
     // x group: max ref 55 + gain 8 x 3 = 79 > y 70
     expect(pickReferenceReplaySource([withHistory, noHistory, flat], [], now)?.id).toBe("x2");
   });
+
+  it("collapses per-keyword rows from the same harvest run so the other row's rank never masks the gain", () => {
+    const ms = (hoursAgo: number, offsetMs: number) => new Date(now.getTime() - hoursAgo * 60 * 60 * 1000 + offsetMs).toISOString();
+    const row1 = exWithHistory("k1", 50, "post-k", [{ at: ms(8, 0), rank: 8, hits: 1 }, { at: ms(0, 0), rank: 2, hits: 1 }]);
+    const row2 = exWithHistory("k2", 50, "post-k", [{ at: ms(8, 5), rank: 8, hits: 1 }, { at: ms(0, 5), rank: 5, hits: 1 }]);
+    // bucketed: [8, 2] -> gain 6 x 3 = 18 -> 68 beats the flat 60
+    const flat = exWithHistory("f", 60, "post-f", [{ at: ms(8, 0), rank: 3, hits: 1 }, { at: ms(0, 0), rank: 3, hits: 1 }]);
+    expect(pickReferenceReplaySource([row2, row1, flat], [], now)?.sourceKey).toBe("post-k");
+  });
 });
 
 describe("loadReferenceReplaySource", () => {

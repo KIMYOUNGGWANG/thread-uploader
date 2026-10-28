@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { parseReasons } from "@/lib/winner-replay";
 import { MIN_TIMES_SEEN, calculateRisingScore } from "@/lib/reference-radar";
-import { readRankHistory } from "@/lib/viral-analysis";
+import { readRankHistory, type RankHistoryEntry } from "@/lib/viral-analysis";
 import { REFERENCE_REPLAY_MODE } from "@/lib/viral-intent-modes";
 import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 
@@ -12,6 +12,7 @@ export const ATTEMPT_COOLDOWN_DAYS = 7;
 const SOURCE_WINDOW_DAYS = 7;
 const USED_TAG_WINDOW_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 
 export interface ReferenceCandidate {
   id: string;
@@ -60,11 +61,16 @@ export function pickReferenceReplaySource(
     const maxTimesSeen = Math.max(0, ...rows.map((row) => (typeof row.metrics.timesSeen === "number" ? row.metrics.timesSeen : 0)));
     if (!rows.some((row) => row.metrics.eligibleSource === true) || maxTimesSeen < MIN_TIMES_SEEN || scoredRows.length === 0) return [];
     const best = scoredRows.reduce((top, row) => (row.score > top.score ? row : top));
-    // Entries with an invalid `at` are dropped so a blank one can never sort into the "latest" slot that calculateRisingScore reads as the current rank.
-    const rankHistory = rows
-      .flatMap((row) => readRankHistory(row.metrics))
-      .filter((entry) => !Number.isNaN(Date.parse(entry.at)))
-      .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    // Per-keyword rows of one harvest run stamp separate ms timestamps, so collapse them into 1-hour buckets (runs are 4h apart) keeping the best rank, or another row's rank would mask the gain.
+    const buckets = new Map<number, RankHistoryEntry>();
+    for (const entry of rows.flatMap((row) => readRankHistory(row.metrics))) {
+      const time = Date.parse(entry.at);
+      if (Number.isNaN(time)) continue; // invalid `at` must never land in the "latest" slot that calculateRisingScore reads as the current rank
+      const key = Math.floor(time / HOUR_MS);
+      const kept = buckets.get(key);
+      if (!kept || entry.rank < kept.rank) buckets.set(key, entry);
+    }
+    const rankHistory = [...buckets.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
     const publishedAt = rows.reduce<Date | null>((latest, row) => {
       const at = row.candidate.publishedAt;
       return at && (!latest || at > latest) ? at : latest;
