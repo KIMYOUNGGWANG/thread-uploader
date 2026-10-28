@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Video, LayoutList, Newspaper, MessageSquare, FlaskConical } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Video, LayoutList, Newspaper, MessageSquare, FlaskConical, Send } from "lucide-react";
 import { FormulaConversionTable } from "@/components/FormulaConversionTable";
 import { WeeklyScorecardPanel } from "@/components/WeeklyScorecardPanel";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { FileDropzone } from "@/components/FileDropzone";
 import { PostCard } from "@/components/PostCard";
 import { parseMarkdownFile, ParsedPost, validatePost } from "@/lib/parser";
 import { generatePostsInChunks } from "@/lib/generate-client";
+import { approveCommandPlan, requestCommandPlan, type CommandPlanPreview } from "@/lib/command-client";
 import { Toaster, toast } from "sonner";
 import Link from "next/link";
 import { NewsTrendingTab } from "@/components/NewsTrendingTab";
@@ -365,6 +367,11 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const [isSavingManualReference, setIsSavingManualReference] = useState(false);
   const [activeTab, setActiveTab] = useState<"feed" | "news" | "interactions">("feed");
   const [showLegacyLabs, setShowLegacyLabs] = useState(false);
+  const [commandText, setCommandText] = useState("");
+  const [commandPlan, setCommandPlan] = useState<CommandPlanPreview | null>(null);
+  const [commandError, setCommandError] = useState<string | null>(null);
+  const [isPlanningCommand, setIsPlanningCommand] = useState(false);
+  const [isApprovingCommand, setIsApprovingCommand] = useState(false);
   const fetchPosts = useCallback(async () => {
     setIsFetching(true);
     setFetchError(null);
@@ -487,6 +494,39 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
       setIsGenerating(false);
     }
   }, [brandId, generateCount, insertAtFront, fetchPosts, loadAccountIntelligence, loadCampaignSummary, showAccountIntelligence, showCampaign]);
+
+  const handlePlanCommand = useCallback(async () => {
+    const text = commandText.trim();
+    if (!text) return;
+    setIsPlanningCommand(true);
+    setCommandError(null);
+    setCommandPlan(null);
+    try {
+      setCommandPlan(await requestCommandPlan(text));
+    } catch (error) {
+      setCommandError(error instanceof Error ? error.message : "계획 세우기 실패");
+    } finally {
+      setIsPlanningCommand(false);
+    }
+  }, [commandText]);
+
+  const handleApproveCommand = useCallback(async () => {
+    if (!commandPlan) return;
+    setIsApprovingCommand(true);
+    setCommandError(null);
+    try {
+      const result = await approveCommandPlan(commandPlan.plan);
+      const { passed, needsReview } = result.auditSummary;
+      toast.success(`${result.count}개 초안 생성 완료 · 통과 ${passed} · 검토 필요 ${needsReview}`);
+      setCommandPlan(null);
+      setCommandText("");
+      await fetchPosts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "초안 생성 실패");
+    } finally {
+      setIsApprovingCommand(false);
+    }
+  }, [commandPlan, fetchPosts]);
 
   const handleCreatePost = useCallback(async (initialContent = "") => {
     try {
@@ -1288,6 +1328,59 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         </div>
       </div>
     )}
+        {/* Command line: one sentence → plan → approve */}
+        <form
+          onSubmit={(e) => { e.preventDefault(); void handlePlanCommand(); }}
+          className="mb-6 flex flex-col gap-4 p-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm"
+        >
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Send className="w-4 h-4 text-violet-500 shrink-0" />
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">명령 한 줄</h2>
+            <span className="basis-full sm:basis-auto text-xs text-slate-400 dark:text-slate-500">계획만 먼저 보여드려요. 승인 전에는 아무것도 바뀌지 않아요.</span>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              value={commandText}
+              onChange={(e) => setCommandText(e.target.value)}
+              placeholder={`예: ${brandSlug} 출시 소식으로 3개 만들어줘`}
+              disabled={isPlanningCommand || isApprovingCommand}
+              aria-label="명령 입력"
+            />
+            <Button type="submit" disabled={isPlanningCommand || isApprovingCommand || !commandText.trim()} className="bg-violet-600 hover:bg-violet-700 text-white sm:w-auto">
+              {isPlanningCommand ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
+              {isPlanningCommand ? "계획 세우는 중..." : "계획 보기"}
+            </Button>
+          </div>
+          {commandError && (
+            <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-600 dark:text-red-400">{commandError}</p>
+            </div>
+          )}
+          {commandPlan && (
+            <div className="flex flex-col gap-3 p-4 bg-violet-50 dark:bg-violet-950/20 rounded-lg border border-violet-200 dark:border-violet-800">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                <dt className="text-slate-500 dark:text-slate-400">브랜드</dt>
+                <dd className="font-medium text-slate-800 dark:text-slate-100">{commandPlan.brandSlug ?? commandPlan.plan.brandId}</dd>
+                <dt className="text-slate-500 dark:text-slate-400">초안 수</dt>
+                <dd className="font-medium text-slate-800 dark:text-slate-100">{commandPlan.plan.count}개</dd>
+                <dt className="text-slate-500 dark:text-slate-400">가설</dt>
+                <dd className="text-slate-800 dark:text-slate-100 break-words">{commandPlan.plan.hypothesis || <span className="text-slate-400">현재 실험 가설 유지</span>}</dd>
+              </dl>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+                <p className="text-xs text-slate-500 dark:text-slate-400">승인하면 가설이 저장되고 초안이 검토 대기열에 쌓여요.</p>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCommandPlan(null)} disabled={isApprovingCommand}>취소</Button>
+                  <Button type="button" size="sm" onClick={handleApproveCommand} disabled={isApprovingCommand} className="bg-violet-600 hover:bg-violet-700 text-white">
+                    {isApprovingCommand ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1.5" />}
+                    {isApprovingCommand ? "초안 만드는 중..." : "승인"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </form>
+
         {isFetching && posts.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <RefreshCw className="w-8 h-8 animate-spin text-violet-500" />
