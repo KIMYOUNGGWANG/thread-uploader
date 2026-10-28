@@ -109,7 +109,7 @@ describe("viral-service reference score and eligibility", () => {
     });
   }
 
-  type UpsertArg = { create: { authorUsername: string | null; rawMetrics: string } };
+  type UpsertArg = { create: { authorUsername: string | null; rawMetrics: string; viralScore: number } };
   function upsertCalls(): UpsertArg[] {
     return vi.mocked(prisma.viralExample.upsert).mock.calls.map(([arg]) => arg as unknown as UpsertArg);
   }
@@ -140,6 +140,18 @@ describe("viral-service reference score and eligibility", () => {
     expect(saved).toHaveLength(2);
     expect(saved.find((item) => item.author === "cosmicpath")?.metrics.eligibleSource).toBe(false);
     expect(saved.every((item) => typeof item.metrics.referenceScore === "number")).toBe(true);
+  });
+
+  it("saves an integer viralScore on a repeat sighting (viralScore is an Int column)", async () => {
+    mockHarvest(harvested("the.saju", "p1", new Date(Date.now() - 3 * DAY_MS)));
+    vi.mocked(prisma.viralExample.findUnique).mockResolvedValue({ rawMetrics: JSON.stringify({ timesSeen: 1 }) } as never);
+
+    await discoverViralExamples("b1");
+
+    const saved = upsertCalls();
+    expect(saved).toHaveLength(1);
+    expect(JSON.parse(saved[0].create.rawMetrics).timesSeen).toBe(2);
+    expect(Number.isInteger(saved[0].create.viralScore)).toBe(true);
   });
 
   it("a post seen in two runs 12 hours apart becomes eligible, but two runs minutes apart do not", async () => {
