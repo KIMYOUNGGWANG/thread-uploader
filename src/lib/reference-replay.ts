@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { parseReasons } from "@/lib/winner-replay";
-import { MIN_TIMES_SEEN } from "@/lib/reference-radar";
+import { MIN_TIMES_SEEN, calculateRisingScore } from "@/lib/reference-radar";
+import { readRankHistory } from "@/lib/viral-analysis";
 import { REFERENCE_REPLAY_MODE } from "@/lib/viral-intent-modes";
 import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 
@@ -32,9 +33,9 @@ function parseMetrics(raw: string): Record<string, unknown> {
 }
 
 /**
- * Highest referenceScore among eligible posts; used tags and sources attempted within the cooldown are skipped. Ties go to the newer post.
+ * Highest risingScore (referenceScore + rank gain + freshness) among eligible posts; used tags and sources attempted within the cooldown are skipped. Ties go to the newer post.
  * Rows sharing a sourceKey are one post: a used or attempted row blocks all of them, and they are judged together
- * (max timesSeen, max referenceScore - not a sum). extraUsedSourceKeys covers used rows that fell out of the candidate window.
+ * (max timesSeen, max referenceScore, merged rankHistory - not a sum). extraUsedSourceKeys covers used rows that fell out of the candidate window.
  */
 export function pickReferenceReplaySource(
   candidates: ReferenceCandidate[],
@@ -59,7 +60,17 @@ export function pickReferenceReplaySource(
     const maxTimesSeen = Math.max(0, ...rows.map((row) => (typeof row.metrics.timesSeen === "number" ? row.metrics.timesSeen : 0)));
     if (!rows.some((row) => row.metrics.eligibleSource === true) || maxTimesSeen < MIN_TIMES_SEEN || scoredRows.length === 0) return [];
     const best = scoredRows.reduce((top, row) => (row.score > top.score ? row : top));
-    return [{ candidate: best.candidate, score: best.score }];
+    // Entries with an invalid `at` are dropped so a blank one can never sort into the "latest" slot that calculateRisingScore reads as the current rank.
+    const rankHistory = rows
+      .flatMap((row) => readRankHistory(row.metrics))
+      .filter((entry) => !Number.isNaN(Date.parse(entry.at)))
+      .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    const publishedAt = rows.reduce<Date | null>((latest, row) => {
+      const at = row.candidate.publishedAt;
+      return at && (!latest || at > latest) ? at : latest;
+    }, null);
+    const score = calculateRisingScore({ referenceScore: best.score, rankHistory, publishedAt, now });
+    return [{ candidate: best.candidate, score }];
   });
   scored.sort((a, b) => b.score - a.score || (b.candidate.publishedAt?.getTime() ?? 0) - (a.candidate.publishedAt?.getTime() ?? 0));
   return scored[0]?.candidate ?? null;
