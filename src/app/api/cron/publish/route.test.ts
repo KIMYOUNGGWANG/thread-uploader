@@ -203,6 +203,47 @@ describe("GET /api/cron/publish", () => {
     }
   });
 
+  it("caps the day at the active campaign's dailyPostTarget when it is below the tier quota", async () => {
+    // Established tier allows 5/day, but the campaign asks for 3: the 4th post must wait for tomorrow.
+    mocks.findBrands.mockResolvedValue([
+      {
+        id: "brand_campaign_cap",
+        name: "CampaignCapBrand",
+        brandConfig: JSON.stringify({ accountTrustTier: "established", campaigns: [{ id: "camp_3", dailyPostTarget: 3 }] }),
+      },
+    ]);
+    mocks.findPost.mockImplementation(async ({ where }) => {
+      if (where?.status === "PARTIAL_FAILED" || where?.status === "PUBLISHED") return null;
+      return {
+        id: "post_campaign_cap",
+        brandId: "brand_campaign_cap",
+        status: "PENDING",
+        qualityPass: true,
+        content: "이직할지 버틸지 고민될 때 3가지 기준부터 나눠봐.",
+        firstComment: null,
+        imageUrls: "[]",
+      };
+    });
+    const { prisma } = await import("@/lib/prisma");
+    vi.mocked(prisma.post.count).mockResolvedValue(3);
+    mocks.updatePost.mockClear();
+    mocks.publishPostWithCredentials.mockClear();
+
+    try {
+      const { GET } = await import("@/app/api/cron/publish/route");
+      const response = await GET({
+        headers: new Headers(),
+        nextUrl: new URL("http://localhost/api/cron/publish"),
+      } as never);
+      const body = await response.json();
+
+      expect(body.skipped).toEqual([{ brandId: "brand_campaign_cap", brandName: "CampaignCapBrand", reason: "daily_quota_reached" }]);
+      expect(mocks.publishPostWithCredentials).not.toHaveBeenCalled();
+    } finally {
+      vi.mocked(prisma.post.count).mockResolvedValue(0);
+    }
+  });
+
   describe("empty publish queue", () => {
     const runWithQueue = async (counts: { needsReview?: number; scheduledLater?: number }) => {
       mocks.findBrands.mockResolvedValue([{ id: "brand_global", name: "CosmicPath Global" }]);

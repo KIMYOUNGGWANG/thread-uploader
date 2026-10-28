@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { discoverViralExamples, learnViralPatterns } from "@/lib/viral-service";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { analyzeTopViralExamples } from "@/lib/viral-llm-analysis";
+import { sendSystemAlert } from "@/lib/alert-service";
+import { parseBrandConfig } from "@/types/brand";
 
 export const maxDuration = 300; // discovery + Claude analysis per brand
 
@@ -11,11 +13,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const brands = await prisma.brand.findMany({ select: { id: true, slug: true } });
+  const brands = await prisma.brand.findMany({ select: { id: true, slug: true, name: true, brandConfig: true } });
   const results = [];
   const externalSourcesFailed: string[] = [];
 
   for (const brand of brands) {
+    // No keywords = nothing to search; skip so brands without a radar setup don't burn quota or raise false alarms.
+    if (parseBrandConfig(brand.brandConfig).viralDiscovery.keywords.length === 0) {
+      results.push({ slug: brand.slug, skipped: "no_keywords" });
+      continue;
+    }
     try {
       const discovery = await discoverViralExamples(brand.id, { includeOwnPosts: true, limit: 10 });
       // Claude analysis is an enrichment: a failure must not block pattern learning.
@@ -24,7 +31,15 @@ export async function GET(request: NextRequest) {
         error: error instanceof Error ? error.message : "Claude analysis failed",
       }));
       const learning = await learnViralPatterns(brand.id);
-      if (discovery.externalAllFailed) externalSourcesFailed.push(brand.slug);
+      if (discovery.externalAllFailed) {
+        externalSourcesFailed.push(brand.slug);
+        await sendSystemAlert({
+          level: "error",
+          title: "Viral discovery failed",
+          message: discovery.errors.map((error) => error.message).join(", "),
+          brandName: brand.name,
+        });
+      }
       results.push({
         slug: brand.slug,
         success: true,
@@ -34,11 +49,11 @@ export async function GET(request: NextRequest) {
         errors: discovery.errors,
       });
     } catch (error) {
-      results.push({
-        slug: brand.slug,
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+      const message = error instanceof Error ? error.message : "Unknown error";
+      // A throw collects nothing either, so it alerts and turns the run red like an all-sources failure.
+      externalSourcesFailed.push(brand.slug);
+      await sendSystemAlert({ level: "error", title: "Viral discovery failed", message, brandName: brand.name });
+      results.push({ slug: brand.slug, success: false, error: message });
     }
   }
 

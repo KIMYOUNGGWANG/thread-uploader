@@ -947,6 +947,44 @@ export async function fetchPublicProfilePosts(
     return fetchThreadsList(`/profile_posts?${params}`);
 }
 
+export interface ThreadsPublicProfileStats {
+    username: string;
+    followerCount: number;
+    views7d: number;
+    likes7d: number;
+    reposts7d: number;
+}
+
+// Meta docs: https://developers.facebook.com/documentation/threads/threads-profiles
+// (Retrieve a Threads User's Public Profile Information). Metric fields cover the last 7 days.
+export async function fetchPublicProfileStats(
+    accessToken: string,
+    username: string
+): Promise<ThreadsPublicProfileStats> {
+    const normalizedUsername = username.replace(/^@/, "").trim();
+    const params = new URLSearchParams({
+        username: normalizedUsername,
+        fields: "username,follower_count,views_count,likes_count,reposts_count",
+        access_token: accessToken,
+    });
+
+    const response = await fetch(`${THREADS_DISCOVERY_API_BASE}/profile_lookup?${params}`, { method: "GET" });
+    const data = await response.json() as Record<string, unknown> & Partial<ThreadsError>;
+
+    if (!response.ok) {
+        throw new Error(`Threads profile lookup failed: ${data.error?.message || "Unknown error"}`);
+    }
+
+    const num = (value: unknown) => (typeof value === "number" ? value : 0);
+    return {
+        username: typeof data.username === "string" ? data.username : normalizedUsername,
+        followerCount: num(data.follower_count),
+        views7d: num(data.views_count),
+        likes7d: num(data.likes_count),
+        reposts7d: num(data.reposts_count),
+    };
+}
+
 async function fetchThreadsList(path: string): Promise<ThreadsPublicPost[]> {
     const response = await fetch(`${THREADS_DISCOVERY_API_BASE}${path}`, { method: "GET" });
     const data = await response.json() as ThreadsListResponse<ThreadsPublicPost> | ThreadsError;

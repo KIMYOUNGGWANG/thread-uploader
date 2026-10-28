@@ -1,4 +1,5 @@
 import type { ViralAdapterId } from "@/types/viral";
+import { normalizeHandle } from "@/lib/reference-radar";
 import type { CircuitBreakerState } from "@/lib/threads-publisher";
 import {
   ADVANCED_CREATOR_CTA_TYPES,
@@ -71,6 +72,9 @@ export interface ViralDiscoveryConfig {
   keywords: string[];
   competitorHandles: string[];
   excludedTerms: string[];
+  excludedHandles: string[];
+  /** Our own Threads username; its posts never qualify as a reference source. */
+  ownHandle?: string;
   maxExamplesPerRun: number;
   minViralScore: number;
   adapters: Array<{
@@ -214,6 +218,8 @@ export const DEFAULT_BRAND_CONFIG: BrandConfig = {
     keywords: [],
     competitorHandles: [],
     excludedTerms: [],
+    excludedHandles: [],
+    ownHandle: undefined,
     maxExamplesPerRun: 15,
     minViralScore: 0,
     adapters: [
@@ -388,6 +394,8 @@ function normalizeViralDiscovery(input: unknown): ViralDiscoveryConfig {
     keywords: normalizeStringList(raw.keywords),
     competitorHandles: normalizeStringList(raw.competitorHandles).map((handle) => handle.replace(/^@/, "")),
     excludedTerms: normalizeStringList(raw.excludedTerms),
+    excludedHandles: normalizeStringList(raw.excludedHandles).map(normalizeHandle),
+    ownHandle: typeof raw.ownHandle === "string" ? normalizeHandle(raw.ownHandle) || undefined : undefined,
     maxExamplesPerRun: normalizeBoundedNumber(raw.maxExamplesPerRun, 1, 50, defaults.maxExamplesPerRun),
     minViralScore: normalizeBoundedNumber(raw.minViralScore, 0, 1000000, defaults.minViralScore),
     adapters: defaults.adapters.map((adapter) => {

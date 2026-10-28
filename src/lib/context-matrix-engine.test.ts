@@ -101,8 +101,8 @@ describe("context-matrix-engine", () => {
   });
 
   it("exploits high-performing personas when contextWeights are provided", () => {
-    const promotedPersona = "3년차 UI/UX 디자이너";
-    const promotedFriction = "성과 가로채기와 사내 정치 싸움에 휘말린 상태";
+    const promotedPersona = "점집에서 10만원 내고 나온 20대";
+    const promotedFriction = "복채는 냈는데 '좋은 흐름 온다'는 말밖에 못 들은 상황";
 
     const personaWeights = {
       [promotedPersona]: 10,
@@ -151,10 +151,10 @@ describe("paired persona and friction", () => {
     const ctx = resolveDynamicContext({
       domainId: "saju_relationship",
       index: 2,
-      contextWeights: { personaWeights: { "친한 친구에게 동업을 제안받은 직장인": 100 }, epsilon: 0.01 },
+      contextWeights: { personaWeights: { "헤어지고도 그 사람 소식을 계속 찾아보는 사람": 100 }, epsilon: 0.01 },
     });
-    expect(ctx.persona).toBe("친한 친구에게 동업을 제안받은 직장인");
-    expect(ctx.friction).toBe("친한 사이라 거절하기 어려운 동업 제안");
+    expect(ctx.persona).toBe("헤어지고도 그 사람 소식을 계속 찾아보는 사람");
+    expect(ctx.friction).toBe("차단은 못 하고 프로필만 매일 확인하는 습관");
   });
 
   it("ignores frictionWeights on a paired matrix", () => {
@@ -162,12 +162,12 @@ describe("paired persona and friction", () => {
       domainId: "saju_relationship",
       index: 2,
       contextWeights: {
-        personaWeights: { "친한 친구에게 동업을 제안받은 직장인": 100 },
-        frictionWeights: { "읽씹과 칼답이 번갈아 오는 연락 패턴": 1000 },
+        personaWeights: { "헤어지고도 그 사람 소식을 계속 찾아보는 사람": 100 },
+        frictionWeights: { "'언젠가'라는 답을 1년째 듣고 있는 상황": 1000 },
         epsilon: 0.01,
       },
     });
-    expect(ctx.friction).toBe("친한 사이라 거절하기 어려운 동업 제안");
+    expect(ctx.friction).toBe("차단은 못 하고 프로필만 매일 확인하는 습관");
   });
 
   it.each(["saju_viral", "saju_relationship"])("has at most one jargon term per seed line in %s", (domainId) => {
@@ -181,12 +181,25 @@ describe("paired persona and friction", () => {
 });
 
 describe("topic quota", () => {
-  const relationship = ["썸 상대에게 지금 고백할지 기다릴지 판정", "재회 후 다시 흔들릴 때 밀어붙일지 접을지 기준", "동업 제안을 받았을 때 둘의 기질 궁합 체크"];
+  const relationship = ["썸 상대에게 지금 고백할지 기다릴지 판정", "재회 후 다시 흔들릴 때 밀어붙일지 접을지 기준", "좋은 사람인데 나랑은 안 맞는 사람의 궁합 신호"];
   const career = ["이직/퇴사 타이밍 (지금 존버할 때 vs 판 엎을 때)", "재물/돈 창고와 새는 구멍", "현실 진로/재능 판정 (공부 머리 vs 일 머리)"];
 
   it("classifies relationship topics by axis keywords", () => {
     expect(relationship.every(isRelationshipTopic)).toBe(true);
     expect(career.some(isRelationshipTopic)).toBe(false);
+  });
+
+  // Regression: 2026-10-28 "동업 제안 기질 체크" ran through the couple matrix as "연애 4년차 커플의 결혼 얘기".
+  it("keeps business-partner and generic counterpart topics off the relationship axis", () => {
+    expect(isRelationshipTopic("동업 제안을 받았을 때 둘의 기질 체크")).toBe(false);
+    expect(isRelationshipTopic("상대 팀장과 기질이 안 맞을 때")).toBe(false);
+  });
+
+  // Regression: 2026-10-28 a fixed 50% share made a 13-post batch 62% dating with 6 of 16 relationship topics.
+  it("defaults the relationship share to the topic list's own ratio", () => {
+    const plan = planTopicQuota([relationship[0], ...career], 8, undefined, () => 0.5);
+    expect(plan.filter(isRelationshipTopic)).toHaveLength(2);
+    expect(plan.map(isRelationshipTopic)).toEqual([true, false, true, false, false, false, false, false]);
   });
 
   // Regression: 2026-10 every cosmicpath topic was a relationship one, so 26 of 30 posts shared two scenarios.

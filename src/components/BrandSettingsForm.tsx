@@ -134,6 +134,8 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
               keywords: viralKeywords,
               competitorHandles,
               excludedTerms,
+              excludedHandles: initialData.config.viralDiscovery.excludedHandles,
+              ownHandle: initialData.config.viralDiscovery.ownHandle,
               maxExamplesPerRun,
               minViralScore,
               adapters: viralAdapters,
@@ -155,7 +157,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
     } finally {
       setIsSaving(false);
     }
-  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, optimizationGoal, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, youtubeKeywords, youtubeChannelHandles, initialData.config.viralDiscovery.youtube, initialData.config.instagram, instagramCaptionSuffix, router]);
+  }, [brandId, name, accessToken, threadsUserId, tokenExpiry, systemPrompt, websiteUrl, productProfile, activeExperiment, topics, targets, situations, hookTypes, ctaTypes, formulas, campaigns, activeCampaignId, qualityProfile, optimizationGoal, trendingTopics, viralKeywords, competitorHandles, excludedTerms, maxExamplesPerRun, minViralScore, viralAdapters, youtubeKeywords, youtubeChannelHandles, initialData.config.viralDiscovery.youtube, initialData.config.viralDiscovery.excludedHandles, initialData.config.viralDiscovery.ownHandle, initialData.config.instagram, instagramCaptionSuffix, router]);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "basic", label: "기본 정보", icon: <Key className="w-4 h-4" /> },

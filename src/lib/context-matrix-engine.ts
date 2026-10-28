@@ -37,62 +37,68 @@ export interface ResolveDynamicContextOptions {
 }
 
 export const DOMAIN_MATRICES: Record<string, MatrixDimensionSet> = {
+  // 2026-10-26 cosmicpath: 역대 상위 글(42k·9k·5k)은 "태어난 시간을 잘못 안다", "점집 복채 10만원", "돈 그릇"처럼
+  // 누구나 겪는 소재였고, 하위 글은 전부 테크 직장인 페르소나였다(학습 약점 신호 3개 모두 "시니어 아키텍트/SaaS 빌더 관점").
+  // 그래서 직군 대신 사주를 보게 되는 보편 상황으로 바꿨다. 글감(topic)은 brandConfig.topics가 따로 준다.
   saju_viral: {
     personas: [
-      "3년차 UI/UX 디자이너",
-      "7년차 백엔드/풀스택 개발자",
-      "초기 스타트업 PO/프로덕트 기획자",
-      "인하우스 퍼포먼스 마케터",
-      "IT 솔루션 B2B 영업대표",
-      "광고 에이전시 AE/콘텐츠 기획자",
-      "1인 창업가/인디메이커",
-      "대기업 5년차 과장/중간관리자",
+      "점집에서 10만원 내고 나온 20대",
+      "태어난 시간을 부모님께 물어봐도 애매한 사람",
+      "올해 대운이 바뀐다는 말을 들은 30대",
+      "월급이 들어오면 바로 사라지는 사람",
+      "'올해는 이동수 없다'는 말에 3년째 같은 자리인 사람",
+      "운세 앱 알림만 열어보고 아무것도 안 바꾸는 사람",
+      "연말마다 신년운세 보러 가는 직장인",
+      "사주를 한 번도 안 봤는데 친구가 계속 권하는 사람",
     ],
     // frictions[i]는 personas[i]의 상황 (pairedFrictions)
     frictions: [
-      "성과 가로채기와 사내 정치 싸움에 휘말린 상태",
-      "연봉 1,500 인상 이직 오퍼 뒤에 숨겨진 업무 폭탄 함정",
-      "대기업 네임밸류 vs 스타트업 성장 정체 사이의 갈림길",
-      "3년차 번아웃과 포괄임금제 야근의 늪",
-      "홧김에 사표 던지기 직전 카드값과 통장 잔고 딜레마",
-      "실무 역량 전무한 낙하산 팀장의 훈수와 마이크로매니징",
-      "창업 런웨이 3개월 남은 외통수와 번아웃",
-      "보고서 결재만 5단계인 보수적인 위계 조직",
+      "복채는 냈는데 '좋은 흐름 온다'는 말밖에 못 들은 상황",
+      "시간 한 칸 틀리면 사주 전체가 바뀐다는 걸 알게 된 순간",
+      "뭐가 어떻게 바뀌는지는 아무도 안 알려주는 상황",
+      "버는 건 늘었는데 통장에는 쌓이지 않는 1년",
+      "'때가 아니다'를 믿고 기회를 세 번 넘긴 상황",
+      "'이번 주 조심' 알림은 쌓이는데 결정은 그대로인 상태",
+      "작년 신년운세가 하나도 안 맞았던 기억",
+      "친구는 사주 보고 결정했다는데 나는 감으로만 정하는 차이",
     ],
     tensions: [
-      "하고 싶은 게 많은 기질인데 조직은 위계만 따르라는 충돌",
+      "지금 움직여야 한다는 조급함과 때를 기다리라는 흐름의 엇갈림",
       "생각만 많고 손이 안 움직이는 시기",
       "환경이 한꺼번에 바뀌어 아무것도 하기 싫은 무기력",
-      "자존심 세고 독립적인 성격과 시키는 대로 해야 하는 조직의 한계",
+      "남 말은 안 듣는 성격인데 사주 말은 따르고 싶은 모순",
       "돈 안 되는 완벽주의와 돈이 기준인 현실의 압박",
       "사주만 믿다가 다른 점괘와 엇갈려 어느 쪽도 못 믿겠는 혼란",
-      "지친 한가운데에서 충동적으로 이직에 베팅하는 리스크",
+      "지친 한가운데에서 충동적으로 큰 결정에 베팅하는 리스크",
       "손실 회피 심리와 과거 실패 경험에 대한 자책감",
     ],
     pairedFrictions: true,
   },
   // 둘의 관계 축: 지금 밀어붙일지 / 기다릴지. 궁합(/match/new) 유입용이라 혼자 보는 사주 소재는 넣지 않는다.
+  // 2026-10-28: "썸 3주차·장거리 1년차·상견례·동업" 같은 좁은 시나리오가 2주에 같은 글을 여섯 번 만들었고 조회수 40대였다.
+  // 연애 글 중 유일하게 터진 건 "답장 빠르면 호감이고 느리면 식은 거라고?"(490)처럼 누구나 믿는 통념을 뒤집은 글이라,
+  // 시나리오 대신 "연애할 때마다 겪는 보편 상황 + 흔한 통념"으로 바꿨다.
   saju_relationship: {
     personas: [
-      "썸 3주차인데 답장 속도가 들쭉날쭉한 사람",
-      "이별 2주 뒤 먼저 연락할지 고민하는 사람",
-      "연애 4년차인데 결혼 얘기가 막힌 커플의 한쪽",
-      "고백 타이밍을 재고 있는 짝사랑 중인 사람",
-      "친한 친구에게 동업을 제안받은 직장인",
-      "상견례를 앞둔 예비 부부의 한쪽",
-      "장거리 연애 1년차",
-      "재회 후 다시 흔들리는 커플의 한쪽",
+      "연애할 때마다 같은 이유로 끝나는 사람",
+      "좋아하는데 같이 있으면 왜 불편한지 모르겠는 사람",
+      "궁합 안 좋다는 말 듣고 흔들리는 커플의 한쪽",
+      "친구들이 다 '걔는 아니다'라고 하는 연애 중인 사람",
+      "헤어지고도 그 사람 소식을 계속 찾아보는 사람",
+      "결혼 얘기만 나오면 말이 돌아가는 커플의 한쪽",
+      "먼저 연락하는 쪽이 늘 나인 사람",
+      "궁합을 두 군데서 봤는데 결과가 다르게 나온 사람",
     ],
     // frictions[i]는 personas[i]의 상황 (pairedFrictions)
     frictions: [
-      "읽씹과 칼답이 번갈아 오는 연락 패턴",
-      "정리했다고 생각한 사람에게서 온 새벽 연락",
-      "결혼 시기와 집 문제에서 매번 같은 곳에서 끊기는 대화",
-      "먼저 고백하면 지는 것 같은 눈치 싸움",
-      "친한 사이라 거절하기 어려운 동업 제안",
-      "생활 리듬 차이가 쌓여 터지는 사소한 다툼",
-      "만날 때는 좋은데 헤어지면 불안해지는 거리감",
-      "헤어진 뒤에도 서로 SNS를 보고 있는 어정쩡한 거리",
+      "매번 '성격 차이'로 끝나는데 뭐가 차이인지는 설명 못 하는 상황",
+      "같이 있을 땐 좋은데 집에 오면 지치는 이유를 못 찾는 상태",
+      "'궁합 나쁘다'는 말 한마디가 사소한 싸움마다 떠오르는 상황",
+      "주변 말이 다 맞는 것 같은데 놓기는 싫은 마음",
+      "차단은 못 하고 프로필만 매일 확인하는 습관",
+      "'언젠가'라는 답을 1년째 듣고 있는 상황",
+      "연락 횟수를 세기 시작한 뒤로 대화가 재미없어진 상태",
+      "어느 쪽을 믿어야 할지 몰라 결정을 미루는 상태",
     ],
     tensions: [
       "밀어붙이는 기질과 기다리는 기질이 정면으로 부딪히는 구조",
@@ -107,32 +113,33 @@ export const DOMAIN_MATRICES: Record<string, MatrixDimensionSet> = {
     pairedFrictions: true,
   },
   career_decision: {
+    // 직군 대신 누구나 한 번은 서는 자리로. 위 saju_viral 주석과 같은 이유.
     personas: [
-      "3년차 주니어 기획자",
-      "시니어 아키텍트/테크 리드",
-      "시리즈 A 스타트업 팀 리드",
-      "그로스 마케터",
-      "전략 컨설턴트",
-      "에이전시 PM",
-      "부트스트랩 SaaS 빌더",
-      "전통 대기업 8년차 차장",
+      "입사 1년이 안 된 신입",
+      "3년차에 처음 이직을 고민하는 직장인",
+      "연봉 올려준다는 이직 제안을 받은 사람",
+      "퇴사하고 싶은데 통장 잔고부터 보는 사람",
+      "동기들은 다 이직했는데 혼자 남은 사람",
+      "육아휴직 복귀를 앞둔 직장인",
+      "마흔을 앞두고 이 일을 계속할지 묻는 사람",
+      "면접에서 극찬받고 입사했는데 분위기가 다른 회사에 다니는 사람",
     ],
     frictions: [
-      "연봉 20% 인상 뒤에 숨은 주 80시간 노동 함정",
-      "결산 직후 입사해 사내정치 스케이프고트가 된 상황",
-      "경영진의 무리한 피벗과 팀원 줄퇴사 위기",
-      "성과 평가 직전 프로젝트 강제 엎어짐",
-      "잡초 뽑기성 잡무로 커리어 사다리가 끊긴 느낌",
-      "임원진 갈등 사이에 낀 샌드위치 중간관리자",
-      "퇴사 전 통장 잔고 6개월치와 전세금 만기 압박",
+      "연봉 20% 인상 제안 뒤에 숨은 조건",
+      "홧김에 사표 쓰기 직전의 카드값과 통장 잔고",
       "동기들의 이직 성공 소식에 흔들리는 상대적 박탈감",
+      "이력서는 써놨는데 두 달째 보내지 못한 상태",
+      "버티라는 부모님과 나오라는 친구 사이",
+      "퇴직금 정산과 전세 만기가 같은 달인 상황",
+      "쉬고 싶은데 경력 공백이 무서운 마음",
+      "성과 평가 직전에 프로젝트가 엎어진 상황",
     ],
     tensions: [
       "버팀형 vs 이동형 vs 준비형 3단계 의사결정 기로",
       "심리적 번아웃 상태에서의 충동적 도피 이직 리스크",
-      "기존 도메인 전문성 매몰비용 vs 신규 AI 전환 갈등",
-      "조직 내 평판 방어 vs 개인 성장 속도의 불일치",
-      "고액 연봉 골든핸드커프스 vs 자아실현의 딜레마",
+      "지금까지 쌓은 경력의 매몰비용 vs 새 분야로 옮길 때의 불안",
+      "회사 안 평판 방어 vs 내 성장 속도의 불일치",
+      "높은 연봉이 주는 안정 vs 하고 싶은 일의 딜레마",
       "안전지향적 성향과 시장 격변기의 불안감 충돌",
       "내부 정치 피로도와 이직 면접 준비 체력 고갈",
       "단기 금전 보상과 3년 후 시장 가치의 미스매치",
@@ -312,8 +319,8 @@ export function resolveDynamicContext(options: ResolveDynamicContextOptions): Dy
 // 2026-10 cosmicpath: the match-funnel script made every topic a relationship one and the lean sprint pinned
 // every post to the relationship matrix, so 26 of 30 posts shared two scenarios while 14 of the 23 breakouts
 // were career/money posts. Each topic now picks its own matrix and a batch keeps both axes.
-export const RELATIONSHIP_TOPIC_PATTERN = /썸|연애|궁합|재회|헤어|이별|결혼|고백|연락|장거리|동업|커플|상대/;
-export const RELATIONSHIP_TOPIC_SHARE = 0.5;
+// 2026-10-28: "동업"/"상대" sent business-partner topics through the couple matrix, so only romance words count.
+export const RELATIONSHIP_TOPIC_PATTERN = /썸|연애|궁합|재회|헤어|이별|결혼|고백|연락|장거리|커플/;
 
 export function isRelationshipTopic(topic: string): boolean {
   return RELATIONSHIP_TOPIC_PATTERN.test(topic);
@@ -321,16 +328,17 @@ export function isRelationshipTopic(topic: string): boolean {
 
 /**
  * Interleaves relationship and other topics so a batch of `count` holds about `share` relationship topics.
- * With only one axis configured it degrades to a plain shuffle-and-cycle.
+ * `share` defaults to the relationship share of `topics` itself: a fixed 0.5 made 13-post batches 62% dating
+ * with 6 of 16 topics, so the brand's topic list is the only dial. With one axis it degrades to a shuffle-and-cycle.
  */
-export function planTopicQuota(topics: string[], count: number, share = RELATIONSHIP_TOPIC_SHARE, random = Math.random): string[] {
+export function planTopicQuota(topics: string[], count: number, share?: number, random = Math.random): string[] {
   const shuffle = (list: string[]) => [...list].sort(() => random() - 0.5);
   const cycle = (list: string[], length: number) => Array.from({ length }, (_, index) => list[index % list.length]);
   const relationship = shuffle(topics.filter(isRelationshipTopic));
   const other = shuffle(topics.filter((topic) => !isRelationshipTopic(topic)));
   if (!relationship.length || !other.length) return cycle(shuffle(topics), count);
 
-  const relationshipCount = Math.round(count * share);
+  const relationshipCount = Math.round(count * (share ?? relationship.length / topics.length));
   const queues = { relationship: cycle(relationship, relationshipCount), other: cycle(other, count - relationshipCount) };
   // Alternate the axes so even a 2-post dashboard chunk gets one of each.
   return Array.from({ length: count }, (_, index) => {

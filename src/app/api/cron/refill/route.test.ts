@@ -5,12 +5,14 @@ const mocks = vi.hoisted(() => ({
   countPosts: vi.fn(),
   findPosts: vi.fn<(args: { where: { status: string } }) => Promise<unknown[]>>(async () => []),
   generate: vi.fn(),
+  refillReference: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: { brand: { findUnique: mocks.findBrand }, post: { count: mocks.countPosts, findMany: mocks.findPosts } },
 }));
 vi.mock("@/lib/generate-posts", () => ({ generatePostsForBrand: mocks.generate }));
+vi.mock("@/lib/reference-replay-refill", () => ({ refillReferenceReplay: mocks.refillReference }));
 
 const call = async (query: string) => {
   const { GET } = await import("@/app/api/cron/refill/route");
@@ -22,6 +24,7 @@ describe("GET /api/cron/refill", () => {
   beforeEach(() => {
     mocks.findBrand.mockResolvedValue({ id: "b1", slug: "cosmicpath" });
     mocks.generate.mockReset();
+    mocks.refillReference.mockReset().mockResolvedValue({ generated: 1, sourceId: "ex_1" });
   });
 
   it("tops the backlog up to the target without auto-approving campaigns", async () => {
@@ -70,6 +73,33 @@ describe("GET /api/cron/refill", () => {
     const { status, body } = await call("brand=cosmicpath&target=10");
     expect(status).toBe(500);
     expect(body.error).toBe("All 6 drafts failed to generate");
+  });
+
+  it("runs the reference replay before the batch and reports it even on backlog_full", async () => {
+    const order: string[] = [];
+    mocks.refillReference.mockImplementation(async () => (order.push("replay"), { generated: 1, sourceId: "ex_1" }));
+    mocks.countPosts.mockImplementation(async () => (order.push("backlog"), 12)); // backlog_full
+    const { body } = await call("brand=cosmicpath&target=10");
+    expect(body.skipped).toBe("backlog_full");
+    expect(body.referenceReplay).toEqual({ generated: 1, sourceId: "ex_1" });
+    expect(order).toEqual(["replay", "backlog"]);
+    expect(mocks.refillReference).toHaveBeenCalledWith(expect.objectContaining({ id: "b1" }), expect.any(Date));
+  });
+
+  it("keeps the normal batch when the reference replay throws", async () => {
+    mocks.countPosts.mockResolvedValue(7);
+    mocks.refillReference.mockRejectedValue(new Error("threads search down"));
+    mocks.generate.mockResolvedValue({ ok: true, summary: { count: 3, failedCount: 0, linkedCount: 1, campaignId: null, auditSummary: { total: 3, passed: 3, needsReview: 0 } } });
+    const { body } = await call("brand=cosmicpath&target=10");
+    expect(body.generated).toBe(3);
+    expect(body.referenceReplay).toEqual({ generated: 0, skipped: "dropped", reason: "threads search down" });
+  });
+
+  it("includes the reference replay result in the normal batch response", async () => {
+    mocks.countPosts.mockResolvedValue(7);
+    mocks.generate.mockResolvedValue({ ok: true, summary: { count: 3, failedCount: 0, linkedCount: 1, campaignId: null, auditSummary: { total: 3, passed: 3, needsReview: 0 } } });
+    const { body } = await call("brand=cosmicpath&target=10");
+    expect(body.referenceReplay).toEqual({ generated: 1, sourceId: "ex_1" });
   });
 
   it("rejects missing params", async () => {

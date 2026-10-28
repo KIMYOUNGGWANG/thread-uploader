@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   hashContent,
   isContentExcluded,
@@ -6,10 +6,19 @@ import {
   convertThreadsPostToCandidate,
   annotateSearchSignals,
   allExternalSourcesFailed,
+  harvestFromThreadsSources,
   type HarvestedCandidate,
 } from "./viral-harvester";
+import { searchThreadsByKeyword } from "@/lib/threads-api";
+
+vi.mock("@/lib/threads-api", () => ({
+  searchThreadsByKeyword: vi.fn(async () => []),
+  fetchPublicProfilePosts: vi.fn(async () => []),
+}));
 
 describe("Viral Harvester", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("generates deterministic hashes for normalized content", () => {
     const hash1 = hashContent("  안녕하세요   반갑습니다! \n ");
     const hash2 = hashContent("안녕하세요 반갑습니다!");
@@ -100,5 +109,13 @@ describe("annotateSearchSignals", () => {
     expect(allExternalSourcesFailed({ attemptedSources: 2, errors: [error] })).toBe(false);
     // A brand with no keywords/handles never tried an external source, so there is nothing to fail.
     expect(allExternalSourcesFailed({ attemptedSources: 0, errors: [] })).toBe(false);
+  });
+
+  it("queries up to 10 keywords", async () => {
+    const keywords = Array.from({ length: 12 }, (_, index) => `kw${index}`);
+    const result = await harvestFromThreadsSources({ accessToken: "t", keywords, requestDelayMs: 0 });
+
+    expect(result.attemptedSources).toBe(10);
+    expect(searchThreadsByKeyword).toHaveBeenCalledTimes(10);
   });
 });

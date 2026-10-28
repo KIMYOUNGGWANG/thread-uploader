@@ -14,6 +14,7 @@ export type ViralIntentModeId =
   | "relationship_tension"
   | "beginner_qa"
   | "winner_replay"
+  | "ref_replay"
   | NewYearModeId;
 
 export interface ViralIntentMode {
@@ -284,6 +285,20 @@ export const WINNER_REPLAY_MODE: ViralIntentMode = {
   ],
 };
 
+// Rewrites the structure of an outside post found in Threads keyword-search TOP (src/lib/reference-replay.ts picks it).
+// Kept out of VIRAL_INTENT_MODES like WINNER_REPLAY_MODE; unlike it, the subject matter must not come from the source either.
+export const REFERENCE_REPLAY_MODE: ViralIntentMode = {
+  id: "ref_replay",
+  label: "외부 구조 재현",
+  primaryMetric: "shares",
+  instruction: "아래 참고 글의 구조(첫 줄 방식, 줄 구성, 마무리 방식)만 따라 새 글을 쓴다. 주제·문장·표현은 그대로 쓰지 않는다.",
+  rules: [
+    "참고 글의 문장이나 표현을 그대로 옮기지 않는다.",
+    "참고 글의 소재(인물·상황·사례)도 가져오지 않는다. 소재는 이번 글의 [주제]와 [타깃]에서만 가져온다.",
+    "본문은 140~260자를 목표로 한다.",
+  ],
+};
+
 // 2027 New Year slot modes. Like WINNER_REPLAY_MODE they stay out of VIRAL_INTENT_MODES so index rotation
 // is unchanged; the generation loop assigns them by season slot. Saju values come from the brief, never the LLM.
 export const NEW_YEAR_MODES: Record<NewYearModeId, ViralIntentMode> = {
@@ -450,6 +465,7 @@ const OFFER_FORMULA_MODES: Record<string, ViralIntentModeId> = {
 
 export function resolveViralIntentMode(formulaId: string | null, fallbackIndex: number): ViralIntentMode {
   if (formulaId === WINNER_REPLAY_MODE.id) return WINNER_REPLAY_MODE;
+  if (formulaId === REFERENCE_REPLAY_MODE.id) return REFERENCE_REPLAY_MODE;
   if (isNewYearModeId(formulaId)) return NEW_YEAR_MODES[formulaId];
   const normalizedId = normalizeViralIntentModeId(formulaId)
     ?? (formulaId ? OFFER_FORMULA_MODES[formulaId] ?? null : null);
@@ -626,6 +642,15 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
     rules: [
       "Do not copy any sentence or phrase from the reference post.",
       "Take the topic from this post's [Topic].",
+    ],
+  },
+  ref_replay: {
+    label: "Reference Replay",
+    instruction: "Follow only the structure of the reference post below (opening move, line layout, closing move) and write a new post. Never reuse its topic, sentences or phrasing.",
+    rules: [
+      "Do not copy any sentence or phrase from the reference post.",
+      "Do not take its subject matter (people, situations, examples) either. Take it only from this post's [Topic] and [Target].",
+      "Aim for a body of 140-260 characters.",
     ],
   },
 };
