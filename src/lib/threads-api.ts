@@ -333,6 +333,21 @@ export async function refreshBrandAccessToken(brandId: string): Promise<{
     };
 }
 
+/**
+ * Threads topic tag for a brand: brandConfig.threadsTopicTag wins ("" = no tag), else the global
+ * THREADS_DEFAULT_TOPIC env. The env alone tagged every brand "사주", including the English account (2026-10-28).
+ */
+export function resolveBrandTopicTag(brandConfigJson: string): string | undefined {
+    try {
+        const parsed: unknown = JSON.parse(brandConfigJson);
+        const tag = typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>).threadsTopicTag : undefined;
+        if (typeof tag === "string") return tag.trim();
+    } catch {
+        // fall through to the env default
+    }
+    return process.env.THREADS_DEFAULT_TOPIC;
+}
+
 export async function getFreshBrandCredentials(brandId: string): Promise<ThreadsCredentials> {
     const { prisma } = await import("@/lib/prisma");
 
@@ -342,6 +357,7 @@ export async function getFreshBrandCredentials(brandId: string): Promise<Threads
             accessToken: true,
             threadsUserId: true,
             tokenExpiry: true,
+            brandConfig: true,
         },
     });
 
@@ -353,10 +369,13 @@ export async function getFreshBrandCredentials(brandId: string): Promise<Threads
         throw new Error(`Threads credentials are not configured for this brand.`);
     }
 
+    const topicTag = resolveBrandTopicTag(brand.brandConfig ?? "{}");
+
     if (!isTokenRefreshDue(brand.tokenExpiry)) {
         return {
             accessToken: decryptToken(brand.accessToken),
             userId: brand.threadsUserId,
+            topicTag,
         };
     }
 
@@ -365,6 +384,7 @@ export async function getFreshBrandCredentials(brandId: string): Promise<Threads
     return {
         accessToken: refreshed.accessToken,
         userId: brand.threadsUserId,
+        topicTag,
     };
 }
 
@@ -538,6 +558,8 @@ export async function publishContainer(creationId: string): Promise<string> {
 export interface ThreadsCredentials {
     accessToken: string;
     userId: string;
+    /** Resolved per brand by getFreshBrandCredentials; "" = publish without a topic tag. Undefined falls back to THREADS_DEFAULT_TOPIC. */
+    topicTag?: string;
 }
 
 export interface ThreadsPostInsights {
@@ -610,7 +632,7 @@ export async function publishPostWithCredentials(
     imageUrls: string[] = []
 ): Promise<string> {
     const { accessToken, userId } = credentials;
-    const topicTag = process.env.THREADS_DEFAULT_TOPIC;
+    const topicTag = credentials.topicTag ?? process.env.THREADS_DEFAULT_TOPIC;
     let containerId: string;
     const validHttpImageUrls = imageUrls.filter((url) => /^https?:\/\//i.test(url));
     const videoUrl = validHttpImageUrls.find(isVideoMediaUrl);

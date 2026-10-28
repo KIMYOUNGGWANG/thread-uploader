@@ -163,6 +163,8 @@ export interface BrandConfig {
   lastTickSkipped?: boolean;
   sideMission?: string;
   minAlgorithmicScore?: number;
+  /** Threads topic tag attached on publish. "" = none. Unset = THREADS_DEFAULT_TOPIC env (KR default "사주"). */
+  threadsTopicTag?: string;
   creatorHandle?: string;
   circuitBreaker?: CircuitBreakerState;
   // What learn/feedback optimize for. Unset = reach (views first).
@@ -306,6 +308,7 @@ export function parseBrandConfig(raw: string): BrandConfig {
       lastTickSkipped: typeof parsed.lastTickSkipped === "boolean" ? parsed.lastTickSkipped : false,
       sideMission: typeof parsed.sideMission === "string" ? parsed.sideMission : undefined,
       minAlgorithmicScore: typeof parsed.minAlgorithmicScore === "number" ? parsed.minAlgorithmicScore : undefined,
+      threadsTopicTag: typeof parsed.threadsTopicTag === "string" ? parsed.threadsTopicTag : undefined,
       creatorHandle: typeof parsed.creatorHandle === "string" ? parsed.creatorHandle : undefined,
       circuitBreaker: isRecord(parsed.circuitBreaker) ? (parsed.circuitBreaker as unknown as CircuitBreakerState) : undefined,
       optimizationGoal: parseOptimizationGoal(parsed.optimizationGoal),

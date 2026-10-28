@@ -20,6 +20,50 @@ describe("getFreshBrandCredentials", () => {
   });
 });
 
+describe("brand topic tag", () => {
+  it("brandConfig.threadsTopicTag overrides the env default, and an empty string means no tag", async () => {
+    const { resolveBrandTopicTag } = await import("./threads-api");
+    process.env.THREADS_DEFAULT_TOPIC = "사주";
+    expect(resolveBrandTopicTag("{}")).toBe("사주");
+    expect(resolveBrandTopicTag(JSON.stringify({ threadsTopicTag: "astrology" }))).toBe("astrology");
+    expect(resolveBrandTopicTag(JSON.stringify({ threadsTopicTag: "" }))).toBe("");
+    expect(resolveBrandTopicTag("not json")).toBe("사주");
+    delete process.env.THREADS_DEFAULT_TOPIC;
+  });
+
+  it("publishes with the brand's tag instead of the env default, and without one when the brand opts out", async () => {
+    process.env.THREADS_DEFAULT_TOPIC = "사주";
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url.includes("/threads_publish")) return new Response(JSON.stringify({ id: "media_1" }));
+      return new Response(JSON.stringify({ id: "container_1" }));
+    }));
+    vi.useFakeTimers();
+    const { publishPostWithCredentials } = await import("./threads-api");
+
+    let pending = publishPostWithCredentials("hello", { accessToken: "t", userId: "u", topicTag: "astrology" });
+    await vi.runAllTimersAsync();
+    await pending;
+    expect(calls[0]).toContain("topic_tag=astrology");
+    expect(calls[0]).not.toContain(encodeURIComponent("사주"));
+
+    calls.length = 0;
+    pending = publishPostWithCredentials("hello", { accessToken: "t", userId: "u", topicTag: "" });
+    await vi.runAllTimersAsync();
+    await pending;
+    expect(calls[0]).not.toContain("topic_tag");
+
+    calls.length = 0;
+    pending = publishPostWithCredentials("hello", { accessToken: "t", userId: "u" });
+    await vi.runAllTimersAsync();
+    await pending;
+    expect(calls[0]).toContain(`topic_tag=${encodeURIComponent("사주")}`);
+    vi.useRealTimers();
+    delete process.env.THREADS_DEFAULT_TOPIC;
+  });
+});
+
 describe("publishPostWithCredentials video", () => {
   it("creates a VIDEO container, waits for FINISHED, then publishes", async () => {
     vi.useFakeTimers();
