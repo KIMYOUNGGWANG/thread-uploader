@@ -2,7 +2,9 @@ name: Viral Discovery
 
 on:
   schedule:
-    - cron: '41 0,12 * * *'   # 하루 2회(KST 09:41, 21:41). 글 반응은 첫 48시간에 붙으므로 매시간은 낭비
+    # 4시간마다. ref_replay 원본 자격(두 번 잡힘 + 3h)이 하루 안에 차도록. Claude 분석은 0·12시 실행만
+    - cron: '41 0,12 * * *'     # KST 09:41, 21:41 (분석 포함)
+    - cron: '41 4,8,16,20 * * *' # KST 13:41, 17:41, 01:41, 05:41 (분석 생략)
   workflow_dispatch: # 수동 실행 가능
 
 concurrency:
@@ -20,7 +22,8 @@ jobs:
         run: |
           test -n "$APP_URL"
           test -n "$CRON_SECRET"
+          ANALYZE=true; [ "${{ github.event.schedule }}" = "41 4,8,16,20 * * *" ] && ANALYZE=false
           curl --fail-with-body --show-error --silent --location --max-time 300 \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            "${APP_URL%/}/api/cron/viral"
+            "${APP_URL%/}/api/cron/viral?analyze=${ANALYZE}"
           echo
