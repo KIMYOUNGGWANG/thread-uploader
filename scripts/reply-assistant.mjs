@@ -43,6 +43,8 @@ function loadEnv() {
 loadEnv();
 
 const THREADS_API_BASE = 'https://graph.threads.net/v1.0';
+// Free /start link for the "회사 체질 vs 독립 체질" post; utm_content is that post's DB id so /ops/growth attributes it.
+const CAREER_TYPE_LINK = 'https://www.cosmicpath.app/start?context=career&question=%ED%9A%8C%EC%82%AC%EC%97%90+%EA%B3%84%EC%86%8D+%EB%82%A8%EC%9D%84%EC%A7%80%2C+%EB%82%98%EC%99%80%EC%84%9C+%EB%82%B4+%EC%9D%BC%EC%9D%84+%ED%95%A0%EC%A7%80+%EC%A0%95%ED%95%98%EA%B3%A0+%EC%8B%B6%EC%96%B4%EC%9A%94&utm_source=threads&utm_medium=social&utm_campaign=threads_reply&utm_content=cmvrqpoxw0001epljh8yjsdfs';
 const ACCESS_TOKEN = process.env.THREADS_ACCESS_TOKEN;
 const USER_ID = process.env.THREADS_USER_ID;
 
@@ -177,6 +179,19 @@ function getSajuBranch(hours, minutes) {
 function generateDomainReply(commentItem, parentPostText = '') {
   const text = (commentItem.text || '').trim();
   const username = commentItem.username || '독자';
+
+  // 0. 체질 글의 '이직' 키워드 댓글 → 무료 진단 링크
+  // ponytail: one post hardcoded; look the DB post up by threadsId once a second keyword post ships.
+  if (parentPostText.includes('체질') && /이직/.test(text) && text.length <= 30) {
+    const careerReplies = [
+      `여기서 생년월일만 넣으면 무료로 볼 수 있어.\n질문은 미리 채워놨으니까 상황만 조금 고쳐 써도 돼.\n${CAREER_TYPE_LINK}`,
+      `생년월일 하나면 바로 나와. 질문도 미리 넣어놨어.\n${CAREER_TYPE_LINK}`,
+      `무료 진단 링크야. 체질 말고, 지금 먼저 확인할 거 하나부터 봐.\n${CAREER_TYPE_LINK}`,
+    ];
+    let hash = 0;
+    for (let i = 0; i < commentItem.id.length; i++) hash += commentItem.id.charCodeAt(i);
+    return careerReplies[hash % careerReplies.length];
+  }
 
   // 1. 공격적이거나 냉소적인 댓글 대응 ("가르칠 수 있는 수준", "오래 살았나 보네요")
   if (/가르칠|수준|오래\s*살았|잘난/i.test(text)) {
