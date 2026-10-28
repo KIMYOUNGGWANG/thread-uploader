@@ -1117,7 +1117,12 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       // (the gate alone would only burn retries and drop the draft).
       const choicesCapped = !checkTemplateCap(NUMBERED_CHOICE_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
       const reversalCapped = !checkTemplateCap(REVERSAL_PROBE, inBatchPosts.filter(countsTowardTemplateCap)).pass;
-      const excludedModeIds = isLeanSprint && choicesCapped ? ["imagination_dilemma"] : [];
+      // relationship_tension must open with a relationship word, so on a career/money slot it leaves the pool
+      // instead of pulling a relationship topic in (that swap pushed batches from 50% to 62% dating).
+      const plannedTopic = topics[batchIndex % topics.length];
+      const excludedModeIds = isLeanSprint
+        ? [...(choicesCapped ? ["imagination_dilemma"] : []), ...(isRelationshipTopic(plannedTopic) ? [] : ["relationship_tension"])]
+        : [];
       // A New Year slot takes its mode from the season schedule, skipping the bandit and the replay arm.
       const slotIndex = contextOffset + batchIndex;
       const newYearMode = newYearSlotMode({
@@ -1159,9 +1164,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       // formula the same Type A/B/C self-check. A formula mapped to its own mode keeps that mode.
       const formulaMode = newYearMode || isLeanSprint ? viralIntentMode : resolveViralIntentMode(formula.id, batchIndex);
 
-      // relationship_tension must open with a relationship word, so a career slot from the alternating quota
-      // gets a relationship topic instead (otherwise the fidelity gate drops the draft after every retry).
-      const plannedTopic = topics[batchIndex % topics.length];
+      // Outside the lean sprint the mode comes from the formula, so a relationship formula on a career slot
+      // still needs a relationship topic (otherwise the fidelity gate drops the draft after every retry).
       const relationshipTopics = allTopics.filter(isRelationshipTopic);
       const topic = formulaMode.id === "relationship_tension" && !isRelationshipTopic(plannedTopic) && relationshipTopics.length
         ? relationshipTopics[batchIndex % relationshipTopics.length]
