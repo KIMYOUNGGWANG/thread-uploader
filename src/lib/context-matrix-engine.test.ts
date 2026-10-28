@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DOMAIN_MATRICES,
-  resolveDynamicContext, isRelationshipTopic, planTopicQuota } from "./context-matrix-engine";
+  resolveDynamicContext, isRelationshipTopic, planTopicQuota, alignRelationshipSlots } from "./context-matrix-engine";
 import { findJargonTerms } from "./readability-rules";
 
 describe("context-matrix-engine", () => {
@@ -200,6 +200,21 @@ describe("topic quota", () => {
     const plan = planTopicQuota([relationship[0], ...career], 8, undefined, () => 0.5);
     expect(plan.filter(isRelationshipTopic)).toHaveLength(2);
     expect(plan.map(isRelationshipTopic)).toEqual([true, false, true, false, false, false, false, false]);
+  });
+
+  // Regression: 2026-10-28 relationship_tension sits on odd lean slots but relationship topics on even ones,
+  // so the arm was always excluded and the 4:4:3:3:1 sprint came out random.
+  it("swaps relationship topics onto the slots that need one without changing the share", () => {
+    const plan = planTopicQuota([relationship[0], relationship[1], ...career], 15, undefined, () => 0.5);
+    const needs = (index: number) => [3, 7, 11].includes(index);
+    const aligned = alignRelationshipSlots(plan, needs);
+    expect([3, 7, 11].every((index) => isRelationshipTopic(aligned[index]))).toBe(true);
+    expect(aligned.filter(isRelationshipTopic)).toHaveLength(plan.filter(isRelationshipTopic).length);
+    expect([...aligned].sort()).toEqual([...plan].sort());
+  });
+
+  it("leaves the plan alone when no relationship topic can be swapped in", () => {
+    expect(alignRelationshipSlots(career, () => true)).toEqual(career);
   });
 
   // Regression: 2026-10 every cosmicpath topic was a relationship one, so 26 of 30 posts shared two scenarios.
