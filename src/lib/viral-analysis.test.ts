@@ -85,15 +85,15 @@ describe("keepFeedbackFields", () => {
 
 describe("calculateSearchSignalScore", () => {
   it("ranks a top-1 post seen across keywords and runs above a rank-10 one-off", () => {
-    const strong = calculateSearchSignalScore({ searchRank: 1, keywordHits: 3, timesSeen: 12 });
+    const strong = calculateSearchSignalScore({ searchRank: 1, keywordHits: 3, timesSeen: 13 });
     const weak = calculateSearchSignalScore({ searchRank: 10, keywordHits: 1, timesSeen: 1 });
-    expect(strong).toBe(28 + 40 + 22);
+    expect(strong).toBeCloseTo(28 + 40 + 8); // 12 extra runs × 2/3 = +8
     expect(weak).toBe(1);
   });
 
   it("scores zero without any search signal and caps persistence", () => {
     expect(calculateSearchSignalScore({})).toBe(0);
-    expect(calculateSearchSignalScore({ timesSeen: 500 })).toBe(48);
+    expect(calculateSearchSignalScore({ timesSeen: 500 })).toBeCloseTo(48); // 72 runs × 2/3, i.e. +4/day for 12 days
   });
 });
 

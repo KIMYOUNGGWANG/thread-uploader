@@ -7,7 +7,7 @@ import { sendSystemAlert } from "@/lib/alert-service";
 import { refillReferenceReplay, type ReferenceRefillResult } from "@/lib/reference-replay-refill";
 import { parseBrandConfig } from "@/types/brand";
 
-export const maxDuration = 300; // discovery + Claude analysis per brand
+export const maxDuration = 300; // discovery + Claude analysis + ref_replay 생성 1개 per brand
 
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {

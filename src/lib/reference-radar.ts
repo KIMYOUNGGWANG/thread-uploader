@@ -7,7 +7,7 @@ import {
 
 // 답글 여부는 다른 계정 글에서 얻을 수 있는 유일한 글별 반응 신호다.
 export const HAS_REPLIES_BONUS = 10;
-// TOP에 2번 이상 잡혀야 한다. 하루 2회 실행 기준 최소 12시간 머문 글이고, 1회는 검색 순위 노이즈일 수 있다.
+// TOP에 2번 이상 잡혀야 한다. 4시간 주기 수집 기준 최소 4시간 머문 글이고, 1회는 검색 순위 노이즈일 수 있다.
 export const MIN_TIMES_SEEN = 2;
 // timesSeen은 대시보드 수동 수집으로도 오르니 첫 발견 후 시간이 지났는지도 본다. 4시간 주기 수집에서 지연 여유 1h.
 export const MIN_SEEN_AGE_MS = 3 * 60 * 60 * 1000;

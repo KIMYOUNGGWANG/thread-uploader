@@ -960,7 +960,7 @@ export interface GeneratePostsInput {
   requestedCampaignId: string | null;
   approvedCampaignStart: boolean;
   postCategory: string;
-  /** 있으면 count는 1로 고정되고, 이 글의 구조만 따르는 ref_replay 글 하나를 만든다. 실험 팔·Thompson 선택·승자 재현을 건너뛴다. */
+  /** 있으면 count는 1로 고정되고, 이 글의 상황·감정선을 가져오고 문장·고유 디테일은 새로 쓰는 ref_replay 글 하나를 만든다. 실험 팔·Thompson 선택·승자 재현을 건너뛴다. */
   referenceReplay?: { id: string; content: string };
 }
 

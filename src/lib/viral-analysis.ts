@@ -129,7 +129,9 @@ export interface SearchSignal {
   timesSeen?: number | null;
 }
 
-const MAX_PERSISTENCE_RUNS = 24;
+// 4h 주기(하루 6회)에서 예전 12h 주기와 같은 하루 적립(+4)·상한(+48)을 유지한다. 주기를 바꾸면 이 둘을 같이 바꿀 것.
+const MAX_PERSISTENCE_RUNS = 72;
+const PERSISTENCE_POINTS_PER_RUN = 2 / 3;
 
 /**
  * Threads search returns no engagement counts for other accounts' posts, so TOP-search
@@ -140,7 +142,7 @@ export function calculateSearchSignalScore(signal: SearchSignal): number {
   const rankScore = rank > 0 ? Math.max(0, 31 - rank * 3) : 0;
   const overlapScore = Math.max(0, (signal.keywordHits ?? 1) - 1) * 20;
   const extraRuns = Math.min(Math.max(0, (signal.timesSeen ?? 1) - 1), MAX_PERSISTENCE_RUNS);
-  return rankScore + overlapScore + extraRuns * 2;
+  return rankScore + overlapScore + extraRuns * PERSISTENCE_POINTS_PER_RUN;
 }
 
 export interface StoredRawMetrics {

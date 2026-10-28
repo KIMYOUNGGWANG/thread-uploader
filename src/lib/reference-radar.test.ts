@@ -60,6 +60,23 @@ describe("calculateRisingScore", () => {
     expect(calculateRisingScore({ referenceScore: 0, rankHistory: [], publishedAt: new Date(now.getTime() - 30 * HOUR_MS), now })).toBe(5);
     expect(calculateRisingScore({ referenceScore: 0, rankHistory: [], publishedAt: new Date(now.getTime() - 49 * HOUR_MS), now })).toBe(0);
   });
+
+  it("lets a post rising over 8 hours beat one that merely sat in TOP for 4.5 days", () => {
+    // 4.5 days × 6 runs = 27 sightings at rank 4, flat; vs seen 3 times rising 8 → 5 → 2, published 10h ago
+    const stale = calculateRisingScore({
+      referenceScore: calculateSearchSignalScore({ searchRank: 4, keywordHits: 1, timesSeen: 27 }),
+      rankHistory: [h(4, 0), h(4, 4), h(4, 8)],
+      publishedAt: new Date(now.getTime() - 4.5 * 24 * HOUR_MS),
+      now,
+    });
+    const rising = calculateRisingScore({
+      referenceScore: calculateSearchSignalScore({ searchRank: 2, keywordHits: 1, timesSeen: 3 }),
+      rankHistory: [h(8, 0), h(5, 4), h(2, 8)],
+      publishedAt: new Date(now.getTime() - 10 * HOUR_MS),
+      now,
+    });
+    expect(rising).toBeGreaterThan(stale);
+  });
 });
 
 describe("isEligibleSource with the 4-hour harvest cadence", () => {
