@@ -146,6 +146,13 @@ describe("ref_replay mode", () => {
     expect(resolveViralIntentMode("ref_replay", 0).id).toBe("ref_replay");
     expect(VIRAL_INTENT_MODES.map((mode) => mode.id)).not.toContain("ref_replay");
   });
+
+  it("takes the situation and emotional arc but forbids copying details", () => {
+    const mode = resolveViralIntentMode("ref_replay", 0);
+    expect(mode.instruction).toContain("감정의 흐름");
+    expect(mode.rules.some((rule) => rule.includes("고유 디테일은 전부 바꾼다"))).toBe(true);
+    expect(mode.rules.some((rule) => rule.includes("소재(인물·상황·사례)도 가져오지 않는다"))).toBe(false);
+  });
 });
 
 describe("global offer formulas", () => {

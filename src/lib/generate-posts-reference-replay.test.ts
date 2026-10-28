@@ -134,6 +134,11 @@ describe("ref_replay draft", () => {
     expect(state.requests[0]).toContain("다른 계정에서 반응이 좋았던 글");
     expect(state.requests[0]).toContain("140~260자");
     expect(state.requests[0]).not.toContain("[길이 실험]");
+    const prompt = state.requests[0];
+    expect(prompt).toContain("[상황/맥락]\\n아래 [참고 글]의 상황");
+    expect(prompt).not.toContain("퇴사와 이직 사이에서 흔들리는 상황");
+    expect(prompt).toContain("상황과 감정의 흐름을 가져오되");
+    expect(prompt).not.toContain("구조만 따르고 주제·소재·문장은 새로 써");
     expect(loadWinnerReplaySource).not.toHaveBeenCalled();
   });
 
