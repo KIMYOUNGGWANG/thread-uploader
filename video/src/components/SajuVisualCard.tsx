@@ -17,6 +17,7 @@ export interface SajuCardData {
   destinyKeyword?: string;
   elementsRatio?: { wood: number; fire: number; earth: number; metal: number; water: number };
   pillars?: SajuPillar[];
+  lang?: "ko" | "en";
 }
 
 interface ElementStyle {
@@ -74,6 +75,13 @@ export function resolvePillars(cardData?: SajuCardData): SajuPillar[] {
   return DEFAULT_SAJU_PILLARS.map((pillar) => (pillar.role === "일주 (본인)" ? { ...pillar, heavenly: dayStem } : pillar));
 }
 
+const ROLE_LABELS_EN: Record<SajuPillar["role"], string> = {
+  "시주 (말년)": "Hour (late life)",
+  "일주 (본인)": "Day (you)",
+  "월주 (청년)": "Month (youth)",
+  "년주 (초년)": "Year (early)",
+};
+
 export const SajuVisualCard: React.FC<{ cardData?: SajuCardData }> = ({ cardData }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -82,6 +90,7 @@ export const SajuVisualCard: React.FC<{ cardData?: SajuCardData }> = ({ cardData
   const subtitle = cardData?.subtitle ?? "타고난 일주와 숨겨진 귀인 흐름";
   const destinyKeyword = cardData?.destinyKeyword ?? "재물운 급상승 · 역마 귀인";
   const pillars = resolvePillars(cardData);
+  const roleLabel = (role: SajuPillar["role"]) => (cardData?.lang === "en" ? ROLE_LABELS_EN[role] : role);
 
   // Spring entrance animation
   const cardScale = spring({
@@ -181,7 +190,7 @@ export const SajuVisualCard: React.FC<{ cardData?: SajuCardData }> = ({ cardData
                 }}
               >
                 <div style={{ fontSize: 18, color: isDayMaster ? "#c4b5fd" : "#64748b", fontWeight: 700, marginBottom: 12 }}>
-                  {pillar.role}
+                  {roleLabel(pillar.role)}
                 </div>
 
                 {/* Heavenly Stem (천간) */}

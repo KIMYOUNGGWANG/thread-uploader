@@ -13,6 +13,7 @@ export interface SajuCardData {
   destinyKeyword?: string;
   elementsRatio?: { wood: number; fire: number; earth: number; metal: number; water: number };
   pillars?: SajuPillar[];
+  lang?: "ko" | "en"; // en이면 카드의 기둥 라벨을 영어로 그린다
 }
 
 export const DEFAULT_SAJU_PILLARS: SajuPillar[] = [

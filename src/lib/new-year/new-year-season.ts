@@ -6,6 +6,11 @@ export const NEW_YEAR_BRANDS: Record<string, NewYearLang> = {
   "cosmicpath-global": "en",
 };
 
+// Script language for a brand's short-form videos. Brand.locale is unset everywhere, so the ko/en map above is the source.
+export function brandVideoLang(brandSlug: string): NewYearLang {
+  return NEW_YEAR_BRANDS[brandSlug] ?? "ko";
+}
+
 export const NEW_YEAR_MODE_IDS: readonly NewYearModeId[] = ["ny_ranking", "ny_ipchun", "ny_monthly", "ny_pick", "ny_zodiac"];
 
 export function isNewYearModeId(id: string | null | undefined): id is NewYearModeId {

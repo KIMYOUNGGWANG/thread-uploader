@@ -17,7 +17,7 @@ import {
 } from "./tiktok-draft-service";
 import { findFirstLineChartGate } from "@/lib/quality-gate";
 import { DAY_MASTER_2027 } from "@/lib/new-year/new-year-2027-data";
-import { isKoNewYearSeason, dailyVideoSeason } from "@/lib/new-year/new-year-season";
+import { isKoNewYearSeason, dailyVideoSeason, brandVideoLang } from "@/lib/new-year/new-year-season";
 import { alignTikTokScenes } from "./tiktok-audio-aligner";
 import { buildTikTokRenderSpec, executeTikTokRender } from "./tiktok-render-worker";
 
@@ -70,6 +70,47 @@ describe("TikTok Short-form Engine", () => {
     expect(findFirstLineChartGate(script.scenes[0].onScreenText[0])).toBeNull();
     expect(script.scenes[1].spokenLine).toContain(`${dayMaster} 일간에게 ${DAY_MASTER_2027[dayMaster].tenGod}의 해`);
     expect(script.cta).toBe("프로필 링크 → 홈 맨 위 2027 캘린더");
+  });
+
+  const EN_LABELS: Record<string, string> = { 갑목: "Yang Wood (甲)", 을목: "Yin Wood (乙)", 병화: "Yang Fire (丙)", 정화: "Yin Fire (丁)", 무토: "Yang Earth (戊)", 기토: "Yin Earth (己)", 경금: "Yang Metal (庚)", 신금: "Yin Metal (辛)", 임수: "Yang Water (壬)", 계수: "Yin Water (癸)" };
+
+  it.each(DAY_MASTERS.flatMap((dayMaster) => [[dayMaster, 0], [dayMaster, 1]] as const))(
+    "en %s 훅 %i: 영어 대본이 게이트를 통과하고 한글이 없다",
+    (dayMaster, variant) => {
+      const script = generateTikTokScript({ topic: "saju", dayMaster, variant, lang: "en" });
+      const hook = script.scenes[0].onScreenText[0];
+      const visible = [script.title, script.cta, ...script.scenes.flatMap((s) => [s.spokenLine, ...s.onScreenText])].join(" ");
+
+      expect(script.qualityReasons).toEqual([]);
+      expect(script.qualityPass).toBe(true);
+      expect(script.scenes).toHaveLength(4);
+      expect(hook).toMatch(/\?$/);
+      expect(hook.length).toBeLessThanOrEqual(64);
+      expect(script.scenes[1].spokenLine).toContain(EN_LABELS[dayMaster]);
+      expect(visible).not.toMatch(/[가-힣]/);
+      expect(script.scenes[2].visualProps?.sajuData?.lang).toBe("en");
+      expect(script.scenes[2].visualProps?.sajuData?.pillars?.find((p) => p.role === "일주 (본인)")?.heavenly.name).toBe(dayMaster);
+      expect(script.hashtags).not.toContain("사주");
+    }
+  );
+
+  it("en: 2027 시즌을 넘겨도 영어 대본은 평소 CTA를 쓴다", () => {
+    const script = generateTikTokScript({ topic: "saju", dayMaster: "병화", lang: "en", season: "new_year_2027" });
+    expect(script.cta).toBe("Link in bio → find your day master in 1 minute");
+  });
+
+  it("en: 영어 과장 문구도 게이트에서 떨어진다", () => {
+    const script = generateTikTokScript({ topic: "saju", dayMaster: "병화", lang: "en" });
+    const scenes = script.scenes.map((s, i) => (i === 3 ? { ...s, spokenLine: "Guaranteed results, must watch." } : s));
+    const quality = evaluateExplainerQuality({ scenes, totalDurationSeconds: script.totalDurationSeconds }, "병화", undefined, "en");
+    expect(quality.qualityPass).toBe(false);
+    expect(quality.qualityReasons.join(" ")).toContain("Guaranteed");
+  });
+
+  it("브랜드 언어: cosmicpath-global만 en, 나머지는 ko", () => {
+    expect(brandVideoLang("cosmicpath-global")).toBe("en");
+    expect(brandVideoLang("cosmicpath")).toBe("ko");
+    expect(brandVideoLang("unknown-brand")).toBe("ko");
   });
 
   it("2027 버전: 답 단어가 없으면 게이트가 떨어진다", () => {
