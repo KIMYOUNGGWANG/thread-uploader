@@ -154,6 +154,25 @@ describe("viral-service reference score and eligibility", () => {
     expect(Number.isInteger(saved[0].create.viralScore)).toBe(true);
   });
 
+  it("keeps a count-less keyword-search post below minViralScore, but still drops a counted post below it", async () => {
+    // Other accounts' posts carry no counts, so their viralScore tops out near 40; a threshold tuned for own posts (88) must not drop them.
+    vi.mocked(prisma.brand.findUnique).mockResolvedValue({
+      id: "b1",
+      viralMemory: "{}",
+      accessToken: "enc",
+      brandConfig: JSON.stringify({ viralDiscovery: { keywords: ["사주"], ownHandle: "@CosmicPath", minViralScore: 88 } }),
+    } as never);
+    const published = new Date(Date.now() - 3 * DAY_MS);
+    const counted = { ...harvested("the.saju", "p2", published), views: 5, likes: 0, replies: 0 };
+    mockHarvest(harvested("the.saju", "p1", published), counted);
+
+    await discoverViralExamples("b1");
+
+    const saved = upsertCalls();
+    expect(saved).toHaveLength(1);
+    expect(saved[0].create.viralScore).toBeLessThan(88);
+  });
+
   it("a post seen in two runs 12 hours apart becomes eligible, but two runs minutes apart do not", async () => {
     mockHarvest(harvested("the.saju", "p1", new Date(Date.now() - 3 * DAY_MS)));
 
