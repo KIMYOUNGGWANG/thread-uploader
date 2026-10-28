@@ -795,7 +795,7 @@ function formatCampaignPrompt(experiment: GrowthExperiment): string[] {
     return [
       `[Campaign]\n${campaignExperiment.campaign.name} (${campaignExperiment.campaign.id})`,
       `[Quality Profile]\n${experiment.qualityProfile}`,
-      `[Link Policy]\n${experiment.shouldLink ? "This post should naturally introduce the first-comment link to the Etsy blueprint." : "Zero links in this post. Focus on bookmark, share, or profile visit."}`,
+      `[Link Policy]\n${experiment.shouldLink ? "This post should naturally introduce the first-comment link to the CosmicPath dossier on cosmicpath.app." : "Zero links in this post. Focus on bookmark, share, or profile visit."}`,
       "",
     ];
   }
@@ -1424,7 +1424,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
             activeCampaign?.id?.includes("cosmicpath") ||
             config.productProfile?.productName?.toLowerCase().includes("cosmic");
           const bridgeHeader = isGlobal
-            ? "📌 Full Dual-Engine Natal Blueprint & Decision Dossier (Etsy):"
+            ? "📌 Full Dual-Engine Birth Chart & Decision Dossier (cosmicpath.app):"
             : (isCosmicBrand
               ? "📌 5대 계산 엔진(사주·점성술·자미두수) 교차 판정 리포트:"
               : "");
