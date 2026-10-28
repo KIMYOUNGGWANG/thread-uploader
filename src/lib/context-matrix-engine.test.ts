@@ -151,10 +151,10 @@ describe("paired persona and friction", () => {
     const ctx = resolveDynamicContext({
       domainId: "saju_relationship",
       index: 2,
-      contextWeights: { personaWeights: { "친한 친구에게 동업을 제안받은 직장인": 100 }, epsilon: 0.01 },
+      contextWeights: { personaWeights: { "헤어지고도 그 사람 소식을 계속 찾아보는 사람": 100 }, epsilon: 0.01 },
     });
-    expect(ctx.persona).toBe("친한 친구에게 동업을 제안받은 직장인");
-    expect(ctx.friction).toBe("친한 사이라 거절하기 어려운 동업 제안");
+    expect(ctx.persona).toBe("헤어지고도 그 사람 소식을 계속 찾아보는 사람");
+    expect(ctx.friction).toBe("차단은 못 하고 프로필만 매일 확인하는 습관");
   });
 
   it("ignores frictionWeights on a paired matrix", () => {
@@ -162,12 +162,12 @@ describe("paired persona and friction", () => {
       domainId: "saju_relationship",
       index: 2,
       contextWeights: {
-        personaWeights: { "친한 친구에게 동업을 제안받은 직장인": 100 },
-        frictionWeights: { "읽씹과 칼답이 번갈아 오는 연락 패턴": 1000 },
+        personaWeights: { "헤어지고도 그 사람 소식을 계속 찾아보는 사람": 100 },
+        frictionWeights: { "'언젠가'라는 답을 1년째 듣고 있는 상황": 1000 },
         epsilon: 0.01,
       },
     });
-    expect(ctx.friction).toBe("친한 사이라 거절하기 어려운 동업 제안");
+    expect(ctx.friction).toBe("차단은 못 하고 프로필만 매일 확인하는 습관");
   });
 
   it.each(["saju_viral", "saju_relationship"])("has at most one jargon term per seed line in %s", (domainId) => {
