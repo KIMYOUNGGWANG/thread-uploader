@@ -285,16 +285,17 @@ export const WINNER_REPLAY_MODE: ViralIntentMode = {
   ],
 };
 
-// Rewrites the structure of an outside post found in Threads keyword-search TOP (src/lib/reference-replay.ts picks it).
-// Kept out of VIRAL_INTENT_MODES like WINNER_REPLAY_MODE; unlike it, the subject matter must not come from the source either.
+// Rewrites an outside post found in Threads keyword-search TOP (src/lib/reference-replay.ts picks it).
+// Kept out of VIRAL_INTENT_MODES like WINNER_REPLAY_MODE. Situation and emotional arc are taken from the source; sentences and identifying details are rewritten.
 export const REFERENCE_REPLAY_MODE: ViralIntentMode = {
   id: "ref_replay",
-  label: "외부 구조 재현",
+  label: "외부 소재 재현",
   primaryMetric: "shares",
-  instruction: "아래 참고 글의 구조(첫 줄 방식, 줄 구성, 마무리 방식)만 따라 새 글을 쓴다. 주제·문장·표현은 그대로 쓰지 않는다.",
+  instruction: "아래 참고 글의 상황(무슨 일이 있었는지)과 감정의 흐름(예: 황당 → 찔림 → 체념)을 가져와, cosmicpath 독자가 자기 일처럼 느낄 새 글을 쓴다. 구조(첫 줄 방식, 줄 구성, 마무리)도 참고하되 그대로 베끼지 않는다.",
   rules: [
-    "참고 글의 문장이나 표현을 그대로 옮기지 않는다.",
-    "참고 글의 소재(인물·상황·사례)도 가져오지 않는다. 소재는 이번 글의 [주제]와 [타깃]에서만 가져온다.",
+    "참고 글의 문장·표현을 그대로 옮기지 않는다.",
+    "등장인물·관계·지명·직업·숫자·이름 같은 고유 디테일은 전부 바꾼다. 원글 작성자가 읽어도 자기 이야기라고 못 알아봐야 한다.",
+    "감정선은 가져오되 결론·시선은 cosmicpath(사주·궁합·타이밍)로 가져온다. 원글의 결론을 반복하지 않는다.",
     "본문은 140~260자를 목표로 한다.",
   ],
 };

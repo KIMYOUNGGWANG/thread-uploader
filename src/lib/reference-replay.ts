@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { parseReasons } from "@/lib/winner-replay";
-import { MIN_TIMES_SEEN } from "@/lib/reference-radar";
+import { MIN_TIMES_SEEN, calculateRisingScore } from "@/lib/reference-radar";
+import { readRankHistory, type RankHistoryEntry } from "@/lib/viral-analysis";
 import { REFERENCE_REPLAY_MODE } from "@/lib/viral-intent-modes";
 import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 
@@ -11,6 +12,7 @@ export const ATTEMPT_COOLDOWN_DAYS = 7;
 const SOURCE_WINDOW_DAYS = 7;
 const USED_TAG_WINDOW_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 
 export interface ReferenceCandidate {
   id: string;
@@ -32,9 +34,9 @@ function parseMetrics(raw: string): Record<string, unknown> {
 }
 
 /**
- * Highest referenceScore among eligible posts; used tags and sources attempted within the cooldown are skipped. Ties go to the newer post.
+ * Highest risingScore (referenceScore + rank gain + freshness) among eligible posts; used tags and sources attempted within the cooldown are skipped. Ties go to the newer post.
  * Rows sharing a sourceKey are one post: a used or attempted row blocks all of them, and they are judged together
- * (max timesSeen, max referenceScore - not a sum). extraUsedSourceKeys covers used rows that fell out of the candidate window.
+ * (max timesSeen, max referenceScore, merged rankHistory - not a sum). extraUsedSourceKeys covers used rows that fell out of the candidate window.
  */
 export function pickReferenceReplaySource(
   candidates: ReferenceCandidate[],
@@ -59,7 +61,22 @@ export function pickReferenceReplaySource(
     const maxTimesSeen = Math.max(0, ...rows.map((row) => (typeof row.metrics.timesSeen === "number" ? row.metrics.timesSeen : 0)));
     if (!rows.some((row) => row.metrics.eligibleSource === true) || maxTimesSeen < MIN_TIMES_SEEN || scoredRows.length === 0) return [];
     const best = scoredRows.reduce((top, row) => (row.score > top.score ? row : top));
-    return [{ candidate: best.candidate, score: best.score }];
+    // Per-keyword rows of one harvest run stamp separate ms timestamps, so collapse them into 1-hour buckets (runs are 4h apart) keeping the best rank, or another row's rank would mask the gain.
+    const buckets = new Map<number, RankHistoryEntry>();
+    for (const entry of rows.flatMap((row) => readRankHistory(row.metrics))) {
+      const time = Date.parse(entry.at);
+      if (Number.isNaN(time)) continue; // invalid `at` must never land in the "latest" slot that calculateRisingScore reads as the current rank
+      const key = Math.floor(time / HOUR_MS);
+      const kept = buckets.get(key);
+      if (!kept || entry.rank < kept.rank) buckets.set(key, entry);
+    }
+    const rankHistory = [...buckets.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    const publishedAt = rows.reduce<Date | null>((latest, row) => {
+      const at = row.candidate.publishedAt;
+      return at && (!latest || at > latest) ? at : latest;
+    }, null);
+    const score = calculateRisingScore({ referenceScore: best.score, rankHistory, publishedAt, now });
+    return [{ candidate: best.candidate, score }];
   });
   scored.sort((a, b) => b.score - a.score || (b.candidate.publishedAt?.getTime() ?? 0) - (a.candidate.publishedAt?.getTime() ?? 0));
   return scored[0]?.candidate ?? null;

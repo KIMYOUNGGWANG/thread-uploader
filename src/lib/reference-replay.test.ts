@@ -26,6 +26,11 @@ function attemptedAt(id: string, score: number, at: string): ReferenceCandidate 
   return { ...ex(id, score, true), rawMetrics: JSON.stringify({ referenceScore: score, eligibleSource: true, timesSeen: 2, replayAttemptedAt: at }) };
 }
 
+function exWithHistory(id: string, score: number, sourceKey: string, rankHistory: Array<{ at: string; rank: number; hits: number }>): ReferenceCandidate {
+  return { ...ex(id, score, true, 2, sourceKey), rawMetrics: JSON.stringify({ referenceScore: score, eligibleSource: true, timesSeen: 2, rankHistory }) };
+}
+const h = (rank: number, hour: number) => ({ at: new Date(now.getTime() - hour * 60 * 60 * 1000).toISOString(), rank, hits: 1 });
+
 describe("pickReferenceReplaySource", () => {
   it("picks the highest referenceScore among eligible posts", () => {
     expect(pickReferenceReplaySource([ex("a", 50, true), ex("b", 80, true), ex("c", 99, false)], [], now)?.id).toBe("b");
@@ -73,6 +78,30 @@ describe("pickReferenceReplaySource", () => {
   it("returns null when nothing is eligible or rawMetrics is malformed", () => {
     const broken: ReferenceCandidate = { ...ex("x", 1, true), rawMetrics: "{not json" };
     expect(pickReferenceReplaySource([ex("a", 99, false), broken], [], now)).toBeNull();
+  });
+
+  it("prefers a rising post over a higher referenceScore that is flat", () => {
+    // a: 50, rank 8 -> 2 (gain 6 x 3 = 18) -> 68. b: 60, flat -> 60. Same age, so freshness cancels out.
+    const a = exWithHistory("a", 50, "post-a", [h(8, 8), h(2, 0)]);
+    const b = exWithHistory("b", 60, "post-b", [h(3, 8), h(3, 0)]);
+    expect(pickReferenceReplaySource([a, b], [], now)?.id).toBe("a");
+  });
+
+  it("merges rankHistory across rows of the same post, so a row without history does not zero the gain", () => {
+    const withHistory = exWithHistory("x1", 50, "post-x", [h(9, 8), h(1, 0)]);
+    const noHistory = { ...ex("x2", 55, true, 2, "post-x"), rawMetrics: JSON.stringify({ referenceScore: 55, eligibleSource: true, timesSeen: 2 }) };
+    const flat = exWithHistory("y", 70, "post-y", [h(2, 8), h(2, 0)]);
+    // x group: max ref 55 + gain 8 x 3 = 79 > y 70
+    expect(pickReferenceReplaySource([withHistory, noHistory, flat], [], now)?.id).toBe("x2");
+  });
+
+  it("collapses per-keyword rows from the same harvest run so the other row's rank never masks the gain", () => {
+    const ms = (hoursAgo: number, offsetMs: number) => new Date(now.getTime() - hoursAgo * 60 * 60 * 1000 + offsetMs).toISOString();
+    const row1 = exWithHistory("k1", 50, "post-k", [{ at: ms(8, 0), rank: 8, hits: 1 }, { at: ms(0, 0), rank: 2, hits: 1 }]);
+    const row2 = exWithHistory("k2", 50, "post-k", [{ at: ms(8, 5), rank: 8, hits: 1 }, { at: ms(0, 5), rank: 5, hits: 1 }]);
+    // bucketed: [8, 2] -> gain 6 x 3 = 18 -> 68 beats the flat 60
+    const flat = exWithHistory("f", 60, "post-f", [{ at: ms(8, 0), rank: 3, hits: 1 }, { at: ms(0, 0), rank: 3, hits: 1 }]);
+    expect(pickReferenceReplaySource([row2, row1, flat], [], now)?.sourceKey).toBe("post-k");
   });
 });
 

@@ -72,6 +72,7 @@ const client = new Anthropic({
 });
 const SEPARATOR = "===FIRST_COMMENT===";
 const REFERENCE_COPY_REASON = "참고 원본과 너무 비슷함";
+export const REFERENCE_SITUATION_PROMPT = "아래 [참고 글]의 상황(무슨 일이 있었는지)을 이번 글의 상황으로 쓴다. 등장인물·관계·지명·직업·숫자·이름은 전부 바꾼다.";
 const RETRYABLE_STATUSES = new Set([429, 529]);
 const RECENT_POST_AVOIDANCE_COUNT = 24;
 const POST_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours between posts
@@ -675,7 +676,7 @@ function buildGenerationPrompt(
     ...formatCampaignPrompt(experiment),
     formatViralIntentModePrompt(viralIntentMode, isEnglish),
     ...(experiment.winnerReference
-      ? [`[참고 글: ${experiment.referenceReplay ? "다른 계정에서 반응이 좋았던 글. 구조만 따르고 주제·소재·문장은 새로 써" : "조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써"}]\n---\n${experiment.winnerReference}\n---`]
+      ? [`[참고 글: ${experiment.referenceReplay ? "다른 계정에서 반응이 좋았던 글. 상황과 감정의 흐름을 가져오되 인물·표현·문장·고유 디테일은 새로 써" : "조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써"}]\n---\n${experiment.winnerReference}\n---`]
       : []),
     ...(experiment.newYearBrief
       ? [`${isEnglish
@@ -959,7 +960,7 @@ export interface GeneratePostsInput {
   requestedCampaignId: string | null;
   approvedCampaignStart: boolean;
   postCategory: string;
-  /** 있으면 count는 1로 고정되고, 이 글의 구조만 따르는 ref_replay 글 하나를 만든다. 실험 팔·Thompson 선택·승자 재현을 건너뛴다. */
+  /** 있으면 count는 1로 고정되고, 이 글의 상황·감정선을 가져오고 문장·고유 디테일은 새로 쓰는 ref_replay 글 하나를 만든다. 실험 팔·Thompson 선택·승자 재현을 건너뛴다. */
   referenceReplay?: { id: string; content: string };
 }
 
@@ -1197,7 +1198,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         useRelationshipContext ? "saju_relationship" : undefined,
         contextOffset,
         linkOffset,
-        recentSituations
+        // The reference's situation is not a matrix pick, so the matrix saturation check does not apply.
+        referenceReplay ? [] : recentSituations
       );
       experiment.lengthTarget = lengthArms[batchIndex];
       // The gate caps reversal openers only for saju_viral (same scope as the numbered-choice cap).
@@ -1217,6 +1219,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       else if (referenceReplay) {
         experiment.winnerReference = referenceReplay.content;
         experiment.referenceReplay = true;
+        // [상황/맥락] points at the reference; the saved Post.situation keeps this string, so later posts' saturation check ignores it.
+        experiment.situation = REFERENCE_SITUATION_PROMPT;
       } else if (replaySource) experiment.winnerReference = replaySource.content;
       // The gate caps numbered choices only for saju_viral, so only there is a capped "choices" slot turned into a question.
       else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
