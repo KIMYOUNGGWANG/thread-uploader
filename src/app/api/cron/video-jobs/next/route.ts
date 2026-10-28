@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { generateTikTokScript } from "@/lib/tiktok/tiktok-script-engine";
-import { dailyVideoSeason } from "@/lib/new-year/new-year-season";
+import { brandVideoLang, dailyVideoSeason } from "@/lib/new-year/new-year-season";
 import { buildTikTokRenderSpec } from "@/lib/tiktok/tiktok-render-worker";
 import { buildTikTokDraftCreateData, draftToScriptResult, pickDailyDayMaster, pickDailyHookVariant } from "@/lib/tiktok/tiktok-draft-service";
 
@@ -69,6 +69,7 @@ async function createDailyDraft(brandId: string, brandSlug: string) {
     variant: pickDailyHookVariant(now),
     tone: "mysterious",
     season: dailyVideoSeason(brandSlug, now),
+    lang: brandVideoLang(brandSlug),
   });
   // A draft that fails the quality gate is recorded with its reasons but never rendered.
   if (!script.qualityPass) {

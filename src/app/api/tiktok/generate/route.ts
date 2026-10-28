@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { generateTikTokScript } from "@/lib/tiktok/tiktok-script-engine";
 import { buildTikTokDraftCreateData } from "@/lib/tiktok/tiktok-draft-service";
+import { brandVideoLang } from "@/lib/new-year/new-year-season";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
       topic: topic || "사주 대운 분석",
       dayMaster: dayMaster || "갑목",
       tone: tone || "mysterious",
+      lang: brandVideoLang(brand.slug),
     });
 
     const draft = await prisma.tikTokVideoDraft.create({

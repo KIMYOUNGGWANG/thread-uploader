@@ -43,6 +43,7 @@ export interface ScriptGenerationParams {
   tone?: "urgent" | "mysterious" | "encouraging";
   variant?: number; // 같은 일간의 훅 후보 중 몇 번째를 쓸지 (pickDailyHookVariant)
   season?: "new_year_2027"; // 신년 시즌: "○○ 일간의 2027" 버전 대본
+  lang?: ScriptLang; // 기본 ko. en은 글로벌 브랜드용 영어 대본 (brandVideoLang)
 }
 
 // 훅은 사주를 몰라도 읽히는 성향을 "왜?"로 묻고(Pull), 2번 장면이 그 성향을 일간과 상징으로 답한다(Truth).
@@ -54,6 +55,8 @@ interface DayMasterProfile {
   nature: string; // "{일간} 일간은 ___"
   strength: string;
 }
+
+export type ScriptLang = "ko" | "en";
 
 const DAY_MASTER_PROFILES: Record<string, DayMasterProfile> = {
   갑목: { hooks: ["한번 정하면 잘 안 굽히는 사람", "고집 세다는 말 자주 듣는 사람"], symbol: "큰 나무", nature: "큰 나무예요. 위로 곧게 자라는 기운이라, 방향을 정하면 돌아가기보다 밀고 나가요.", strength: "곧은 추진력 · 책임감" },
@@ -68,12 +71,32 @@ const DAY_MASTER_PROFILES: Record<string, DayMasterProfile> = {
   계수: { hooks: ["말 안 해도 분위기를 먼저 읽는 사람", "남의 기분에 쉽게 물드는 사람"], symbol: "빗물과 이슬", nature: "빗물과 이슬이에요. 조용히 스며드는 기운이라, 말보다 공기의 변화를 먼저 느껴요.", strength: "직관 · 공감력" },
 };
 
+// English profiles for the global brand. Keys stay Korean so the daily rotation, the chart example
+// and the 2027 data all share one id; `label` is what the viewer reads.
+interface EnDayMasterProfile extends DayMasterProfile {
+  label: string; // "Yang Wood (甲)" — the answer word the payoff must carry
+}
+
+const EN_DAY_MASTER_PROFILES: Record<string, EnDayMasterProfile> = {
+  갑목: { label: "Yang Wood (甲)", hooks: ["The one who never backs down once they've decided", "Always told you're stubborn"], symbol: "a tall tree", nature: "it grows straight up, so once you pick a direction you push through instead of going around.", strength: "drive · responsibility" },
+  을목: { label: "Yin Wood (乙)", hooks: ["Looks soft, but outlasts everyone", "Somehow lands on their feet anywhere"], symbol: "grass and vines", nature: "it bends in the wind without breaking, and finds a gap to root in wherever it lands.", strength: "flexibility · persistence" },
+  병화: { label: "Yang Fire (丙)", hooks: ["Every mood shows right on your face", "The room gets brighter when you walk in"], symbol: "the sun", nature: "its light can't be hidden, so feelings and thoughts show on the outside, plainly.", strength: "honesty · lifting the mood" },
+  정화: { label: "Yin Fire (丁)", hooks: ["Extra careful with the people closest to you", "Focused on one person for a long time"], symbol: "a candle flame", nature: "it lights what's near for a long time rather than what's far, so it tends the people beside it.", strength: "attentiveness · warm focus" },
+  무토: { label: "Yang Earth (戊)", hooks: ["Almost nothing shakes you", "Quiet, but everyone leans on you"], symbol: "a mountain", nature: "it holds its ground with weight, so when everything around it moves, it stays centered.", strength: "steadiness · trust" },
+  기토: { label: "Yin Earth (己)", hooks: ["Taking care of others and losing your own share", "Can't say no to a favor"], symbol: "farmland soil", nature: "it holds seeds and grows them, so people and work get looked after first.", strength: "generosity · raising others" },
+  경금: { label: "Yang Metal (庚)", hooks: ["Cuts things off clean, no second thoughts", "Once it's a no, it's a no forever"], symbol: "raw ore", nature: "it's hard with a sharp edge, so what isn't right gets cut off, clearly.", strength: "decisiveness · loyalty" },
+  신금: { label: "Yin Metal (辛)", hooks: ["High standards, rarely satisfied", "The first to spot the tiny flaw"], symbol: "a cut gem", nature: "it shows every small flaw, so the bar is high, including for yourself.", strength: "taste · finish" },
+  임수: { label: "Yang Water (壬)", hooks: ["Thoughts that never stop expanding", "Can't stay in one place for long"], symbol: "a river and the sea", nature: "it never stops flowing, so thinking doesn't sit still and spreads wide.", strength: "broad view · strategy" },
+  계수: { label: "Yin Water (癸)", hooks: ["Reads the room before anyone speaks", "Easily colored by other people's moods"], symbol: "rain and dew", nature: "it seeps in quietly, so it senses a shift in the air before any words.", strength: "intuition · empathy" },
+};
+
 // 모르는 일간: 문구는 만들되 답(상징)이 없으므로 게이트에서 떨어진다.
 const UNKNOWN_PROFILE: DayMasterProfile = { hooks: ["사주가 궁금한 사람"], symbol: "", nature: "", strength: "" };
+const UNKNOWN_EN_PROFILE: EnDayMasterProfile = { label: "", hooks: ["Curious about your Saju chart"], symbol: "", nature: "", strength: "" };
 
-const HOOK_MAX_CHARS = 30; // 3.5초 안에 읽히는 길이
+const HOOK_MAX_CHARS: Record<ScriptLang, number> = { ko: 30, en: 64 }; // 3.5초 안에 읽히는 길이
 const GAP_PATTERN = /이유|\?/;
-const OVERPROMISE_PATTERN = /절대|반드시|무조건|놓치지\s*마|경고|대박|급상승|100%|확실히|귀인\s*발탁|재물운\s*반등|운명의\s*전환점/;
+const OVERPROMISE_PATTERN = /절대|반드시|무조건|놓치지\s*마|경고|대박|급상승|100%|확실히|귀인\s*발탁|재물운\s*반등|운명의\s*전환점|guaranteed|never miss|jackpot|must watch|warning|destiny shift|life[- ]changing/i;
 
 export interface ExplainerQuality {
   qualityScore: number;
@@ -84,21 +107,24 @@ export interface ExplainerQuality {
 export function evaluateExplainerQuality(
   script: Pick<TikTokScriptResult, "scenes" | "totalDurationSeconds">,
   dayMaster: string,
-  answer?: string // 2번 장면이 훅에 답하는 단어 (기본: 일간 상징)
+  answer?: string, // 2번 장면이 훅에 답하는 단어 (기본: 일간 상징)
+  lang: ScriptLang = "ko"
 ): ExplainerQuality {
-  const profile = DAY_MASTER_PROFILES[dayMaster];
+  const profile = lang === "en" ? EN_DAY_MASTER_PROFILES[dayMaster] : DAY_MASTER_PROFILES[dayMaster];
+  const dayMasterWord = lang === "en" ? EN_DAY_MASTER_PROFILES[dayMaster]?.label : dayMaster;
   const hook = script.scenes[0]?.onScreenText[0] ?? "";
   const payoff = script.scenes[1]?.spokenLine ?? "";
   const answerWord = answer ?? profile?.symbol;
   const allText = script.scenes.flatMap((scene) => [scene.spokenLine, ...scene.onScreenText]).join(" ");
   const overpromise = allText.match(OVERPROMISE_PATTERN)?.[0];
+  const maxChars = HOOK_MAX_CHARS[lang];
 
   const checks: [boolean, string][] = [
     [Boolean(profile), `일간 해설 데이터 없음: "${dayMaster}" 훅의 답을 줄 수 없음 (Truth)`],
     [GAP_PATTERN.test(hook), "훅이 질문을 열지 않음 (Pull)"],
     [!findFirstLineChartGate(hook), "훅이 독자의 사주를 전제함: 자기 일간을 아는 사람에게만 닿음 (Pull)"],
-    [hook.length <= HOOK_MAX_CHARS, `훅이 ${HOOK_MAX_CHARS}자를 넘어 첫 장면에 다 안 읽힘 (Pull)`],
-    [Boolean(profile) && Boolean(answerWord) && payoff.includes(dayMaster) && payoff.includes(answerWord as string), "훅의 답(일간·상징)이 바로 다음 장면에 없음 (Truth)"],
+    [hook.length <= maxChars, `훅이 ${maxChars}자를 넘어 첫 장면에 다 안 읽힘 (Pull)`],
+    [Boolean(profile) && Boolean(answerWord) && Boolean(dayMasterWord) && payoff.includes(dayMasterWord as string) && payoff.includes(answerWord as string), "훅의 답(일간·상징)이 바로 다음 장면에 없음 (Truth)"],
     [!overpromise, `과장·막연한 떡밥 문구: "${overpromise}" (Truth)`],
     [script.totalDurationSeconds >= 15 && script.totalDurationSeconds <= 30, "길이가 15~30초를 벗어남"],
   ];
@@ -112,6 +138,7 @@ export function evaluateExplainerQuality(
 }
 
 export function generateTikTokScript(params: ScriptGenerationParams): TikTokScriptResult {
+  if (params.lang === "en") return generateEnglishScript(params);
   const { dayMaster = "병화", tone = "mysterious", variant = 0 } = params;
   const profile = DAY_MASTER_PROFILES[dayMaster] ?? UNKNOWN_PROFILE;
   const ny = params.season ? DAY_MASTER_2027[dayMaster] : undefined;
@@ -144,68 +171,102 @@ export function generateTikTokScript(params: ScriptGenerationParams): TikTokScri
     ? "내 2027년 달력이 궁금하면, 프로필 링크 들어가서 홈 맨 위 2027 캘린더를 눌러 보세요."
     : "내 일간이 뭔지 모르겠다면, 프로필 링크에서 1분이면 확인할 수 있어요.";
 
-  const scenes: TikTokSceneBeat[] = [
-    {
-      sceneId: "scene-01-hook",
-      durationSeconds: 3.5,
-      type: "kinetic-card",
-      spokenLine: hookSpoken,
-      onScreenText: [hookText],
-      visualProps: {
-        hookText,
-        subText: "사주 일간으로 보면 보여요",
-        badge: `🔮 ${dayMaster} 일간`,
-        colorScheme: tone === "urgent" ? "fire-red" : "electric-purple",
-      },
-    },
-    {
-      sceneId: "scene-02-answer",
-      durationSeconds: 5.5,
-      type: "placeholder",
-      spokenLine: scene2Spoken,
-      onScreenText: [scene2Screen],
-      visualProps: {
-        hookText: ny ? scene2Screen : profile.symbol,
-      },
-    },
-    {
-      sceneId: "scene-03-saju-card",
-      durationSeconds: 7.0,
-      type: "saju-card",
-      spokenLine: scene3Spoken,
-      onScreenText: ["일주 윗글자 = 나", profile.strength],
-      visualProps: {
-        sajuData,
-      },
-    },
-    {
-      sceneId: "scene-04-cta",
-      durationSeconds: 4.0,
-      type: "kinetic-card",
-      spokenLine: scene4Spoken,
-      onScreenText: [cta],
-      visualProps: {
-        hookText: ny ? "내 2027 캘린더 보기" : "내 일간 확인하기",
-        subText: ny ? "프로필 링크 → 홈 맨 위" : "프로필 링크에서 1분",
-        badge: ny ? "✨ 2027 캘린더" : "✨ 내 일간 찾기",
-        colorScheme: "neon-yellow",
-      },
-    },
-  ];
-
-  const fullScript = scenes.map((s) => s.spokenLine).join(" ");
+  const scenes = buildExplainerScenes({
+    hookText, hookSpoken, hookSub: "사주 일간으로 보면 보여요", hookBadge: `🔮 ${dayMaster} 일간`, tone,
+    scene2Spoken, scene2Screen, scene2Visual: ny ? scene2Screen : profile.symbol,
+    scene3Spoken, scene3Screen: ["일주 윗글자 = 나", profile.strength], sajuData,
+    scene4Spoken, cta,
+    ctaHook: ny ? "내 2027 캘린더 보기" : "내 일간 확인하기",
+    ctaSub: ny ? "프로필 링크 → 홈 맨 위" : "프로필 링크에서 1분",
+    ctaBadge: ny ? "✨ 2027 캘린더" : "✨ 내 일간 찾기",
+  });
   const totalDurationSeconds = scenes.reduce((acc, s) => acc + s.durationSeconds, 0);
 
   return {
     title: ny ? `${dayMaster} 일간의 2027: ${subject}` : `${dayMaster} 일간 해설: ${subject}`,
     spokenHook: hookSpoken,
-    fullScript,
+    fullScript: scenes.map((s) => s.spokenLine).join(" "),
     totalDurationSeconds,
     scenes,
     cta,
     hashtags: ["사주", "일간", `${dayMaster}일간`, "사주풀이", "운세"],
     ...evaluateExplainerQuality({ scenes, totalDurationSeconds }, dayMaster, ny?.tenGod),
   };
+}
+
+// Same four beats in English for the global brand. No 2027 season here: its CTA points at the KO site
+// (dailyVideoSeason already keeps it to ko brands).
+function generateEnglishScript(params: ScriptGenerationParams): TikTokScriptResult {
+  const { dayMaster = "병화", tone = "mysterious", variant = 0 } = params;
+  const profile = EN_DAY_MASTER_PROFILES[dayMaster] ?? UNKNOWN_EN_PROFILE;
+  const { label } = profile;
+  const subject = profile.hooks[variant % profile.hooks.length];
+
+  const hookText = `${subject} — why?`;
+  const hookSpoken = `${subject}. Saju shows why.`;
+  const scene2Spoken = `In Saju, that's the signature of a ${label} day master. ${label} is ${profile.symbol}: ${profile.nature}`;
+  const scene2Screen = `${label} = ${profile.symbol}`;
+  const scene3Spoken = `On a chart, the top character of the Day Pillar is "you". If that's ${label}, your strengths are ${profile.strength}.`;
+  const sajuData: SajuCardData = {
+    title: `${label} day master — sample chart`,
+    subtitle: 'The Day Pillar\'s top character is "you"',
+    dayMaster,
+    destinyKeyword: profile.strength,
+    pillars: pillarsForDayMaster(dayMaster),
+    lang: "en",
+  };
+  const cta = "Link in bio → find your day master in 1 minute";
+  const scene4Spoken = "Not sure what your day master is? The link in bio shows it in about a minute.";
+
+  const scenes = buildExplainerScenes({
+    hookText, hookSpoken, hookSub: "Saju explains it", hookBadge: `🔮 ${label}`, tone,
+    scene2Spoken, scene2Screen, scene2Visual: profile.symbol,
+    scene3Spoken, scene3Screen: ["Day Pillar top = you", profile.strength], sajuData,
+    scene4Spoken, cta, ctaHook: "Find your day master", ctaSub: "Link in bio, 1 minute", ctaBadge: "✨ Your day master",
+  });
+  const totalDurationSeconds = scenes.reduce((acc, s) => acc + s.durationSeconds, 0);
+
+  return {
+    title: `${label} day master: ${subject}`,
+    spokenHook: hookSpoken,
+    fullScript: scenes.map((s) => s.spokenLine).join(" "),
+    totalDurationSeconds,
+    scenes,
+    cta,
+    hashtags: ["saju", "bazi", "fourpillars", "daymaster", "astrology"],
+    ...evaluateExplainerQuality({ scenes, totalDurationSeconds }, dayMaster, undefined, "en"),
+  };
+}
+
+interface ExplainerCopy {
+  hookText: string; hookSpoken: string; hookSub: string; hookBadge: string; tone: NonNullable<ScriptGenerationParams["tone"]>;
+  scene2Spoken: string; scene2Screen: string; scene2Visual: string;
+  scene3Spoken: string; scene3Screen: string[]; sajuData: SajuCardData;
+  scene4Spoken: string; cta: string; ctaHook: string; ctaSub: string; ctaBadge: string;
+}
+
+// 네 장면의 길이·타입은 언어와 무관하게 같다(3.5 / 5.5 / 7 / 4초).
+function buildExplainerScenes(c: ExplainerCopy): TikTokSceneBeat[] {
+  return [
+    {
+      sceneId: "scene-01-hook",
+      durationSeconds: 3.5,
+      type: "kinetic-card",
+      spokenLine: c.hookSpoken,
+      onScreenText: [c.hookText],
+      visualProps: { hookText: c.hookText, subText: c.hookSub, badge: c.hookBadge, colorScheme: c.tone === "urgent" ? "fire-red" : "electric-purple" },
+    },
+    { sceneId: "scene-02-answer", durationSeconds: 5.5, type: "placeholder", spokenLine: c.scene2Spoken, onScreenText: [c.scene2Screen], visualProps: { hookText: c.scene2Visual } },
+    { sceneId: "scene-03-saju-card", durationSeconds: 7.0, type: "saju-card", spokenLine: c.scene3Spoken, onScreenText: c.scene3Screen, visualProps: { sajuData: c.sajuData } },
+    {
+      sceneId: "scene-04-cta",
+      durationSeconds: 4.0,
+      type: "kinetic-card",
+      spokenLine: c.scene4Spoken,
+      onScreenText: [c.cta],
+      visualProps: { hookText: c.ctaHook, subText: c.ctaSub, badge: c.ctaBadge, colorScheme: "neon-yellow" },
+    },
+  ];
 }
 
 // ---------------------------------------------------------------------------
