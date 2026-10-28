@@ -385,7 +385,9 @@ async function saveCandidate(
   // Other accounts' posts come back without counts, so TOP-search placement stands in for engagement.
   const searchBonus = candidate.views === null ? calculateSearchSignalScore(stored.signal) : 0;
   const viralScore = calculateViralScore(scoreMetrics, candidate.content) + searchBonus;
-  if (viralScore < minViralScore) return null;
+  // minViralScore is tuned for posts with counts (own posts, shorts). A count-less outside post tops out near 40,
+  // so the threshold would drop every keyword-search hit and ref_replay would never get a source; those are ranked by referenceScore instead.
+  if (candidate.views !== null && viralScore < minViralScore) return null;
 
   stored.merged.referenceScore = calculateReferenceScore({
     signal: stored.signal,
