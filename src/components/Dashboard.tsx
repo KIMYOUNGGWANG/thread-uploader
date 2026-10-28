@@ -576,9 +576,13 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     }
   }, [brandId, insertAtFront, fetchPosts]);
 
-  const handleDeletePost = useCallback(async (postId: string) => {
+  const handleDeletePost = useCallback(async (postId: string, reason?: string) => {
     try {
-      const response = await fetch(`/api/posts/${postId}`, { method: "DELETE" });
+      const response = await fetch(`/api/posts/${postId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
       if (!response.ok) throw new Error("Failed to delete post");
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       toast.success("포스트 삭제됨");
@@ -1518,7 +1522,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   algorithmicFixes={dbPost.algorithmicFixes}
                   rewriteCount={dbPost.rewriteCount}
                   onUpdate={() => { }}
-                  onDelete={() => handleDeletePost(dbPost.id)}
+                  onDelete={(_, reason) => handleDeletePost(dbPost.id, reason)}
                   onRefresh={fetchPosts}
                 />
               ))}

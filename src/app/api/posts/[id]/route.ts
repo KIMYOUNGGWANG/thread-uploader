@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requirePostForCurrentUser } from "@/lib/brand-access";
+import { reviewDecisionFor } from "@/lib/review-decision";
 
 const EDITABLE_STATUSES = new Set(["PENDING", "NEEDS_REVIEW"]);
 
@@ -11,11 +13,16 @@ interface RouteParams {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params;
-        await requirePostForCurrentUser(id);
+        const { post } = await requirePostForCurrentUser(id);
+        // The body is optional: older callers send a bare DELETE with no reason.
+        const body: unknown = await request.json().catch(() => null);
+        const reason = typeof body === "object" && body !== null ? (body as Record<string, unknown>).reason : undefined;
 
-        await prisma.post.delete({
-            where: { id },
-        });
+        const decision = reviewDecisionFor(post, "REJECTED", reason);
+        const operations: Prisma.PrismaPromise<unknown>[] = [];
+        if (decision) operations.push(prisma.reviewDecision.create({ data: decision }));
+        operations.push(prisma.post.delete({ where: { id } }));
+        await prisma.$transaction(operations);
 
         return NextResponse.json({ success: true });
     } catch (error) {
@@ -32,13 +39,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params;
-        await requirePostForCurrentUser(id);
+        const { post } = await requirePostForCurrentUser(id);
         const body = await request.json() as {
             content?: unknown;
             imageUrls?: unknown;
             scheduledAt?: unknown;
             firstComment?: unknown;
             status?: unknown;
+            reason?: unknown;
         };
 
         if (body.status !== undefined && !(typeof body.status === "string" && EDITABLE_STATUSES.has(body.status))) {
@@ -56,10 +64,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             ...(isApproval && { qualityPass: true, algorithmicPass: true }),
         };
 
-        const updatedPost = await prisma.post.update({
-            where: { id },
-            data,
-        });
+        const decision = isApproval ? reviewDecisionFor(post, "APPROVED", body.reason) : null;
+        const operations: Prisma.PrismaPromise<unknown>[] = [prisma.post.update({ where: { id }, data })];
+        if (decision) operations.push(prisma.reviewDecision.create({ data: decision }));
+        const [updatedPost] = await prisma.$transaction(operations);
 
         return NextResponse.json({ success: true, post: updatedPost });
     } catch (error) {
