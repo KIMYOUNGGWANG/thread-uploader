@@ -15,7 +15,7 @@ import {
 } from "@/lib/viral-analysis";
 import { fetchPublicProfilePosts, searchThreadsByKeyword, type ThreadsPublicPost } from "@/lib/threads-api";
 import { allExternalSourcesFailed, harvestFromThreadsSources } from "@/lib/viral-harvester";
-import { calculateReferenceScore, isEligibleSource, type EligibilityRules } from "@/lib/reference-radar";
+import { calculateReferenceScore, isEligibleSource, normalizeHandle, type EligibilityRules } from "@/lib/reference-radar";
 import { parseBrandConfig } from "@/types/brand";
 import {
   parseViralMemory,
@@ -192,12 +192,21 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
     if (savedExample) saved++;
   }
 
+  // Without the threads_keyword_search permission the API answers keyword searches with the token owner's own posts only,
+  // which looks like a healthy run (no errors, rows saved) while ref_replay never gets an outside source. Surface it.
+  const keywordHits = candidates.filter((candidate) => candidate.adapter === "threads_keyword");
+  const keywordOnlyOwnPosts =
+    rules.ownHandle !== null &&
+    keywordHits.length > 0 &&
+    keywordHits.every((candidate) => candidate.authorUsername !== null && normalizeHandle(candidate.authorUsername) === normalizeHandle(rules.ownHandle ?? ""));
+
   return {
     success: true,
     discovered: candidates.length,
     saved,
     errors,
     externalAllFailed,
+    keywordOnlyOwnPosts,
     ...(await getViralReport(brandId)),
   };
 }
