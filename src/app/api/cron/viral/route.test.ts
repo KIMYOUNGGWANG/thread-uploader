@@ -98,6 +98,19 @@ describe("viral cron", () => {
     expect(learnViralPatterns).toHaveBeenCalledTimes(1);
   });
 
+  it("warns when keyword search returned only the brand's own posts, but only on analysis runs", async () => {
+    discoverViralExamples.mockResolvedValue({ saved: 3, errors: [], externalAllFailed: false, keywordOnlyOwnPosts: true });
+    const body = await (await GET(request())).json();
+    expect(sendSystemAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "warning", title: "Keyword search returned only own posts", brandName: "cosmicpath" }),
+    );
+    expect(body.brands[0].keywordOnlyOwnPosts).toBe(true);
+
+    vi.clearAllMocks();
+    await GET(new NextRequest("http://localhost/api/cron/viral?analyze=false"));
+    expect(sendSystemAlert).not.toHaveBeenCalled();
+  });
+
   it("tries a ref_replay draft for every harvested brand and reports it", async () => {
     discoverViralExamples.mockResolvedValue({ saved: 1, errors: [], externalAllFailed: false });
     refillReferenceReplay.mockResolvedValueOnce({ generated: 1, sourceId: "ex_1" });

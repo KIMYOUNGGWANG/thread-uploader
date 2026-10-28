@@ -142,6 +142,19 @@ describe("viral-service reference score and eligibility", () => {
     expect(saved.every((item) => typeof item.metrics.referenceScore === "number")).toBe(true);
   });
 
+  it("flags keywordOnlyOwnPosts when every keyword hit is the brand's own post (missing threads_keyword_search permission)", async () => {
+    const published = new Date(Date.now() - 3 * DAY_MS);
+    mockHarvest(harvested("cosmicpath", "p1", published), harvested("CosmicPath", "p2", published));
+    expect((await discoverViralExamples("b1")).keywordOnlyOwnPosts).toBe(true);
+
+    mockHarvest(harvested("cosmicpath", "p1", published), harvested("the.saju", "p3", published));
+    expect((await discoverViralExamples("b1")).keywordOnlyOwnPosts).toBe(false);
+
+    // No keyword hits at all is a different failure (externalAllFailed), not this one.
+    mockHarvest();
+    expect((await discoverViralExamples("b1")).keywordOnlyOwnPosts).toBe(false);
+  });
+
   it("saves an integer viralScore on a repeat sighting (viralScore is an Int column)", async () => {
     mockHarvest(harvested("the.saju", "p1", new Date(Date.now() - 3 * DAY_MS)));
     vi.mocked(prisma.viralExample.findUnique).mockResolvedValue({ rawMetrics: JSON.stringify({ timesSeen: 1 }) } as never);

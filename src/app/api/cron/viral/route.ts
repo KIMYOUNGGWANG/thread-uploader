@@ -52,6 +52,15 @@ export async function GET(request: NextRequest) {
           brandName: brand.name,
         });
       }
+      // Only-own-posts means the app lacks threads_keyword_search (Meta app review). Warn on the two analysis runs a day, not all six.
+      if (discovery.keywordOnlyOwnPosts && analyze) {
+        await sendSystemAlert({
+          level: "warning",
+          title: "Keyword search returned only own posts",
+          message: "threads_keyword_search 권한이 없어 본인 글만 검색됩니다. Meta 앱 심사 전까지 ref_replay 원본이 생기지 않습니다.",
+          brandName: brand.name,
+        });
+      }
       results.push({
         slug: brand.slug,
         success: true,
@@ -59,6 +68,7 @@ export async function GET(request: NextRequest) {
         learnedPatterns: learning.learnedPatterns,
         llmAnalysis,
         referenceReplay,
+        keywordOnlyOwnPosts: discovery.keywordOnlyOwnPosts,
         errors: discovery.errors,
       });
     } catch (error) {
