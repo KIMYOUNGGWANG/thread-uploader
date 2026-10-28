@@ -12,7 +12,7 @@ import {
   parseSlotHours,
 } from "@/lib/behavioral-jitter";
 import { resolveAccountTrustTier, startOfPublishDay, TIER_DAILY_QUOTAS } from "@/lib/account-trust-ramp";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { getActiveCampaign, parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
 import { sendSystemAlert } from "@/lib/alert-service";
 import { isMetricsCollectionStale } from "@/lib/metrics-selection";
 import { loadLengthExperimentState, pickPublishCandidate } from "@/lib/length-experiment";
@@ -295,7 +295,10 @@ export async function GET(request: NextRequest) {
         where: { brandId: brand.id, status: "PUBLISHED", publishedAt: { gte: startOfPublishDay(now) } },
       });
       // Quota is a timing limit, not a content defect: wait for tomorrow instead of demoting the post to review.
-      if (publishedTodayCount >= TIER_DAILY_QUOTAS[tier]) {
+      // The campaign's dailyPostTarget was never enforced here: once the scheduler ran reliably (2026-10-22)
+      // cosmicpath hit the 5/day tier quota and per-post views halved while account-level views stayed flat.
+      const campaignTarget = getActiveCampaign(brandConfig)?.dailyPostTarget ?? Infinity;
+      if (publishedTodayCount >= Math.min(TIER_DAILY_QUOTAS[tier], campaignTarget)) {
         skipped.push({ brandId: brand.id, brandName: brand.name, reason: "daily_quota_reached" });
         continue;
       }
