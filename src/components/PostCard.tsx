@@ -56,7 +56,7 @@ interface PostCardProps {
     algorithmicFixes?: string[];
     rewriteCount?: number | null;
     onUpdate: (index: number, post: ParsedPost) => void;
-    onDelete: (index: number) => void;
+    onDelete: (index: number, reason?: string) => void;
     onTogglePosted?: (index: number) => void;
     onRefresh?: () => void;
 }
@@ -112,6 +112,7 @@ export function PostCard({
     const [isUploading, setIsUploading] = useState(false);
     const [isRemediating, setIsRemediating] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
+    const [reviewReason, setReviewReason] = useState("");
     const isQualityBlocked = qualityPass === false;
     const isAlgorithmicFailed = algorithmicPass === false
         || (algorithmicPass == null && algorithmicScore != null && algorithmicScore < 80);
@@ -152,7 +153,7 @@ export function PostCard({
             const response = await fetch(`/api/posts/${dbPostId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: "PENDING" }),
+                body: JSON.stringify({ status: "PENDING", reason: reviewReason }),
             });
             const data = await response.json();
             if (!response.ok) {
@@ -290,7 +291,9 @@ export function PostCard({
                 variant="ghost"
                 size="icon"
                 className="absolute top-2 right-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-                onClick={() => onDelete(index)}
+                onClick={() => onDelete(index, reviewReason)}
+                aria-label="글 삭제"
+                title={status === "NEEDS_REVIEW" ? "삭제 (사유를 적었다면 반려 사유로 기록돼요)" : "삭제"}
             >
                 <Trash2 className="w-4 h-4" />
             </Button>
@@ -538,6 +541,18 @@ export function PostCard({
                                     {errorLog}
                                 </div>
                             </div>
+                        )}
+
+                        {dbPostId && !isPosted && status === "NEEDS_REVIEW" && (
+                            <Input
+                                className="mt-3"
+                                value={reviewReason}
+                                onChange={(event) => setReviewReason(event.target.value)}
+                                maxLength={200}
+                                placeholder="승인·삭제 사유 한 줄 (선택) — 취향과 성과를 따로 학습하는 데 쓰여요"
+                                aria-label="승인 또는 삭제 사유"
+                                disabled={isApproving}
+                            />
                         )}
 
                         {/* Action buttons */}

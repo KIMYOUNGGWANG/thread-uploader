@@ -40,6 +40,7 @@ model Brand {
   conversionEvents ConversionEvent[]
   threadReplies    ThreadReply[]
   tikTokDrafts     TikTokVideoDraft[]
+  reviewDecisions  ReviewDecision[]
   instagramAccessToken  String?
   instagramUserId       String?
   instagramUsername     String?
@@ -232,6 +233,24 @@ model AccountInsight {
   createdAt   DateTime @default(now())
 
   @@index([brandId, generatedAt])
+}
+
+// Human review outcome for a draft. postId is deliberately not a relation: rejecting a draft deletes the Post,
+// and the decision (with the topic/formula copied here) must outlive it so taste can be compared with performance.
+model ReviewDecision {
+  id        String   @id @default(cuid())
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  postId    String
+  decision  String   // APPROVED, REJECTED
+  reason    String?
+  formulaId String?
+  topic     String?
+  hookType  String?
+  createdAt DateTime @default(now())
+
+  @@index([brandId, createdAt])
+  @@index([brandId, formulaId, decision])
 }
 
 model ConversionEvent {
