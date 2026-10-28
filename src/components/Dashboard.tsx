@@ -273,6 +273,10 @@ interface DBPost {
   qualityScore: number | null;
   performanceScore: number | null;
   performanceTier: string | null;
+  views: number | null;
+  likes: number | null;
+  replies: number | null;
+  reposts: number | null;
   qualityProfile: string | null;
   qualityPass: boolean | null;
   qualityReasons: string[];
@@ -1408,6 +1412,10 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   manualPaidConversions={dbPost.manualPaidConversions}
                   performanceScore={dbPost.performanceScore}
                   performanceTier={dbPost.performanceTier}
+                  views={dbPost.views}
+                  likes={dbPost.likes}
+                  replies={dbPost.replies}
+                  reposts={dbPost.reposts}
                   postCategory={dbPost.postCategory}
                   algorithmicScore={dbPost.algorithmicScore}
                   algorithmicPass={dbPost.algorithmicPass}

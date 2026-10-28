@@ -39,6 +39,10 @@ interface PostCardProps {
     manualPaidConversions?: number | null;
     performanceScore?: number | null;
     performanceTier?: string | null;
+    views?: number | null;
+    likes?: number | null;
+    replies?: number | null;
+    reposts?: number | null;
     postCategory?: string | null;
     algorithmicScore?: number | null;
     algorithmicPass?: boolean | null;
@@ -83,6 +87,10 @@ export function PostCard({
     manualPaidConversions,
     performanceScore,
     performanceTier,
+    views,
+    likes,
+    replies,
+    reposts,
     postCategory,
     algorithmicScore,
     algorithmicPass,
@@ -458,6 +466,12 @@ export function PostCard({
                             {ctaType && (
                                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-medium">
                                     CTA {ctaType}
+                                </div>
+                            )}
+
+                            {views !== null && views !== undefined && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 rounded-full text-xs font-medium">
+                                    조회 {views.toLocaleString()} · 좋아요 {(likes ?? 0).toLocaleString()} · 댓글 {(replies ?? 0).toLocaleString()} · 리포스트 {(reposts ?? 0).toLocaleString()}
                                 </div>
                             )}
 
