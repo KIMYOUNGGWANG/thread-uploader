@@ -20,11 +20,13 @@ const api = vi.hoisted(() => ({
   getRemainingPublishQuota: vi.fn(),
 }));
 const sendSystemAlert = vi.hoisted(() => vi.fn());
+const mirrorRecentInstagram = vi.hoisted(() => vi.fn());
 const transaction = vi.hoisted(() => ({ active: false, executeRaw: vi.fn(), run: vi.fn() }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: { post, $transaction: transaction.run } }));
 vi.mock("@/lib/instagram-api", () => api);
 vi.mock("@/lib/alert-service", () => ({ sendSystemAlert }));
+vi.mock("@/lib/channels/publication-mirror", () => ({ mirrorRecentInstagram }));
 
 import {
   buildInstagramCaption,
@@ -372,5 +374,22 @@ describe("runInstagramReelsTick", () => {
       data: { instagramStatus: "SKIPPED" },
     });
     expect(result.skippedStale).toBe(1);
+  });
+
+  it("mirrors recent instagram posts at the end of every tick", async () => {
+    db.processing = [{ id: "p1", instagramContainerId: "c1", instagramAttempts: 0 }];
+    api.getContainerStatus.mockResolvedValue("FINISHED");
+    api.publishContainer.mockResolvedValue("media-1");
+
+    await runInstagramReelsTick(brand, credentials, now);
+
+    expect(mirrorRecentInstagram).toHaveBeenCalledWith(brand.id, now);
+    expect(mirrorRecentInstagram.mock.invocationCallOrder[0]).toBeGreaterThan(post.update.mock.invocationCallOrder[0]);
+  });
+
+  it("still mirrors once when the tick published nothing", async () => {
+    await runInstagramReelsTick(brand, credentials, now);
+
+    expect(mirrorRecentInstagram).toHaveBeenCalledTimes(1);
   });
 });

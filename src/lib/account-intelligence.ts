@@ -1,6 +1,7 @@
 import { decryptToken } from "@/lib/crypto";
 import type { Brand, Post, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { mirrorThreadsFromPost } from "@/lib/channels/publication-mirror";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
 import { fetchFollowersCountForBrand, fetchPostInsightsForBrand } from "@/lib/threads-api";
 import type {
@@ -108,6 +109,7 @@ async function refreshRecentMetrics(brand: Brand, windowStart: Date): Promise<Me
           performanceTier: getPerformanceTier(performanceScore),
         },
       });
+      await mirrorThreadsFromPost(post.id);
       result.updated++;
     } catch (error) {
       result.failed++;
