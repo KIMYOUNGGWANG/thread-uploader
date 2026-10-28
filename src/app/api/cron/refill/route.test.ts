@@ -44,6 +44,22 @@ describe("GET /api/cron/refill", () => {
     expect(args.where.status.in).not.toContain("ANCHOR");
   });
 
+  it("leaves drafts scheduled more than 48h ahead out of the backlog", async () => {
+    vi.useFakeTimers({ now: new Date("2026-11-09T12:00:00.000Z"), toFake: ["Date"] });
+    try {
+      mocks.countPosts.mockResolvedValue(7);
+      mocks.generate.mockResolvedValue({ ok: true, summary: { count: 3, failedCount: 0, linkedCount: 0, campaignId: null, auditSummary: { total: 3, passed: 3, needsReview: 0 } } });
+
+      const { body } = await call("brand=cosmicpath&target=10");
+
+      const [args] = mocks.countPosts.mock.calls.at(-1) as unknown as [{ where: { scheduledAt: { lte: Date } } }];
+      expect(args.where.scheduledAt.lte.toISOString()).toBe("2026-11-11T12:00:00.000Z");
+      expect(body.generated).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("skips generation when the backlog already meets the target", async () => {
     mocks.countPosts.mockResolvedValue(12);
     const { body } = await call("brand=cosmicpath&target=10");

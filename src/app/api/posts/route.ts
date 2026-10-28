@@ -4,6 +4,7 @@ import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { ParsedPost, validatePost } from "@/lib/parser";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
+import { backlogHorizon } from "@/lib/queue-refill";
 
 interface CreatePostsRequest {
   brandId: string;
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
       }
     } else {
       const latest = await prisma.post.findFirst({
-        where: { status: "PENDING", brandId },
+        where: { status: "PENDING", brandId, scheduledAt: { lte: backlogHorizon(new Date(now)) } },
         orderBy: { scheduledAt: "desc" },
       });
       if (latest && latest.scheduledAt.getTime() > now) {

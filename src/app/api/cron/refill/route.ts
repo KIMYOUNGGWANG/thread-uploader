@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { generatePostsForBrand } from "@/lib/generate-posts";
-import { parseRefillTarget, planRefillCount } from "@/lib/queue-refill";
+import { backlogHorizon, parseRefillTarget, planRefillCount } from "@/lib/queue-refill";
 import { loadLengthExperimentState, planExperimentRefillCount } from "@/lib/length-experiment";
 import { refillReferenceReplay, type ReferenceRefillResult } from "@/lib/reference-replay-refill";
 import { parseBrandConfig } from "@/types/brand";
@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
     reason: error instanceof Error ? error.message : "Reference replay failed",
   }));
 
-  const backlog = await prisma.post.count({ where: { brandId: brand.id, status: { in: BACKLOG_STATUSES } } });
+  const backlog = await prisma.post.count({
+    where: { brandId: brand.id, status: { in: BACKLOG_STATUSES }, scheduledAt: { lte: backlogHorizon(new Date()) } },
+  });
   // During the length experiment nobody reviews drafts, so unreviewed ones must not stall refill:
   // fill each arm's PENDING drafts to half the target instead.
   const lengthState = await loadLengthExperimentState(brand.id, parseBrandConfig(brand.brandConfig), new Date());
