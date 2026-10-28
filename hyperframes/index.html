@@ -1,0 +1,230 @@
+<!doctype html>
+<!--
+  ig_rank_10s를 HyperFrames로 옮긴 실험판. 원본: video/src/components/RankCard.tsx + ReelsFrame.tsx
+  변수는 specs/*.json을 --variables-file로 넘긴다. 등장 애니메이션 없이 첫 프레임부터 전부 보인다(짧은 반복 재생용).
+-->
+<html
+  lang="ko"
+  data-resolution="portrait"
+  data-composition-variables='[
+    {"id":"title","type":"string","label":"제목","default":"2027년 운 좋은 일간 TOP 5"},
+    {"id":"item1","type":"string","label":"1위","default":"병화 — 귀인이 먼저 손 내미는 해"},
+    {"id":"item2","type":"string","label":"2위","default":"임수 — 막혔던 재물 흐름이 풀림"},
+    {"id":"item3","type":"string","label":"3위","default":"기토 — 이직·승진 타이밍이 옴"},
+    {"id":"item4","type":"string","label":"4위","default":"신금 — 인연이 들어오는 해"},
+    {"id":"item5","type":"string","label":"5위","default":"을목 — 쉬어가며 기반을 다지는 해"},
+    {"id":"subCopy","type":"string","label":"하단 문구","default":"내 일간 모르면 → 프로필 링크, 1분이면 나와"}
+  ]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "Pretendard";
+        src: url("assets/fonts/PretendardVariable.woff2") format("woff2");
+        font-weight: 45 920;
+      }
+      /* ponytail: 명조는 이 Mac의 AppleMyungjo를 빌려 쓴다. CI(Linux)에서 같은 화면을 보장하려면 Noto Serif KR woff2를 assets/fonts에 넣고 url()로 바꾼다. */
+      @font-face {
+        font-family: "Myungjo";
+        src: local("AppleMyungjo"), local("Noto Serif CJK KR"), local("NanumMyeongjo");
+      }
+      :root {
+        --ink: #1d1a17;
+        --seal: #a8322a;
+        --font-sans: "Pretendard", sans-serif;
+        --font-serif: "Myungjo", serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #0b0d14;
+        font-family: var(--font-sans);
+      }
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+      }
+      #bg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      /* 위·아래를 어둡게 눌러 글자 대비 확보 */
+      #shade {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(5, 7, 14, 0.55) 0%, rgba(5, 7, 14, 0.18) 45%, rgba(5, 7, 14, 0.35) 75%, rgba(5, 7, 14, 0.85) 100%);
+      }
+      /* 한지 패널: 카드 원본 비율(688:1024) 그대로 */
+      #panel {
+        position: absolute;
+        top: 140px;
+        left: 56px;
+        width: 840px;
+        height: 1250px;
+        border-radius: 10px;
+        box-shadow: 0 30px 70px rgba(0, 0, 0, 0.7);
+      }
+      #hanji {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+        border-radius: 10px;
+      }
+      #content {
+        position: relative;
+        padding: 64px 54px 40px;
+      }
+      #title {
+        font-family: var(--font-serif);
+        font-size: 60px;
+        color: var(--ink);
+        line-height: 1.25;
+        word-break: keep-all;
+        margin-bottom: 26px;
+      }
+      #rule {
+        height: 3px;
+        background: var(--seal);
+        margin-bottom: 10px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        padding: 24px 0;
+        border-bottom: 1.5px solid rgba(168, 50, 42, 0.28);
+      }
+      .rank {
+        width: 40px;
+        flex-shrink: 0;
+        font-family: var(--font-serif);
+        font-size: 40px;
+        color: var(--seal);
+        text-align: center;
+      }
+      .stem {
+        width: 104px;
+        height: 104px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-serif);
+        font-size: 72px;
+        color: var(--ink);
+        border: 2.5px solid var(--ink);
+        border-radius: 8px;
+      }
+      .text {
+        font-size: 40px;
+        font-weight: 700;
+        color: var(--ink);
+        line-height: 1.3;
+        word-break: keep-all;
+      }
+      #footer {
+        position: absolute;
+        left: 70px;
+        bottom: 400px;
+        width: 840px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      #subcopy {
+        font-size: 34px;
+        font-weight: 600;
+        color: rgba(248, 250, 252, 0.82);
+        line-height: 1.35;
+        word-break: keep-all;
+      }
+      #brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      #brand-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 9px;
+        background: linear-gradient(135deg, #fde68a, #a78bfa);
+        box-shadow: 0 0 18px rgba(167, 139, 250, 0.8);
+      }
+      #brand-name {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: #fde68a;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="rank" data-start="0" data-duration="6" data-width="1080" data-height="1920">
+      <video id="bg" class="clip" data-start="0" data-duration="6" data-track-index="0" src="assets/reels/bg-cosmic.mp4" muted playsinline></video>
+      <div id="shade"></div>
+
+      <div id="panel" class="clip" data-start="0" data-duration="6" data-track-index="1" data-track-kind="graphics">
+        <img id="hanji" src="assets/reels/cards/saju-front.png" alt="" />
+        <div id="content">
+          <div id="title" data-var-text="title"></div>
+          <div id="rule"></div>
+          <div class="row" id="row1"><div class="rank">1</div><div class="stem"></div><div class="text"></div></div>
+          <div class="row" id="row2"><div class="rank">2</div><div class="stem"></div><div class="text"></div></div>
+          <div class="row" id="row3"><div class="rank">3</div><div class="stem"></div><div class="text"></div></div>
+          <div class="row" id="row4"><div class="rank">4</div><div class="stem"></div><div class="text"></div></div>
+          <div class="row" id="row5"><div class="rank">5</div><div class="stem"></div><div class="text"></div></div>
+        </div>
+      </div>
+
+      <div id="footer" class="clip" data-start="0" data-duration="6" data-track-index="2" data-track-kind="graphics">
+        <div id="subcopy" data-var-text="subCopy"></div>
+        <div id="brand"><div id="brand-dot"></div><div id="brand-name">CosmicPath</div></div>
+      </div>
+
+      <audio id="bgm" data-start="0" data-duration="6" data-track-index="3" data-volume="0.126" data-fade-out="0.4" src="assets/reels/bgm-ambient.m4a"></audio>
+    </div>
+
+    <script>
+      // 한지 위에서 읽히도록 어둡게 맞춘 오행 색: 목 청록, 화 적, 토 황, 금 회백, 수 흑
+      const STEMS = {
+        갑: ["甲", "#2f6f5a"], 을: ["乙", "#2f6f5a"],
+        병: ["丙", "#b8322a"], 정: ["丁", "#b8322a"],
+        무: ["戊", "#a77a18"], 기: ["己", "#a77a18"],
+        경: ["庚", "#7d7a74"], 신: ["辛", "#7d7a74"],
+        임: ["壬", "#1d1a17"], 계: ["癸", "#1d1a17"],
+      };
+      const vars = window.__hyperframes.getVariables();
+      for (let i = 1; i <= 5; i++) {
+        const text = String(vars["item" + i] ?? "");
+        const row = document.getElementById("row" + i);
+        const [hanja, color] = STEMS[text.trim().charAt(0)] ?? [String(i), "#1d1a17"];
+        const stem = row.querySelector(".stem");
+        stem.textContent = hanja;
+        stem.style.color = color;
+        stem.style.borderColor = color;
+        row.querySelector(".text").textContent = text;
+      }
+
+      // 정지 화면: 트윈 없이 빈 타임라인만 등록한다
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines["rank"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
