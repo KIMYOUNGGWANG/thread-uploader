@@ -32,6 +32,12 @@ describe("viral LLM analysis", () => {
     expect(prompt).toContain("질문형 훅");
   });
 
+  it("tells the model not to assert a single unverified cause", () => {
+    const prompt = buildViralAnalysisPrompt([{ id: "ex1", content: "자, 상상해봐" }]);
+    expect(prompt).toContain("한 가지로 단정하지 말고");
+    expect(prompt).toContain("지어내지 않는다");
+  });
+
   it("keeps only complete analyses for requested ids", () => {
     const raw = JSON.stringify({
       analyses: [analysis, { ...analysis, id: "unknown" }, { ...analysis, id: "ex2", whyItWorks: "" }],

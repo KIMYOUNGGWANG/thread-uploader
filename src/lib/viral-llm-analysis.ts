@@ -66,6 +66,8 @@ export function buildViralAnalysisPrompt(examples: ExampleToAnalyze[]): string {
 - keyTakeaway: 다른 주제에도 옮겨 쓸 수 있는 장치 한 문장
 - whyItWorks: 독자가 멈추고 반응하게 만든 심리적 이유 한 문장
 
+글 본문에 근거가 보이는 것만 쓴다. 퍼진 이유를 한 가지로 단정하지 말고, 본문만으로 확인되지 않는 이유는 지어내지 않는다.
+
 모든 글에 대해 id를 그대로 돌려준다.
 
 ${posts}`;
