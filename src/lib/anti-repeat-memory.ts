@@ -12,6 +12,7 @@ export interface RecentPostSummary {
   hookType?: string | null;
   ctaType?: string | null;
   campaignFormulaId?: string | null;
+  formulaId?: string | null;
   firstComment?: string | null;
   status?: string | null;
 }

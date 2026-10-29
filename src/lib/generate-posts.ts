@@ -33,6 +33,7 @@ import {
   NEW_YEAR_MODES,
   pickClosingFormat,
   referenceReplayMode,
+  REFERENCE_INFO_MODE_ID,
   type ReferenceKind,
   WINNER_REPLAY_MODE,
 } from "@/lib/viral-intent-modes";
@@ -74,6 +75,10 @@ const client = new Anthropic({
 const SEPARATOR = "===FIRST_COMMENT===";
 const REFERENCE_COPY_REASON = "참고 원본과 너무 비슷함";
 export const REFERENCE_SITUATION_PROMPT = "아래 [참고 글]의 상황(무슨 일이 있었는지)을 이번 글의 상황으로 쓴다. 등장인물·관계·지명·직업·숫자·이름은 전부 바꾼다.";
+// An info reference (ref_replay_info) keeps the source's items, so it gets its own situation, header and length lines.
+export const REFERENCE_INFO_SITUATION_PROMPT = "아래 [참고 글]이 소개하는 항목을 이번 글의 소재로 쓴다. 항목 이름과 순서는 그대로 둔다.";
+const REFERENCE_INFO_LENGTH_RULE_KO = "- 본문은 300~900자를 목표로 한다. 원글 항목을 순서대로 한 줄씩 소개하고, 항목마다 왜 쓸모있는지 새 문장을 붙인다. 500자가 넘으면 시스템이 스레드로 나눈다.";
+const REFERENCE_INFO_LENGTH_RULE_EN = "- Target body length: 300-900 chars. Introduce the reference's items in order, one line each, with a new sentence on why each is useful. Over 500 chars the system splits it into a thread.";
 const RETRYABLE_STATUSES = new Set([429, 529]);
 const RECENT_POST_AVOIDANCE_COUNT = 24;
 const POST_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours between posts
@@ -376,7 +381,10 @@ async function generateWithQuality(
         gate = { ...gate, pass: false, reasons: [...readability.reasons, ...gate.reasons] };
       }
       // Safety net for the template cap: reversal openers, and numbered choices from a formula other than the excluded one
-      const template = checkTemplateCap(post, recentPosts.filter(countsTowardTemplateCap));
+      // An info list ("1. uiverse.io …") is not a choice template, so ref_replay_info skips the cap.
+      const template = experiment.formula.id === REFERENCE_INFO_MODE_ID
+        ? { pass: true, reasons: [] }
+        : checkTemplateCap(post, recentPosts.filter(countsTowardTemplateCap));
       if (!template.pass) {
         gate = { ...gate, pass: false, reasons: [...template.reasons, ...gate.reasons] };
       }
@@ -521,6 +529,7 @@ function buildGenerationPrompt(
 
   const creatorPatternContext = formatCreatorPatternContext(experiment.hookType, experiment.ctaType);
   const lengthLines = experiment.lengthTarget ? lengthPromptLines(experiment.lengthTarget) : null;
+  const isInfoReference = experiment.viralIntentMode?.id === REFERENCE_INFO_MODE_ID;
   const viralIntentMode = experiment.viralIntentMode
     ?? resolveViralIntentMode(experiment.campaignFormulaId ?? experiment.formula.id, 0);
   const marketingSkillsContext = experiment.qualityProfile === "product_growth"
@@ -554,10 +563,10 @@ function buildGenerationPrompt(
   const viralRules = isEnglish
     ? [
         "[Threads Viral Compression & High-Retention Hook Rules]",
-        `- Target body length: ~${THREADS_CONTENT_TARGET_LENGTH} chars (approx 35-55 words / max ${THREADS_CONTENT_MAX_LENGTH} chars). Highly compressed and punchy.`,
+        isInfoReference ? REFERENCE_INFO_LENGTH_RULE_EN : `- Target body length: ~${THREADS_CONTENT_TARGET_LENGTH} chars (approx 35-55 words / max ${THREADS_CONTENT_MAX_LENGTH} chars). Highly compressed and punchy.`,
         "- Hook within the first 100 characters before the feed fold. Stop the scroll instantly. No boring preamble, no lectures, no bullet lists.",
         "- [Charlie Hills 2-Line Contrast Hook]: Line 1 is a bold provocative assertion (<40 chars). Line 2 immediately delivers a counter-intuitive twist/contrast (<40 chars) shattering conventional wisdom.",
-        "- [Single-Point Razor]: Focus on ONE contrarian insight. Never summarize or list multiple unfocused ideas.",
+        ...(isInfoReference ? [] : ["- [Single-Point Razor]: Focus on ONE contrarian insight. Never summarize or list multiple unfocused ideas."]),
         "- [Focused Conflict]: Zero in on one specific persona friction and internal conflict.",
         "- [Zero-in-body URL]: Never place links or URLs inside the post body.",
         "- [Zero AI Slop]: Avoid cliché patterns like 'Here is the truth', 'Imagine if', 'Let's dive in', or checkbox emojis.",
@@ -566,13 +575,13 @@ function buildGenerationPrompt(
       ]
     : [
         "[Threads 압축 바이럴 규격 및 12만 뷰 검증 구조]",
-        lengthLines?.rule ?? `- 본문 목표 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(이상적 범위: 140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하)로 극도로 압축한다.`,
+        isInfoReference ? REFERENCE_INFO_LENGTH_RULE_KO : lengthLines?.rule ?? `- 본문 목표 길이는 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(이상적 범위: 140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하)로 극도로 압축한다.`,
         `- 상단 100자(피드 접히기 전 Fold)에서 스크롤을 멈추게 해야 한다. 지루한 배경 설명, 훈계조 사주 강의, 불필요한 증상 나열(□)은 절대 금지한다.`,
         // Mirrors the template cap and the first-line chart gate: asking for a reversal or a 살·일주 callout here
         // produced drafts the gate then dropped.
         `- [Charlie Hills 2-Line Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내로 그 단언의 이유나 의외의 결과를 보여준다. 'X가 아니라 Y' 뒤집기 틀은 쓰지 않고, 비교가 필요하면 '~보다'를 한 번만 쓴다.`,
         "- [첫 줄 스크롤 멈춤]: 첫 줄은 누구나 겪어본 구체 상황이나 통념 반박으로 스크롤을 멈추게 한다. 숫자는 프롬프트에 주어진 것만 쓰고 지어내지 않는다. 첫 줄은 사주를 모르는 사람도 읽히게 쓰고, '신금 일주는', '일간이 ~', '도화살 있으면' 같은 독자 사주 전제로 시작하지 않는다. 살·일주는 둘째 줄 이후에 근거로만 쓴다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
-        "- [Single-Point Razor]: 원문이나 여러 주제를 요약/나열하지 말고, 상식을 뒤집는 단 하나의 반직관적 주장(Contrarian Insight)에만 모든 문장을 집중할 것.",
+        ...(isInfoReference ? [] : ["- [Single-Point Razor]: 원문이나 여러 주제를 요약/나열하지 말고, 상식을 뒤집는 단 하나의 반직관적 주장(Contrarian Insight)에만 모든 문장을 집중할 것."]),
         "- [Focused Conflict]: 타겟과 상황에 제시된 페르소나의 실전 마찰 1개만 깊게 파고들고, 여러 갈등이나 딜레마를 백화점식으로 나열하지 말 것.",
         "- [No Factual Hallucination]: 프롬프트에 제공되지 않은 가짜 개인 일화나 날조된 매출/사례 숫자를 지어내지 말고, 구조적 관찰과 냉철한 논리로 설득할 것.",
         "- [Zero-in-body URL]: 본문에는 절대 링크/URL을 넣지 않는다 (알고리즘 노출 패널티 방지).",
@@ -648,7 +657,7 @@ function buildGenerationPrompt(
         `[Recent Post Avoidance]\n${sanitizedRecentPostContext}`,
         ...formatQualityFeedback(qualityFeedback, true),
         "",
-        `Combine the experimental conditions above and write 1 high-retention Threads post (~${THREADS_CONTENT_TARGET_LENGTH} chars, max ${THREADS_CONTENT_MAX_LENGTH} chars) STRICTLY IN ENGLISH. Output ${SEPARATOR} and immediately write the first comment in English below it.`,
+        `Combine the experimental conditions above and write 1 high-retention Threads post (${isInfoReference ? "300-900 chars" : `~${THREADS_CONTENT_TARGET_LENGTH} chars, max ${THREADS_CONTENT_MAX_LENGTH} chars`}) STRICTLY IN ENGLISH. Output ${SEPARATOR} and immediately write the first comment in English below it.`,
         "Do NOT write actual URLs in the body or first comment. The system handles UTM tracking links.",
       ]
     : [
@@ -666,7 +675,7 @@ function buildGenerationPrompt(
         `[최근 생성 글 회피]\n${recentPostContext}`,
         ...formatQualityFeedback(qualityFeedback, false),
         "",
-        `${lengthLines?.request ?? `위 실험 조건을 조합해서 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하) Threads 포스트 1개를 작성해줘.`} 작성 후 ${SEPARATOR} 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.`,
+        `${isInfoReference ? "위 실험 조건을 조합해서 300~900자 Threads 포스트 1개를 작성해줘." : lengthLines?.request ?? `위 실험 조건을 조합해서 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하) Threads 포스트 1개를 작성해줘.`} 작성 후 ${SEPARATOR} 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.`,
         "본문과 첫 댓글에 실제 URL은 쓰지 마. 시스템이 저장 후 필요한 경우 UTM 링크를 붙인다.",
       ];
 
@@ -681,7 +690,7 @@ function buildGenerationPrompt(
     ...formatCampaignPrompt(experiment),
     formatViralIntentModePrompt(viralIntentMode, isEnglish),
     ...(experiment.winnerReference
-      ? [`[참고 글: ${experiment.referenceReplay ? "다른 계정에서 반응이 좋았던 글. 상황과 감정의 흐름을 가져오되 인물·표현·문장·고유 디테일은 새로 써" : "조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써"}]\n---\n${experiment.winnerReference}\n---`]
+      ? [`[참고 글: ${!experiment.referenceReplay ? "조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써" : isInfoReference ? "다른 계정에서 반응이 좋았던 정보 글. 소개한 항목 이름과 순서는 그대로 두고 문장은 전부 새로 써" : "다른 계정에서 반응이 좋았던 글. 상황과 감정의 흐름을 가져오되 인물·표현·문장·고유 디테일은 새로 써"}]\n---\n${experiment.winnerReference}\n---`]
       : []),
     ...(experiment.newYearBrief
       ? [`${isEnglish
@@ -1005,8 +1014,9 @@ function isReadableSajuHook(hook: string): boolean {
 }
 
 const TEMPLATE_CAP_STATUSES = new Set(["PUBLISHED", "PUBLISHING", "PARTIAL_FAILED", "PENDING"]);
+// Info posts list items, not choices, so they never fill the numbered-choice window either.
 function countsTowardTemplateCap(post: RecentPostSummary): boolean {
-  return post.status == null || TEMPLATE_CAP_STATUSES.has(post.status);
+  return post.formulaId !== REFERENCE_INFO_MODE_ID && (post.status == null || TEMPLATE_CAP_STATUSES.has(post.status));
 }
 
 // First publish slot for this run: after the queue's last pending post, or squeezed in front of the first one.
@@ -1096,6 +1106,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       hookType: true,
       ctaType: true,
       campaignFormulaId: true,
+      formulaId: true,
       status: true,
     },
   });
@@ -1235,7 +1246,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         experiment.winnerReference = referenceReplay.content;
         experiment.referenceReplay = true;
         // [상황/맥락] points at the reference; the saved Post.situation keeps this string, so later posts' saturation check ignores it.
-        experiment.situation = REFERENCE_SITUATION_PROMPT;
+        experiment.situation = referenceReplay.kind === "info" ? REFERENCE_INFO_SITUATION_PROMPT : REFERENCE_SITUATION_PROMPT;
         // The user's own link goes into the first comment instead of the product link.
         // The CTA is re-picked too: buildExperiment coupled it to the product link ("링크 확인").
         if (referenceReplay.linkUrl) {

@@ -82,7 +82,8 @@ vi.mock("@/lib/quality-gate", () => ({
   checkQuality: vi.fn(() => ({ pass: true, score: 5, profile: "saju_viral", reasons: [] })),
 }));
 
-import { generatePostsForBrand } from "@/lib/generate-posts";
+import { generatePostsForBrand, REFERENCE_SITUATION_PROMPT } from "@/lib/generate-posts";
+import { REFERENCE_REPLAY_MODE } from "@/lib/viral-intent-modes";
 import { loadWinnerReplaySource } from "@/lib/winner-replay";
 import { REFERENCE_REPLAY_SOURCE_PREFIX } from "@/lib/reference-replay";
 import { prisma } from "@/lib/prisma";
@@ -217,7 +218,69 @@ describe("ref_replay draft", () => {
     // The only prompt text that depends on shouldLink being true (formatCampaignPrompt's link policy).
     expect(prompt).not.toContain("이번 글은 첫 댓글에 링크가 붙을 예정");
     // buildExperiment coupled the CTA to the product link; a user link must not leave it contradicting the link policy.
+    // state.requests holds JSON.stringify'd bodies, so a prompt newline is the two characters "\n" (hence "\\n").
+    // Verified: deleting the CTA re-pick in generate-posts.ts makes this assertion fail.
     expect(prompt).not.toContain("[CTA 유형]\\n링크 확인");
+  });
+
+  // The story wording ("이름은 전부 바꾼다", 140~240자, Single-Point Razor) contradicted the info mode's "keep the items, 300~900자".
+  it("info prompt keeps item names and asks for 300~900자 without the story or razor lines", async () => {
+    state.reply = INFO_REWRITE;
+    await generatePostsForBrand(brand, { ...input, referenceReplay: { id: "ex_i", content: "5 free UI resources…", kind: "info" } });
+    const prompt = state.requests[0];
+    expect(prompt).not.toContain("이름은 전부 바꾼다");
+    expect(prompt).not.toContain("140~240자");
+    expect(prompt).not.toContain("Single-Point Razor");
+    expect(prompt).not.toContain("인물·표현·문장·고유 디테일은 새로 써");
+    expect(prompt).toContain("300~900");
+    expect(prompt).toContain("항목 이름과 순서는 그대로 둔다");
+  });
+
+  // Pins the cosmicpath story prompt: the info branch must not touch it.
+  it("story prompt keeps the story mode instruction, situation, header and length lines", async () => {
+    state.reply = "점집에서 10만원 내고 들은 말이 '좋은 흐름 온다'뿐이었다면\n\n그 돈으로 차라리 내 흐름을 직접 읽는 법을 배우는 게 낫지 않을까\n\n너라면 어느 쪽이야?";
+    await generatePostsForBrand(brand, { ...input, referenceReplay: SOURCE });
+    const prompt = state.requests[0] ?? "";
+    const escaped = (text: string) => JSON.stringify(text).slice(1, -1);
+    expect(prompt).toContain(escaped(REFERENCE_REPLAY_MODE.instruction));
+    expect(prompt).toContain(escaped(`[상황/맥락]\n${REFERENCE_SITUATION_PROMPT}`));
+    expect(prompt).toContain("[참고 글: 다른 계정에서 반응이 좋았던 글. 상황과 감정의 흐름을 가져오되 인물·표현·문장·고유 디테일은 새로 써]");
+    expect(prompt).toContain("140~240자");
+    expect(prompt).toContain("[Single-Point Razor]");
+  });
+
+  // Info list lines ("1. uiverse.io …") read as numbered choices; they must not trip or fill the template cap.
+  it("info draft with numbered items passes even when the numbered-choice cap is full", async () => {
+    state.reply = INFO_REWRITE;
+    state.recent = Array.from({ length: 3 }, (_, i) => ({
+      ...RECENT_POSTS[i],
+      content: `고양이 사료 고르기 ${i}\n\n1. 건식\n2. 습식\n3. 생식`,
+      status: "PUBLISHED",
+    }));
+    try {
+      await generatePostsForBrand(brand, { ...input, referenceReplay: { id: "ex_c", content: "5 free UI resources…", kind: "info" } });
+    } finally {
+      state.recent = null;
+    }
+    expect(state.created).toHaveLength(1);
+    expect(state.created[0]?.formulaId).toBe("ref_replay_info");
+  });
+
+  it("published info posts do not fill the numbered-choice cap for other drafts", async () => {
+    state.reply = "점집에서 10만원 내고 들은 말이 '좋은 흐름 온다'뿐이었다면\n\n그 돈으로 내 흐름을 직접 읽는 게 낫지 않을까\n\n1. 점집 간다\n2. 직접 본다";
+    state.recent = Array.from({ length: 3 }, (_, i) => ({
+      ...RECENT_POSTS[i],
+      content: `무료 사이트 ${i}개\n\n1. uiverse.io\n2. shadcn/ui\n3. magicui.design`,
+      status: "PUBLISHED",
+      formulaId: "ref_replay_info",
+    }));
+    try {
+      await generatePostsForBrand(brand, { ...input, referenceReplay: SOURCE });
+    } finally {
+      state.recent = null;
+    }
+    expect(prisma.post.findMany).toHaveBeenCalledWith(expect.objectContaining({ select: expect.objectContaining({ formulaId: true }) }));
+    expect(state.created).toHaveLength(1);
   });
 
   it("info reference without link keeps the normal link policy", async () => {
