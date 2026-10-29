@@ -1020,11 +1020,12 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           </button>
         </div>
 
+        {/* Kept mounted so a tab switch mid-request keeps the input and the result. */}
+        <div hidden={activeTab !== "news"}>
+          <ManualReferenceCard brandId={brandId} brandName={brandName} onCreated={handleManualReferenceCreated} />
+        </div>
         {activeTab === "news" && (
-          <>
-            <ManualReferenceCard brandId={brandId} brandName={brandName} onCreated={handleManualReferenceCreated} />
-            <NewsTrendingTab brandId={brandId} onUseNewsForDraft={handleUseNewsForDraft} />
-          </>
+          <NewsTrendingTab brandId={brandId} onUseNewsForDraft={handleUseNewsForDraft} />
         )}
 
         {activeTab === "interactions" && (
