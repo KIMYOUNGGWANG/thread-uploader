@@ -449,6 +449,15 @@ async function generateWithQuality(
   };
 }
 
+function experimentCtaTypes(config: BrandConfig, qualityProfile: QualityProfileId, shouldLink: boolean): string[] {
+  const defaultCtaTypes = qualityProfile === "career_decision"
+    ? ["셀프체크", "저장 유도", "공유 유도", "프로필 확인"]
+    : ["링크 확인", "저장 유도", "공유 유도", "프로필 확인"];
+  const ctaTypeCandidates = (config.ctaTypes?.length ? config.ctaTypes : defaultCtaTypes)
+    .filter((ctaType) => !hasReplyBurdenPromise(ctaType));
+  return coupleCtaToLink(ctaTypeCandidates.length ? ctaTypeCandidates : defaultCtaTypes, shouldLink);
+}
+
 function buildExperiment(
   formula: GenerationFormula,
   topic: string,
@@ -465,12 +474,7 @@ function buildExperiment(
   const shouldLink = campaign
     ? campaign.perPostLinks && shouldLinkAt({ index, linkOffset, cadence: campaign.linkCadenceEvery ?? 1 })
     : Boolean(config.websiteUrl.trim());
-  const defaultCtaTypes = qualityProfile === "career_decision"
-    ? ["셀프체크", "저장 유도", "공유 유도", "프로필 확인"]
-    : ["링크 확인", "저장 유도", "공유 유도", "프로필 확인"];
-  const ctaTypeCandidates = (config.ctaTypes?.length ? config.ctaTypes : defaultCtaTypes)
-    .filter((ctaType) => !hasReplyBurdenPromise(ctaType));
-  const ctaTypes = coupleCtaToLink(ctaTypeCandidates.length ? ctaTypeCandidates : defaultCtaTypes, shouldLink);
+  const ctaTypes = experimentCtaTypes(config, qualityProfile, shouldLink);
 
   const contextOptions = {
     domainId: contextDomainId ?? qualityProfile,
@@ -1233,7 +1237,11 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         // [상황/맥락] points at the reference; the saved Post.situation keeps this string, so later posts' saturation check ignores it.
         experiment.situation = REFERENCE_SITUATION_PROMPT;
         // The user's own link goes into the first comment instead of the product link.
-        if (referenceReplay.linkUrl) experiment.shouldLink = false;
+        // The CTA is re-picked too: buildExperiment coupled it to the product link ("링크 확인").
+        if (referenceReplay.linkUrl) {
+          experiment.shouldLink = false;
+          experiment.ctaType = pickRandom(experimentCtaTypes(config, experiment.qualityProfile, false));
+        }
       } else if (replaySource) experiment.winnerReference = replaySource.content;
       // The gate caps numbered choices only for saju_viral, so only there is a capped "choices" slot turned into a question.
       else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");

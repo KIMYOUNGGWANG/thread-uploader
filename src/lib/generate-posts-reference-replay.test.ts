@@ -216,6 +216,8 @@ describe("ref_replay draft", () => {
     expect(prompt).not.toContain("/r/");
     // The only prompt text that depends on shouldLink being true (formatCampaignPrompt's link policy).
     expect(prompt).not.toContain("이번 글은 첫 댓글에 링크가 붙을 예정");
+    // buildExperiment coupled the CTA to the product link; a user link must not leave it contradicting the link policy.
+    expect(prompt).not.toContain("[CTA 유형]\\n링크 확인");
   });
 
   it("info reference without link keeps the normal link policy", async () => {
