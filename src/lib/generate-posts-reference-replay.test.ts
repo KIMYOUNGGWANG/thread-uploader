@@ -82,7 +82,7 @@ vi.mock("@/lib/quality-gate", () => ({
   checkQuality: vi.fn(() => ({ pass: true, score: 5, profile: "saju_viral", reasons: [] })),
 }));
 
-import { generatePostsForBrand, REFERENCE_SITUATION_PROMPT } from "@/lib/generate-posts";
+import { generatePostsForBrand, REFERENCE_SITUATION_PROMPT, REFERENCE_TARGET_PROMPT } from "@/lib/generate-posts";
 import { REFERENCE_REPLAY_MODE } from "@/lib/viral-intent-modes";
 import { loadWinnerReplaySource } from "@/lib/winner-replay";
 import { REFERENCE_REPLAY_SOURCE_PREFIX } from "@/lib/reference-replay";
@@ -116,6 +116,12 @@ const brand = {
   viralMemory: "{}",
 } as unknown as Brand;
 const INFO_REWRITE = "디자이너 없이 화면 퀄리티 올리는 무료 사이트 3개\n\n1. uiverse.io — 버튼·카드 같은 조각을 복사해서 바로 붙이면 끝\n2. shadcn/ui — 기본 컴포넌트를 내 코드로 가져와서 마음대로 고칠 수 있음\n3. magicui.design — 랜딩에 움직임 하나 넣고 싶을 때 제일 빠름\n\n사주로 치면 내 일간에 맞는 도구를 고르는 셈이야. 저장해두고 다음 사이드 프로젝트 때 꺼내 써";
+
+// One line of the first request's user prompt; sections are "[name]\nvalue" joined by single newlines.
+function promptSection(name: string): string {
+  const prompt = JSON.parse(state.requests[0] ?? "{}").messages?.[0]?.content as string;
+  return prompt.split(`[${name}]\n`)[1]?.split("\n[")[0] ?? "";
+}
 
 function withConfig(patch: (config: Record<string, unknown>) => void): Brand {
   const config: Record<string, unknown> = JSON.parse(brand.brandConfig);
@@ -247,6 +253,25 @@ describe("ref_replay draft", () => {
     expect(prompt).toContain("[참고 글: 다른 계정에서 반응이 좋았던 글. 상황과 감정의 흐름을 가져오되 인물·표현·문장·고유 디테일은 새로 써]");
     expect(prompt).toContain("140~240자");
     expect(prompt).toContain("[Single-Point Razor]");
+  });
+
+  // The matrix topic/target embed their own friction ("…의 X 사례", "X을 겪으며 …"); a reference draft followed
+  // that friction instead of the source, so the reference must be the only situation in the prompt.
+  it.each([
+    ["story", { ...SOURCE }],
+    ["info", { ...SOURCE, kind: "info" as const }],
+  ])("%s reference prompt takes its situation only from the source, not the matrix topic/target", async (_kind, referenceReplay) => {
+    state.reply = INFO_REWRITE;
+    await generatePostsForBrand(brand, { ...input, referenceReplay });
+    expect(promptSection("주제")).not.toMatch(/사례\)$/);
+    expect(promptSection("타겟 독자")).toBe(REFERENCE_TARGET_PROMPT);
+  });
+
+  it("a normal draft still gets the matrix topic and target", async () => {
+    state.reply = "점집에서 10만원 내고 들은 말이 '좋은 흐름 온다'뿐이었다면\n\n그 돈으로 차라리 내 흐름을 직접 읽는 법을 배우는 게 낫지 않을까\n\n너라면 어느 쪽이야?";
+    await generatePostsForBrand(brand, { ...input, count: 1 });
+    expect(promptSection("주제")).toMatch(/사례\)$/);
+    expect(promptSection("타겟 독자")).not.toBe(REFERENCE_TARGET_PROMPT);
   });
 
   // Info list lines ("1. uiverse.io …") read as numbered choices; they must not trip or fill the template cap.

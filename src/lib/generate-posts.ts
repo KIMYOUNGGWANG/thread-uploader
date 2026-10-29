@@ -75,6 +75,7 @@ const client = new Anthropic({
 const SEPARATOR = "===FIRST_COMMENT===";
 const REFERENCE_COPY_REASON = "참고 원본과 너무 비슷함";
 export const REFERENCE_SITUATION_PROMPT = "아래 [참고 글]의 상황(무슨 일이 있었는지)을 이번 글의 상황으로 쓴다. 등장인물·관계·지명·직업·숫자·이름은 전부 바꾼다.";
+export const REFERENCE_TARGET_PROMPT = "[참고 글]의 상황이나 항목이 바로 자기 얘기인 독자";
 // An info reference (ref_replay_info) keeps the source's items, so it gets its own situation, header and length lines.
 export const REFERENCE_INFO_SITUATION_PROMPT = "아래 [참고 글]이 소개하는 항목을 이번 글의 소재로 쓴다. 항목 이름과 순서는 그대로 둔다.";
 const REFERENCE_INFO_LENGTH_RULE_KO = "- 본문은 300~900자를 목표로 한다. 원글 항목을 순서대로 한 줄씩 소개하고, 항목마다 왜 쓸모있는지 새 문장을 붙인다. 500자가 넘으면 시스템이 스레드로 나눈다.";
@@ -1247,6 +1248,10 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         experiment.referenceReplay = true;
         // [상황/맥락] points at the reference; the saved Post.situation keeps this string, so later posts' saturation check ignores it.
         experiment.situation = referenceReplay.kind === "info" ? REFERENCE_INFO_SITUATION_PROMPT : REFERENCE_SITUATION_PROMPT;
+        // The matrix topic/target carry their own friction ("…의 X 사례", "X을 겪으며 …"), which the draft followed
+        // instead of the source. The plain topic keeps the brand angle; the reader is whoever lives the source's case.
+        experiment.topic = topic;
+        experiment.targetAudience = REFERENCE_TARGET_PROMPT;
         // The user's own link goes into the first comment instead of the product link.
         // The CTA is re-picked too: buildExperiment coupled it to the product link ("링크 확인").
         if (referenceReplay.linkUrl) {
