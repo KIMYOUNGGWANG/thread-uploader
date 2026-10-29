@@ -53,9 +53,9 @@ describe("Domain Intelligence Registry", () => {
     }
   });
 
-  it("falls back to saju_viral for undefined domain", () => {
-    const preset = getDomainPreset(undefined);
-    expect(preset.domainId).toBe("saju_viral");
+  it("falls back to the generic product preset, never saju, for a missing or unknown domain", () => {
+    expect(getDomainPreset(undefined).domainId).toBe("product_growth");
+    expect(getDomainPreset("catchdex").domainId).toBe("product_growth");
   });
 
   it("verifies saju_viral has the 3 modernized wedges and retired legacy solar distortion", () => {

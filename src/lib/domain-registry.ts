@@ -432,7 +432,8 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
 };
 
 export function getDomainPreset(domainOrQualityProfile?: string): DomainPresetConfig {
-  if (!domainOrQualityProfile) return DOMAIN_PRESETS.saju_viral;
+  // A missing or unknown profile gets the generic product preset; saju is only ever chosen explicitly.
+  if (!domainOrQualityProfile) return DOMAIN_PRESETS.product_growth;
   if (DOMAIN_PRESETS[domainOrQualityProfile]) return DOMAIN_PRESETS[domainOrQualityProfile];
   if (domainOrQualityProfile.includes("product")) {
     return DOMAIN_PRESETS.product_growth;
@@ -446,7 +447,7 @@ export function getDomainPreset(domainOrQualityProfile?: string): DomainPresetCo
   if (domainOrQualityProfile.includes("etsy") || domainOrQualityProfile.includes("commerce")) {
     return DOMAIN_PRESETS.ecommerce_d2c;
   }
-  return DOMAIN_PRESETS.saju_viral;
+  return DOMAIN_PRESETS.product_growth;
 }
 
 // The year-boundary claim belongs to one formula. On 2026-10-15 three formulas in one parallel batch

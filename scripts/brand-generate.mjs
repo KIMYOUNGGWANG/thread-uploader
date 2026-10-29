@@ -80,7 +80,8 @@ async function main() {
   console.log(`🎯 Target Count: ${count} posts | Mode: ${isDryRun ? "DRY-RUN (No DB write)" : "LIVE"}`);
   console.log(`================================================================\n`);
 
-  const isLeanSprint = brand.slug === "cosmicpath" || count === 15;
+  // Lean modes are tuned on saju posts; batch size alone must not switch another product onto them.
+  const isLeanSprint = domainPreset.domainId === "saju_viral";
   const results = [];
   const now = Date.now();
   const POST_INTERVAL_MS = 4 * 3600 * 1000;
@@ -124,7 +125,8 @@ async function main() {
       brandConfig.voiceProfile?.language === "en" ||
       brandConfig.qualityProfile === "ecommerce_d2c";
     const isCosmic = brand.slug === "cosmicpath";
-    const bridgeHeader = isGlobal
+    // The Etsy dossier header is CosmicPath Global's offer, not every English brand's.
+    const bridgeHeader = isGlobal && brand.slug === "cosmicpath-global"
       ? "📌 Full Dual-Engine Natal Blueprint & Decision Dossier (Etsy):"
       : isCosmic
         ? "📌 5대 계산 엔진(사주·점성술·자미두수) 교차 판정 리포트:"

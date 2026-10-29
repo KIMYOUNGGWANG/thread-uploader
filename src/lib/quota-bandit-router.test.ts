@@ -16,6 +16,7 @@ describe("4:4:2 Quota & MAB Router", () => {
   it("prioritizes highest weighted formula within track during exploitation", () => {
     const result = selectFormulaWithQuota(1, { // Index 1 is Track B
       epsilon: 0, // Force 100% exploitation
+      domainProfile: "saju_viral",
       customWeights: {
         talent_reality_check: 10,
         wealth_vault_unlock: 5,
@@ -31,6 +32,7 @@ describe("4:4:2 Quota & MAB Router", () => {
   it("avoids recent formulas to prevent repetition (anti-monoculture cooldown)", () => {
     const result = selectFormulaWithQuota(1, { // Index 1 is Track B
       epsilon: 0,
+      domainProfile: "saju_viral",
       recentFormulaIds: ["talent_reality_check"],
       customWeights: {
         talent_reality_check: 10,

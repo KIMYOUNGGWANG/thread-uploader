@@ -31,27 +31,10 @@ export function selectCampaignFormulaForViralMode(
   };
 }
 
-export interface LeanSprintRunInput {
-  brandSlug: string;
-  domainProfile: string | undefined;
-  campaignId: string | null | undefined;
-  experimentId: string | null | undefined;
-  productName: string | null | undefined;
-  count: number;
-}
-
-// The lean allocation is tuned on Korean CosmicPath posts; the English D2C profile picks from its own domain formulas.
-export function isLeanSprintRun(input: LeanSprintRunInput): boolean {
-  if (input.domainProfile === "ecommerce_d2c") return false;
-  const ids = [input.campaignId ?? "", input.experimentId ?? ""];
-  return (
-    input.brandSlug === "cosmicpath" ||
-    ids.some((id) => id.includes("lean") || id.includes("cosmicpath")) ||
-    (input.campaignId ?? "").includes("14day") ||
-    Boolean(input.productName?.toLowerCase().includes("cosmic")) ||
-    input.count === 10 ||
-    input.count === 15
-  );
+// The lean allocation is tuned on Korean saju posts, so it follows the domain profile, not the brand name or
+// batch size: a 15-post run on another product used to get the saju modes.
+export function isLeanSprintRun(domainProfile: string | undefined): boolean {
+  return domainProfile === "saju_viral";
 }
 
 const LEAN_ARM_IDS: readonly ViralIntentModeId[] = [
