@@ -60,15 +60,10 @@ describe("selectLeanViralMode exclusion", () => {
 });
 
 describe("isLeanSprintRun", () => {
-  const base = { brandSlug: "cosmicpath-global", domainProfile: "saju_viral", campaignId: null, experimentId: null, productName: "CosmicPath Global", count: 6 };
-
-  it("keeps the Korean lean sprint for cosmic-named Korean brands", () => {
-    expect(isLeanSprintRun(base)).toBe(true);
-    expect(isLeanSprintRun({ ...base, brandSlug: "cosmicpath", productName: "CosmicPath" })).toBe(true);
-  });
-
-  it("never runs the Korean lean sprint on the English D2C profile", () => {
-    expect(isLeanSprintRun({ ...base, domainProfile: "ecommerce_d2c" })).toBe(false);
-    expect(isLeanSprintRun({ ...base, domainProfile: "ecommerce_d2c", count: 15 })).toBe(false);
+  it("runs the lean sprint only on the saju profile it was tuned on", () => {
+    expect(isLeanSprintRun("saju_viral")).toBe(true);
+    for (const profile of ["ecommerce_d2c", "product_growth", "saas_b2b", "career_decision", undefined]) {
+      expect(isLeanSprintRun(profile)).toBe(false);
+    }
   });
 });

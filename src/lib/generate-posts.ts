@@ -1025,6 +1025,21 @@ export async function resolveQueueBaseTime(brandId: string, insertAtFront: boole
   return baseTime;
 }
 
+// The report header is CosmicPath's offer, so only a CosmicPath brand gets it; any other English
+// brand with a first-comment link used to get the cosmicpath.app header.
+export function firstCommentBridgeHeader(brandSlug: string, config: BrandConfig, campaignId: string | undefined): string {
+  const isCosmicBrand = brandSlug === "cosmicpath" || brandSlug === "cosmicpath-global" ||
+    Boolean(campaignId?.includes("cosmicpath")) ||
+    Boolean(config.productProfile?.productName?.toLowerCase().includes("cosmic"));
+  if (!isCosmicBrand) return "";
+  const isGlobal = brandSlug === "cosmicpath-global" ||
+    config.voiceProfile?.language === "en" ||
+    config.qualityProfile === "ecommerce_d2c";
+  return isGlobal
+    ? "📌 Full Dual-Engine Birth Chart & Decision Dossier (cosmicpath.app):"
+    : "📌 5대 계산 엔진(사주·점성술·자미두수) 교차 판정 리포트:";
+}
+
 export async function generatePostsForBrand(brand: Brand, input: GeneratePostsInput): Promise<GeneratePostsResult> {
   const { insertAtFront, requestedCampaignId, approvedCampaignStart, postCategory, referenceReplay } = input;
   const count = referenceReplay ? 1 : input.count;
@@ -1098,14 +1113,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   // Live length experiment: each draft gets the arm the queue is shortest on, so publish slots never wait long.
   const lengthExperiment = await loadLengthExperimentState(brandId, config, new Date());
   const lengthArms = referenceReplay ? [undefined] : lengthExperiment ? shuffleArms(planLengthArms(lengthExperiment.pending, lengthExperiment.arm, count)) : [];
-  const isLeanSprint = isLeanSprintRun({
-    brandSlug: brand.slug,
-    domainProfile,
-    campaignId: activeCampaign?.id,
-    experimentId: config.activeExperiment?.id,
-    productName: config.productProfile?.productName,
-    count,
-  });
+  const isLeanSprint = isLeanSprintRun(domainProfile);
   // Without priors the lean sprint follows its fixed allocation, whose relationship_tension slots need relationship topics.
   const slotTopics = isLeanSprint && !config.thompsonPriors
     ? alignRelationshipSlots(topics, (index) => selectViralIntentMode(index, { sprintType: "lean_15post" }).id === "relationship_tension")
@@ -1417,17 +1425,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         if (newYearLang) {
           updateData.firstComment = newYearFirstComment(newYearLang, shortRedirectUrl);
         } else if (isCosmicOrLean) {
-          const isGlobal = brand.slug === "cosmicpath-global" ||
-            config.voiceProfile?.language === "en" ||
-            config.qualityProfile === "ecommerce_d2c";
-          const isCosmicBrand = brand.slug === "cosmicpath" ||
-            activeCampaign?.id?.includes("cosmicpath") ||
-            config.productProfile?.productName?.toLowerCase().includes("cosmic");
-          const bridgeHeader = isGlobal
-            ? "📌 Full Dual-Engine Birth Chart & Decision Dossier (cosmicpath.app):"
-            : (isCosmicBrand
-              ? "📌 5대 계산 엔진(사주·점성술·자미두수) 교차 판정 리포트:"
-              : "");
+          const bridgeHeader = firstCommentBridgeHeader(brand.slug, config, activeCampaign?.id);
           const bridgeComment = bridgeHeader
             ? [initialComment?.trim(), `${bridgeHeader}\n${shortRedirectUrl}`].filter(Boolean).join("\n\n")
             : appendFirstCommentLink(initialComment || "", shortRedirectUrl);
