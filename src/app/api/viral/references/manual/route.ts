@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { createManualReferenceDraft, parseManualReferenceInput } from "@/lib/manual-reference";
 
+export const maxDuration = 300; // one draft with quality retries, same as /api/generate
+
 export async function POST(request: NextRequest) {
   try {
     const body: unknown = await request.json().catch(() => null);
