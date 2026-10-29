@@ -16,7 +16,10 @@ export async function POST(request: NextRequest) {
     if (!parsed.ok) return NextResponse.json({ errors: parsed.errors }, { status: 400 });
 
     const { brand } = await requireBrandForCurrentUser(brandId);
-    return NextResponse.json(await createManualReferenceDraft(brand, parsed.value, new Date()));
+    const result = await createManualReferenceDraft(brand, parsed.value, new Date());
+    // Surfaced as a plain error: the brand's setup is missing, not the draft's quality.
+    if (result.status === "not_ready") return NextResponse.json({ error: result.error }, { status: 422 });
+    return NextResponse.json(result);
   } catch (error) {
     const response = accessErrorResponse(error);
     if (response) return response;

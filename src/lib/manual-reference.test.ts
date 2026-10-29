@@ -169,10 +169,12 @@ describe("createManualReferenceDraft", () => {
     expect(mocks.markAttempted).toHaveBeenCalledWith("ex_1", now);
   });
 
-  it("returns dropped with the error when the generator refuses", async () => {
-    mocks.generate.mockResolvedValue({ ok: false, error: "한도 초과" });
+  // A readiness refusal (e.g. no system prompt) never reached the quality gate, so it must not read as a quality drop.
+  it("returns not_ready with the error when the generator refuses before generating", async () => {
+    mocks.generate.mockResolvedValue({ ok: false, error: "제품에 시스템 프롬프트가 설정되지 않았습니다." });
 
-    expect(await createManualReferenceDraft(brand, input, now)).toEqual({ status: "dropped", reasons: ["한도 초과"] });
+    expect(await createManualReferenceDraft(brand, input, now)).toEqual({ status: "not_ready", error: "제품에 시스템 프롬프트가 설정되지 않았습니다." });
+    expect(mocks.markAttempted).not.toHaveBeenCalled();
   });
 
   it("returns the newest tagged post id on success", async () => {

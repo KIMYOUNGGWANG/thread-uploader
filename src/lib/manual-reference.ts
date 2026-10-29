@@ -14,7 +14,9 @@ type ManualReferenceField = "content" | "kind" | "linkUrl" | "sourceUrl";
 export type ManualReferenceResult =
   | { status: "created"; postId: string }
   | { status: "dropped"; reasons: string[] }
-  | { status: "duplicate" };
+  | { status: "duplicate" }
+  // The brand cannot generate at all (readiness check), so no quality gate ran.
+  | { status: "not_ready"; error: string };
 
 function parseHttpUrl(value: string): boolean {
   try {
@@ -116,7 +118,7 @@ export async function createManualReferenceDraft(brand: Brand, input: ManualRefe
     initialStatus: "NEEDS_REVIEW",
     referenceReplay: { id: example.id, content: input.content, kind: input.kind, ...(input.linkUrl ? { linkUrl: input.linkUrl } : {}), manual: true },
   });
-  if (!result.ok) return { status: "dropped", reasons: [result.error] };
+  if (!result.ok) return { status: "not_ready", error: result.error };
   if (result.summary.count === 0) {
     await markReferenceAttempted(example.id, now);
     return { status: "dropped", reasons: result.summary.failureReasons };
