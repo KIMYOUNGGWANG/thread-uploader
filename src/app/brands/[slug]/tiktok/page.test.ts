@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getDomainPreset } from "@/lib/domain-registry";
 import BrandTikTokPage from "./page";
 
 vi.mock("next/navigation", () => ({
@@ -22,7 +23,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 vi.mock("@/components/tiktok/TikTokStudioClient", () => ({
-  TikTokStudioClient: () => null,
+  TikTokStudioClient: vi.fn(() => null),
 }));
 
 const OWNER_ID = "user-owner";
@@ -74,5 +75,26 @@ describe("BrandTikTokPage session check", () => {
     vi.mocked(prisma.brand.findUnique).mockResolvedValue(makeBrand(OWNER_ID) as never);
 
     await expect(renderPage()).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
+  it("passes the product engine and preset topics for a product brand", async () => {
+    vi.mocked(getSessionUserId).mockResolvedValue(OWNER_ID);
+    vi.mocked(prisma.brand.findUnique).mockResolvedValue({
+      ...makeBrand(OWNER_ID),
+      slug: "catchdex",
+      brandConfig: JSON.stringify({ qualityProfile: "product_growth", productProfile: { productName: "Catchdex" } }),
+    } as never);
+
+    const element = await renderPage();
+    expect(element.props).toMatchObject({ engine: "product", productName: "Catchdex" });
+    expect(element.props.suggestedTopics[0]).toBe(getDomainPreset("product_growth").defaultTopics[0]);
+  });
+
+  it("keeps saju brands on the saju engine", async () => {
+    vi.mocked(getSessionUserId).mockResolvedValue(OWNER_ID);
+    vi.mocked(prisma.brand.findUnique).mockResolvedValue(makeBrand(OWNER_ID) as never);
+
+    const element = await renderPage();
+    expect(element.props).toMatchObject({ engine: "saju", productName: "", suggestedTopics: [] });
   });
 });

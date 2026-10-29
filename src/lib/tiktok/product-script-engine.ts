@@ -60,7 +60,9 @@ export function buildProductCopyLocally(params: ProductScriptParams): ProductScr
   const what = profile.oneLineDescription || params.preset.description;
   const promise = profile.offerPromise || params.preset.description;
   const customer = profile.targetCustomer;
-  const hashtags = [...new Set([hashtag(name), hashtag(params.brandName)])];
+  const hashtags = [hashtag(name), hashtag(params.brandName)].filter(
+    (tag, index, tags) => tags.findIndex((other) => other.toLowerCase() === tag.toLowerCase()) === index
+  );
 
   if (lang === "en") {
     const topicHook = `${topic} — why?`;

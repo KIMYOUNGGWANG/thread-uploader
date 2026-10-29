@@ -58,6 +58,12 @@ describe("generateProductScript", () => {
     expect(messagesCreate).not.toHaveBeenCalled();
   });
 
+  it("does not repeat a hashtag that differs only in case", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    const script = await generateProductScript(params);
+    expect(script.hashtags).toEqual(["Catchdex"]);
+  });
+
   it("uses Claude copy when the key is set", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
     claudeReturns(JSON.stringify(validCopy));
