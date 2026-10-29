@@ -85,6 +85,28 @@ describe("generateProductScript", () => {
     expect(script.qualityReasons?.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("keeps a short fallback hook when the target customer is long", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    const longCustomer = normalizeProductProfile({ ...CATCHDEX, targetCustomer: "매일 반복 업무에 시달리는 1인 쇼핑몰 운영자" });
+    const script = await generateProductScript({ ...params, productProfile: longCustomer });
+    expect(script.qualityReasons).toEqual([]);
+  });
+
+  it("strips # from Claude hashtags and gates saju hashtags", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+    claudeReturns(JSON.stringify({ ...validCopy, hashtags: ["#Catchdex", "사주"] }));
+    const script = await generateProductScript(params);
+    expect(script.hashtags).toEqual(["Catchdex", "사주"]);
+    expect(script.qualityPass).toBe(false);
+  });
+
+  it("says the answer was cut off when Claude hits max_tokens", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+    messagesCreate.mockResolvedValueOnce({ content: [{ type: "text", text: '{"hookText": "요청' }], stop_reason: "max_tokens" });
+    await expect(generateProductScript(params)).rejects.toThrow("잘렸");
+    expect(messagesCreate.mock.calls[0][0].max_tokens).toBeGreaterThanOrEqual(4000);
+  });
+
   it("rejects a malformed Claude response", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
     claudeReturns("not json");
@@ -99,6 +121,17 @@ describe("evaluateProductQuality", () => {
     script.scenes[2].spokenLine = "올해 운세가 바뀌는 시기예요.";
     const forbidden = [...getDomainPreset("career_decision").forbiddenCrossDomainTerms, ...SAJU_TERMS];
     expect(evaluateProductQuality(script, "Catchdex", forbidden).qualityPass).toBe(false);
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("evaluateProductQuality day-count wording", () => {
+  it("allows a trial period like 7일간 but still blocks 일간 as a saju term", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    const script = await generateProductScript({ ...params, productProfile: normalizeProductProfile({ ...CATCHDEX, offerPromise: "7일간 무료로 써보세요" }) });
+    expect(script.qualityReasons).toEqual([]);
+    script.scenes[2].spokenLine = "갑목 일간이라면 더 잘 맞아요.";
+    expect(evaluateProductQuality(script, "Catchdex", SAJU_TERMS).qualityPass).toBe(false);
     vi.unstubAllEnvs();
   });
 });

@@ -6,6 +6,7 @@ import { POST as renderHandler } from "./render/route";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { generateTikTokScript } from "@/lib/tiktok/tiktok-script-engine";
+import { getDomainPreset } from "@/lib/domain-registry";
 
 const messagesCreate = vi.hoisted(() => vi.fn());
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -143,6 +144,16 @@ describe("TikTok API Routes", () => {
       expect(data.scriptResult.scenes.some((s: { type: string }) => s.type === "saju-card")).toBe(false);
       expect(data.draft.title).not.toContain("갑목");
       expect(data.draft.campaignId).toBe("product_tiktok_campaign");
+    });
+
+    it("falls back to the preset topic for a blank topic and ignores an unknown tone", async () => {
+      vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+      messagesCreate.mockResolvedValueOnce({ content: [{ type: "text", text: "nope" }], stop_reason: "end_turn" });
+      asBrand("catchdex", "Catchdex", { qualityProfile: "product_growth" });
+      await generate({ brandId: "b-catchdex", topic: "   ", tone: "foo" });
+      const prompt = messagesCreate.mock.calls[0][0].messages[0].content as string;
+      expect(prompt).toContain(`주제: ${getDomainPreset("product_growth").defaultTopics[0]}`);
+      expect(prompt).not.toContain("undefined");
     });
 
     it("keeps cosmicpath-global on the English saju script", async () => {

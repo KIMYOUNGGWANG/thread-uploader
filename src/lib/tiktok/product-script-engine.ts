@@ -59,7 +59,6 @@ export function buildProductCopyLocally(params: ProductScriptParams): ProductScr
   const name = resolveProductName(params.brandName, profile);
   const what = profile.oneLineDescription || params.preset.description;
   const promise = profile.offerPromise || params.preset.description;
-  const customer = profile.targetCustomer;
   const hashtags = [hashtag(name), hashtag(params.brandName)].filter(
     (tag, index, tags) => tags.findIndex((other) => other.toLowerCase() === tag.toLowerCase()) === index
   );
@@ -67,7 +66,7 @@ export function buildProductCopyLocally(params: ProductScriptParams): ProductScr
   if (lang === "en") {
     const topicHook = `${topic} — why?`;
     return {
-      hookText: topicHook.length <= HOOK_MAX_CHARS.en ? topicHook : `Why ${customer || "busy people"} never get time back?`,
+      hookText: topicHook.length <= HOOK_MAX_CHARS.en ? topicHook : "Why didn't I find this sooner?",
       hookSpoken: `${topic}. There's a reason.`,
       answerSpoken: `The answer is ${name}. ${what}.`,
       answerScreen: name,
@@ -81,7 +80,8 @@ export function buildProductCopyLocally(params: ProductScriptParams): ProductScr
 
   const topicHook = `${topic}, 왜 그럴까?`;
   return {
-    hookText: topicHook.length <= HOOK_MAX_CHARS.ko ? topicHook : `${customer || "바쁜 사람"} 일이 안 줄어드는 이유?`,
+    // A long topic still gets a hook that fits the first scene and suits any product domain
+    hookText: topicHook.length <= HOOK_MAX_CHARS.ko ? topicHook : "이거, 왜 이제 알았을까?",
     hookSpoken: `${topic}. 이유가 따로 있어요.`,
     answerSpoken: `답은 ${name}. ${what}.`,
     answerScreen: name,
@@ -93,18 +93,22 @@ export function buildProductCopyLocally(params: ProductScriptParams): ProductScr
   };
 }
 
+// "7일간" is a trial period, not the saju term 일간.
+function containsTerm(text: string, term: string): boolean {
+  return term === "일간" ? /(?<!\d)일간/.test(text) : text.toLowerCase().includes(term.toLowerCase());
+}
+
 export function evaluateProductQuality(
-  script: Pick<TikTokScriptResult, "scenes" | "totalDurationSeconds">,
+  script: Pick<TikTokScriptResult, "scenes" | "totalDurationSeconds"> & { hashtags?: string[] },
   productName: string,
   forbidden: readonly string[],
   lang: ScriptLang = "ko"
 ): ExplainerQuality {
   const hook = script.scenes[0]?.onScreenText[0] ?? "";
   const payoff = script.scenes[1]?.spokenLine ?? "";
-  const allText = script.scenes.flatMap((scene) => [scene.spokenLine, ...scene.onScreenText]).join(" ");
-  const lowerText = allText.toLowerCase();
+  const allText = [...script.scenes.flatMap((scene) => [scene.spokenLine, ...scene.onScreenText]), ...(script.hashtags ?? [])].join(" ");
   const overpromise = allText.match(OVERPROMISE_PATTERN)?.[0];
-  const leaked = forbidden.find((term) => lowerText.includes(term.toLowerCase()));
+  const leaked = forbidden.find((term) => containsTerm(allText, term));
   const maxChars = HOOK_MAX_CHARS[lang];
 
   const checks: [boolean, string][] = [
@@ -164,7 +168,7 @@ export function assembleProductScript(copy: ProductScriptCopy, params: ProductSc
     scenes,
     cta: copy.ctaScreen,
     hashtags: copy.hashtags,
-    ...evaluateProductQuality({ scenes, totalDurationSeconds }, name, forbiddenTerms(params), lang),
+    ...evaluateProductQuality({ scenes, totalDurationSeconds, hashtags: copy.hashtags }, name, forbiddenTerms(params), lang),
   };
 }
 
@@ -176,10 +180,11 @@ export async function generateProductScript(params: ProductScriptParams): Promis
   const client = new Anthropic({ apiKey, timeout: 30_000, maxRetries: 1 });
   const message = await client.messages.create({
     model: CLAUDE_TEXT_MODEL,
-    max_tokens: 1500,
+    max_tokens: 4000, // Haiku thinks by default and thinking shares this budget
     output_config: { format: { type: "json_schema", schema: COPY_SCHEMA } },
     messages: [{ role: "user", content: buildPrompt(params) }],
   });
+  if (message.stop_reason === "max_tokens") throw new Error("Claude 응답이 길이 한도에서 잘렸습니다");
   const copy = parseCopy(JSON.parse(readMessageText(message)));
   if (!copy) throw new Error("대본 응답을 읽을 수 없습니다");
   return assembleProductScript(copy, params);
@@ -206,7 +211,8 @@ function parseCopy(raw: unknown): ProductScriptCopy | null {
   if (!isRecord(raw)) return null;
   if (!STRING_FIELDS.every((field) => typeof raw[field] === "string")) return null;
   if (!LIST_FIELDS.every((field) => isStringList(raw[field]))) return null;
-  return raw as unknown as ProductScriptCopy;
+  const copy = raw as unknown as ProductScriptCopy;
+  return { ...copy, hashtags: copy.hashtags.map(hashtag).filter(Boolean) };
 }
 
 function buildPrompt(params: ProductScriptParams): string {

@@ -9,6 +9,8 @@ import { brandVideoLang } from "@/lib/new-year/new-year-season";
 import { getDomainPreset } from "@/lib/domain-registry";
 import { parseBrandConfig } from "@/types/brand";
 
+const PRODUCT_TONES = ["mysterious", "urgent", "encouraging"] as const;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -35,8 +37,8 @@ export async function POST(request: NextRequest) {
         brandName: brand.name,
         productProfile: config.productProfile,
         preset,
-        topic: topic || preset.defaultTopics[0] || brand.name,
-        tone: tone || "mysterious",
+        topic: (typeof topic === "string" && topic.trim()) || preset.defaultTopics[0] || brand.name,
+        tone: PRODUCT_TONES.find((allowed) => allowed === tone) ?? "mysterious",
         lang: brandVideoLang(brand.slug),
       });
 
