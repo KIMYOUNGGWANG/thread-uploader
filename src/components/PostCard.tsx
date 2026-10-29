@@ -12,6 +12,9 @@ import { toast } from "sonner";
 import { ScoreRadarPopover, type ScoreDimension } from "@/components/ScoreRadarPopover";
 import { isVideoMediaUrl } from "@/lib/media-url";
 
+// Same value as REFERENCE_REPLAY_MANUAL_TAG in src/lib/reference-replay.ts (that module imports prisma, so it can't be bundled here).
+const MANUAL_REFERENCE_TAG = "ref_replay_manual";
+
 interface PostCardProps {
     post: ParsedPost;
     index: number;
@@ -385,7 +388,7 @@ export function PostCard({
                                                 ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
                                                 : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
                             )}>
-                                #{index + 1} {isPosted ? "업로드 완료" : status === "NEEDS_REVIEW" ? (isAlgorithmicFailed ? "검토 필요 (5D 미달)" : isQualityBlocked ? "검토 필요 (품질 FAIL)" : "승인 대기 (승자 공식 아님)") : status === "PARTIAL_FAILED" ? "타래 중단(이어올리기 대기)" : status === "FAILED" ? "업로드 실패" : "대기중"}
+                                #{index + 1} {isPosted ? "업로드 완료" : status === "NEEDS_REVIEW" ? (isAlgorithmicFailed ? "검토 필요 (5D 미달)" : isQualityBlocked ? "검토 필요 (품질 FAIL)" : (qualityReasons.includes(MANUAL_REFERENCE_TAG) ? "승인 대기 (X 레퍼런스)" : "승인 대기 (승자 공식 아님)")) : status === "PARTIAL_FAILED" ? "타래 중단(이어올리기 대기)" : status === "FAILED" ? "업로드 실패" : "대기중"}
                             </div>
 
                             {/* Category Badge */}
