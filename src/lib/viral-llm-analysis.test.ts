@@ -63,7 +63,7 @@ describe("analyzeTopViralExamples shorts exclusion", () => {
     else process.env.ANTHROPIC_API_KEY = originalKey;
   });
 
-  it("keeps the unanalyzed filter and excludes youtube shorts", async () => {
+  it("keeps the unanalyzed filter and excludes youtube shorts and manual X rows", async () => {
     await analyzeTopViralExamples("b1");
 
     expect(prisma.viralExample.findMany).toHaveBeenCalledWith(
@@ -71,7 +71,7 @@ describe("analyzeTopViralExamples shorts exclusion", () => {
         where: expect.objectContaining({
           brandId: "b1",
           NOT: { rawMetrics: { contains: "llmAnalyzedAt" } },
-          source: { not: "youtube_shorts" },
+          source: { notIn: ["youtube_shorts", "manual_x"] },
         }),
       }),
     );

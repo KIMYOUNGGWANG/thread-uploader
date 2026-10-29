@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
+import { MANUAL_X_SOURCE } from "@/lib/reference-replay";
 
 /**
  * Rule-based labels only match fixed keywords, so the strongest references get re-read by Claude
@@ -133,7 +134,7 @@ export async function analyzeTopViralExamples(brandId: string): Promise<{ analyz
   if (!apiKey) return { analyzed: 0, skipped: "ANTHROPIC_API_KEY is not set" };
 
   const pool = await prisma.viralExample.findMany({
-    where: { brandId, source: { not: SHORTS_SOURCE }, NOT: { rawMetrics: { contains: "llmAnalyzedAt" } } },
+    where: { brandId, source: { notIn: [SHORTS_SOURCE, MANUAL_X_SOURCE] }, NOT: { rawMetrics: { contains: "llmAnalyzedAt" } } },
     orderBy: { discoveredAt: "desc" },
     take: ANALYSIS_CANDIDATE_POOL,
     select: { id: true, content: true, rawMetrics: true },

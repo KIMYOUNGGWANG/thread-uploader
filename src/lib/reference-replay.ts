@@ -88,7 +88,7 @@ export function pickReferenceReplaySource(
 export async function loadReferenceReplaySource(brandId: string, now: Date): Promise<ReferenceCandidate | null> {
   const [examples, recentReplays] = await Promise.all([
     prisma.viralExample.findMany({
-      where: { brandId, source: { not: SHORTS_SOURCE }, publishedAt: { gte: new Date(now.getTime() - SOURCE_WINDOW_DAYS * DAY_MS) } },
+      where: { brandId, source: { notIn: [SHORTS_SOURCE, MANUAL_X_SOURCE] }, publishedAt: { gte: new Date(now.getTime() - SOURCE_WINDOW_DAYS * DAY_MS) } },
       select: { id: true, sourceKey: true, content: true, authorUsername: true, publishedAt: true, rawMetrics: true },
     }),
     prisma.post.findMany({

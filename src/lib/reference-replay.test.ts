@@ -114,7 +114,7 @@ describe("loadReferenceReplaySource", () => {
 
     expect((await loadReferenceReplaySource("brand", now))?.id).toBe("b");
     const where = prismaMock.viralExample.findMany.mock.calls[0][0].where;
-    expect(where).toMatchObject({ brandId: "brand", source: { not: "youtube_shorts" } });
+    expect(where).toMatchObject({ brandId: "brand", source: { notIn: ["youtube_shorts", "manual_x"] } });
     expect(where.publishedAt.gte).toEqual(new Date(daysAgo(7)));
     expect(prismaMock.post.findMany.mock.calls[0][0].where).toMatchObject({ brandId: "brand", formulaId: "ref_replay" });
   });
