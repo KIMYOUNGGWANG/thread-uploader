@@ -32,7 +32,8 @@ import {
   CLOSING_FORMAT_PROMPT_KO,
   NEW_YEAR_MODES,
   pickClosingFormat,
-  REFERENCE_REPLAY_MODE,
+  referenceReplayMode,
+  type ReferenceKind,
   WINNER_REPLAY_MODE,
 } from "@/lib/viral-intent-modes";
 import { NEW_YEAR_BRANDS, newYearSlotMode, type NewYearModeId } from "@/lib/new-year/new-year-season";
@@ -62,7 +63,7 @@ import { backlogHorizon } from "@/lib/queue-refill";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 import { hasGeneratedMeta } from "@/lib/generated-meta-patterns";
 import { loadWinnerReplaySource, WINNER_REPLAY_SOURCE_PREFIX } from "@/lib/winner-replay";
-import { REFERENCE_REPLAY_SOURCE_PREFIX } from "@/lib/reference-replay";
+import { REFERENCE_REPLAY_MANUAL_TAG, REFERENCE_REPLAY_SOURCE_PREFIX } from "@/lib/reference-replay";
 import type { LengthArm } from "@/types/length-experiment";
 
 const client = new Anthropic({
@@ -961,7 +962,9 @@ export interface GeneratePostsInput {
   approvedCampaignStart: boolean;
   postCategory: string;
   /** 있으면 count는 1로 고정되고, 이 글의 상황·감정선을 가져오고 문장·고유 디테일은 새로 쓰는 ref_replay 글 하나를 만든다. 실험 팔·Thompson 선택·승자 재현을 건너뛴다. */
-  referenceReplay?: { id: string; content: string };
+  referenceReplay?: { id: string; content: string; kind?: ReferenceKind; linkUrl?: string; manual?: boolean };
+  /** 없으면 PENDING. 수동 레퍼런스처럼 사람이 승인해야 하는 글만 NEEDS_REVIEW로 저장한다. */
+  initialStatus?: "NEEDS_REVIEW";
 }
 
 export interface GeneratePostsSummary {
@@ -1158,7 +1161,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       });
       // No replay while the length experiment runs: an extra arm skews per-arm drop rates and its random assignment.
       const viralIntentMode = referenceReplay
-        ? REFERENCE_REPLAY_MODE
+        ? referenceReplayMode(referenceReplay.kind ?? "story", brand.slug, domainPreset.referenceAngle ?? domainPreset.description)
         : newYearMode
         ? NEW_YEAR_MODES[newYearMode]
         : isLeanSprint
@@ -1229,6 +1232,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         experiment.referenceReplay = true;
         // [상황/맥락] points at the reference; the saved Post.situation keeps this string, so later posts' saturation check ignores it.
         experiment.situation = REFERENCE_SITUATION_PROMPT;
+        // The user's own link goes into the first comment instead of the product link.
+        if (referenceReplay.linkUrl) experiment.shouldLink = false;
       } else if (replaySource) experiment.winnerReference = replaySource.content;
       // The gate caps numbered choices only for saju_viral, so only there is a capped "choices" slot turned into a question.
       else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
@@ -1325,16 +1330,19 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     }
 
     const postContent = reconciled.content;
-    const initialComment = reconciled.firstComment;
+    const initialComment = referenceReplay?.linkUrl
+      ? appendFirstCommentLink(reconciled.firstComment ?? "", referenceReplay.linkUrl)
+      : reconciled.firstComment;
     const qualityReasons = [
       ...result.qualityReasons,
       ...reconciled.extraReasons,
       ...(result.formulaId === WINNER_REPLAY_MODE.id && winnerSource ? [`${WINNER_REPLAY_SOURCE_PREFIX}${winnerSource.id}`] : []),
       ...(referenceReplay ? [`${REFERENCE_REPLAY_SOURCE_PREFIX}${referenceReplay.id}`] : []),
+      ...(referenceReplay?.manual ? [REFERENCE_REPLAY_MANUAL_TAG] : []),
     ];
     const threadParts = splitContentIntoThreadParts(postContent);
-    // Nobody reviews drafts by hand: every gate-passing draft is queued, learning decides which formulas get volume.
-    const postStatus = "PENDING";
+    // Gate-passing drafts are queued unreviewed (learning decides which formulas get volume); only a manual reference waits for approval.
+    const postStatus = input.initialStatus ?? "PENDING";
 
     const post = await prisma.post.create({
       data: {

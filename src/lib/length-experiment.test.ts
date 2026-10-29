@@ -127,6 +127,10 @@ describe("ref_replay posts sit the length experiment out", () => {
     expect(countPendingByArm([draft("r-L", 420, { formulaId: "ref_replay" })], config)).toEqual({ S: 0, L: 0 });
     expect(pickPublishCandidate([draft("r-L", 420, { formulaId: "ref_replay" })], config, "S")?.formulaId).toBe("ref_replay");
   });
+  it("does not count ref_replay_info posts toward the sequence or the pending arms", () => {
+    expect(sequencePosition([draft("i", 200, { formulaId: "ref_replay_info" }), draft("c", 200)], config)).toBe(1);
+    expect(countPendingByArm([draft("i-L", 420, { formulaId: "ref_replay_info" })], config)).toEqual({ S: 0, L: 0 });
+  });
 });
 
 describe("countPendingByArm", () => {

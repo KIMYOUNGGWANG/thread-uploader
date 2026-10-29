@@ -7,6 +7,9 @@ import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 
 // Stored in a ref_replay draft's qualityReasons so the same outside post is not rewritten twice.
 export const REFERENCE_REPLAY_SOURCE_PREFIX = "ref_replay_source:";
+// A post an operator pasted by hand (ExternalPost.source) and the qualityReasons tag on the draft rewritten from it.
+export const MANUAL_X_SOURCE = "manual_x";
+export const REFERENCE_REPLAY_MANUAL_TAG = "ref_replay_manual";
 export const ATTEMPT_COOLDOWN_DAYS = 7;
 
 const SOURCE_WINDOW_DAYS = 7;
