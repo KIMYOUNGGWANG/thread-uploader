@@ -1,5 +1,6 @@
 import type { TikTokVideoDraft } from "@prisma/client";
 import type { TikTokSceneBeat, TikTokScriptResult } from "@/lib/tiktok/tiktok-script-engine";
+import { NEW_YEAR_BRANDS } from "@/lib/new-year/new-year-season";
 
 const DAY_MASTERS = ["갑목", "을목", "병화", "정화", "무토", "기토", "경금", "신금", "임수", "계수"];
 
@@ -30,10 +31,18 @@ export function pickDailyHookVariant(date: Date): number {
   return Math.floor(dayIndex / DAY_MASTERS.length);
 }
 
-export function buildTikTokDraftCreateData(brandId: string, script: TikTokScriptResult, status: string) {
+export type TikTokEngine = "saju" | "product";
+
+// cosmicpath-global sells saju under an ecommerce profile, so the video-language map also marks saju brands.
+export function resolveTikTokEngine(brandSlug: string, qualityProfile: string): TikTokEngine {
+  return qualityProfile === "saju_viral" || Object.hasOwn(NEW_YEAR_BRANDS, brandSlug) ? "saju" : "product";
+}
+
+// The daily cron counts today's drafts by the saju campaign id, so product drafts get their own.
+export function buildTikTokDraftCreateData(brandId: string, script: TikTokScriptResult, status: string, engine: TikTokEngine = "saju") {
   return {
     brandId,
-    campaignId: "saju_tiktok_campaign",
+    campaignId: engine === "saju" ? "saju_tiktok_campaign" : "product_tiktok_campaign",
     formatId: script.formatId ?? DEFAULT_FORMAT_ID,
     status,
     title: script.title,
@@ -44,7 +53,7 @@ export function buildTikTokDraftCreateData(brandId: string, script: TikTokScript
     onScreenText: JSON.stringify(script.scenes.flatMap((scene) => scene.onScreenText)),
     hashtags: JSON.stringify(script.hashtags),
     cta: script.cta,
-    qualityProfile: "tiktok_saju_retention",
+    qualityProfile: engine === "saju" ? "tiktok_saju_retention" : "tiktok_product_retention",
     qualityPass: script.qualityPass,
     qualityScore: script.qualityScore,
     qualityReasons: JSON.stringify(script.qualityReasons ?? []),
