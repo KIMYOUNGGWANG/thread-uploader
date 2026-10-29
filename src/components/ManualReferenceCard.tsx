@@ -50,7 +50,7 @@ function pickFieldErrors(value: unknown): FieldErrors {
 function isResult(value: unknown): value is ManualReferenceResult {
   if (!isRecord(value)) return false;
   if (value.status === "created") return typeof value.postId === "string";
-  if (value.status === "dropped") return Array.isArray(value.reasons);
+  if (value.status === "dropped") return Array.isArray(value.reasons) && value.reasons.every((reason) => typeof reason === "string");
   return value.status === "duplicate";
 }
 
@@ -177,7 +177,7 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
             placeholder="X 글을 그대로 복사해서 붙여넣어. 스레드(이어지는 글)면 전부 붙여넣어도 돼."
             aria-invalid={errors.content ? true : undefined}
             aria-describedby={errors.content ? "mref-content-error" : "mref-content-hint"}
-            className={`block min-h-28 w-full resize-y rounded-md border bg-slate-50 px-3 py-2 text-base text-slate-800 shadow-xs outline-none transition-[color,box-shadow] placeholder:text-slate-400 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-900 dark:text-slate-100 md:text-sm ${
+            className={`block min-h-28 w-full resize-y rounded-md border bg-slate-50 px-3 py-2 text-base text-slate-800 shadow-xs outline-none transition-[color,box-shadow] placeholder:text-slate-500 dark:placeholder:text-slate-400 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-900 dark:text-slate-100 md:text-sm ${
               errors.content
                 ? "border-red-400 focus-visible:border-red-500 focus-visible:ring-red-500/30 dark:border-red-500"
                 : "border-slate-200 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/40 dark:border-slate-700"
@@ -220,7 +220,7 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
                     className="sr-only"
                   />
                   <span className="font-semibold">{option.label}</span>
-                  <span className={`text-xs ${checked ? "text-indigo-100" : "text-slate-400"}`}>· {option.hint}</span>
+                  <span className={`text-xs ${checked ? "text-indigo-100" : "text-slate-500 dark:text-slate-400"}`}>· {option.hint}</span>
                 </label>
               );
             })}
@@ -236,7 +236,7 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
         {kind === "info" && (
           <div>
             <label htmlFor="mref-link" className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-              첫 댓글 링크 <span className="font-normal text-slate-400">(선택)</span>
+              첫 댓글 링크 <span className="font-normal text-slate-500 dark:text-slate-400">(선택)</span>
             </label>
             <Input
               id="mref-link"
@@ -257,7 +257,7 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
 
         <div>
           <label htmlFor="mref-source" className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-            X 원글 주소 <span className="font-normal text-slate-400">(선택 · 같은 글 중복 방지용)</span>
+            X 원글 주소 <span className="font-normal text-slate-500 dark:text-slate-400">(선택 · 같은 글 중복 방지용)</span>
           </label>
           <Input
             id="mref-source"
