@@ -1,179 +1,119 @@
-# 숏폼레이더 (가칭) -- 데이터 모델
+# SNS 운영 비서 -- 데이터 모델
 
 > 이 문서는 앱에서 다루는 핵심 데이터의 구조를 정의합니다.
 > 개발자가 아니어도 이해할 수 있는 "개념적 ERD"입니다.
+> **원칙: 기존 표를 최대한 재사용한다.** 새 표는 `ClipAsset` 하나다. 실제 스키마 변경과 마이그레이션은 Phase 1a 설계에서 따로 승인받는다 (전역 규칙).
 
 ---
 
 ## 전체 구조
 
 ```
-[Organization] --1:N--> [User]
-      |--1:1--> [Subscription]
-      |--1:N--> [Client] --1:N--> [Generation] --N:1--> [Video]
-      |--1:N--> [Board] --1:N--> [BoardItem] --N:1--> [Video]      (Phase 2)
-      |--1:N--> [Topic] (커스텀, org_id 있음)                        (Phase 2)
-
-[Topic] --N:M--> [Channel] --1:N--> [Video] --1:N--> [VideoSnapshot]
-                                       |--1:1--> [Transcript]
+Brand (기존) ─┬─1:N─> ChannelAccount (기존)   instagram / youtube / tiktok 계정 한 줄씩
+              ├─1:N─> ClipAsset (새로)         훅 클립 묶음
+              └─1:N─> VideoDraft (기존 TikTokVideoDraft 재사용)
+                          │
+                          ├─N:1─> ClipAsset    이 영상에 쓴 훅 클립
+                          └─1:N─> Publication (기존) ─N:1─> ChannelAccount
+                                   채널마다 1줄 (릴스 1, 쇼츠 1, 틱톡 1)
 ```
-
-두 덩어리로 나뉩니다.
-- **공용 데이터** (Topic·Channel·Video·VideoSnapshot·Transcript): 모든 조직이 같이 보는 수집 결과. 크론이 채움.
-- **조직 데이터** (Organization·User·Subscription·Client·Generation·Board): 조직별로 격리. RLS로 보호.
 
 ---
 
 ## 엔티티 상세
 
-### Organization
-에이전시 한 곳. 가입하면 자동으로 하나 생김.
+### Brand (기존, 변경 없음)
+브랜드 하나. cosmicpath, cosmicpath-global, catchdex 등. `brandConfig`에 영상 설정(포맷 목록, 스타일 이름, 업로드 슬롯, 취소 창 길이)을 JSON으로 추가한다 **[내 판단]**. 칸을 늘리지 않으려는 것이다. `parseBrandConfig`(`src/types/brand.ts`)가 값을 정규화하므로 타입·기본값·테스트를 함께 바꿔야 한다.
+
+### ChannelAccount (기존, 변경 없음)
+브랜드의 SNS 계정 하나. 2026-10-26 멀티채널 구조(PR #65)로 이미 만들어져 있다.
+
+토큰 위치 **[내 판단]**: 인스타 토큰은 지금처럼 `Brand.instagramAccessToken`을 계속 읽는다. 이전 마이그레이션은 이번 범위가 아니다. 새로 붙는 유튜브·틱톡 토큰만 `ChannelAccount`에 저장한다.
 
 | 필드 | 설명 | 예시 | 필수 |
 |------|------|------|------|
-| id | 고유 식별자 | org_abc | O |
-| name | 조직 이름 | 메이크패밀리 | O |
-| created_at | 생성일 | 2026-10-22 | O |
+| platform | 어느 SNS | `instagram`, `youtube`, `tiktok` | O |
+| mode | 계정 운영 방식 | 기존 값 그대로 | O |
+| accessToken / refreshToken / tokenExpiry | 업로드 권한 | (암호값) | X |
+| settings | 채널별 설정 JSON | `{"tiktokPrivacy":"SELF_ONLY"}` | O |
+| enabled | 켜기/끄기 | true | O |
 
-### User
-로그인하는 사람. Supabase Auth의 사용자와 1:1.
-
-| 필드 | 설명 | 예시 | 필수 |
-|------|------|------|------|
-| id | Supabase auth user id | uuid | O |
-| org_id | 소속 조직 | org_abc | O |
-| email | 이메일 | a@b.com | O |
-| role | owner / member | owner | O |
-
-### Subscription
-조직의 요금제 상태.
+### ClipAsset (새로)
+브랜드 전용 훅 클립 하나. "우리 브랜드 전용 스톡 영상 폴더"라고 보면 된다.
 
 | 필드 | 설명 | 예시 | 필수 |
 |------|------|------|------|
-| org_id | 조직 | org_abc | O |
-| plan | free / pro / team | pro | O |
-| status | active / past_due / canceled | active | O |
-| client_limit | 등록 가능 클라이언트 수 | 10 | O |
-| gen_quota | 월 생성 한도 | 100 | O |
-| gen_used | 이번 달 사용량 | 37 | O |
-| period_end | 결제 주기 종료일 | 2026-11-22 | O |
-| toss_billing_key | 토스 빌링키 (암호화) | … | X |
+| id | 고유 식별자 | clp_abc123 | O |
+| brandId | 어느 브랜드 것인지 | cosmicpath | O |
+| source | 어디서 왔나 | `stock` / `ai` / `own` | O |
+| fileUrl | 클립 파일 위치 | (저장소 URL) | O |
+| license | 출처·라이선스 메모 | `pexels:https://www.pexels.com/video/...` | O |
+| mood | 분위기 태그 | `["밤하늘","손"]` | O |
+| durationSec | 길이 | 3.2 | O |
+| usedCount | 몇 번 썼나 | 4 | O |
+| lastUsedAt | 마지막 사용 | 2026-11-02 | X |
+| enabled | 끄기/켜기 | true | O |
+| createdAt | 만든 날짜 | 2026-10-30 | O |
 
-### Client
-에이전시가 관리하는 인플루언서 계정 하나.
+### VideoDraft (기존 `TikTokVideoDraft` 재사용 + 칸 추가)
+영상 한 편. 기존 표에 이미 원고·장면·자막·해시태그·품질 점수가 있어서 그대로 쓴다. 표 이름 변경(`VideoDraft`)은 빌더가 판단한다. 바꾸면 기존 틱톡 스튜디오 코드도 함께 바꿔야 한다.
 
-| 필드 | 설명 | 예시 | 필수 |
-|------|------|------|------|
-| id | 고유 식별자 | cli_1 | O |
-| org_id | 소속 조직 | org_abc | O |
-| name | 표시 이름 | 호랑이아빠 | O |
-| handle | 계정 핸들 | @dragon.tiger_papa | X |
-| platform | youtube / instagram | instagram | O |
-| topic_ids | 관심 주제 | [육아, 리빙] | O |
-| tone | 말투·분위기 | 유쾌한 아빠, 반말, 짧은 문장 | O |
-| banned_words | 금지어 | [협찬, 광고] | X |
-| notes | 자유 메모 | 아이 얼굴 노출 금지 | X |
-
-### Topic
-피드의 탭 하나. `org_id`가 비어 있으면 기본 주제, 있으면 그 조직의 커스텀 주제(Phase 2).
+기존 필수 칸의 의미 매핑 **[내 판단]**. 새 칸을 만들지 않고 기존 칸을 쓴다.
+- `formatId` = 영상 포맷 (`rank_static`, `explain_narrated`). 따로 `format` 칸을 만들지 않는다.
+- `status` = 렌더 상태. 기존 값 `DRAFT/QUEUED/RENDERING/COMPLETED/FAILED`를 그대로 쓴다. 품질 검사 통과 여부는 `COMPLETED` + 아래 `renderErrors`가 비었는지로 판단한다.
+- `campaignId` = 브랜드의 활성 캠페인 (기존 틱톡 스튜디오와 같은 방식)
+- `spokenHook` = 첫 1초 훅 문장. BGM형에서는 화면 글자로 쓴다.
+- `qualityProfile` = 브랜드 도메인 프로필 (기존 값)
 
 | 필드 | 설명 | 예시 | 필수 |
 |------|------|------|------|
-| id | 고유 식별자 | tp_parenting | O |
-| name | 이름 | 육아 | O |
-| keywords | 검색 키워드 | [육아, 아기, parenting] | O |
-| org_id | 커스텀이면 조직 | null | X |
-| sort_order | 탭 순서 | 1 | O |
+| (기존) title, formatId, status, spokenHook, script, sceneBeats, captionOverlays, onScreenText, hashtags, cta, qualityPass, qualityScore, durationSeconds | 원고·포맷·상태·원고 품질 | — | — |
+| **+ voiceMode** | 소리 방식 | `bgm_only` / `narration` | O |
+| **+ clipAssetId** | 쓴 훅 클립 | clp_abc123 | X |
+| **+ renderErrors** | 렌더 품질 검사 실패 이유 | `["글자 잘림: 1.2초"]` | O |
+| **+ videoUrl / coverUrl** | 완성 영상과 표지 | (저장소 URL) | X |
+| **+ captions** | 채널별 캡션 JSON | `{"instagram":"…","youtube":"…","tiktok":"…"}` | O |
+| **+ autoPublishAt** | 이 시각이 지나면 자동 업로드 | 2026-11-02 12:00 | X |
+| **+ cancelledAt** | 사용자가 막은 시각 | null | X |
 
-### Channel
-수집 대상 유튜브 채널(시드). 주제와 N:M.
+### Publication (기존 + 변경 4개)
+채널 하나에 올린 기록. 업로드 상태·외부 URL·조회수 칸이 이미 있다.
 
-| 필드 | 설명 | 예시 | 필수 |
-|------|------|------|------|
-| id | YouTube channel id | UCxxxx | O |
-| title | 채널명 | 호랑이아빠 | O |
-| country | KR / US / JP … | KR | O |
-| uploads_playlist_id | 업로드 재생목록 id (수집용) | UUxxxx | O |
-| topic_ids | 속한 주제 | [tp_parenting] | O |
-| last_checked_at | 마지막 수집 시각 | … | O |
+필요한 변경 (승인 대상 마이그레이션):
+1. `videoDraftId` 칸과 VideoDraft 관계 추가
+2. `postId`를 필수에서 선택(NULL 허용)으로. 기존 `@@unique([postId, channelAccountId])`·`@@index([postId])`(`prisma/schema.prisma`)는 유지
+3. `@@unique([videoDraftId, channelAccountId])` 추가
+4. "`postId`와 `videoDraftId` 중 정확히 하나" CHECK 제약 (Prisma 밖, SQL 마이그레이션)
 
-### Video
-수집된 쇼츠 하나.
-
-| 필드 | 설명 | 예시 | 필수 |
-|------|------|------|------|
-| id | YouTube video id | abc123XYZ | O |
-| channel_id | 채널 | UCxxxx | O |
-| title | 제목 | 여기도 긁어봐 | O |
-| thumbnail_url | 섬네일 | https://i.ytimg.com/… | O |
-| published_at | 게시 시각 | 2026-10-22T03:00Z | O |
-| duration_sec | 길이(초) | 42 | O |
-| topic_ids | 주제 (채널에서 상속) | [tp_parenting] | O |
-| country | 국내/해외 (채널에서 상속) | KR | O |
-| latest_views | 최신 조회수 (캐시) | 4240000 | O |
-| velocity | 시간당 조회수 증가 (캐시) | 282000 | O |
-| fetched_at | 마지막 갱신 | … | O |
-
-### VideoSnapshot
-한 영상의 시간별 수치. 급상승 계산의 원재료.
+코드 쪽: `ChannelPlatform` 타입이 지금 `"threads" | "instagram"`만 허용한다 (`src/lib/channels/publication-mirror.ts`). `youtube`·`tiktok` 추가가 필요하다.
 
 | 필드 | 설명 | 예시 | 필수 |
 |------|------|------|------|
-| video_id | 영상 | abc123XYZ | O |
-| captured_at | 측정 시각 | 2026-10-22T04:00Z | O |
-| views | 조회수 | 4240000 | O |
-| likes | 좋아요 | 23000 | O |
-| comments | 댓글 수 | 1100 | O |
+| **+ videoDraftId** | 어느 영상인지 | vd_123 | X |
+| postId | 기존 Threads 글 연결. **필수 → 선택으로 변경 필요** | — | X |
+| status | 업로드 상태 | `QUEUED` / `PUBLISHED` / `FAILED` | O |
+| platformData | 채널별 부가 정보 | `{"tiktokPrivacy":"SELF_ONLY"}` | O |
+| externalUrl / views / likes | 결과와 성과 | — | X |
 
-### Transcript
-영상 자막. 생성 전에 한 번 뽑아 캐시.
-
-| 필드 | 설명 | 예시 | 필수 |
-|------|------|------|------|
-| video_id | 영상 | abc123XYZ | O |
-| lang | 언어 | ko | O |
-| text | 전체 자막 | "여기도 긁어봐…" | O |
-| source | yt_caption / whisper | yt_caption | O |
-
-### Generation
-벤치마킹 생성 결과 한 건.
-
-| 필드 | 설명 | 예시 | 필수 |
-|------|------|------|------|
-| id | 고유 식별자 | gen_1 | O |
-| org_id | 조직 | org_abc | O |
-| client_id | 대상 클라이언트 | cli_1 | O |
-| video_id | 원본 영상 | abc123XYZ | O |
-| analysis | 원본 분석 (JSON: hook_type, structure, cta, why_viral) | {…} | O |
-| script | 우리 버전 스크립트 (마크다운) | "## 훅 …" | O |
-| shots | 촬영컷 (JSON 배열: no, scene, line, caption, sec) | [{…}] | O |
-| model | 사용 모델 | claude-sonnet-5-5 | O |
-| created_at | 생성 시각 | … | O |
-
-### Board / BoardItem (Phase 2)
-저장함. Board(org_id, name) → BoardItem(board_id, video_id, memo).
+규칙: `postId`와 `videoDraftId` 중 정확히 하나만 있어야 한다. 같은 영상은 같은 채널에 한 번만 올라간다 (`videoDraftId + channelAccountId` 유일).
 
 ### 관계
-- Organization 1곳에 User 여러 명, Subscription 1개, Client 여러 개
-- Client 1개에 Generation 여러 건. Generation은 Video 1개를 가리킴
-- Topic과 Channel은 N:M (한 채널이 육아·리빙 둘 다 가능)
-- Channel 1개에 Video 여러 개, Video 1개에 VideoSnapshot 여러 개(시간별), Transcript 1개
+- 브랜드 1개에 클립 여러 개, 영상 여러 편, 채널 계정 여러 개가 있다.
+- 영상 1편은 훅 클립 1개를 쓰고, 채널마다 Publication 1줄을 가진다.
 
 ---
 
 ## 왜 이 구조인가
 
-- **급상승 = 스냅샷 차분**: 유튜브 API는 "급상승" 정렬을 주지 않음. 매시간 조회수를 찍어 두고 `(현재 조회수 − N시간 전 조회수) / N`으로 직접 계산해야 함. 그래서 VideoSnapshot이 핵심.
-- **주제 = 시드 채널 묶음**: 유튜브 `search.list`는 호출당 100유닛이라 하루 100번밖에 못 씀. 채널의 업로드 목록(`playlistItems.list`, 1유닛)과 통계(`videos.list`, 50개당 1유닛)는 싸서, 주제별 시드 채널을 돌리는 방식이 쿼터 안에 들어감. 키워드 검색은 신규 채널 발굴용으로만 하루 몇 번.
-- **Video에 velocity 캐시**: 피드 정렬 때마다 스냅샷을 집계하면 느려서, 크론이 계산해 Video에 써 둠.
-- **Client에 톤·금지어**: 생성 프롬프트의 재료. "직원 1명이 100명 관리"가 되려면 계정 특성을 사람이 기억하지 않고 여기 적어 둬야 함.
-- 확장성: Phase 2 인스타 수집은 Video에 `platform` 컬럼만 추가하면 같은 구조. 커스텀 주제는 Topic.org_id로 이미 자리 있음.
-- 단순성: 영상 파일·댓글 본문·채널 통계 이력은 저장하지 않음. YouTube API 약관상 캐시 데이터는 30일 내 갱신·삭제해야 하므로 VideoSnapshot은 30일 지나면 삭제.
+- **재사용**: `TikTokVideoDraft`에 원고·품질 게이트가 이미 있고, `Publication`·`ChannelAccount`가 "브랜드 → 채널 계정 → 게시 기록" 뼈대로 이미 합쳐져 있다 (2026-10-26 설계). 새로 만들면 같은 것을 두 번 갖게 된다.
+- **확장성**: 카드뉴스(Phase 3)는 `format = carousel`인 VideoDraft로 담거나 별도 표로 만든다. Phase 3 설계에서 정한다. X(Phase 4)는 `ChannelAccount` 한 줄과 Publication이면 된다.
+- **비용**: `ClipAsset.source`만 `stock` → `ai`로 바꾸면 2단계 AI 클립 교체가 코드 수정 없이 끝난다.
+- **단순성**: 브랜드 영상 설정을 새 표 대신 `brandConfig` JSON에 둔다. 값이 몇 개 안 되고 브랜드당 하나다.
 
 ---
 
 ## [NEEDS CLARIFICATION]
 
-- [ ] 쇼츠 판정: `duration_sec <= 60`만 수집할지, 180초까지 넓힐지 (API는 "쇼츠 여부"를 안 줌)
-- [ ] 해외 판정: 채널 `country`가 비어 있는 경우 `defaultLanguage`로 추정할지
-- [ ] 스냅샷 보관 기간 30일 → 피드는 48h까지만 쓰므로 7일로 줄여도 되는지
+- 저장소 **[내 판단]**: 기존 렌더와 같은 Vercel Blob 공개 URL (`video/scripts/render-job.mjs`). 인스타는 URL을 넘기고, 유튜브는 파일 업로드, 틱톡은 파일 업로드 방식(`FILE_UPLOAD`)을 써서 URL 도메인 검증을 피한다. 1b 설계에서 공식 문서로 확인한다. 보관은 업로드 후 7일 뒤 삭제하고, 취소된 영상은 바로 삭제한다.
+- [ ] `TikTokVideoDraft` → `VideoDraft` 이름 변경 여부
+- [ ] `Publication.postId`를 선택으로 바꿀 때 기존 데이터·인덱스 영향 (supabase-postgres-best-practices로 검토)

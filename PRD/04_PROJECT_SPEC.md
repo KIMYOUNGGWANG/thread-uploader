@@ -1,60 +1,45 @@
-# 숏폼레이더 (가칭) -- 프로젝트 스펙
+# SNS 운영 비서 -- 프로젝트 스펙
 
 > AI가 코드를 짤 때 지켜야 할 규칙과 절대 하면 안 되는 것.
 > 이 문서를 AI에게 항상 함께 공유하세요.
+> 저장소 공통 규칙(`CLAUDE.md`, `.claude/rules/*.md`)이 먼저다. 이 문서는 이 제품에만 붙는 규칙이다.
 
 ---
 
 ## 기술 스택
 
+새 스택을 들이지 않는다. 지금 저장소 것을 그대로 쓰고, 영상 엔진만 하나로 정한다.
+
 | 영역 | 선택 | 이유 |
 |------|------|------|
-| 프레임워크 | Next.js (App Router) + TypeScript | self-deokjil과 동일 조합. 2026년 SaaS 기본값(MakerKit·Supastarter 가이드 공통) |
-| DB/백엔드 | Supabase (Postgres + Auth + pg_cron + Edge Functions) | 인증·크론·RLS를 한 곳에서. 무료 티어로 시작 |
-| 배포 | Vercel | Next.js 기본 배포처. 무료 티어 |
-| 인증 | Supabase Auth 소셜 (Google, Kakao) | 비밀번호 관리 없음. Kakao 기본 제공 |
-| 스타일링 | Tailwind CSS 4 | 기존 프로젝트와 동일 |
-| 수집 | YouTube Data API v3 (`playlistItems.list`, `videos.list`, 발굴용 `search.list`) | 공식·무료. 쿼터 10,000/일 |
-| 크론 | pg_cron → Edge Function 호출 | 별도 서버 없음. 1회 실행 수분 이내로 설계 |
-| AI 생성 | Claude API (`claude-sonnet-5-5` 기본, 품질 부족 시 `claude-opus-5-5`) | 한국어 스크립트 품질. `@anthropic-ai/sdk` 이미 사용 경험 |
-| 결제 | 토스페이먼츠 빌링(정기결제) | 국내 카드·계좌. cosmicpath에서 사용 경험 |
-| 패키지 매니저 | pnpm | 전역 규칙 |
+| 프레임워크 | Next.js 16 (기존) | 대시보드·API·cron 라우트가 이미 여기 있다 |
+| DB | PostgreSQL + Prisma 5 (기존) | `ChannelAccount`·`Publication`·`TikTokVideoDraft`가 이미 있다 |
+| 배포 | Vercel (기존) | 기존 그대로. 함수 시간 제한은 플랜과 `maxDuration`에 따라 다르다 (예: `api/posts/[id]/publish/route.ts`는 300초). 렌더는 수 분이 걸려서 Vercel에서 돌리지 않는다 |
+| 영상 엔진 | **HyperFrames** (`hyperframes/`, 0.8.210 고정) **[사용자 결정]** | 레퍼런스(광고 모션·자막·브랜드 킷)가 대부분 이쪽이고, 블록 약 450개와 릴스 템플릿이 있다. Remotion(`video/`)은 새 포맷에 쓰지 않는다 |
+| 렌더 실행 | GitHub Actions 새 워크플로 (Node 22+, ffmpeg, Noto 한글 폰트) | 공개 저장소라 무료다. 기존 `render-video.yml`은 Remotion·Node 20용이라 따로 만든다 |
+| 파일 저장 | Vercel Blob (기존 `video/scripts/render-job.mjs`) | 이미 렌더 결과를 여기에 올린다 |
+| 원고 생성 | Anthropic SDK (기존) | 기존 원고 생성·품질 게이트를 재사용한다 |
+| 외부 cron | Cloudflare Worker / cron-job.org (기존, `docs/ops/external-scheduler.md`) | 시간에 민감한 업로드 틱에 쓴다 |
+| 인증 | 기존 대시보드 로그인 | 사용자 1명. 새 로그인은 만들지 않는다 |
+| 패키지 매니저 | pnpm | 전역 규칙. HyperFrames CLI는 버전을 고정한 `npx`로 부른다 (기존 README 방식) |
 
 ---
 
-## 프로젝트 구조
+## 프로젝트 구조 (추가되는 곳만)
 
 ```
-shortsradar/
-├── src/
-│   ├── app/
-│   │   ├── (marketing)/        # 랜딩, 요금
-│   │   ├── (app)/
-│   │   │   ├── feed/           # 급상승 피드
-│   │   │   ├── video/[id]/     # 영상 상세 + 생성
-│   │   │   ├── clients/        # 클라이언트 CRUD
-│   │   │   └── billing/        # 구독
-│   │   └── api/
-│   │       ├── generate/       # 벤치마킹 생성 (서버에서 한도 검사)
-│   │       └── toss/webhook/   # 결제 콜백
-│   ├── components/
-│   ├── lib/
-│   │   ├── supabase/           # 클라이언트·서버 헬퍼
-│   │   ├── youtube/            # API 래퍼 + 쿼터 계산 주석
-│   │   ├── ai/                 # 프롬프트, 스키마
-│   │   └── toss/
-│   └── types/
-├── supabase/
-│   ├── migrations/             # 스키마 (승인 후에만 변경)
-│   ├── seed.sql                # 기본 주제·시드 채널
-│   └── functions/
-│       ├── collect-videos/     # 6h: 신규 쇼츠
-│       ├── snapshot-stats/     # 1h: 통계 스냅샷 + velocity
-│       └── cleanup/            # 1d: 보관 정리
-├── PRD/
-├── .env.local
-└── package.json
+threads-uploader/
+├── hyperframes/              # 영상 템플릿 (브랜드 스타일 + 포맷별 레이아웃)
+│   ├── specs/                # 렌더 입력 JSON
+│   └── assets/               # 폰트·BGM (git 밖 파일은 README에 재생성 방법)
+├── src/lib/video/            # 원고→렌더 입력 변환, 클립 선택, 품질 검사 (새로)
+├── src/lib/channels/         # (기존 폴더) youtube·tiktok 업로드 어댑터 추가
+├── src/app/api/cron/         # video-generate, video-publish 틱 (새로)
+├── docs/design/video-references.md   # 영상 레퍼런스 통합 문서 (새로)
+└── PRD/                      # 이 문서들
 ```
+
+폴더 이름은 빌더가 기존 구조에 맞춰 바꿔도 된다.
 
 ---
 
@@ -62,100 +47,82 @@ shortsradar/
 
 > AI에게 코드를 시킬 때 이 목록을 반드시 함께 공유하세요.
 
-- [ ] API 키·빌링키·비밀번호를 코드에 직접 쓰지 마 (.env.local만)
-- [ ] DB 스키마·마이그레이션·RLS 정책·인증 로직을 승인 없이 바꾸지 마
-- [ ] 테스트 없이 배포하지 마
-- [ ] 목업/하드코딩 데이터로 완성이라고 하지 마
-- [ ] npm·yarn 쓰지 마 (pnpm만). lockfile 섞이면 배포가 깨짐
-- [ ] `any` 쓰지 마 (`unknown` + 타입 좁히기)
-- [ ] 유튜브 영상·음성 파일을 다운로드하거나 서버에 저장하지 마 (API 약관 위반). 재생은 공식 임베드만
-- [ ] 유튜브 API 응답을 30일 넘게 캐시하지 마. 통계는 매시간 갱신, 오래된 건 삭제
-- [ ] `search.list`를 크론에서 매시간 돌리지 마 (100유닛/회). 발굴용으로 하루 수 회만
-- [ ] 생성 한도 검사를 클라이언트(브라우저)에서만 하지 마. 반드시 서버 API에서
-- [ ] 다른 조직 데이터가 보이는 쿼리를 쓰지 마. 모든 조직 테이블은 RLS + `org_id` 필터
-- [ ] 결제 webhook을 서명 검증 없이 믿지 마
-- [ ] 새 라이브러리를 묻지 않고 설치하지 마
+- [ ] API 키나 토큰을 코드·git에 넣지 마 (`.env.local`에만)
+- [ ] DB 스키마·마이그레이션을 설명과 승인 없이 바꾸지 마 (전역 규칙)
+- [ ] **Threads 발행·생성·학습 로직을 건드리지 마** (11/17 글 길이 실험 동결)
+- [ ] **영상을 Threads 경유로 올리지 마.** 각 채널에 직접 올린다
+- [ ] **매 영상마다 AI 영상 생성(Higgsfield 등)이나 유료 API를 부르지 마.** 돈이 드는 호출은 켜기 전에 사용자에게 확인한다
+- [ ] 품질 검사를 통과하지 못한 영상을 올리지 마. 검사를 "무조건 통과"로 만들지 마 (2026-10-24 매일 영상 사고 재발 방지)
+- [ ] 같은 영상을 같은 채널에 두 번 올리지 마 (Publication 유일 제약 + 기존 인스타 중복 방지 패턴)
+- [ ] 라이선스를 확인하지 않은 외부 스킬·템플릿 코드를 복사하지 마. 스톡 클립은 출처 URL을 `ClipAsset.license`에 남긴다
+- [ ] 새 라이브러리를 묻지 않고 설치하지 마 (전역 규칙)
+- [ ] 목업 데이터나 손으로 렌더한 영상으로 "완성"이라고 하지 마
+- [ ] 예언형 문구, "댓글 달면 해석", 키워드 DM을 원고에 쓰지 마 (브랜드 보이스 규칙)
 
 ---
 
 ## 항상 해 (ALWAYS DO)
 
-- [ ] 변경하기 전에 무엇을 왜 바꾸는지 2~3줄 먼저 설명
-- [ ] 환경변수는 .env.local에 저장
-- [ ] 외부 API(YouTube·Claude·토스) 호출은 실패해도 앱이 죽지 않게 처리하고 사용자에게 쉬운 메시지
-- [ ] YouTube 호출마다 쿼터 비용을 주석으로 남기고, 크론 1회 총 비용을 함수 상단에 계산해 둘 것
-- [ ] 생성 결과(analysis·shots)는 JSON 스키마로 검증 후 저장 (LLM 출력 그대로 믿지 않기)
-- [ ] 생성 실패 시 `gen_used` 차감 롤백
-- [ ] 모든 조직 테이블에 RLS 정책 + 테스트
-- [ ] 데스크톱 우선이되 모바일에서 피드가 깨지지 않는 반응형
-- [ ] 피드 카드에 YouTube 출처(채널명·링크) 표기 (API 브랜딩 가이드)
-- [ ] 커밋은 conventional commits + 한국어, `feat/xxx` 브랜치
+- [ ] 바꾸기 전에 무엇을 왜 바꾸는지 먼저 설명
+- [ ] 환경변수는 `.env.local`, 운영 값은 Vercel·GitHub Secrets
+- [ ] 업로드 실패는 이유와 함께 `Publication.errorLog`에 남기고, 보고판에 보이게
+- [ ] 외부 API 문법은 기억으로 쓰지 말고 공식 문서(context7·docs-guide)로 확인
+- [ ] 렌더 결과는 실제 영상 파일과 프레임 캡처로 확인한 뒤에만 "됐다"고 보고
+- [ ] 대시보드 화면은 모바일에서도 쓸 수 있게 (보고판은 폰으로 볼 수 있다)
+- [ ] 비용이 드는 기능은 끄는 스위치(`brandConfig`)를 둔다
 
 ---
 
-## 수집 쿼터 계산 (기준값)
+## 채널 제약 (2026-10-29 공식 문서 확인)
 
-| 작업 | 호출 | 유닛 | 하루 합계 |
-|------|------|------|----------|
-| 신규 쇼츠 수집 (6h × 4회) | 채널 500개 × `playlistItems.list` 1유닛 | 500 | 2,000 |
-| 신규 영상 메타 (길이·통계) | 신규 약 1,000개 / 50 = 20 × `videos.list` 1유닛 | 20 | 80 |
-| 스냅샷 (1h × 24회) | 48h 이내 영상 약 2,000개 / 50 = 40 × 1유닛 | 40 | 960 |
-| 채널 발굴 `search.list` | 하루 20회 × 100유닛 | 2,000 | 2,000 |
-| **합계** | | | **약 5,000 / 10,000** |
-
-시드 채널이 1,000개를 넘기면 Google 쿼터 확장 신청(심사 수주) 또는 수집 주기 12h로 조정.
+| 채널 | 제약 | 출처 |
+|---|---|---|
+| 틱톡 | 심사 전 앱이 올린 콘텐츠는 모두 **비공개**로 제한된다. 공개하려면 앱 심사 필요 | developers.tiktok.com Content Posting API Get Started |
+| 유튜브 | `videos.insert`는 프로젝트당 하루 100회 (다른 엔드포인트와 별도 할당) | developers.google.com/youtube/v3/determine_quota_cost |
+| 스톡 (Pexels) | 무료·출처 표기 불필요·광고와 SNS 사용 가능. 수정 없이 재판매, 인물을 나쁘게 묘사, 보증 암시, 상표 사용은 금지 | pexels.com/license |
+| 인스타 | 기존 릴스 업로드 코드가 공개 영상 URL을 넘긴다 (`createReelsContainer`) | 저장소 코드 |
 
 ---
 
 ## 테스트 방법
 
 ```bash
-# 로컬 실행
-pnpm dev
-
-# 타입 체크
-pnpm tsc --noEmit
-
-# 테스트
+pnpm typecheck
 pnpm test
-
-# 빌드 확인
 pnpm build
-
-# 크론 함수 로컬 실행
-supabase functions serve collect-videos
 ```
+
+```bash
+cd hyperframes && npx --yes hyperframes@0.8.210 check
+```
+
+영상 결과는 렌더된 mp4의 프레임 캡처로 확인한다 (품질 검사 항목별).
 
 ---
 
 ## 배포 방법
 
-1. Supabase 프로젝트 생성 → `supabase link` → `supabase db push` (마이그레이션) → `supabase functions deploy`
-2. Supabase 대시보드에서 pg_cron 스케줄 등록 (collect 6h, snapshot 1h, cleanup 1d)
-3. Vercel에 GitHub 연결 → 환경변수 입력 → main 푸시 시 자동 배포
-4. Google Cloud 콘솔에서 YouTube Data API 활성화 + 쿼터 모니터링 알림 설정
+- 앱: main 머지 → Vercel 자동 배포 (기존)
+- 렌더: GitHub Actions 워크플로 (schedule + workflow_dispatch)
+- 업로드 틱: 외부 cron에 잡 추가 (`scripts/register-cronjobs.mjs`)
 
 ---
 
-## 환경변수
+## 환경변수 (새로 필요한 것, 이름은 빌더가 기존 규칙에 맞춰 정함)
 
-| 변수명 | 설명 | 어디서 발급 |
-|--------|------|------------|
-| NEXT_PUBLIC_SUPABASE_URL | Supabase 프로젝트 URL | supabase.com 대시보드 |
-| NEXT_PUBLIC_SUPABASE_ANON_KEY | 공개 키 | 동일 |
-| SUPABASE_SERVICE_ROLE_KEY | 서버 전용 키 (크론·webhook) | 동일 |
-| YOUTUBE_API_KEY | YouTube Data API v3 | console.cloud.google.com |
-| ANTHROPIC_API_KEY | Claude API | console.anthropic.com |
-| TOSS_CLIENT_KEY / TOSS_SECRET_KEY | 토스페이먼츠 | developers.tosspayments.com |
-| TOSS_WEBHOOK_SECRET | 결제 콜백 서명 검증 | 동일 |
-| KAKAO_CLIENT_ID / KAKAO_CLIENT_SECRET | 카카오 로그인 | developers.kakao.com |
+| 용도 | 어디서 발급 |
+|------|------------|
+| 유튜브 OAuth 클라이언트 ID·시크릿 | Google Cloud Console (YouTube Data API v3 사용 설정) |
+| 틱톡 앱 클라이언트 키·시크릿 | TikTok for Developers (Content Posting API) |
+| 스톡 검색 키 (클립 수집을 자동화할 경우만) | Pexels API |
 
-> .env.local 파일에 저장. 절대 GitHub에 올리지 마세요.
+> `.env.local`에 저장. 절대 GitHub에 올리지 마세요. 채널 토큰은 DB의 `ChannelAccount`에 저장한다 (기존 방식).
 
 ---
 
 ## [NEEDS CLARIFICATION]
 
-- [ ] 자막 추출 방법: 공식 `captions.download`는 채널 소유자 OAuth가 필요해 남의 영상엔 못 씀. 비공식 자막 엔드포인트(timedtext) 또는 외부 전사 API 중 선택 필요
-- [ ] Edge Function 실행 시간 제한 안에 채널 500개 수집이 끝나는지 (안 되면 채널을 50개씩 나눠 여러 번 호출)
-- [ ] 토스 정기결제 심사 요건 (사업자 등록·서비스 URL) 준비 여부
+- [ ] CI에서 HyperFrames 렌더 시 한글 폰트 (README: Mac의 AppleMyungjo 대신 Noto Serif KR woff2 필요)
+- [ ] 영상 파일 저장소와 보관 기간
+- [ ] 내레이션 무료 TTS 엔진
+- [ ] 품질 검사의 "비평 단계(LLM 비전)"를 켤지와 월 비용 상한
