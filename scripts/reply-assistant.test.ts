@@ -9,7 +9,7 @@ describe("reply-assistant --post-id", () => {
   it("exits before any Threads fetch when --post-id is empty", () => {
     const result = spawnSync(process.execPath, [scriptPath, "--interactive", "--post-id="], {
       encoding: "utf8",
-      env: { PATH: process.env.PATH, THREADS_ACCESS_TOKEN: "test-token", THREADS_USER_ID: "test-user" },
+      env: { ...process.env, THREADS_ACCESS_TOKEN: "test-token", THREADS_USER_ID: "test-user" },
       timeout: 10_000,
     });
 
