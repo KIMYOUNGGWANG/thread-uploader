@@ -1,10 +1,18 @@
 // src/app/api/tiktok/tiktok-routes.test.ts — Unit tests for TikTok API routes.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { POST as generateHandler } from "./generate/route";
 import { GET as draftsHandler } from "./drafts/route";
 import { POST as renderHandler } from "./render/route";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError, requireBrandForCurrentUser } from "@/lib/brand-access";
+import { generateTikTokScript } from "@/lib/tiktok/tiktok-script-engine";
+
+const messagesCreate = vi.hoisted(() => vi.fn());
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: class {
+    messages = { create: messagesCreate };
+  },
+}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -30,7 +38,7 @@ describe("TikTok API Routes", () => {
     vi.clearAllMocks();
     vi.mocked(requireBrandForCurrentUser).mockImplementation(async (brandId: string) => ({
       user: { id: "user-1", email: "owner@example.com", name: null },
-      brand: { id: brandId, name: "사주브랜드" } as Awaited<ReturnType<typeof requireBrandForCurrentUser>>["brand"],
+      brand: { id: brandId, name: "사주브랜드", slug: "cosmicpath", brandConfig: "{}" } as Awaited<ReturnType<typeof requireBrandForCurrentUser>>["brand"],
     }));
   });
 
@@ -98,6 +106,60 @@ describe("TikTok API Routes", () => {
       expect(data.draft.id).toBe("draft-456");
       expect(data.draft.title).toContain("갑목");
       expect(data.scriptResult.scenes.length).toBe(4);
+    });
+  });
+
+  describe("POST /api/tiktok/generate per brand engine", () => {
+    type Brand = Awaited<ReturnType<typeof requireBrandForCurrentUser>>["brand"];
+    function asBrand(slug: string, name: string, brandConfig: object) {
+      vi.mocked(requireBrandForCurrentUser).mockResolvedValue({
+        user: { id: "user-1", email: "owner@example.com", name: null },
+        brand: { id: `b-${slug}`, name, slug, brandConfig: JSON.stringify(brandConfig) } as Brand,
+      });
+    }
+    function generate(body: object) {
+      return generateHandler(new Request("http://localhost/api/tiktok/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }) as never);
+    }
+
+    beforeEach(() => {
+      messagesCreate.mockReset();
+      vi.mocked(prisma.tikTokVideoDraft.create).mockImplementation(
+        (async ({ data }: { data: Record<string, unknown> }) => ({ id: "draft-new", ...data })) as never
+      );
+    });
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("generates a product script for a product_growth brand", async () => {
+      vi.stubEnv("ANTHROPIC_API_KEY", "");
+      asBrand("catchdex", "Catchdex", { qualityProfile: "product_growth", productProfile: { productName: "Catchdex" } });
+      const res = await generate({ brandId: "b-catchdex", dayMaster: "갑목", topic: "" });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.scriptResult.scenes[1].spokenLine).toContain("Catchdex");
+      expect(data.scriptResult.scenes.some((s: { type: string }) => s.type === "saju-card")).toBe(false);
+      expect(data.draft.title).not.toContain("갑목");
+      expect(data.draft.campaignId).toBe("product_tiktok_campaign");
+    });
+
+    it("keeps cosmicpath-global on the English saju script", async () => {
+      asBrand("cosmicpath-global", "CosmicPath Global", { qualityProfile: "ecommerce_d2c" });
+      const res = await generate({ brandId: "b-cosmicpath-global", dayMaster: "갑목" });
+      const data = await res.json();
+      expect(data.scriptResult).toEqual(generateTikTokScript({ topic: "사주 대운 분석", dayMaster: "갑목", tone: "mysterious", lang: "en" }));
+      expect(data.draft.campaignId).toBe("saju_tiktok_campaign");
+    });
+
+    it("returns 500 and saves nothing when Claude returns garbage", async () => {
+      vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+      messagesCreate.mockResolvedValueOnce({ content: [{ type: "text", text: "nope" }], stop_reason: "end_turn" });
+      asBrand("catchdex", "Catchdex", { qualityProfile: "product_growth" });
+      const res = await generate({ brandId: "b-catchdex" });
+      expect(res.status).toBe(500);
+      expect(prisma.tikTokVideoDraft.create).not.toHaveBeenCalled();
     });
   });
 
