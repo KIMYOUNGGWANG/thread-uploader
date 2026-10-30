@@ -20,7 +20,7 @@
 - 하루 기준은 KST 날짜. 일정 실행은 그날 `COMPLETED`·`RENDERING`이 없을 때만 새로 만든다. `force=1`이면 하루 최대 3편까지.
 - 글자는 화면 y 288~1330px 안. 영상 1080×1920, 30fps, `kinetic_list` 길이 10초(QC 허용 9~11초).
 - 색: 배경 `#0a0908`, 골드 `#c8a84d`, 밝은 골드 `#f5d77f`. 본문 Pretendard 900, 한자만 Noto Serif KR.
-- 원고 글자 수 상한(넘으면 재생성, 줄이지 않음): `hook.kicker` ≤6, `hook.lines` 2줄 각 ≤8, `intro.l1`/`l2` 각 ≤6, `items` 정확히 3개, `label` ≤4, `action` 2줄 각 ≤10, `cta.l1` ≤10, `cta.l2` ≤12. 생성은 최초 1회 + 재시도 2회.
+- 원고 글자 수 상한(넘으면 재생성, 줄이지 않음): `hook.kicker` ≤6, `hook.lines` 2줄 각 ≤6, `intro.l1`/`l2` 각 ≤6, `items` 정확히 3개, `label` ≤4, `action` 2줄 각 ≤10, `cta.l1` ≤10, `cta.l2` ≤12. 생성은 최초 1회 + 재시도 2회.
 - `glyph`는 `甲乙丙丁戊己庚辛壬癸` 중 하나 (폰트 서브셋과 맞춤).
 - 커밋 메시지: conventional commits, 한국어 설명.
 
@@ -201,7 +201,7 @@ it("returns null when there are no enabled clips", () => {
 
 - [ ] **Step 1: 실패하는 테스트** — 유효 예시(스타일 샘플 원고: kicker `"11월,"`, lines `["이직","고민 중이면"]`, intro `"일간별로"`/`"딱 하나만"`, items 丙 병화 `["제안 오면","하루 안에 답하기"]` / 壬 임수 `["연말까지는","지금 자리 지키기"]` / 己 기토 `["이력서보다","서류 정리 먼저"]`, cta `"내 일간 모르면"`/`"프로필 링크 → 1분"`)로:
   - `accepts the style-sample script` → `ok: true`
-  - `rejects a hook line over 8 chars` → errors에 `"hook.lines[1]"` 포함
+  - `rejects a hook line over 6 chars` → errors에 `"hook.lines[1]"` 포함
   - `rejects two items` → errors에 `"items"` 포함
   - `rejects a glyph outside KINETIC_GLYPHS` (`"龍"`)
   - `rejects a forbidden term in captions` (forbiddenTerms `["부적"]`, 캡션에 `"부적"`)

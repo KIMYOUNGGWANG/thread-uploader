@@ -26,10 +26,16 @@ describe("checkKineticListScript", () => {
     expect(r.ok).toBe(true);
   });
 
-  it("rejects a hook line over 8 chars", () => {
+  it("rejects a hook line over 6 chars", () => {
     const s = valid();
-    s.hook.lines[1] = "고민 중이면 지금";
+    s.hook.lines[1] = "고민 중이라면";
     expect(errorsOf(s).join("|")).toContain("hook.lines[1]");
+  });
+
+  it("accepts a 6-char hook line without spaces", () => {
+    const s = valid();
+    s.hook.lines = ["이직고민중이", "연봉협상앞둠"];
+    expect(checkKineticListScript(s, []).ok).toBe(true);
   });
 
   it("rejects two items", () => {

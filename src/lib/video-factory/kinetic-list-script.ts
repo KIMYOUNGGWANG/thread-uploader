@@ -67,7 +67,7 @@ export function checkKineticListScript(input: unknown, forbiddenTerms: string[])
 
   const hook = obj("hook", input.hook);
   str("hook.kicker", hook.kicker, 6);
-  pair("hook.lines", hook.lines, 8);
+  pair("hook.lines", hook.lines, 6);
 
   const intro = obj("intro", input.intro);
   str("intro.l1", intro.l1, 6);

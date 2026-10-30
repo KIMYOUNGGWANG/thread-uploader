@@ -68,7 +68,7 @@ cosmicpath 숏폼 영상이 **매일 사람 손 없이** 만들어지고, 대시
 
 - 입력: 브랜드 설정, 포맷 `kinetic_list`, 최근 14일 원고(주제 중복 방지)
 - 출력 JSON:
-  - `hook.kicker` (≤6자)와 `hook.lines` (2줄, 줄당 ≤8자)
+  - `hook.kicker` (≤6자)와 `hook.lines` (2줄, 줄당 ≤6자)
   - `intro.l1` / `intro.l2` (각 ≤6자)
   - `items[3]`: `{ glyph(한자 1자), label(≤4자), action: [줄1, 줄2] (줄당 ≤10자) }`
   - `cta.l1` / `cta.l2`, 채널별 `captions` 3개, `hashtags`

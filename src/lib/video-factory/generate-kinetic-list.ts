@@ -56,7 +56,7 @@ export const SCRIPT_SCHEMA = {
 
 export const FALLBACK_SCRIPTS: KineticListScript[] = [
   {
-    hook: { kicker: "11월", lines: ["이직 고민이면", "일간별로"] },
+    hook: { kicker: "11월", lines: ["이직 고민엔", "일간별로"] },
     intro: { l1: "딱 하나만", l2: "해보세요" },
     items: [
       { glyph: "丙", label: "병화", action: ["먼저 연락하기", "오늘 안에 한 통"] },
@@ -72,7 +72,7 @@ export const FALLBACK_SCRIPTS: KineticListScript[] = [
     hashtags: ["사주", "일간", "이직", "cosmicpath"],
   },
   {
-    hook: { kicker: "이번 주", lines: ["마음이 복잡하면", "일간별로"] },
+    hook: { kicker: "이번 주", lines: ["생각 많으면", "일간별로"] },
     intro: { l1: "오늘은", l2: "이것만" },
     items: [
       { glyph: "甲", label: "갑목", action: ["산책 20분 걷기", "휴대폰 두고 나가기"] },
@@ -100,7 +100,7 @@ function buildPrompt(input: GenerateInput, forbidden: string[], previousErrors: 
     "",
     "글자 수 상한 (공백 포함, 넘으면 무효라 줄여 쓰는 게 아니라 처음부터 맞춰 써야 해):",
     "- hook.kicker 6자 이하",
-    "- hook.lines 정확히 2줄, 각 8자 이하",
+    "- hook.lines 정확히 2줄, 각 6자 이하",
     "- intro.l1, intro.l2 각 6자 이하",
     "- items 정확히 3개. label 4자 이하, action 정확히 2줄 각 10자 이하",
     "- cta.l1 10자 이하, cta.l2 12자 이하",
