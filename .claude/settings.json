@@ -1,79 +1,10 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "name": "oma-hook-SessionStart",
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/oma-hook.sh\" --vendor 'claude' --event 'SessionStart'",
-            "timeout": 13
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "name": "oma-hook-UserPromptSubmit",
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/oma-hook.sh\" --vendor 'claude' --event 'UserPromptSubmit'",
-            "timeout": 15
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "name": "oma-hook-PreToolUse",
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/oma-hook.sh\" --vendor 'claude' --event 'PreToolUse' --matcher 'Bash'",
-            "timeout": 13
-          }
-        ],
-        "matcher": "Bash"
-      }
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "name": "oma-hook-PostToolUse",
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/oma-hook.sh\" --vendor 'claude' --event 'PostToolUse' --matcher 'Edit|Write|NotebookEdit'",
-            "timeout": 10
-          }
-        ],
-        "matcher": "Edit|Write|NotebookEdit"
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "name": "oma-hook-Stop",
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/oma-hook.sh\" --vendor 'claude' --event 'Stop'",
-            "timeout": 15
-          }
-        ]
-      }
-    ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "'bun' \"$CLAUDE_PROJECT_DIR/.claude/hooks/hud.ts\""
-  },
   "permissions": {
     "allow": [
       "Bash(bun run:*)",
       "Bash(bunx tsx:*)",
       "Bash(git add:*)",
       "Bash(ls *)",
-      "Bash(oma *)",
       "mcp__serena__*"
     ]
   },
@@ -91,9 +22,5 @@
   "cleanupPeriodDays": 180,
   "skipDangerousModePermissionPrompt": true,
   "effortLevel": "high",
-  "skillListingBudgetFraction": 0.02,
-  "attribution": {
-    "commit": "Generated with oh-my-agent\n\nCo-Authored-By: First Fluke <our.first.fluke@gmail.com>",
-    "pr": "Generated with [oh-my-agent](https://github.com/first-fluke/oh-my-agent)"
-  }
+  "skillListingBudgetFraction": 0.02
 }

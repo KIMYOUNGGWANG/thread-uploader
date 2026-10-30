@@ -1,2 +1,0 @@
-Prompt/doc stale comment-intake contract
-Search should only return explicit ban/safety text or legacy compatibility labels, not positive requirements.

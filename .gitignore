@@ -107,3 +107,7 @@ video/public/reels/**/*.mp3
 
 # brainstorming mockups
 .superpowers/
+
+# root app uses npm (package-lock.json); video/ keeps its own pnpm lockfile
+/pnpm-lock.yaml
+/yarn.lock
