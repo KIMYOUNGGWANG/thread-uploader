@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
+import { readMessageText } from "@/lib/claude-text";
 import {
   checkKineticListScript,
   forbiddenTermsFor,
@@ -93,12 +93,13 @@ function dayIndex(kstDate: string): number {
   return Math.floor(Date.parse(kstDate) / 86_400_000);
 }
 
-function buildPrompt(input: GenerateInput, forbidden: string[], previousErrors: string[]): string {
+function buildPrompt(input: GenerateInput, forbidden: string[], previousErrors: string[], previousScript: unknown = null): string {
   const lines = [
     `${input.brandName} 사주 숏폼 영상의 10초 키네틱 리스트 원고를 JSON으로 만들어줘.`,
     "형식: 훅 → 인트로 → 일간 3개(한자 글리프 + 이름 + 행동 2줄) → CTA.",
     "",
     "글자 수 상한 (공백 포함, 넘으면 무효라 줄여 쓰는 게 아니라 처음부터 맞춰 써야 해):",
+    "- 공백·쉼표·물음표도 1자로 센다. 예: '10월의 사주'=7자(6자 상한 초과), '10월 끝'=5자(통과)",
     "- hook.kicker 6자 이하",
     "- hook.lines 정확히 2줄, 각 6자 이하",
     "- intro.l1, intro.l2 각 6자 이하",
@@ -117,6 +118,10 @@ function buildPrompt(input: GenerateInput, forbidden: string[], previousErrors: 
   }
   if (previousErrors.length > 0) {
     lines.push("", "직전 시도가 아래 검사에서 실패했어. 전부 고쳐서 다시 써줘:", ...previousErrors.map((e) => `- ${e}`));
+    // Rewriting from scratch broke fields that had passed (live probe 2026-10-30), so repair in place.
+    if (previousScript !== null) {
+      lines.push("", "직전 원고야. 위 오류가 난 칸만 고치고 나머지 칸은 글자 그대로 둬:", JSON.stringify(previousScript));
+    }
   }
   lines.push(
     "",
@@ -127,14 +132,17 @@ function buildPrompt(input: GenerateInput, forbidden: string[], previousErrors: 
   return lines.join("\n");
 }
 
+// Haiku overshot the 6-char limits by 1-2 chars in 3 of 4 live first attempts (2026-10-30); Sonnet passed 4 of 4 runs. 1-3 calls a day.
+export const VIDEO_SCRIPT_MODEL = "claude-sonnet-5-5";
+
 function defaultCreateMessage(apiKey: string): CreateMessage {
   const client = new Anthropic({ apiKey, timeout: 30_000, maxRetries: 1 });
   return async (prompt) =>
     readMessageText(
       await client.messages.create({
-        model: CLAUDE_TEXT_MODEL,
+        model: VIDEO_SCRIPT_MODEL,
         max_tokens: 1500,
-        thinking: { type: "disabled" }, // short-form copy; thinking only adds latency and output tokens
+        thinking: { type: "between_tools" }, // this model rejects "disabled"; between_tools means no thinking before the answer
         output_config: { format: { type: "json_schema", schema: SCRIPT_SCHEMA } },
         messages: [{ role: "user", content: prompt }],
       }),
@@ -169,10 +177,11 @@ export async function generateKineticListScript(input: GenerateInput, createMess
 
   const forbidden = forbiddenTermsFor(input.qualityProfile);
   let errors: string[] = [];
+  let previous: unknown = null;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     let text: string;
     try {
-      text = await create(buildPrompt(input, forbidden, errors));
+      text = await create(buildPrompt(input, forbidden, errors, previous));
     } catch (error) {
       // An empty reply (readMessageText) is a bad attempt, not an outage; network/auth errors still propagate.
       if (!(error instanceof Error && error.message.startsWith("Claude returned no text"))) throw error;
@@ -184,6 +193,7 @@ export async function generateKineticListScript(input: GenerateInput, createMess
       parsed === null ? { ok: false, errors: ["응답: JSON을 읽을 수 없음"] } : checkKineticListScript(parsed, forbidden);
     if (check.ok) return check;
     errors = check.errors;
+    previous = parsed;
   }
   return { ok: false, errors };
 }

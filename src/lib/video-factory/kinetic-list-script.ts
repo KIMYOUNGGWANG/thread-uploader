@@ -48,7 +48,7 @@ export function checkKineticListScript(input: unknown, forbiddenTerms: string[])
       errors.push(`${path}: 비어 있거나 문자열이 아님`);
       return "";
     }
-    if (max !== undefined && len(v) > max) errors.push(`${path}: ${len(v)}자 > ${max}자`);
+    if (max !== undefined && len(v) > max) errors.push(`${path}: "${v}" ${len(v)}자 > ${max}자`);
     texts.push([path, v]);
     return v;
   };
