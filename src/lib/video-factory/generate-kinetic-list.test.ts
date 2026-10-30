@@ -70,6 +70,12 @@ describe("generateKineticListScript", () => {
     expect(createMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("asks for Hangul day-master labels in the prompt", async () => {
+    const createMessage = vi.fn<(p: string) => Promise<string>>().mockResolvedValue(JSON.stringify(valid()));
+    await generateKineticListScript(input, createMessage);
+    expect(createMessage.mock.calls[0][0]).toContain("label은 한글 일간 이름(예: 병화)");
+  });
+
   it("calls the API with thinking disabled", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
     create.mockResolvedValueOnce({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(valid()) }] });

@@ -41,8 +41,12 @@ async function callApp(route, init = {}) {
   return body;
 }
 
+// Child processes (npx-fetched hyperframes and its unlocked deps, ffmpeg) never need the secrets; only fetch/put use them.
+const SECRET_ENV = ["CRON_SECRET", "BLOB_READ_WRITE_TOKEN", "ANTHROPIC_API_KEY", "DATABASE_URL", "DIRECT_URL"];
+const childEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !SECRET_ENV.includes(key)));
+
 const run = (cmd, args, cwd) =>
-  execFileAsync(cmd, args, { cwd, timeout: 15 * 60 * 1000, maxBuffer: 64 * 1024 * 1024 });
+  execFileAsync(cmd, args, { cwd, env: childEnv, timeout: 15 * 60 * 1000, maxBuffer: 64 * 1024 * 1024 });
 
 /** ffmpeg filters report on stderr; a missing stream fails the command but its stderr is still the answer. */
 async function ffmpegStderr(args) {
@@ -116,7 +120,12 @@ async function measure(projectDir, videoPath, workDir) {
 }
 
 async function upload(pathname, file, contentType) {
-  const blob = await put(pathname, await readFile(file), { access: "public", contentType, token: BLOB_READ_WRITE_TOKEN });
+  const blob = await put(pathname, await readFile(file), {
+    access: "public",
+    contentType,
+    token: BLOB_READ_WRITE_TOKEN,
+    allowOverwrite: true, // path is per draft; a re-claimed (stale) draft re-uploads to the same path
+  });
   return blob.url;
 }
 

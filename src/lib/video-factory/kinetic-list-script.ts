@@ -82,7 +82,9 @@ export function checkKineticListScript(input: unknown, forbiddenTerms: string[])
       if (typeof item.glyph !== "string" || len(item.glyph) !== 1 || !KINETIC_GLYPHS.includes(item.glyph)) {
         errors.push(`${p}.glyph: ${String(item.glyph)}`);
       }
-      str(`${p}.label`, item.label, 4);
+      const label = str(`${p}.label`, item.label, 4);
+      // Template fonts carry Hanja only for the 10 glyphs; any other Hanja renders as tofu on CI.
+      if (label && !/^[가-힣]+$/.test(label)) errors.push(`${p}.label: 한글만`);
       pair(`${p}.action`, item.action, 10);
     });
   }

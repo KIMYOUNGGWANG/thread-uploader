@@ -32,6 +32,13 @@ describe("checkKineticListScript", () => {
     expect(errorsOf(s).join("|")).toContain("hook.lines[1]");
   });
 
+  it("allows only Hangul in item labels (template has no Hanja font for them)", () => {
+    const s = valid();
+    s.items[1].label = "甲木";
+    expect(errorsOf(s)).toContain("items[1].label: 한글만");
+    expect(checkKineticListScript(valid(), []).ok).toBe(true); // "병화" etc.
+  });
+
   it("accepts a 6-char hook line without spaces", () => {
     const s = valid();
     s.hook.lines = ["이직고민중이", "연봉협상앞둠"];

@@ -102,7 +102,7 @@ function buildPrompt(input: GenerateInput, forbidden: string[], previousErrors: 
     "- hook.kicker 6자 이하",
     "- hook.lines 정확히 2줄, 각 6자 이하",
     "- intro.l1, intro.l2 각 6자 이하",
-    "- items 정확히 3개. label 4자 이하, action 정확히 2줄 각 10자 이하",
+    "- items 정확히 3개. label은 한글 일간 이름(예: 병화), 4자 이하. action 정확히 2줄 각 10자 이하",
     "- cta.l1 10자 이하, cta.l2 12자 이하",
     `- glyph는 ${[...KINETIC_GLYPHS].join("")} 중 한 글자`,
     "",
