@@ -42,6 +42,12 @@ jobs:
         working-directory: video
         run: pnpm install --frozen-lockfile
 
+      - name: Preflight — Chrome launches (no secrets)
+        run: |
+          npx --yes hyperframes@0.8.210 browser ensure
+          # check launches headless Chrome on the template; a launch failure exits non-zero before any secret is used
+          npx --yes hyperframes@0.8.210 check hyperframes/templates/kinetic-list
+
       - name: Render, check, upload, and report
         env:
           APP_URL: ${{ secrets.APP_URL || vars.APP_URL || 'https://thread-uploader.vercel.app' }}

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { claimOrCreateDraft, requeueStaleRenders } from "@/lib/video-factory/draft-service";
 
+export const maxDuration = 300; // up to 3 Claude attempts (30s timeout, 1 retry each) must finish so a FAILED draft gets recorded
+
 /**
  * GET /api/cron/video-factory/next?brands=slug[&force=1]
  * Hands the CI renderer today's kinetic-list job (claimed as RENDERING), or { job: null }.

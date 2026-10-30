@@ -135,12 +135,10 @@ export async function claimOrCreateDraft(brand: BrandRef, now: Date, force: bool
 }
 
 async function slotTaken(db: Pick<Prisma.TransactionClient, "videoDraft">, brandId: string, today: string, force: boolean) {
-  const n = await db.videoDraft.count({
-    where: force
-      ? { brandId, kstDate: today }
-      : { brandId, kstDate: today, status: { in: ["COMPLETED", "RENDERING"] } },
-  });
-  return force ? n >= MAX_DRAFTS_PER_DAY : n > 0;
+  const day = { brandId, kstDate: today };
+  if (!force && (await db.videoDraft.count({ where: { ...day, status: { in: ["COMPLETED", "RENDERING"] } } })) > 0) return true;
+  // Total cap (any status) applies with and without force, so repeated runs after failures stay bounded.
+  return (await db.videoDraft.count({ where: day })) >= MAX_DRAFTS_PER_DAY;
 }
 
 /** Re-checks the daily limit and inserts in one transaction serialized per brand, so overlapping calls cannot both create. */

@@ -36,9 +36,9 @@ async function callApp(route, init = {}) {
     ...init,
     headers: { Authorization: `Bearer ${CRON_SECRET}`, "Content-Type": "application/json", ...init.headers },
   });
-  const body = await response.json();
-  if (!response.ok) throw new Error(`${route} → ${response.status} ${JSON.stringify(body)}`);
-  return body;
+  const text = await response.text(); // read as text first: a Vercel 504 returns HTML, not JSON
+  if (!response.ok) throw new Error(`${route} → ${response.status} ${text.slice(0, 300)}`);
+  return JSON.parse(text);
 }
 
 // Child processes (npx-fetched hyperframes and its unlocked deps, ffmpeg) never need the secrets; only fetch/put use them.
@@ -167,5 +167,11 @@ try {
   process.exit(1);
 }
 
-await callApp("/api/cron/video-factory/complete", { method: "POST", body: JSON.stringify(result) });
+try {
+  await callApp("/api/cron/video-factory/complete", { method: "POST", body: JSON.stringify(result) });
+} catch (error) {
+  // The stale rule requeues the RENDERING draft, so failing the job here is safe.
+  console.error(`[${job.brandSlug}] runner: complete failed: ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(1);
+}
 console.log(result.errors ? `[${job.brandSlug}] FAILED qc: ${result.errors.join("; ")}` : `[${job.brandSlug}] COMPLETED ${result.videoUrl}`);

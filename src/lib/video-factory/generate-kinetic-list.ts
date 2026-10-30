@@ -153,11 +153,19 @@ function parseJsonObject(text: string): unknown {
   }
 }
 
+let warnedFallback = false;
+
 /** 원고를 만들고 검사를 통과할 때까지 최대 3회 시도한다. 키가 없으면 고정 대체 원고(로컬·데모용). */
 export async function generateKineticListScript(input: GenerateInput, createMessage?: CreateMessage): Promise<ScriptCheck> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const create = createMessage ?? (apiKey ? defaultCreateMessage(apiKey) : null);
-  if (!create) return { ok: true, script: FALLBACK_SCRIPTS[dayIndex(input.kstDate) % FALLBACK_SCRIPTS.length] };
+  if (!create) {
+    if (process.env.NODE_ENV === "production" && !warnedFallback) {
+      warnedFallback = true;
+      console.warn("ANTHROPIC_API_KEY is not set; using the fixed fallback script");
+    }
+    return { ok: true, script: FALLBACK_SCRIPTS[dayIndex(input.kstDate) % FALLBACK_SCRIPTS.length] };
+  }
 
   const forbidden = forbiddenTermsFor(input.qualityProfile);
   let errors: string[] = [];

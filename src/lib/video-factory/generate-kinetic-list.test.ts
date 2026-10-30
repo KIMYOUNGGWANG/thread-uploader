@@ -93,6 +93,30 @@ describe("generateKineticListScript", () => {
     if (result.ok) expect(FALLBACK_SCRIPTS).toContainEqual(result.script);
   });
 
+  it("warns once in production when falling back for a missing API key", async () => {
+    vi.resetModules();
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("NODE_ENV", "production");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { generateKineticListScript: generate } = await import("./generate-kinetic-list");
+    await generate(input);
+    await generate(input);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("ANTHROPIC_API_KEY"));
+    warn.mockRestore();
+  });
+
+  it("does not warn outside production", async () => {
+    vi.resetModules();
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("NODE_ENV", "test");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { generateKineticListScript: generate } = await import("./generate-kinetic-list");
+    await generate(input);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("every fallback script passes the check", () => {
     expect(FALLBACK_SCRIPTS.length).toBeGreaterThanOrEqual(2);
     for (const script of FALLBACK_SCRIPTS) {

@@ -149,12 +149,27 @@ describe("video factory next", () => {
     const lockOrder = db.executeRaw.mock.invocationCallOrder[0];
     expect(db.executeRaw).toHaveBeenCalledTimes(1);
     expect(String((db.executeRaw.mock.calls[0][0] as string[]).join(""))).toContain("pg_advisory_xact_lock");
-    expect(lockOrder).toBeLessThan(db.draft.count.mock.invocationCallOrder[1]);
+    expect(lockOrder).toBeLessThan(db.draft.count.mock.invocationCallOrder[2]);
     expect(lockOrder).toBeLessThan(db.draft.create.mock.invocationCallOrder[0]);
   });
 
   it("creates nothing when a concurrent call took the slot during generation", async () => {
-    db.draft.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    db.draft.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    expect((await (await next(nextRequest())).json()).job).toBeNull();
+    expect(db.draft.create).not.toHaveBeenCalled();
+  });
+
+  it("without force, stops at three drafts a day even when none are COMPLETED/RENDERING", async () => {
+    db.draft.count.mockResolvedValueOnce(0).mockResolvedValueOnce(3); // 0 active, 3 FAILED today
+    expect((await (await next(nextRequest())).json()).job).toBeNull();
+    expect(db.generate).not.toHaveBeenCalled();
+    expect(db.draft.create).not.toHaveBeenCalled();
+  });
+
+  it("without force, re-checks the total cap under the lock", async () => {
+    db.draft.count
+      .mockResolvedValueOnce(0).mockResolvedValueOnce(2) // early: under the cap
+      .mockResolvedValueOnce(0).mockResolvedValueOnce(3); // locked: concurrent runs hit the cap
     expect((await (await next(nextRequest())).json()).job).toBeNull();
     expect(db.draft.create).not.toHaveBeenCalled();
   });
