@@ -69,3 +69,19 @@ curl -sSf "$(grep -o 'https://fonts.gstatic.com[^)]*' /tmp/noto.css)" -o $T/font
 | PSNR(dB) | 28.57 | 14.11 | 46.58 | 14.04 | 16.09 | 18.70 | 16.78 | 41.33 |
 
 최댓값 46.58dB(2-3초, 도입 문구가 머무는 구간) → **`maxStillPsnr = 49.6`** (최댓값 + 3dB). 이보다 높은 쌍이 있으면 화면이 멈춘 것으로 본다.
+
+## 클립 추가
+
+운영자가 Pexels 등에서 고른 훅 클립을 Blob에 올리고 `ClipAsset`으로 등록한다. 작업 큐(next)가 이 클립을 골라 영상 첫 1.7초에 깐다.
+스크립트는 `video/scripts/add-clip.mjs` (`@vercel/blob`이 `video/node_modules`에 있어서 여기에 둔다). 레포 루트에서 실행:
+
+```bash
+node --env-file=.env --env-file=.env.local video/scripts/add-clip.mjs \
+  --brand cosmicpath --mood 붓,탁자 --license <출처URL> [--source stock|ai|own] [--dry-run] <로컬파일>
+```
+
+- 필수: `--brand`(DB에 있는 slug), `--license`(출처 http(s) URL), `--mood`(쉼표 구분, 1개 이상), 파일 1개. `--source` 기본값은 `stock`.
+- 허용 확장자: `.png .jpg .jpeg .webp`(image), `.mp4 .webm .mov`(video). 영상은 `ffprobe`로 길이를 재고 1.7초보다 짧으면 거부한다.
+- Blob 경로는 `clips/<brand>/<uuid>.<ext>`. 업로드 뒤 `ClipAsset` 한 줄을 만들고 id를 출력한다.
+- `--dry-run`: 올리지도 DB에 쓰지도 않고 만들 내용만 출력한다. `BLOB_READ_WRITE_TOKEN` 없어도 된다.
+- 분위기 태그 예시: 붓, 탁자, 손, 창가, 새벽, 책
