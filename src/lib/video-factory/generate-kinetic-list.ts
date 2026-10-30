@@ -134,6 +134,7 @@ function defaultCreateMessage(apiKey: string): CreateMessage {
       await client.messages.create({
         model: CLAUDE_TEXT_MODEL,
         max_tokens: 1500,
+        thinking: { type: "disabled" }, // short-form copy; thinking only adds latency and output tokens
         output_config: { format: { type: "json_schema", schema: SCRIPT_SCHEMA } },
         messages: [{ role: "user", content: prompt }],
       }),
@@ -161,7 +162,16 @@ export async function generateKineticListScript(input: GenerateInput, createMess
   const forbidden = forbiddenTermsFor(input.qualityProfile);
   let errors: string[] = [];
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const parsed = parseJsonObject(await create(buildPrompt(input, forbidden, errors)));
+    let text: string;
+    try {
+      text = await create(buildPrompt(input, forbidden, errors));
+    } catch (error) {
+      // An empty reply (readMessageText) is a bad attempt, not an outage; network/auth errors still propagate.
+      if (!(error instanceof Error && error.message.startsWith("Claude returned no text"))) throw error;
+      errors = [`응답: ${error.message}`];
+      continue;
+    }
+    const parsed = parseJsonObject(text);
     const check: ScriptCheck =
       parsed === null ? { ok: false, errors: ["응답: JSON을 읽을 수 없음"] } : checkKineticListScript(parsed, forbidden);
     if (check.ok) return check;

@@ -1,4 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const create = vi.fn();
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: class {
+    messages = { create };
+  },
+}));
+
 import { FALLBACK_SCRIPTS, generateKineticListScript, SCRIPT_SCHEMA } from "./generate-kinetic-list";
 import { checkKineticListScript, forbiddenTermsFor } from "./kinetic-list-script";
 
@@ -41,6 +49,35 @@ describe("generateKineticListScript", () => {
     const result = await generateKineticListScript(input, createMessage);
     expect(result.ok).toBe(true);
     expect(createMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it("counts an empty (no text) response as an attempt", async () => {
+    const createMessage = vi
+      .fn<(p: string) => Promise<string>>()
+      .mockRejectedValueOnce(new Error("Claude returned no text (stop_reason: max_tokens)"))
+      .mockResolvedValueOnce(JSON.stringify(valid()));
+    const result = await generateKineticListScript(input, createMessage);
+    expect(result.ok).toBe(true);
+    expect(createMessage).toHaveBeenCalledTimes(2);
+    expect(createMessage.mock.calls[1][0]).toContain("Claude returned no text");
+  });
+
+  it("still propagates other errors (network, auth)", async () => {
+    const createMessage = vi.fn(async (): Promise<string> => {
+      throw new Error("401 invalid x-api-key");
+    });
+    await expect(generateKineticListScript(input, createMessage)).rejects.toThrow("401");
+    expect(createMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls the API with thinking disabled", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+    create.mockResolvedValueOnce({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(valid()) }] });
+    const result = await generateKineticListScript(input);
+    expect(result.ok).toBe(true);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ max_tokens: 1500, thinking: { type: "disabled" } }),
+    );
   });
 
   it("uses a fallback script when no API key and no createMessage", async () => {
