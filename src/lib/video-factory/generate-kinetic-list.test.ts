@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FALLBACK_SCRIPTS, generateKineticListScript } from "./generate-kinetic-list";
+import { FALLBACK_SCRIPTS, generateKineticListScript, SCRIPT_SCHEMA } from "./generate-kinetic-list";
 import { checkKineticListScript, forbiddenTermsFor } from "./kinetic-list-script";
 
 const input = { brandName: "cosmicpath", qualityProfile: "saju_viral", recentHooks: ["지난 훅"], kstDate: "2026-10-30" };
@@ -55,5 +55,21 @@ describe("generateKineticListScript", () => {
     for (const script of FALLBACK_SCRIPTS) {
       expect(checkKineticListScript(script, forbiddenTermsFor("saju_viral")).ok).toBe(true);
     }
+  });
+});
+
+describe("SCRIPT_SCHEMA", () => {
+  it("avoids array size keywords the API does not support", () => {
+    const bad: string[] = [];
+    const walk = (node: unknown, path: string): void => {
+      if (Array.isArray(node)) return node.forEach((v, i) => walk(v, `${path}[${i}]`));
+      if (typeof node !== "object" || node === null) return;
+      for (const [k, v] of Object.entries(node)) {
+        if (k === "maxItems" || (k === "minItems" && typeof v === "number" && v > 1)) bad.push(`${path}.${k}`);
+        walk(v, `${path}.${k}`);
+      }
+    };
+    walk(SCRIPT_SCHEMA, "schema");
+    expect(bad).toEqual([]);
   });
 });

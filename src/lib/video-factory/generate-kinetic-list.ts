@@ -20,8 +20,9 @@ export type CreateMessage = (prompt: string) => Promise<string>;
 const MAX_ATTEMPTS = 3;
 
 const str = { type: "string" };
-const pairSchema = { type: "array", items: str, minItems: 2, maxItems: 2 };
-const SCRIPT_SCHEMA = {
+// 배열 개수 제약(minItems/maxItems)은 API가 지원하지 않는다. 개수는 프롬프트와 checkKineticListScript가 강제한다.
+const pairSchema = { type: "array", items: str };
+export const SCRIPT_SCHEMA = {
   type: "object",
   properties: {
     hook: {
@@ -33,8 +34,6 @@ const SCRIPT_SCHEMA = {
     intro: { type: "object", properties: { l1: str, l2: str }, required: ["l1", "l2"], additionalProperties: false },
     items: {
       type: "array",
-      minItems: 3,
-      maxItems: 3,
       items: {
         type: "object",
         properties: { glyph: str, label: str, action: pairSchema },
