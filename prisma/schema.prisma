@@ -41,6 +41,8 @@ model Brand {
   threadReplies    ThreadReply[]
   tikTokDrafts     TikTokVideoDraft[]
   reviewDecisions  ReviewDecision[]
+  clipAssets       ClipAsset[]
+  videoDrafts      VideoDraft[]
   instagramAccessToken  String?
   instagramUserId       String?
   instagramUsername     String?
@@ -381,4 +383,49 @@ model Publication {
   @@unique([postId, channelAccountId])
   @@index([postId])
   @@index([channelAccountId, status, scheduledAt])
+}
+
+model ClipAsset {
+  id          String   @id @default(cuid())
+  brandId     String
+  brand       Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  source      String   // stock | ai | own
+  kind        String   // image | video
+  fileUrl     String
+  license     String
+  mood        String   @default("[]")
+  durationSec Float?
+  usedCount   Int      @default(0)
+  lastUsedAt  DateTime?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  videoDrafts VideoDraft[]
+
+  @@index([brandId, enabled, lastUsedAt])
+}
+
+model VideoDraft {
+  id           String     @id @default(cuid())
+  brandId      String
+  brand        Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  formatId     String
+  status       String     @default("QUEUED") // QUEUED | RENDERING | COMPLETED | FAILED
+  kstDate      String     // YYYY-MM-DD
+  script       String     @default("{}")
+  captions     String     @default("{}")
+  hashtags     String     @default("[]")
+  voiceMode    String     @default("bgm_only")
+  clipAssetId  String?
+  clipAsset    ClipAsset? @relation(fields: [clipAssetId], references: [id], onDelete: SetNull)
+  renderErrors String     @default("[]")
+  videoUrl     String?
+  coverUrl     String?
+  userVerdict  String?    // good | bad
+  verdictAt    DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([brandId, kstDate])
+  @@index([status, updatedAt])
+  @@index([clipAssetId])
 }
