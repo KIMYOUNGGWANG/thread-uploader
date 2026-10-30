@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isLeanSprintRun, selectLeanViralMode } from "./lean-mode-selector";
-import { selectViralIntentMode } from "./viral-intent-modes";
+import { getDomainPreset } from "./domain-registry";
+import { isLeanSprintRun, selectCampaignFormulaForViralMode, selectLeanViralMode } from "./lean-mode-selector";
+import { resolveViralIntentMode, selectViralIntentMode, VIRAL_INTENT_MODES } from "./viral-intent-modes";
 
-const LEAN_IDS = ["imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension", "beginner_qa"];
+const LEAN_IDS = [
+  "imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension", "beginner_qa",
+  "cost_loss_punch", "wealth_vault_unlock", "talent_reality_check", "fact_bomb_incumbent_attack",
+];
 
 describe("selectLeanViralMode", () => {
   it("keeps the fixed lean allocation when no priors are learned yet", () => {
@@ -31,6 +35,22 @@ describe("selectLeanViralMode", () => {
     const mode = selectLeanViralMode(0, [], priors, ["relationship_tension"]);
     expect(mode.id).not.toBe("relationship_tension");
     expect(LEAN_IDS).toContain(mode.id);
+  });
+
+  it("lets learned priors pick each breakout-shape arm with its registry formula", () => {
+    const formulas = Object.values(getDomainPreset("saju_viral").trackFormulas).flat();
+    for (const id of ["cost_loss_punch", "wealth_vault_unlock", "talent_reality_check", "fact_bomb_incumbent_attack"]) {
+      const priors = Object.fromEntries(LEAN_IDS.map((arm) => [arm, { alpha: 1, beta: 1000 }]));
+      priors[id] = { alpha: 1000, beta: 1 };
+      const mode = selectLeanViralMode(0, formulas, priors, []);
+      expect(mode.id).toBe(id);
+      expect(resolveViralIntentMode(id, 0).id).toBe(id);
+      expect(selectCampaignFormulaForViralMode(formulas, mode).instruction).not.toBe(mode.instruction);
+    }
+  });
+
+  it("keeps the standard rotation unchanged for non-lean brands", () => {
+    expect(VIRAL_INTENT_MODES).toHaveLength(12);
   });
 
   it("offers winner_replay only when a source is available", () => {

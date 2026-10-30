@@ -13,6 +13,10 @@ export type ViralIntentModeId =
   | "identity_profile"
   | "relationship_tension"
   | "beginner_qa"
+  | "cost_loss_punch"
+  | "wealth_vault_unlock"
+  | "talent_reality_check"
+  | "fact_bomb_incumbent_attack"
   | "winner_replay"
   | "ref_replay"
   | "ref_replay_info"
@@ -253,7 +257,7 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
     rules: [
       "첫 두 줄 안에 관계 단어(연애·궁합·연락·헤어짐 등)와 대비(만나면/헤어지면, '~보다', 파멸·놓치)를 함께 쓴다.",
       "감정적 연애 상담이 아니라 구조적 기질 궁합의 충돌 원리를 설명한다.",
-      "단정적 미래 확정 대신 리스크 헷징 관점을 제시한다.",
+      "단정적 미래 확정 대신 '이 구조면 ~되기 쉬움' 정도로만 말한다.",
       "번호 선택지를 쓰지 않고, 독자에게 직접 묻는 한 문장으로 끝낸다.",
       "첫 댓글: 상대와 지금 어떤 상황인지 묻는 한 줄로 쓴다. 링크·홍보 문구는 넣지 않는다.",
     ],
@@ -285,6 +289,62 @@ export const WINNER_REPLAY_MODE: ViralIntentMode = {
     "주제는 이번 글의 [주제]에서 가져온다.",
   ],
 };
+
+// Breakout shapes (복채 9.4k, 진술축미 5.5k, 시주 42k views) the five lean arms could not produce.
+// Ids match the saju_viral registry formulas so those instructions pair with these rules.
+// Kept out of VIRAL_INTENT_MODES so index rotation is unchanged; only the lean selector offers them.
+export const SAJU_HIT_MODES: readonly ViralIntentMode[] = [
+  {
+    id: "cost_loss_punch",
+    label: "바가지 팩폭 (복채 9천 뷰 검증)",
+    primaryMetric: "shares",
+    instruction: "점집 복채·신년운세·타로처럼 독자가 이미 낸 돈을 짚고, 그 돈으로 들은 게 뻔한 말뿐이었다는 걸 한 방에 찌른다.",
+    rules: [
+      "첫 줄은 독자가 실제로 냈을 법한 금액과 상황 한 줄로 시작한다(예: 신년운세 3만원). 금액은 흔한 시세만 쓰고 부풀리지 않는다.",
+      "3~4줄 안에 끝낸다. 사주 강의나 설명은 넣지 않는다.",
+      "특정 업체나 사람을 지목하지 않는다. 본문 링크 금지.",
+      "마무리는 날것의 생활어 한 줄로 끝낸다.",
+      "첫 댓글: 돈 내고 들었던 말 중 제일 뻔했던 걸 묻는 한 줄. 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
+  {
+    id: "wealth_vault_unlock",
+    label: "돈 창고 언락 (진술축미 5천 뷰 검증)",
+    primaryMetric: "saves",
+    instruction: "돈이 안 모이는 흔한 상황을 먼저 던지고, 그게 타고난 돈 그릇의 모양과 문이 열리는 타이밍 문제일 수 있다는 걸 사주 개념 하나로 짚는다.",
+    rules: [
+      "첫 줄은 사주를 몰라도 읽히는 돈 상황으로 쓴다(예: 월급은 올랐는데 통장은 그대로). 둘째 줄에서 근거가 되는 글자나 구조(진술축미, 식신생재, 편재 등)를 하나만 호명하고 바로 쉬운 말로 푼다.",
+      "문이 열리는 때는 대운·세운이 바뀌는 때라는 수준까지만 말하고, 연도·금액은 약속하지 않는다.",
+      "번호 선택지를 쓰지 않고, 독자에게 직접 묻는 한 문장으로 끝낸다. 본문 링크 금지.",
+      "첫 댓글: 돈이 제일 많이 새는 곳을 묻는 한 줄. 독자의 사주 글자를 묻지 않는다. 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
+  {
+    id: "talent_reality_check",
+    label: "현실 재능 판정 (2.5만 뷰 검증)",
+    primaryMetric: "shares",
+    instruction: "독자가 오래 붙잡고 있는 노력(자격증, 공시, 대학원 등)을 짚고, 배우는 힘과 써먹는 힘처럼 타고난 재능 축이 다르다는 걸 사주 개념 하나로 판정한다.",
+    rules: [
+      "첫 줄은 누구나 아는 상황 한 줄(예: 자격증은 5개인데 취업은 안 됨)로 시작한다.",
+      "사주 개념(인성·식상·관성 등)은 많아야 2개만 쓰고 바로 쉬운 말로 푼다.",
+      "판정은 날카롭게 하되 독자를 비하하지 않고, 마지막 줄은 지금 할 수 있는 행동 하나로 끝낸다.",
+      "번호 선택지를 쓰지 않는다. 본문 링크 금지.",
+      "첫 댓글: 제일 오래 붙잡고 있는 준비가 뭔지 묻는 한 줄. 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
+  {
+    id: "fact_bomb_incumbent_attack",
+    label: "통념 뒤집는 팩트 폭격 (시주 4.2만 뷰 검증)",
+    primaryMetric: "shares",
+    instruction: "많은 사람이 믿는 사주 통념 하나를 사주 체계 자체에서 확인되는 사실로 뒤집는다.",
+    rules: [
+      "숫자는 사주 체계에서 셈으로 확인되는 것만 쓴다: 12띠, 10천간, 12지지, 60갑자, 삼재 3년(매년 12띠 중 3띠), 대운 10년. 통계·설문·비율은 지어내지 않는다.",
+      "특정 연도에 어느 띠·일간이 해당하는지는 쓰지 않는다.",
+      "겁주지 않고, 부적·굿 같은 지출 대신 현실 행동으로 마무리한다. 본문 링크 금지.",
+      "첫 댓글: 들어본 사주 통념 중 제일 의심스러운 걸 묻는 한 줄. 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
+];
 
 // Rewrites an outside post found in Threads keyword-search TOP (src/lib/reference-replay.ts picks it).
 // Kept out of VIRAL_INTENT_MODES like WINNER_REPLAY_MODE. Situation and emotional arc are taken from the source; sentences and identifying details are rewritten.
@@ -424,6 +484,10 @@ const LEGACY_FORMULA_MAP: Record<string, ViralIntentModeId> = {
   destiny_partner_sign: "relationship_tension",
 };
 
+function isSajuHitModeId(input: unknown): input is ViralIntentModeId {
+  return SAJU_HIT_MODES.some((mode) => mode.id === input);
+}
+
 export function normalizeViralIntentModeId(input: unknown): ViralIntentModeId | null {
   if (
     input === "self_classification" ||
@@ -437,7 +501,8 @@ export function normalizeViralIntentModeId(input: unknown): ViralIntentModeId | 
     input === "imagination_dilemma" ||
     input === "identity_profile" ||
     input === "relationship_tension" ||
-    input === "beginner_qa"
+    input === "beginner_qa" ||
+    isSajuHitModeId(input)
   ) {
     return input;
   }
@@ -497,7 +562,7 @@ export function resolveViralIntentMode(formulaId: string | null, fallbackIndex: 
   if (isNewYearModeId(formulaId)) return NEW_YEAR_MODES[formulaId];
   const normalizedId = normalizeViralIntentModeId(formulaId)
     ?? (formulaId ? OFFER_FORMULA_MODES[formulaId] ?? null : null);
-  return VIRAL_INTENT_MODES.find((mode) => mode.id === normalizedId) ?? selectViralIntentMode(fallbackIndex);
+  return [...VIRAL_INTENT_MODES, ...SAJU_HIT_MODES].find((mode) => mode.id === normalizedId) ?? selectViralIntentMode(fallbackIndex);
 }
 
 export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: string; instruction: string; rules: string[] }> = {
@@ -663,6 +728,27 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
       "End with one line telling readers to save it or share it with family and friends.",
       "No link in the body; the sample link is added in the first comment.",
     ],
+  },
+  // SAJU_HIT_MODES run only in the Korean lean sprint; these entries keep the map total.
+  cost_loss_punch: {
+    label: "Overpriced Reading Roast",
+    instruction: "Name what the reader already paid for a reading and point out they got only generic lines for it.",
+    rules: ["Open with a realistic price and situation.", "Keep it to 3-4 lines.", "Name no business or person. No link in the body."],
+  },
+  wealth_vault_unlock: {
+    label: "Money Vault Unlock",
+    instruction: "Open with a common money-not-saving situation, then explain it with one chart structure and its timing.",
+    rules: ["The first line needs no saju knowledge.", "Promise no year or amount.", "No link in the body."],
+  },
+  talent_reality_check: {
+    label: "Talent Reality Check",
+    instruction: "Name the effort the reader keeps pouring in and show, with one chart concept, which talent axis they actually have.",
+    rules: ["Open with a familiar situation.", "Do not belittle the reader; end with one doable action.", "No link in the body."],
+  },
+  fact_bomb_incumbent_attack: {
+    label: "Myth-Busting Fact",
+    instruction: "Flip one common saju belief with a fact that follows from the saju system itself.",
+    rules: ["Use only numbers that follow from the system (12 animals, 10 stems, 60-cycle, 3-year samjae, 10-year luck pillars).", "No link in the body."],
   },
   winner_replay: {
     label: "Winner Replay",
