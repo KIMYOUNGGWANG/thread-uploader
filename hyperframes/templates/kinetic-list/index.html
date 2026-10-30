@@ -1,0 +1,211 @@
+<!doctype html>
+<!--
+  cosmicpath kinetic-list (10초, 1080x1920). 사진 훅 + 흑요석·골드 키네틱 본문.
+  문구·훅 미디어는 모두 변수. src/lib/video-factory/render-variables.ts 가 원고에서 변수를 만든다.
+  렌더: npx --yes hyperframes@0.8.210 render --variables '<json>' -o out.mp4  (README 참고)
+-->
+<html
+  lang="ko"
+  data-resolution="portrait"
+  data-composition-variables='[
+    {"id":"hookSrc","type":"string","label":"훅 이미지/클립 경로","default":"assets/img/hook-default.png"},
+    {"id":"hookKind","type":"enum","label":"훅 종류","default":"image","options":[{"value":"image","label":"이미지"},{"value":"video","label":"클립"}]},
+    {"id":"kicker","type":"string","label":"훅 키커","default":"11월,"},
+    {"id":"hook1","type":"string","label":"훅 1줄","default":"이직"},
+    {"id":"hook2","type":"string","label":"훅 2줄","default":"고민 중이면"},
+    {"id":"intro1","type":"string","label":"도입 1줄","default":"일간별로"},
+    {"id":"intro2","type":"string","label":"도입 2줄 (골드)","default":"딱 하나만"},
+    {"id":"g1","type":"string","label":"항목1 한자","default":"丙"},
+    {"id":"l1","type":"string","label":"항목1 이름","default":"병화"},
+    {"id":"a1a","type":"string","label":"항목1 행동 1줄","default":"제안 오면"},
+    {"id":"a1b","type":"string","label":"항목1 행동 2줄","default":"하루 안에 답하기"},
+    {"id":"g2","type":"string","label":"항목2 한자","default":"壬"},
+    {"id":"l2","type":"string","label":"항목2 이름","default":"임수"},
+    {"id":"a2a","type":"string","label":"항목2 행동 1줄","default":"연말까지는"},
+    {"id":"a2b","type":"string","label":"항목2 행동 2줄","default":"지금 자리 지키기"},
+    {"id":"g3","type":"string","label":"항목3 한자","default":"己"},
+    {"id":"l3","type":"string","label":"항목3 이름","default":"기토"},
+    {"id":"a3a","type":"string","label":"항목3 행동 1줄","default":"이력서보다"},
+    {"id":"a3b","type":"string","label":"항목3 행동 2줄","default":"서류 정리 먼저"},
+    {"id":"cta1","type":"string","label":"끝 1줄","default":"내 일간 모르면"},
+    {"id":"cta2","type":"string","label":"끝 2줄 (골드)","default":"프로필 링크 → 1분"}
+  ]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "Pretendard";
+        src: url("assets/fonts/PretendardVariable.woff2") format("woff2");
+        font-weight: 45 920;
+      }
+      @font-face {
+        font-family: "Noto Serif KR Glyphs";
+        src: url("assets/fonts/NotoSerifKR-glyphs.woff2") format("woff2");
+        font-weight: 600;
+      }
+      :root {
+        --bg: #0a0908;
+        --gold: #c8a84d;
+        --gold-hi: #f5d77f;
+        --sans: "Pretendard", sans-serif;
+        --serif: "Noto Serif KR Glyphs", serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; background: var(--bg); overflow: hidden; }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); font-family: var(--sans); color: #fff; word-break: keep-all; }
+      .full { position: absolute; inset: 0; }
+      #glow { position: absolute; width: 1400px; height: 1400px; left: -160px; top: 120px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(200,168,77,0.22) 0%, rgba(200,168,77,0.06) 40%, rgba(10,9,8,0) 70%); }
+      #grain { position: absolute; inset: 0; background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 2px, rgba(0,0,0,0) 2px 4px); }
+      .center { position: absolute; left: 90px; right: 90px; top: 0; height: 1920px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+      .kicker { font-size: 56px; font-weight: 700; color: var(--gold-hi); letter-spacing: -0.5px; margin-bottom: 18px; }
+      #hookIn .huge, #hookIn .kicker { text-shadow: 0 6px 30px rgba(0,0,0,0.7); }
+      .huge { font-size: 168px; font-weight: 900; line-height: 1.04; letter-spacing: -6px; }
+      .big { font-size: 132px; font-weight: 900; line-height: 1.08; letter-spacing: -4px; }
+      .gold { color: var(--gold-hi); }
+      .rule { height: 12px; width: 420px; background: var(--gold); margin-top: 22px; transform-origin: left center; }
+      .word { display: inline-block; }
+      .counter { position: absolute; top: 330px; left: 90px; font-family: "JetBrains Mono", monospace; font-size: 40px; color: rgba(245,215,127,0.6); letter-spacing: 4px; }
+      /* Noto Serif KR 는 em 박스 안 글자가 크고 낮게 앉는다: 스파이크(명조 440px)와 같은 크기·위치로 보정 */
+      .han { position: relative; top: -64px; left: 18px; font-family: var(--serif); font-weight: 600; font-size: 418px; line-height: 440px; color: var(--gold-hi); text-shadow: 0 0 60px rgba(200,168,77,0.35); }
+      .name { font-size: 64px; font-weight: 700; color: rgba(255,255,255,0.7); margin-top: 24px; }
+      .act { font-size: 96px; font-weight: 900; line-height: 1.12; letter-spacing: -3px; margin-top: 18px; }
+      .act > div { display: block; }
+      /* 글자 띠 288~1330px: 항목 블록(약 775px)을 20px 올려 아래 끝을 1330 안에 둔다 */
+      .item { align-items: flex-start; padding-bottom: 40px; }
+      #phone { position: absolute; left: 260px; top: 640px; width: 560px; height: 620px; border-radius: 44px; overflow: hidden;
+        border: 3px solid rgba(200,168,77,0.8); box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 80px rgba(200,168,77,0.18); }
+      #phone img { width: 560px; display: block; }
+      #endCopy { position: absolute; left: 90px; right: 90px; top: 300px; text-align: center; }
+      #endCopy .l1 { font-size: 72px; font-weight: 800; color: #fff; }
+      #endCopy .l2 { font-size: 96px; font-weight: 900; color: var(--gold-hi); letter-spacing: -3px; margin-top: 8px; }
+      #photoWrap { position: absolute; inset: 0; transform-origin: 50% 40%; }
+      #photoWrap img, #photoWrap video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; }
+      #shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,9,8,0.55) 0%, rgba(10,9,8,0.2) 45%, rgba(10,9,8,0.75) 100%); }
+      #brand { position: absolute; left: 0; right: 0; top: 1270px; text-align: center; font-family: "Playfair Display", serif; font-size: 44px; letter-spacing: 10px; color: var(--gold); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="10" data-width="1080" data-height="1920">
+      <div id="bgLayer" class="clip full" data-start="0" data-duration="10" data-track-index="0">
+        <div id="glow"></div>
+        <div id="grain"></div>
+      </div>
+
+      <div id="photo" class="clip full" data-start="0" data-duration="1.9" data-track-index="8">
+        <div id="photoFx" class="full">
+          <div id="photoWrap">
+            <img id="hookImg" src="assets/img/hook-default.png" data-var-src="hookSrc" alt="" />
+            <video id="hookVid" muted playsinline data-var-src="hookSrc"></video>
+          </div>
+          <div id="shade"></div>
+        </div>
+      </div>
+
+      <div id="hook" class="clip full" data-start="0" data-duration="1.75" data-track-index="1" data-track-kind="graphics">
+        <div class="center" id="hookIn">
+          <div class="kicker" data-var-text="kicker"></div>
+          <div class="huge" data-var-text="hook1"></div>
+          <div class="huge" data-var-text="hook2"></div>
+          <div class="rule" id="hookRule"></div>
+        </div>
+      </div>
+
+      <div id="s2" class="clip full" data-start="1.6" data-duration="1.6" data-track-index="2" data-track-kind="graphics">
+        <div class="center" id="s2In">
+          <div class="big" id="intro1"></div>
+          <div class="big gold" id="intro2"></div>
+        </div>
+      </div>
+
+      <div id="it1" class="clip full" data-start="3.1" data-duration="1.75" data-track-index="3" data-track-kind="graphics">
+        <div class="counter">01 / 03</div>
+        <div class="center item" id="it1In">
+          <div class="han" data-var-text="g1"></div>
+          <div class="name" data-var-text="l1"></div>
+          <div class="act"><div data-var-text="a1a"></div><div data-var-text="a1b"></div></div>
+        </div>
+      </div>
+      <div id="it2" class="clip full" data-start="4.75" data-duration="1.75" data-track-index="4" data-track-kind="graphics">
+        <div class="counter">02 / 03</div>
+        <div class="center item" id="it2In">
+          <div class="han" data-var-text="g2"></div>
+          <div class="name" data-var-text="l2"></div>
+          <div class="act"><div data-var-text="a2a"></div><div data-var-text="a2b"></div></div>
+        </div>
+      </div>
+      <div id="it3" class="clip full" data-start="6.4" data-duration="1.75" data-track-index="5" data-track-kind="graphics">
+        <div class="counter">03 / 03</div>
+        <div class="center item" id="it3In">
+          <div class="han" data-var-text="g3"></div>
+          <div class="name" data-var-text="l3"></div>
+          <div class="act"><div data-var-text="a3a"></div><div data-var-text="a3b"></div></div>
+        </div>
+      </div>
+
+      <div id="end" class="clip full" data-start="8.0" data-duration="2.0" data-track-index="6" data-track-kind="graphics">
+        <div id="endCopy">
+          <div class="l1" data-var-text="cta1"></div>
+          <div class="l2" data-var-text="cta2"></div>
+        </div>
+        <div id="phone"><img src="assets/img/report-top.png" alt="" /></div>
+        <div id="brand">COSMICPATH</div>
+      </div>
+
+      <audio id="bgm" data-start="0" data-duration="10" data-track-index="7" data-volume="0.18" data-fade-out="0.6" src="assets/audio/bgm.m4a"></audio>
+    </div>
+
+    <script>
+      const { hookKind, intro1, intro2 } = window.__hyperframes.getVariables();
+      // 훅은 hookKind 에 맞는 요소 하나만 남긴다
+      document.getElementById(hookKind === "video" ? "hookImg" : "hookVid").remove();
+      // 도입 두 줄은 단어별로 블러 인
+      for (const [id, text] of [["intro1", intro1], ["intro2", intro2]]) {
+        const line = document.getElementById(id);
+        String(text ?? "").trim().split(/\s+/).forEach((w, i) => {
+          if (i) line.append(" ");
+          line.append(Object.assign(document.createElement("span"), { className: "word", textContent: w }));
+        });
+      }
+
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // background: slow orbit of the gold glow
+      tl.fromTo("#glow", { x: -60, y: 0 }, { x: 160, y: 260, duration: 10, ease: "none" }, 0);
+
+      // hook: on screen at frame 0, rule wipes in, then whip up
+      tl.fromTo("#photoWrap", { scale: 1.14 }, { scale: 1.0, duration: 1.5, ease: "power2.out" }, 0);
+      tl.fromTo("#photoFx", { opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(16px)", duration: 0.35, ease: "power2.inOut" }, 1.5);
+      tl.fromTo("#hookRule", { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: "expo.out" }, 0.15);
+      tl.to("#hookIn", { y: -160, opacity: 0, filter: "blur(14px)", duration: 0.2, ease: "power3.in" }, 1.5);
+
+      // intro: per-word blur in, exit blur swap
+      tl.fromTo("#s2In .word", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: 0.09 }, 1.62);
+      tl.to("#s2In", { opacity: 0, filter: "blur(10px)", duration: 0.16 }, 3.0);
+
+      // items: hanja lands large->settle, copy follows, whip out left
+      [["#it1In", 3.1], ["#it2In", 4.75], ["#it3In", 6.4]].forEach(([sel, t], i) => {
+        tl.fromTo(sel + " .han", { scale: 1.3, opacity: 0, filter: "blur(18px)", transformOrigin: "left center" },
+          { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.38, ease: "expo.out" }, t);
+        tl.fromTo(sel + " .name", { opacity: 0 }, { opacity: 1, duration: 0.15 }, t + 0.18);
+        tl.fromTo(sel + " .act", { opacity: 0, x: 60, filter: "blur(8px)" }, { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.32, ease: "expo.out" }, t + 0.24);
+        if (i < 2) tl.to(sel, { x: -260, opacity: 0, filter: "blur(16px)", duration: 0.16, ease: "power3.in" }, t + 1.56);
+      });
+      tl.to("#it3In", { scale: 0.92, opacity: 0, duration: 0.18, ease: "power3.in" }, 7.95);
+
+      // end: phone rises, copy lands, hold
+      tl.fromTo("#endCopy .l1", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.18 }, 8.05);
+      tl.fromTo("#endCopy .l2", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.18 }, 8.15);
+      tl.fromTo("#phone", { y: 360, scale: 0.9, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.6, ease: "expo.out" }, 8.1);
+      tl.fromTo("#phone img", { y: 0 }, { y: -440, duration: 1.6, ease: "power2.inOut" }, 8.35);
+      tl.fromTo("#brand", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 8.4);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

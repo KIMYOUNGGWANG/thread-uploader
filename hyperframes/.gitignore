@@ -2,3 +2,5 @@ assets/
 renders/
 .hyperframes/
 node_modules/
+!templates/kinetic-list/assets/
+!templates/kinetic-list/assets/**
