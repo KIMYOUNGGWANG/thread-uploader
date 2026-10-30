@@ -14,6 +14,8 @@ const BADGE_DONE = "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:
 const BADGE_FAILED = "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300";
 const BADGE_NEUTRAL = "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
 const MEDIA = "aspect-[9/16] w-full rounded-lg bg-slate-100 dark:bg-slate-800";
+// Non-playable cards get a short strip so a failed draft does not fill a phone screen.
+const PLACEHOLDER = "h-24 w-full rounded-lg bg-slate-100 dark:bg-slate-800";
 
 const STATUS: Record<string, { label: string; className: string }> = {
   QUEUED: { label: "대기 중", className: BADGE_NEUTRAL },
@@ -129,10 +131,10 @@ function Media({ draft }: { draft: VideoDraftCardData }) {
       <button type="button" onClick={() => setPlaying(true)} className={`group relative block overflow-hidden rounded-lg ${FOCUS}`} aria-label="영상 재생">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={draft.coverUrl} alt="" loading="lazy" className={`${MEDIA} object-cover`} />
-        <span className="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors group-hover:bg-black/25">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow">
-            <Play className="ml-0.5 h-6 w-6" aria-hidden="true" />
-          </span>
+        {/* Corner pill: the hook text burned into the cover sits mid-frame, so keep the center clear. */}
+        <span className="absolute bottom-3 right-3 flex min-h-11 items-center gap-1.5 rounded-full bg-black/70 px-4 text-base font-semibold text-white shadow transition-colors group-hover:bg-black/85 group-focus-visible:ring-2 group-focus-visible:ring-white">
+          <Play className="h-4 w-4 fill-current" aria-hidden="true" />
+          재생
         </span>
       </button>
     );
@@ -140,7 +142,7 @@ function Media({ draft }: { draft: VideoDraftCardData }) {
 
   if (draft.status === "RENDERING" || draft.status === "QUEUED") {
     return (
-      <div className={`${MEDIA} flex flex-col items-center justify-center gap-2 text-base text-slate-500 dark:text-slate-400`}>
+      <div className={`${PLACEHOLDER} flex items-center justify-center gap-2 text-base text-slate-500 dark:text-slate-400`}>
         <Loader2 className="h-6 w-6 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         <span>{draft.status === "QUEUED" ? "렌더 대기 중" : "영상 만드는 중"}</span>
       </div>
@@ -148,7 +150,7 @@ function Media({ draft }: { draft: VideoDraftCardData }) {
   }
 
   return (
-    <div className={`${MEDIA} flex items-center justify-center text-base text-slate-500 dark:text-slate-400`}>
+    <div className={`${PLACEHOLDER} flex items-center justify-center text-base text-slate-500 dark:text-slate-400`}>
       {draft.status === "FAILED" ? "영상 없음" : "영상 주소 없음"}
     </div>
   );
