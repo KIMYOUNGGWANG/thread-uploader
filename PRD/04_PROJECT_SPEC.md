@@ -13,7 +13,7 @@
 | 영역 | 선택 | 이유 |
 |------|------|------|
 | 프레임워크 | Next.js 16 (기존) | 대시보드·API·cron 라우트가 이미 여기 있다 |
-| DB | PostgreSQL + Prisma 5 (기존) | `ChannelAccount`·`Publication`·`TikTokVideoDraft`가 이미 있다 |
+| DB | PostgreSQL + Prisma 5 (기존) | `ChannelAccount`·`Publication`이 이미 있다. 영상 원고는 새 표 `VideoDraft` |
 | 배포 | Vercel (기존) | 기존 그대로. 함수 시간 제한은 플랜과 `maxDuration`에 따라 다르다 (예: `api/posts/[id]/publish/route.ts`는 300초). 렌더는 수 분이 걸려서 Vercel에서 돌리지 않는다 |
 | 영상 엔진 | **HyperFrames** (`hyperframes/`, 0.8.210 고정) **[사용자 결정]** | 레퍼런스(광고 모션·자막·브랜드 킷)가 대부분 이쪽이고, 블록 약 450개와 릴스 템플릿이 있다. Remotion(`video/`)은 새 포맷에 쓰지 않는다 |
 | 렌더 실행 | GitHub Actions 새 워크플로 (Node 22+, ffmpeg, Noto 한글 폰트) | 공개 저장소라 무료다. 기존 `render-video.yml`은 Remotion·Node 20용이라 따로 만든다 |

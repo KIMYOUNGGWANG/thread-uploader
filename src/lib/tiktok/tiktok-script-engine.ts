@@ -278,8 +278,12 @@ const FORBIDDEN_CTA_PATTERN = /DM|댓글\s*달면/i;
 const IG_DEFAULT_HASHTAGS = ["사주", "운세", "일간"];
 const PICK_CARD_LABELS = ["A", "B", "C"] as const;
 
+export function hasForbiddenCta(text: string): boolean {
+  return FORBIDDEN_CTA_PATTERN.test(text);
+}
+
 function assertAllowedCta(cta: string): void {
-  if (FORBIDDEN_CTA_PATTERN.test(cta)) {
+  if (hasForbiddenCta(cta)) {
     throw new Error(`금지된 CTA 문구입니다 (키워드 DM·"댓글 달면" 류): ${cta}`);
   }
 }

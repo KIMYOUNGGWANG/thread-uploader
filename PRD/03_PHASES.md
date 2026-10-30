@@ -22,7 +22,7 @@ cosmicpath 영상이 하루 1편 이상 사람 손 없이 만들어지고, 대�
 - [ ] 대시보드: 브랜드 페이지에서 완성 영상 미리보기 + 실패 이유
 
 ### 데이터
-- `ClipAsset` (새로), `VideoDraft` 칸 추가 (02_DATA_MODEL)
+- `ClipAsset` (새로), `VideoDraft` (새로) (02_DATA_MODEL)
 
 ### 인증
 - 기존 대시보드 로그인 그대로

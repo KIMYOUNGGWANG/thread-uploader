@@ -16,7 +16,7 @@
 
 1. [03_PHASES.md](./03_PHASES.md)의 "Phase 1a 시작 프롬프트"로 superpowers:brainstorming → writing-plans
 2. 1a 첫 작업은 영상 레퍼런스 통합 문서와 브랜드 스타일 샘플 2~3개
-3. 스키마 변경(ClipAsset, VideoDraft 칸, Publication.videoDraftId)은 1a 설계에서 supabase-postgres-best-practices 검토 후 승인
+3. 스키마 변경(ClipAsset, VideoDraft 새 표, Publication.videoDraftId)은 1a 설계에서 supabase-postgres-best-practices 검토 후 승인
 
 ## 미결 사항
 
@@ -26,6 +26,5 @@
 - [ ] 틱톡 앱 심사 신청 시점
 - [ ] 유튜브 채널 (새로 만들지, 기존 것을 쓸지)
 - [ ] 영상·클립 파일 저장소와 보관 기간
-- [ ] `TikTokVideoDraft` → `VideoDraft` 이름 변경 여부
 - [ ] CI 렌더용 한글 폰트
 - [ ] 비평 단계(LLM 비전) 사용 여부와 월 비용 상한

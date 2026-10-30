@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Video, LayoutList, Newspaper, MessageSquare, FlaskConical, Send } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Video, LayoutList, Newspaper, MessageSquare, FlaskConical, Send, Film } from "lucide-react";
 import { FormulaConversionTable } from "@/components/FormulaConversionTable";
 import { WeeklyScorecardPanel } from "@/components/WeeklyScorecardPanel";
 import { Button } from "@/components/ui/button";
@@ -947,6 +947,11 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
               <Link href={`/brands/${brandSlug}/shorts`}>
                 <Button variant="outline" size="sm" className="text-red-600 dark:text-red-400 border-red-500/30 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20">
                   <Radar className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">쇼츠 레이더</span>
+                </Button>
+              </Link>
+              <Link href={`/brands/${brandSlug}/videos`}>
+                <Button variant="outline" size="sm" className="text-amber-600 dark:text-amber-400 border-amber-500/30 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20">
+                  <Film className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">영상 공장</span>
                 </Button>
               </Link>
               <Link href={`/brands/${brandSlug}/settings`}>
