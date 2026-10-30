@@ -94,9 +94,9 @@ const EN_DAY_MASTER_PROFILES: Record<string, EnDayMasterProfile> = {
 const UNKNOWN_PROFILE: DayMasterProfile = { hooks: ["사주가 궁금한 사람"], symbol: "", nature: "", strength: "" };
 const UNKNOWN_EN_PROFILE: EnDayMasterProfile = { label: "", hooks: ["Curious about your Saju chart"], symbol: "", nature: "", strength: "" };
 
-const HOOK_MAX_CHARS: Record<ScriptLang, number> = { ko: 30, en: 64 }; // 3.5초 안에 읽히는 길이
+export const HOOK_MAX_CHARS: Record<ScriptLang, number> = { ko: 30, en: 64 }; // 3.5초 안에 읽히는 길이
 const GAP_PATTERN = /이유|\?/;
-const OVERPROMISE_PATTERN = /절대|반드시|무조건|놓치지\s*마|경고|대박|급상승|100%|확실히|귀인\s*발탁|재물운\s*반등|운명의\s*전환점|guaranteed|never miss|jackpot|must watch|warning|destiny shift|life[- ]changing/i;
+export const OVERPROMISE_PATTERN = /절대|반드시|무조건|놓치지\s*마|경고|대박|급상승|100%|확실히|귀인\s*발탁|재물운\s*반등|운명의\s*전환점|guaranteed|never miss|jackpot|must watch|warning|destiny shift|life[- ]changing/i;
 
 export interface ExplainerQuality {
   qualityScore: number;

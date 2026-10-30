@@ -36,11 +36,15 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
+import type { TikTokEngine } from "@/lib/tiktok/tiktok-draft-service";
 
 interface TikTokStudioClientProps {
   brandId: string;
   brandName: string;
   brandSlug: string;
+  engine: TikTokEngine;
+  productName: string; // product engine only
+  suggestedTopics: string[]; // product engine only
 }
 
 const DAY_MASTERS = [
@@ -60,10 +64,14 @@ export function TikTokStudioClient({
   brandId,
   brandName,
   brandSlug,
+  engine,
+  productName,
+  suggestedTopics,
 }: TikTokStudioClientProps) {
+  const isSaju = engine === "saju";
   const [selectedDayMaster, setSelectedDayMaster] = useState("병화 (丙火)");
   const [selectedTone, setSelectedTone] = useState<"mysterious" | "urgent" | "encouraging">("mysterious");
-  const [topic, setTopic] = useState("2026 하반기 대운 사주 재물운");
+  const [topic, setTopic] = useState(isSaju ? "2026 하반기 대운 사주 재물운" : suggestedTopics[0] ?? "");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
 
@@ -98,7 +106,7 @@ export function TikTokStudioClient({
         body: JSON.stringify({
           brandId,
           topic,
-          dayMaster: dayMasterClean,
+          ...(isSaju ? { dayMaster: dayMasterClean } : {}),
           tone: selectedTone,
         }),
       });
@@ -213,7 +221,9 @@ export function TikTokStudioClient({
                 </span>
               </h1>
               <p className="text-xs text-slate-400">
-                Pexels 슬롭 없이, 순수 React 코드로 고전환 사주 카드뉴스 숏폼을 자동 렌더링합니다.
+                {isSaju
+                  ? "Pexels 슬롭 없이, 순수 React 코드로 고전환 사주 카드뉴스 숏폼을 자동 렌더링합니다."
+                  : `${productName} 제품 카드뉴스 숏폼을 순수 React 코드로 자동 렌더링합니다.`}
               </p>
             </div>
           </div>
@@ -226,38 +236,59 @@ export function TikTokStudioClient({
           <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-md">
             <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
               <Sparkles className="w-4 h-4 text-purple-400" />
-              숏폼 기획 & 일주 선택
+              {isSaju ? "숏폼 기획 & 일주 선택" : "숏폼 기획"}
             </h2>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                  타깃 일주 (Day Master)
-                </label>
-                <select
-                  value={selectedDayMaster}
-                  onChange={(e) => setSelectedDayMaster(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
-                >
-                  {DAY_MASTERS.map((dm) => (
-                    <option key={dm} value={dm}>
-                      {dm}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isSaju ? (
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                    타깃 일주 (Day Master)
+                  </label>
+                  <select
+                    value={selectedDayMaster}
+                    onChange={(e) => setSelectedDayMaster(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
+                  >
+                    {DAY_MASTERS.map((dm) => (
+                      <option key={dm} value={dm}>
+                        {dm}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <span className="block text-xs font-medium text-slate-400 mb-1.5">홍보할 제품</span>
+                  <div className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-200">
+                    {productName}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5">
+                    브랜드 설정의 제품 정보(대상 고객·약속)로 대본을 씁니다.
+                  </p>
+                </div>
+              )}
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                <label htmlFor="tiktok-topic" className="block text-xs font-medium text-slate-400 mb-1.5">
                   주제 / 후킹 키워드
                 </label>
                 <input
+                  id="tiktok-topic"
                   type="text"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
+                  list={isSaju ? undefined : "tiktok-topic-suggestions"}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
-                  placeholder="예: 2026 하반기 대운 사주 재물운"
+                  placeholder={isSaju ? "예: 2026 하반기 대운 사주 재물운" : suggestedTopics[0] ?? "예: 반복 업무에 날아가는 시간"}
                 />
+                {!isSaju && (
+                  <datalist id="tiktok-topic-suggestions">
+                    {suggestedTopics.map((t) => (
+                      <option key={t} value={t} />
+                    ))}
+                  </datalist>
+                )}
               </div>
 
               <div>
@@ -521,7 +552,7 @@ export function TikTokStudioClient({
               </span>
               <h3 className="text-sm font-bold text-slate-300">생성된 숏폼이 없습니다</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                좌측에서 일주와 주제를 선택한 후 &apos;AI 9:16 숏폼 대본 생성&apos; 버튼을 클릭하면
+                좌측에서 {isSaju ? "일주와 주제를" : "주제를"} 선택한 후 &apos;AI 9:16 숏폼 대본 생성&apos; 버튼을 클릭하면
                 4단계 스토리보드와 Remotion 렌더러가 활성화됩니다.
               </p>
             </div>
