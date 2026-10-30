@@ -13,6 +13,13 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
+// An empty --post-id (e.g. `--post-id=$(lookup)` before the post is published) must not fall back to scanning every recent post.
+const postIdFlag = process.argv.find((a) => a.startsWith('--post-id='));
+if (postIdFlag !== undefined && !postIdFlag.slice('--post-id='.length).trim()) {
+  console.error('❌ --post-id is empty: the post has no threadsId yet (not published?). Refusing to scan all recent posts.');
+  process.exit(1);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
