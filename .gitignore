@@ -104,3 +104,6 @@ video/public/reels/**/*.mp4
 video/public/reels/*.m4a
 video/public/reels/**/*.png
 video/public/reels/**/*.mp3
+
+# brainstorming mockups
+.superpowers/

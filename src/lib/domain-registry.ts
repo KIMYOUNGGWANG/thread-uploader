@@ -59,6 +59,8 @@ export interface DomainPresetConfig {
   domainId: string;
   name: string;
   description: string;
+  /** 레퍼런스 재작성 지시문에 들어가는 브랜드 관점 한 줄. 없으면 description을 쓴다. */
+  referenceAngle?: string;
   defaultTopics: string[];
   trackFormulas: Record<ContentTrack, DomainFormulaConfig[]>;
   forbiddenCrossDomainTerms: string[];
@@ -69,6 +71,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
     domainId: "saju_viral",
     name: "사주/운세/타이밍 (Saju Viral)",
     description: "친구 관찰 실화 썰, 대운 전환 신호, 에너지 밸런스 팩폭, 쿨한 쿠폰 나눔",
+    referenceAngle: "사주·궁합·타이밍",
     defaultTopics: [
       "이직할 때 존버 vs 런 골든타임 판정",
       "식상(실행력) 80%인데 위계 조직 들어가서 매일 깨지는 이유",

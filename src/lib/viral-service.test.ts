@@ -24,9 +24,9 @@ vi.mock("@/lib/viral-harvester", async (importOriginal) => ({
   harvestFromThreadsSources: vi.fn(),
 }));
 
-const EXCLUDE_SHORTS = expect.objectContaining({ source: { not: "youtube_shorts" } });
+const EXCLUDE_SHORTS = expect.objectContaining({ source: { notIn: ["youtube_shorts", "manual_x"] } });
 
-describe("viral-service shorts exclusion", () => {
+describe("viral-service shorts and manual X exclusion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -38,7 +38,7 @@ describe("viral-service shorts exclusion", () => {
       expect.objectContaining({ where: EXCLUDE_SHORTS }),
     );
     expect(prisma.viralExample.count).toHaveBeenCalledWith({
-      where: expect.objectContaining({ brandId: "b1", source: { not: "youtube_shorts" } }),
+      where: expect.objectContaining({ brandId: "b1", source: { notIn: ["youtube_shorts", "manual_x"] } }),
     });
   });
 

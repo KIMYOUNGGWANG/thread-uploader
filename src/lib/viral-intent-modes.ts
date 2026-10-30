@@ -15,6 +15,7 @@ export type ViralIntentModeId =
   | "beginner_qa"
   | "winner_replay"
   | "ref_replay"
+  | "ref_replay_info"
   | NewYearModeId;
 
 export interface ViralIntentMode {
@@ -287,18 +288,42 @@ export const WINNER_REPLAY_MODE: ViralIntentMode = {
 
 // Rewrites an outside post found in Threads keyword-search TOP (src/lib/reference-replay.ts picks it).
 // Kept out of VIRAL_INTENT_MODES like WINNER_REPLAY_MODE. Situation and emotional arc are taken from the source; sentences and identifying details are rewritten.
-export const REFERENCE_REPLAY_MODE: ViralIntentMode = {
-  id: "ref_replay",
-  label: "외부 소재 재현",
-  primaryMetric: "shares",
-  instruction: "아래 참고 글의 상황(무슨 일이 있었는지)과 감정의 흐름(예: 황당 → 찔림 → 체념)을 가져와, cosmicpath 독자가 자기 일처럼 느낄 새 글을 쓴다. 구조(첫 줄 방식, 줄 구성, 마무리)도 참고하되 그대로 베끼지 않는다.",
-  rules: [
-    "참고 글의 문장·표현을 그대로 옮기지 않는다.",
-    "등장인물·관계·지명·직업·숫자·이름 같은 고유 디테일은 전부 바꾼다. 원글 작성자가 읽어도 자기 이야기라고 못 알아봐야 한다.",
-    "감정선은 가져오되 결론·시선은 cosmicpath(사주·궁합·타이밍)로 가져온다. 원글의 결론을 반복하지 않는다.",
-    "본문은 140~260자를 목표로 한다.",
-  ],
-};
+export type ReferenceKind = "story" | "info";
+export const REFERENCE_INFO_MODE_ID = "ref_replay_info";
+
+// story: situation + emotional arc of an outside post. info: a list of tools/sites/resources whose items and order are kept.
+export function referenceReplayMode(kind: ReferenceKind, brandName: string, angle: string): ViralIntentMode {
+  if (kind === "info") {
+    return {
+      id: REFERENCE_INFO_MODE_ID,
+      label: "외부 정보 재현",
+      primaryMetric: "saves",
+      instruction: `아래 참고 글에 나온 항목(도구·사이트·자료 이름)과 순서를 그대로 유지하되, 문장은 번역하거나 옮기지 않고 "${brandName} 독자에게 왜 쓸모있는지 — ${angle}" 관점으로 새로 쓴다.`,
+      rules: [
+        "원글에 없는 항목을 지어내거나 더하지 않는다. 항목 이름과 순서는 원글 그대로 둔다.",
+        "참고 글의 문장을 번역하거나 그대로 옮기지 않는다. 항목마다 새 문장으로 쓴다.",
+        `각 항목은 ${brandName} 독자에게 왜 쓸모있는지(${angle}) 관점으로 설명한다.`,
+        "첫 줄에 결과·숫자·반전 중 하나를 넣는다.",
+        "본문에 URL을 쓰지 않는다.",
+        "본문은 300~900자를 목표로 한다.",
+      ],
+    };
+  }
+  return {
+    id: "ref_replay",
+    label: "외부 소재 재현",
+    primaryMetric: "shares",
+    instruction: `아래 참고 글의 상황(무슨 일이 있었는지)과 감정의 흐름(예: 황당 → 찔림 → 체념)을 가져와, ${brandName} 독자가 자기 일처럼 느낄 새 글을 쓴다. 구조(첫 줄 방식, 줄 구성, 마무리)도 참고하되 그대로 베끼지 않는다.`,
+    rules: [
+      "참고 글의 문장·표현을 그대로 옮기지 않는다.",
+      "등장인물·관계·지명·직업·숫자·이름 같은 고유 디테일은 전부 바꾼다. 원글 작성자가 읽어도 자기 이야기라고 못 알아봐야 한다.",
+      `감정선은 가져오되 결론·시선은 ${brandName}(${angle})로 가져온다. 원글의 결론을 반복하지 않는다.`,
+      "본문은 140~260자를 목표로 한다.",
+    ],
+  };
+}
+
+export const REFERENCE_REPLAY_MODE: ViralIntentMode = referenceReplayMode("story", "cosmicpath", "사주·궁합·타이밍");
 
 // 2027 New Year slot modes. Like WINNER_REPLAY_MODE they stay out of VIRAL_INTENT_MODES so index rotation
 // is unchanged; the generation loop assigns them by season slot. Saju values come from the brief, never the LLM.
@@ -467,6 +492,8 @@ const OFFER_FORMULA_MODES: Record<string, ViralIntentModeId> = {
 export function resolveViralIntentMode(formulaId: string | null, fallbackIndex: number): ViralIntentMode {
   if (formulaId === WINNER_REPLAY_MODE.id) return WINNER_REPLAY_MODE;
   if (formulaId === REFERENCE_REPLAY_MODE.id) return REFERENCE_REPLAY_MODE;
+  // Only id/label are read from the resolved info mode; the brand-specific text is built where the draft is generated.
+  if (formulaId === REFERENCE_INFO_MODE_ID) return referenceReplayMode("info", "", "");
   if (isNewYearModeId(formulaId)) return NEW_YEAR_MODES[formulaId];
   const normalizedId = normalizeViralIntentModeId(formulaId)
     ?? (formulaId ? OFFER_FORMULA_MODES[formulaId] ?? null : null);
@@ -652,6 +679,17 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
       "Do not copy any sentence or phrase from the reference post.",
       "Do not take its subject matter (people, situations, examples) either. Take it only from this post's [Topic] and [Target].",
       "Aim for a body of 140-260 characters.",
+    ],
+  },
+  ref_replay_info: {
+    label: "Reference Replay (Info)",
+    instruction: "Keep the items (tool, site or resource names) and their order from the reference post below. Do not translate or carry over its sentences; write new ones from the angle of why each item is useful to the brand's readers.",
+    rules: [
+      "Never invent or add items that the reference post does not list.",
+      "Do not translate or copy any sentence from the reference post.",
+      "The first line carries a result, a number, or a twist.",
+      "Never write a URL or link in the body.",
+      "Aim for a body of 300-900 characters.",
     ],
   },
 };

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isNewYearModeId } from "@/lib/new-year/new-year-season";
 import { MAX_REFILL_PER_RUN } from "@/lib/queue-refill";
-import { REFERENCE_REPLAY_MODE } from "@/lib/viral-intent-modes";
+import { REFERENCE_INFO_MODE_ID, REFERENCE_REPLAY_MODE } from "@/lib/viral-intent-modes";
 import { THREADS_CONTENT_MAX_LENGTH } from "@/lib/threads-limits";
 import type { BrandConfig } from "@/types/brand";
 import type { LengthArm, LengthExperimentConfig } from "@/types/length-experiment";
@@ -22,9 +22,9 @@ export function classifyLength(content: string, config: LengthExperimentConfig):
   return "MID";
 }
 
-/** GROWTH posts outside the promo video rotation, the New Year season and ref_replay (those modes set their own length); card carousels count, since every generated KR post has them. */
+/** GROWTH posts outside the promo video rotation, the New Year season and ref_replay / ref_replay_info (those modes set their own length); card carousels count, since every generated KR post has them. */
 export function isExperimentPost(post: Pick<ExperimentPostShape, "postCategory" | "formulaId">): boolean {
-  return post.postCategory === "GROWTH" && !(post.formulaId ?? "").startsWith("video:") && !isNewYearModeId(post.formulaId) && post.formulaId !== REFERENCE_REPLAY_MODE.id;
+  return post.postCategory === "GROWTH" && !(post.formulaId ?? "").startsWith("video:") && !isNewYearModeId(post.formulaId) && post.formulaId !== REFERENCE_REPLAY_MODE.id && post.formulaId !== REFERENCE_INFO_MODE_ID;
 }
 
 /** Drafts made before startAt were written without the arm's length target, so they sit the experiment out. */

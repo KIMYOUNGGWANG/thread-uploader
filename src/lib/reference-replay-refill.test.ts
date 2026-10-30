@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: { post: { count: mocks.countPosts }, viralExample: { findMany: mocks.findExamples } } }));
-vi.mock("@/lib/reference-replay", () => ({ loadReferenceReplaySource: mocks.loadSource, markReferenceAttempted: mocks.markAttempted }));
+vi.mock("@/lib/reference-replay", () => ({ MANUAL_X_SOURCE: "manual_x", REFERENCE_REPLAY_MANUAL_TAG: "ref_replay_manual", loadReferenceReplaySource: mocks.loadSource, markReferenceAttempted: mocks.markAttempted }));
 vi.mock("@/lib/generate-posts", () => ({ generatePostsForBrand: mocks.generate }));
 
 import { refillReferenceReplay } from "@/lib/reference-replay-refill";
@@ -56,9 +56,10 @@ describe("refillReferenceReplay", () => {
   it("skips when a ref_replay was created or published today in any status", async () => {
     mocks.countPosts.mockResolvedValueOnce(1);
     expect(await refillReferenceReplay(brandWith(["운세"]), now)).toEqual({ generated: 0, skipped: "already_today" });
-    const [args] = mocks.countPosts.mock.calls[0] as unknown as [{ where: { formulaId: string; status?: unknown; OR: Array<Record<string, { gte: Date }>> } }];
+    const [args] = mocks.countPosts.mock.calls[0] as unknown as [{ where: { formulaId: string; status?: unknown; NOT?: unknown; OR: Array<Record<string, { gte: Date }>> } }];
     expect(args.where.formulaId).toBe("ref_replay");
     expect(args.where.status).toBeUndefined();
+    expect(args.where.NOT).toEqual({ qualityReasons: { contains: "ref_replay_manual" } });
     // Draft made yesterday and published today (KST day start) still used today's slot.
     expect(args.where.OR.map((clause) => Object.keys(clause)[0])).toEqual(["createdAt", "publishedAt"]);
     for (const clause of args.where.OR) expect(Object.values(clause)[0].gte.toISOString()).toBe("2026-10-26T15:00:00.000Z");
@@ -72,7 +73,7 @@ describe("refillReferenceReplay", () => {
       { rawMetrics: "{broken" },
     ]);
     expect(await refillReferenceReplay(brandWith(["운세"]), now)).toEqual({ generated: 0, skipped: "attempted_today" });
-    expect(mocks.findExamples).toHaveBeenCalledWith({ where: { brandId: "b1", rawMetrics: { contains: "replayAttemptedAt" } }, select: { rawMetrics: true } });
+    expect(mocks.findExamples).toHaveBeenCalledWith({ where: { brandId: "b1", source: { not: "manual_x" }, rawMetrics: { contains: "replayAttemptedAt" } }, select: { rawMetrics: true } });
     expect(mocks.generate).not.toHaveBeenCalled();
     expect(mocks.loadSource).not.toHaveBeenCalled();
   });
@@ -85,7 +86,9 @@ describe("refillReferenceReplay", () => {
   it("skips when a ref_replay is still PENDING but not when it is NEEDS_REVIEW", async () => {
     mocks.countPosts.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
     expect(await refillReferenceReplay(brandWith(["운세"]), now)).toEqual({ generated: 0, skipped: "pending_in_queue" });
-    expect(mocks.countPosts.mock.calls[1]).toEqual([{ where: { brandId: "b1", formulaId: "ref_replay", status: "PENDING" } }]);
+    expect(mocks.countPosts.mock.calls[1]).toEqual([
+      { where: { brandId: "b1", formulaId: "ref_replay", status: "PENDING", NOT: { qualityReasons: { contains: "ref_replay_manual" } } } },
+    ]);
     expect(mocks.generate).not.toHaveBeenCalled();
 
     mocks.countPosts.mockReset().mockResolvedValue(0); // NEEDS_REVIEW does not match status PENDING

@@ -14,6 +14,7 @@ import { approveCommandPlan, requestCommandPlan, type CommandPlanPreview } from 
 import { Toaster, toast } from "sonner";
 import Link from "next/link";
 import { NewsTrendingTab } from "@/components/NewsTrendingTab";
+import { ManualReferenceCard } from "@/components/ManualReferenceCard";
 import { InteractionsTab } from "@/components/InteractionsTab";
 import { AccountHealthBanner } from "@/components/AccountHealthBanner";
 import {
@@ -544,6 +545,13 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     }
   }, [brandId, fetchPosts]);
 
+  const handleManualReferenceCreated = useCallback(async () => {
+    await fetchPosts();
+    setReviewOnly(true);
+    setActiveTab("feed");
+    toast.success("레퍼런스 초안 1개, 승인 대기 중");
+  }, [fetchPosts]);
+
   const handleUseNewsForDraft = useCallback(async (prompt: string) => {
     await handleCreatePost(prompt);
     setActiveTab("feed");
@@ -993,10 +1001,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             }`}
           >
             <Newspaper className="w-4 h-4" />
-            실시간 트렌드 뉴스
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold">
-              autoTHREADS
-            </span>
+            소재
           </button>
           <button
             type="button"
@@ -1015,6 +1020,10 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           </button>
         </div>
 
+        {/* Kept mounted so a tab switch mid-request keeps the input and the result. */}
+        <div hidden={activeTab !== "news"}>
+          <ManualReferenceCard brandId={brandId} brandName={brandName} onCreated={handleManualReferenceCreated} />
+        </div>
         {activeTab === "news" && (
           <NewsTrendingTab brandId={brandId} onUseNewsForDraft={handleUseNewsForDraft} />
         )}

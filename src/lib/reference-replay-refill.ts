@@ -2,7 +2,7 @@ import type { Brand } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { startOfPublishDay } from "@/lib/account-trust-ramp";
 import { generatePostsForBrand } from "@/lib/generate-posts";
-import { loadReferenceReplaySource, markReferenceAttempted } from "@/lib/reference-replay";
+import { MANUAL_X_SOURCE, REFERENCE_REPLAY_MANUAL_TAG, loadReferenceReplaySource, markReferenceAttempted } from "@/lib/reference-replay";
 import { REFERENCE_REPLAY_MODE } from "@/lib/viral-intent-modes";
 import { parseBrandConfig } from "@/types/brand";
 
@@ -19,13 +19,15 @@ export async function refillReferenceReplay(brand: Brand, now: Date): Promise<Re
 
   const formulaId = REFERENCE_REPLAY_MODE.id;
   const dayStart = startOfPublishDay(now);
+  // Manual drafts (operator-pasted X posts) share the formulaId but are not the cron's slot, so they never count here.
+  const notManual = { NOT: { qualityReasons: { contains: REFERENCE_REPLAY_MANUAL_TAG } } };
   // Any status counts: a rejected or published one still used today's slot. publishedAt covers a draft made yesterday and published today.
   const today = await prisma.post.count({
-    where: { brandId: brand.id, formulaId, OR: [{ createdAt: { gte: dayStart } }, { publishedAt: { gte: dayStart } }] },
+    where: { brandId: brand.id, formulaId, ...notManual, OR: [{ createdAt: { gte: dayStart } }, { publishedAt: { gte: dayStart } }] },
   });
   if (today > 0) return { generated: 0, skipped: "already_today" };
   // NEEDS_REVIEW is intentionally not counted: it is waiting on a human, not on the publish queue.
-  const pending = await prisma.post.count({ where: { brandId: brand.id, formulaId, status: "PENDING" } });
+  const pending = await prisma.post.count({ where: { brandId: brand.id, formulaId, status: "PENDING", ...notManual } });
   if (pending > 0) return { generated: 0, skipped: "pending_in_queue" };
 
   // A dropped attempt leaves no Post, so the stamp on the source row is the only trace; one attempt per day keeps the cron's LLM cost at one call.
@@ -51,7 +53,7 @@ export async function refillReferenceReplay(brand: Brand, now: Date): Promise<Re
 }
 
 async function attemptedSince(brandId: string, since: Date): Promise<boolean> {
-  const rows = await prisma.viralExample.findMany({ where: { brandId, rawMetrics: { contains: "replayAttemptedAt" } }, select: { rawMetrics: true } });
+  const rows = await prisma.viralExample.findMany({ where: { brandId, source: { not: MANUAL_X_SOURCE }, rawMetrics: { contains: "replayAttemptedAt" } }, select: { rawMetrics: true } });
   return rows.some((row) => {
     try {
       const parsed: unknown = JSON.parse(row.rawMetrics);

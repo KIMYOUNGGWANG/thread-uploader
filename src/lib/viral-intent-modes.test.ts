@@ -5,7 +5,9 @@ import {
   normalizeViralIntentModeId,
   resolveViralIntentMode,
   selectViralIntentMode,
-  VIRAL_INTENT_MODES, pickClosingFormat, formatViralIntentModePrompt, type ViralIntentModeId } from "./viral-intent-modes";
+  VIRAL_INTENT_MODES, pickClosingFormat, formatViralIntentModePrompt, type ViralIntentModeId,
+  ENGLISH_VIRAL_MODE_LABELS, REFERENCE_REPLAY_MODE, referenceReplayMode } from "./viral-intent-modes";
+import { getDomainPreset } from "./domain-registry";
 
 describe("mode prompts never ask for invented first-person stories", () => {
   it.each([false, true])("every mode (isEnglish=%s)", (isEnglish) => {
@@ -180,5 +182,32 @@ describe("global offer formulas", () => {
     expect(identity).not.toContain("자기 일주나 살을 꺼내게");
     const beginner = VIRAL_INTENT_MODES.find((mode) => mode.id === "beginner_qa")?.rules.join("\n") ?? "";
     expect(beginner).not.toContain("1~2개");
+  });
+});
+
+describe("referenceReplayMode", () => {
+  it("cosmicpath story keeps today's exact instruction and rules", () => {
+    const mode = referenceReplayMode("story", "cosmicpath", "사주·궁합·타이밍");
+    expect(mode.id).toBe("ref_replay");
+    expect(mode.instruction).toBe("아래 참고 글의 상황(무슨 일이 있었는지)과 감정의 흐름(예: 황당 → 찔림 → 체념)을 가져와, cosmicpath 독자가 자기 일처럼 느낄 새 글을 쓴다. 구조(첫 줄 방식, 줄 구성, 마무리)도 참고하되 그대로 베끼지 않는다.");
+    expect(mode.rules).toContain("감정선은 가져오되 결론·시선은 cosmicpath(사주·궁합·타이밍)로 가져온다. 원글의 결론을 반복하지 않는다.");
+    expect(REFERENCE_REPLAY_MODE).toEqual(mode); // constant stays the cosmicpath story mode
+  });
+  it("product brand info mode carries brand angle and no saju words", () => {
+    const preset = getDomainPreset("product_growth");
+    const mode = referenceReplayMode("info", "catchdex", preset.referenceAngle ?? preset.description);
+    expect(mode.id).toBe("ref_replay_info");
+    const text = [mode.instruction, ...mode.rules].join("\n");
+    expect(text).toContain("catchdex");
+    expect(text).toContain(preset.description);
+    for (const word of ["사주", "궁합", "운세", "cosmicpath"]) expect(text).not.toContain(word);
+  });
+  it("saju preset defines referenceAngle; others fall back to description", () => {
+    expect(getDomainPreset("saju_viral").referenceAngle).toBe("사주·궁합·타이밍");
+    expect(getDomainPreset("product_growth").referenceAngle).toBeUndefined();
+  });
+  it("resolves ref_replay_info and has an English label", () => {
+    expect(resolveViralIntentMode("ref_replay_info", 0).id).toBe("ref_replay_info");
+    expect(ENGLISH_VIRAL_MODE_LABELS.ref_replay_info.instruction).toMatch(/link|tool|resource/i);
   });
 });

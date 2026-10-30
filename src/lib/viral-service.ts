@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { NEW_YEAR_MODE_IDS } from "@/lib/new-year/new-year-season";
 import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
+import { MANUAL_X_SOURCE } from "@/lib/reference-replay";
 import {
   analyzeViralText,
   buildViralMemory,
@@ -68,7 +69,7 @@ export async function getViralReport(brandId: string) {
 
   const [examples, patterns, totalExamples] = await Promise.all([
     prisma.viralExample.findMany({
-      where: { brandId, source: { not: SHORTS_SOURCE } },
+      where: { brandId, source: { notIn: [SHORTS_SOURCE, MANUAL_X_SOURCE] } },
       orderBy: [{ viralScore: "desc" }, { discoveredAt: "desc" }],
       take: 12,
     }),
@@ -77,7 +78,7 @@ export async function getViralReport(brandId: string) {
       orderBy: [{ confidence: "desc" }, { avgViralScore: "desc" }],
       take: 12,
     }),
-    prisma.viralExample.count({ where: { brandId, source: { not: SHORTS_SOURCE } } }),
+    prisma.viralExample.count({ where: { brandId, source: { notIn: [SHORTS_SOURCE, MANUAL_X_SOURCE] } } }),
   ]);
 
   return {
@@ -213,7 +214,7 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
 
 export async function learnViralPatterns(brandId: string) {
   const examples = await prisma.viralExample.findMany({
-    where: { brandId, source: { not: SHORTS_SOURCE } },
+    where: { brandId, source: { notIn: [SHORTS_SOURCE, MANUAL_X_SOURCE] } },
     orderBy: [{ viralScore: "desc" }, { discoveredAt: "desc" }],
     take: 500,
   });

@@ -7,6 +7,9 @@ import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 
 // Stored in a ref_replay draft's qualityReasons so the same outside post is not rewritten twice.
 export const REFERENCE_REPLAY_SOURCE_PREFIX = "ref_replay_source:";
+// A post an operator pasted by hand (ExternalPost.source) and the qualityReasons tag on the draft rewritten from it.
+export const MANUAL_X_SOURCE = "manual_x";
+export const REFERENCE_REPLAY_MANUAL_TAG = "ref_replay_manual";
 export const ATTEMPT_COOLDOWN_DAYS = 7;
 
 const SOURCE_WINDOW_DAYS = 7;
@@ -85,7 +88,7 @@ export function pickReferenceReplaySource(
 export async function loadReferenceReplaySource(brandId: string, now: Date): Promise<ReferenceCandidate | null> {
   const [examples, recentReplays] = await Promise.all([
     prisma.viralExample.findMany({
-      where: { brandId, source: { not: SHORTS_SOURCE }, publishedAt: { gte: new Date(now.getTime() - SOURCE_WINDOW_DAYS * DAY_MS) } },
+      where: { brandId, source: { notIn: [SHORTS_SOURCE, MANUAL_X_SOURCE] }, publishedAt: { gte: new Date(now.getTime() - SOURCE_WINDOW_DAYS * DAY_MS) } },
       select: { id: true, sourceKey: true, content: true, authorUsername: true, publishedAt: true, rawMetrics: true },
     }),
     prisma.post.findMany({
