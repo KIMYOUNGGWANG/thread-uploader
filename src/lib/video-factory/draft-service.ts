@@ -1,9 +1,10 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseBrandConfig } from "@/types/brand";
 import { kstDate } from "./kst";
 import { pickClip } from "./clip-picker";
 import { generateKineticListScript } from "./generate-kinetic-list";
-import { checkKineticListScript, type KineticListScript } from "./kinetic-list-script";
+import { checkKineticListScript, type KineticListScript, type ScriptCheck } from "./kinetic-list-script";
 import { buildKineticListVariables } from "./render-variables";
 
 export interface FactoryJob {
@@ -87,12 +88,8 @@ export async function claimOrCreateDraft(brand: BrandRef, now: Date, force: bool
   if (queued) return queued;
 
   const today = kstDate(now);
-  const todays = force
-    ? await prisma.videoDraft.count({ where: { brandId: brand.id, kstDate: today } })
-    : await prisma.videoDraft.count({
-        where: { brandId: brand.id, kstDate: today, status: { in: ["COMPLETED", "RENDERING"] } },
-      });
-  if (force ? todays >= MAX_DRAFTS_PER_DAY : todays > 0) return null;
+  // Early check only skips a wasted generation; the authoritative check runs under the lock below.
+  if (await slotTaken(prisma, brand.id, today, force)) return null;
 
   const recent = await prisma.videoDraft.findMany({
     where: { brandId: brand.id },
@@ -102,47 +99,57 @@ export async function claimOrCreateDraft(brand: BrandRef, now: Date, force: bool
   });
   const recentHooks = recent.flatMap((d) => hookText(d.script) ?? []);
 
-  let errors: string[];
+  let result: ScriptCheck;
   try {
-    const result = await generateKineticListScript({
+    result = await generateKineticListScript({
       brandName: brand.name,
       qualityProfile: parseBrandConfig(brand.brandConfig).qualityProfile,
       recentHooks,
       kstDate: today,
     });
-    if (result.ok) {
-      const clips = await prisma.clipAsset.findMany({ where: { brandId: brand.id, enabled: true } });
-      const clip = pickClip(clips, now);
-      const draft = await prisma.videoDraft.create({
-        data: {
-          brandId: brand.id,
-          formatId: FORMAT_ID,
-          status: "RENDERING",
-          kstDate: today,
-          script: JSON.stringify(result.script),
-          captions: JSON.stringify(result.script.captions),
-          hashtags: JSON.stringify(result.script.hashtags),
-          voiceMode: "bgm_only",
-          clipAssetId: clip?.id ?? null,
-        },
-      });
-      return toJob(draft.id, brand.slug, result.script, clip?.fileUrl ?? null);
-    }
-    errors = result.errors;
   } catch (error) {
-    errors = [`generate: ${error instanceof Error ? error.message : String(error)}`];
+    result = { ok: false, errors: [`generate: ${error instanceof Error ? error.message : String(error)}`] };
   }
 
-  await prisma.videoDraft.create({
-    data: {
-      brandId: brand.id,
-      formatId: FORMAT_ID,
-      status: "FAILED",
-      kstDate: today,
-      renderErrors: JSON.stringify(errors),
-    },
+  if (!result.ok) {
+    await createUnderLock(brand, today, force, {
+      formatId: FORMAT_ID, status: "FAILED", kstDate: today, renderErrors: JSON.stringify(result.errors),
+    });
+    return null;
+  }
+
+  const { script } = result;
+  const clips = await prisma.clipAsset.findMany({ where: { brandId: brand.id, enabled: true } });
+  const clip = pickClip(clips, now);
+  const draft = await createUnderLock(brand, today, force, {
+    formatId: FORMAT_ID,
+    status: "RENDERING",
+    kstDate: today,
+    script: JSON.stringify(script),
+    captions: JSON.stringify(script.captions),
+    hashtags: JSON.stringify(script.hashtags),
+    voiceMode: "bgm_only",
+    clipAssetId: clip?.id ?? null,
   });
-  return null;
+  return draft ? toJob(draft.id, brand.slug, script, clip?.fileUrl ?? null) : null;
+}
+
+async function slotTaken(db: Pick<Prisma.TransactionClient, "videoDraft">, brandId: string, today: string, force: boolean) {
+  const n = await db.videoDraft.count({
+    where: force
+      ? { brandId, kstDate: today }
+      : { brandId, kstDate: today, status: { in: ["COMPLETED", "RENDERING"] } },
+  });
+  return force ? n >= MAX_DRAFTS_PER_DAY : n > 0;
+}
+
+/** Re-checks the daily limit and inserts in one transaction serialized per brand, so overlapping calls cannot both create. */
+function createUnderLock(brand: BrandRef, today: string, force: boolean, data: Omit<Prisma.VideoDraftUncheckedCreateInput, "brandId">) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${brand.id}))`;
+    if (await slotTaken(tx, brand.id, today, force)) return null;
+    return tx.videoDraft.create({ data: { ...data, brandId: brand.id } });
+  });
 }
 
 export async function completeDraft(input: CompleteInput): Promise<"ok" | "not_found" | "conflict"> {

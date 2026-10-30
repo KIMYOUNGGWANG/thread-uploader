@@ -16,6 +16,7 @@ const db = vi.hoisted(() => ({
     update: vi.fn(async (_args?: unknown) => ({})),
   },
   generate: vi.fn(),
+  executeRaw: vi.fn(async (..._args: unknown[]) => 1),
 }));
 
 vi.mock("@/lib/video-factory/generate-kinetic-list", () => ({ generateKineticListScript: db.generate }));
@@ -25,6 +26,7 @@ vi.mock("@/lib/prisma", () => {
     brand: { findMany: vi.fn(async () => [{ id: "b1", slug: "cosmicpath", name: "코스믹패스", brandConfig: "{}" }]) },
     videoDraft: db.draft,
     clipAsset: db.clip,
+    $executeRaw: db.executeRaw,
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
   };
   return { prisma };
@@ -126,6 +128,41 @@ describe("video factory next", () => {
     const body = await (await next(nextRequest())).json();
     expect(body.job).toMatchObject({ draftId: "d_q", variables: { hook1: "이직", hookSrc: "https://blob.example/q.png", hookKind: "image" } });
     expect(db.draft.create).not.toHaveBeenCalled();
+  });
+
+  it("claims the QUEUED draft only while it is still QUEUED", async () => {
+    db.draft.findFirst.mockResolvedValue({ id: "d_q", script: JSON.stringify(script), clipAsset: null });
+    await next(nextRequest());
+    expect(db.draft.updateMany).toHaveBeenCalledWith({ where: { id: "d_q", status: "QUEUED" }, data: { status: "RENDERING" } });
+  });
+
+  it("force counts every status when checking the cap", async () => {
+    await next(nextRequest("?brands=cosmicpath&force=1"));
+    for (const [arg] of db.draft.count.mock.calls) {
+      expect(arg).toEqual({ where: { brandId: "b1", kstDate: expect.any(String) } });
+    }
+    expect(db.draft.count).toHaveBeenCalledTimes(2);
+  });
+
+  it("takes the advisory lock before re-counting inside the transaction", async () => {
+    await next(nextRequest());
+    const lockOrder = db.executeRaw.mock.invocationCallOrder[0];
+    expect(db.executeRaw).toHaveBeenCalledTimes(1);
+    expect(String((db.executeRaw.mock.calls[0][0] as string[]).join(""))).toContain("pg_advisory_xact_lock");
+    expect(lockOrder).toBeLessThan(db.draft.count.mock.invocationCallOrder[1]);
+    expect(lockOrder).toBeLessThan(db.draft.create.mock.invocationCallOrder[0]);
+  });
+
+  it("creates nothing when a concurrent call took the slot during generation", async () => {
+    db.draft.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    expect((await (await next(nextRequest())).json()).job).toBeNull();
+    expect(db.draft.create).not.toHaveBeenCalled();
+  });
+
+  it("does not record a DB error as a generate failure", async () => {
+    db.draft.create.mockRejectedValueOnce(new Error("db down"));
+    await expect(next(nextRequest())).rejects.toThrow("db down");
+    expect(db.draft.create).toHaveBeenCalledTimes(1);
   });
 
   it("stores a FAILED draft when generation fails", async () => {
