@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, Play } from "lucide-react";
 import { consecutiveGood, type Verdict } from "@/lib/video-factory/verdict";
@@ -87,7 +87,7 @@ function StreakHeader({ streak }: { streak: number }) {
           <span key={i} className={`h-2 rounded-full ${i < streak ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-700"}`} />
         ))}
       </div>
-      <p className="text-sm text-slate-500 dark:text-slate-400">최신 완성 영상부터 &quot;올릴 만함&quot;이 이어진 편수예요. &quot;아님&quot;이나 미판정이 나오면 다시 0부터 세요.</p>
+      <p className="text-base text-slate-500 dark:text-slate-400">최신 완성 영상부터 &quot;올릴 만함&quot;이 이어진 편수예요. &quot;아님&quot;이나 미판정이 나오면 다시 0부터 세요.</p>
     </section>
   );
 }
@@ -103,18 +103,25 @@ function EmptyState() {
 
 function Media({ draft }: { draft: VideoDraftCardData }) {
   const [playing, setPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // The play button unmounts on click; hand keyboard focus to the player that replaces it.
+  useEffect(() => {
+    if (playing) videoRef.current?.focus();
+  }, [playing]);
 
   if (draft.status === "COMPLETED" && draft.videoUrl) {
     if (playing || !draft.coverUrl) {
       return (
         <video
+          ref={videoRef}
           src={draft.videoUrl}
           poster={draft.coverUrl ?? undefined}
           controls
           playsInline
           preload="none"
           autoPlay={playing}
-          className={`${MEDIA} object-cover`}
+          className={`${MEDIA} object-cover ${FOCUS}`}
         />
       );
     }
@@ -181,17 +188,17 @@ function VideoCard({ draft, verdict, pending, error, onVerdict }: VideoCardProps
             ))}
           </p>
         )}
-        <p className="text-sm text-slate-500 dark:text-slate-400">배경: {clipSource(draft.clipAsset)}</p>
+        <p className="text-base text-slate-500 dark:text-slate-400">배경: {clipSource(draft.clipAsset)}</p>
 
         {draft.status === "FAILED" && (
           <div className="rounded-lg bg-red-50 p-3 text-base text-red-800 dark:bg-red-950/30 dark:text-red-200">
             <p className="font-medium">실패 이유</p>
             {errors.length > 0 ? (
-              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm break-words">
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-base break-words">
                 {errors.map((e, i) => <li key={i}>{e}</li>)}
               </ul>
             ) : (
-              <p className="mt-1 text-sm">기록된 이유가 없어요</p>
+              <p className="mt-1 text-base">기록된 이유가 없어요</p>
             )}
           </div>
         )}
@@ -215,7 +222,7 @@ function VideoCard({ draft, verdict, pending, error, onVerdict }: VideoCardProps
                 );
               })}
             </div>
-            <p className="min-h-5 text-sm" aria-live="polite">
+            <p className="min-h-6 text-base" aria-live="polite">
               {error ? (
                 <span role="alert" className="text-red-600 dark:text-red-400">{error}</span>
               ) : pending ? (
