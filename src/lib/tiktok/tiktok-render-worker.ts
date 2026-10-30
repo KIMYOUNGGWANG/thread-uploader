@@ -10,6 +10,9 @@ import type { RenderSpec, RenderSpecScene } from "./render-spec-types";
 
 const execAsync = promisify(exec);
 
+// Vendored Remotion compositor (same one CI uses for promo renders).
+export const REMOTION_COMPOSITOR_DIR = path.join(process.cwd(), "video");
+
 export interface RenderJobResult {
   success: boolean;
   outputPath?: string;
@@ -113,12 +116,10 @@ export async function executeTikTokRender(
     };
   }
 
-  const remotionDir = path.join(process.cwd(), ".agent/skills/oma-video/resources/remotion");
-
   try {
     const cmd = `npx remotion render src/index.ts ${renderSpec.composition} "${outputPath}" --props="${specFilePath}"`;
     await execAsync(cmd, {
-      cwd: remotionDir,
+      cwd: REMOTION_COMPOSITOR_DIR,
       timeout: 180000, // 3 minutes timeout
     });
 

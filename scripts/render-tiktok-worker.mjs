@@ -16,6 +16,9 @@ const prisma = new PrismaClient();
 
 const STALE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
+// Vendored Remotion compositor (same one CI uses for promo renders).
+export const REMOTION_COMPOSITOR_DIR = path.join(process.cwd(), "video");
+
 // Mirror of FORMAT_COMPOSITIONS in src/lib/tiktok/tiktok-draft-service.ts (keep in sync).
 const FORMAT_COMPOSITIONS = {
   tiktok_explainer_vertical: "TikTokExplainer",
@@ -194,12 +197,11 @@ export async function processNextJob(db = prisma, options = {}) {
       return { success: true, draftId: draft.id, outputPath, durationMs: Date.now() - startAt };
     }
 
-    const remotionDir = path.join(process.cwd(), ".agent/skills/oma-video/resources/remotion");
     console.log(`   ⚡ Executing Remotion Render (timeout: 180s)...`);
 
     const cmd = `npx remotion render src/index.ts ${renderSpec.composition} "${outputPath}" --props="${specFilePath}"`;
     await execAsync(cmd, {
-      cwd: remotionDir,
+      cwd: REMOTION_COMPOSITOR_DIR,
       timeout: 180000,
     });
 
