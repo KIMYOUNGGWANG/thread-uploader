@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ENGLISH_HOOK_RULE, findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "./domain-registry";
 import { checkQuality } from "./quality-gate";
 import { scoreThreadsPostAlgorithmic } from "./threads-algorithm-scorer";
+import { selectFormulaWithThompsonSampling } from "./thompson-sampling-router";
 
 describe("Domain Intelligence Registry", () => {
   it("resolves product_growth preset cleanly", () => {
@@ -46,7 +47,13 @@ describe("Domain Intelligence Registry", () => {
       "identity_callout",
       "all_twelve_series",
       "two_birthday_compatibility",
+      "saturn_reboot_timeline",
     ]));
+    // Track A slot (index 0) with a dominant prior must reach the age call-out the active campaign used to skip.
+    const priors = Object.fromEntries(ids.map((id) => [id, { alpha: 1, beta: 1000 }]));
+    priors.saturn_reboot_timeline = { alpha: 1000, beta: 1 };
+    expect(selectFormulaWithThompsonSampling(0, { domainProfile: "ecommerce_d2c", customPriors: priors }).formulaId)
+      .toBe("saturn_reboot_timeline");
     for (const formula of formulas) {
       expect(formula.forbiddenKeywords).not.toContain("Saju");
       expect(formula.forbiddenKeywords).toContain("사주");
