@@ -1,6 +1,7 @@
 import { sampleBestArm, type BetaPrior } from "@/lib/thompson-sampling-router";
 import {
   resolveViralIntentMode,
+  SAJU_HIT_MODES,
   selectViralIntentMode,
   type ViralIntentMode,
   type ViralIntentModeId,
@@ -43,6 +44,9 @@ const LEAN_ARM_IDS: readonly ViralIntentModeId[] = [
   "identity_profile",
   "relationship_tension",
   "beginner_qa",
+  // 2026-10-30: the breakouts (시주 42k, 복채 9.4k, 진술축미 5.5k) came from shapes the five arms above
+  // could not produce, so recent drafts converged on situation-advice posts. New arms start at the neutral prior.
+  ...SAJU_HIT_MODES.map((mode) => mode.id),
 ];
 
 // Lean sprint picks its viral mode by Thompson sampling over learned priors, so the

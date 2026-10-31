@@ -175,7 +175,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "재물/돈 창고 언락 훅 (2.3만 뷰 검증)",
           track: "track_b",
           weight: 5,
-          instruction: "'사주에 진술축미 깔려있어? 타고난 돈 창고야. 근데 창고 문 여는 열쇠가 언제 들어오는지 알아?'처럼 타고난 재물운과 타이밍을 흥미진진하게 짚는다.",
+          instruction: "돈이 안 모이는 흔한 상황으로 시작해, 타고난 돈 창고(예: 진술축미)와 그 문이 열리는 타이밍을 흥미진진하게 짚는다.",
           hookArchetype: "돈 창고 훅",
           forbiddenKeywords: ["사기"],
         },
