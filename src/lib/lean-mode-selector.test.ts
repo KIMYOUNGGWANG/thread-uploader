@@ -49,6 +49,26 @@ describe("selectLeanViralMode", () => {
     }
   });
 
+  it("gives the unproven hit arms most picks against the learned arms, and lets their own posts take over", () => {
+    // Means and evidence of the cosmicpath priors on 2026-10-31; the hit arms have no posts yet.
+    const learned = {
+      concept_hierarchy: { alpha: 55, beta: 25 },
+      identity_profile: { alpha: 29.5, beta: 13.4 },
+      relationship_tension: { alpha: 19.7, beta: 8.5 },
+      imagination_dilemma: { alpha: 22.8, beta: 11.5 },
+      beginner_qa: { alpha: 4.8, beta: 3.3 },
+    };
+    const hitIds = LEAN_IDS.slice(5);
+    const share = (priors: Record<string, { alpha: number; beta: number }>, ids: string[]) => {
+      let hits = 0;
+      for (let i = 0; i < 3000; i++) if (ids.includes(selectLeanViralMode(0, [], priors, []).id)) hits++;
+      return hits / 3000;
+    };
+    expect(share(learned, hitIds)).toBeGreaterThan(0.55);
+    // 10 flopped posts on one hit arm push it below the learned arms despite the head start.
+    expect(share({ ...learned, cost_loss_punch: { alpha: 2.5, beta: 14 } }, ["cost_loss_punch"])).toBeLessThan(0.05);
+  });
+
   it("keeps the standard rotation unchanged for non-lean brands", () => {
     expect(VIRAL_INTENT_MODES).toHaveLength(12);
   });
