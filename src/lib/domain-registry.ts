@@ -341,6 +341,18 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           hookArchetype: "Identity Call-Out Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
+        // 2026-10-31: age call-outs were the best global shape (median 61 views vs ~17, n=19; this id alone 81, n=6)
+        // but lived only in the legacy config.formulas, which an active campaign skips, so they stopped in October.
+        // Same id as before so its post history keeps feeding the learned prior.
+        {
+          id: "saturn_reboot_timeline",
+          name: "Age Call-Out: Saturn Return vs Luck Pillar",
+          track: "track_a",
+          weight: 5,
+          instruction: `Name one specific age the reader is at or near (27-30 for the Saturn return, or another age the Western frame marks) and the one thing people that age feel. Then show saju reads that age through the reader's own 10-year luck pillar turn, which comes at a different age for each person. Never claim saju marks a fixed age for everyone. No theory lecture, no CTA. ${globalHybridRule("saturn_reboot_timeline")}`,
+          hookArchetype: "Age Call-Out Hook",
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
+        },
       ],
       track_b: [
         {
