@@ -2,8 +2,9 @@ name: Account Intelligence
 
 on:
   # 재개 (2026-10-22): 팔로워 수(metrics.followersCount, PR #21)가 이 크론에서만 기록돼 지표 수집으로 분류해 다시 켬. viral·trends·render 일시 중지는 그대로.
+  # 축소 (2026-10-31): 2시간 → 하루 1회. 팔로워 수 일별 기록만 유지.
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '0 0 * * *' # KST 09:00
   workflow_dispatch:
 
 jobs:
