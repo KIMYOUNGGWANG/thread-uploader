@@ -1,9 +1,10 @@
 name: Video Factory
 
 on:
-  schedule:
-    # KST 06:00 — 오늘의 kinetic-list 영상 1편 렌더
-    - cron: '0 21 * * *'
+  # 일시 중지 (2026-10-31): 궁합 유입 기여 없음. 11/17 글 길이 실험 판정 전까지 발행·채우기·지표 수집 외 자동화 동결. 다시 켜려면 아래 schedule 주석 해제. workflow_dispatch 수동 실행은 그대로 가능.
+  # schedule:
+  #   # KST 06:00 — 오늘의 kinetic-list 영상 1편 렌더
+  #   - cron: '0 21 * * *'
   workflow_dispatch:
     inputs:
       force:
