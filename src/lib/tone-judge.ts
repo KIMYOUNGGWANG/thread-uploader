@@ -23,7 +23,7 @@ function describeVoice(config: Pick<BrandConfig, "voiceProfile" | "systemPrompt"
   ].filter(Boolean).join("\n");
 }
 
-const buildPrompt = (post: string, firstComment: string, voice: string) => `너는 이 브랜드의 Threads 계정 편집장이야. 아래 브랜드 톤 기준에 글이 얼마나 맞는지만 채점해. 주제·정보의 정확성은 채점하지 마.
+const buildPrompt = (post: string, firstComment: string, voice: string) => `너는 이 브랜드의 Threads 계정 편집장이야. 아래 브랜드 톤 기준에 글이 얼마나 맞는지만 채점해. 주제·정보의 정확성, 링크·CTA·글자 수 같은 형식 규격은 채점하지 말고 말투·화자·문장 리듬만 봐.
 
 [브랜드 톤 기준]
 ${voice}
@@ -34,7 +34,7 @@ ${voice}
 - 60 이하: 다른 계정 글처럼 읽히거나, 금지 표현·어긋난 말투가 반복됨
 
 JSON 객체 하나만 출력해. 다른 글은 쓰지 마:
-{"score": <0-100 정수>, "fixes": ["<톤에서 벗어난 문장> → <어떻게 고칠지>", ...최대 3개, 80점 이상이면 빈 배열]}
+{"score": <0-100 정수>, "fixes": ["<톤에서 벗어난 문장> → <어떻게 고칠지>", ...최대 3개, 각 60자 이내, 80점 이상이면 빈 배열]}
 
 [본문]
 """
@@ -46,8 +46,17 @@ ${post}
 ${firstComment}
 """`;
 
+// The judge's 300-token cap can cut long Korean fixes mid-string; the score comes first, so keep it and every fix that closed.
+function salvageTruncated(text: string): Record<string, unknown> | null {
+  const score = text.match(/"score"\s*:\s*(\d{1,3})\b/);
+  if (!score) return null;
+  const fixesBody = text.split(/"fixes"\s*:\s*\[/)[1] ?? "";
+  const fixes = [...fixesBody.matchAll(/"(?:[^"\\]|\\.)*"(?=\s*[,\]])/g)].map((match) => JSON.parse(match[0]) as string);
+  return { score: Number(score[1]), fixes };
+}
+
 export function parseToneVerdict(text: string): ToneVerdict {
-  const parsed = extractJsonObject(text);
+  const parsed = extractJsonObject(text) ?? salvageTruncated(text);
   if (!parsed) return NO_VERDICT;
   const { score, fixes } = parsed;
   if (typeof score !== "number" || !Number.isFinite(score) || score < 0 || score > 100) return NO_VERDICT;
