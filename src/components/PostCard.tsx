@@ -117,6 +117,8 @@ export function PostCard({
     const [isApproving, setIsApproving] = useState(false);
     const [reviewReason, setReviewReason] = useState("");
     const isQualityBlocked = qualityPass === false;
+    // Written by the review pipeline as `톤 NN점` (toneReason in lib/tone-judge, kept out of the client bundle).
+    const toneReasonLabel = qualityReasons.find((reason) => /^톤 \d+점$/.test(reason));
     const isAlgorithmicFailed = algorithmicPass === false
         || (algorithmicPass == null && algorithmicScore != null && algorithmicScore < 80);
     const needsFix = isAlgorithmicFailed || isQualityBlocked;
@@ -388,7 +390,7 @@ export function PostCard({
                                                 ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
                                                 : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
                             )}>
-                                #{index + 1} {isPosted ? "업로드 완료" : status === "NEEDS_REVIEW" ? (isAlgorithmicFailed ? "검토 필요 (5D 미달)" : isQualityBlocked ? "검토 필요 (품질 FAIL)" : (qualityReasons.includes(MANUAL_REFERENCE_TAG) ? "승인 대기 (X 레퍼런스)" : "승인 대기 (승자 공식 아님)")) : status === "PARTIAL_FAILED" ? "타래 중단(이어올리기 대기)" : status === "FAILED" ? "업로드 실패" : "대기중"}
+                                #{index + 1} {isPosted ? "업로드 완료" : status === "NEEDS_REVIEW" ? (isAlgorithmicFailed ? "검토 필요 (5D 미달)" : isQualityBlocked ? "검토 필요 (품질 FAIL)" : (qualityReasons.includes(MANUAL_REFERENCE_TAG) ? "승인 대기 (X 레퍼런스)" : toneReasonLabel ? `승인 대기 (${toneReasonLabel})` : "승인 대기 (승자 공식 아님)")) : status === "PARTIAL_FAILED" ? "타래 중단(이어올리기 대기)" : status === "FAILED" ? "업로드 실패" : "대기중"}
                             </div>
 
                             {/* Category Badge */}

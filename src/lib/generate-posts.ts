@@ -58,6 +58,7 @@ import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/struct
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
 import { judgeReadability } from "@/lib/readability-judge";
+import { chainDraftsByTone, judgeTone, toneReason } from "@/lib/tone-judge";
 import { checkReadabilityRules, checkTemplateCap, opensWithReversal, tightenChoiceLines } from "@/lib/readability-rules";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { backlogHorizon } from "@/lib/queue-refill";
@@ -286,7 +287,8 @@ async function generateWithQuality(
   recentPostContext: string,
   maxRetries = 2,
   recentPosts: RecentPostSummary[] = [],
-  prohibitedPhrases: string[] = []
+  prohibitedPhrases: string[] = [],
+  draftChain = 1
 ): Promise<{
   post: string;
   firstComment: string;
@@ -410,16 +412,24 @@ async function generateWithQuality(
     return gate;
   };
 
-  let lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext);
-  let qualityResult = await gateWithJudges(lastResult.post, lastResult.firstComment);
+  // `feedback` carries the review pipeline's chain/tone instructions; it stays on every gate retry.
+  const draftThroughGate = async (feedback: string[]) => {
+    let result = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, feedback);
+    let gate = await gateWithJudges(result.post, result.firstComment);
+    for (let attempt = 1; attempt <= maxRetries && !gate.pass; attempt++) {
+      // Feeding "too close to the source" back would only paraphrase to just under the threshold; drop the draft instead.
+      if (experiment.referenceReplay && gate.reasons.some((reason) => reason.startsWith(REFERENCE_COPY_REASON))) break;
+      console.warn(`Quality FAIL (${gate.profile}, score ${gate.score}, attempt ${attempt}/${maxRetries}):`, gate.reasons);
+      result = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, [...feedback, ...gate.reasons]);
+      gate = await gateWithJudges(result.post, result.firstComment);
+    }
+    return { result, gate };
+  };
 
-  for (let attempt = 1; attempt <= maxRetries && !qualityResult.pass; attempt++) {
-    // Feeding "too close to the source" back would only paraphrase to just under the threshold; drop the draft instead.
-    if (experiment.referenceReplay && qualityResult.reasons.some((reason) => reason.startsWith(REFERENCE_COPY_REASON))) break;
-    console.warn(`Quality FAIL (${qualityResult.profile}, score ${qualityResult.score}, attempt ${attempt}/${maxRetries}):`, qualityResult.reasons);
-    lastResult = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, qualityResult.reasons);
-    qualityResult = await gateWithJudges(lastResult.post, lastResult.firstComment);
-  }
+  const { result: lastResult, gate: qualityResult } = draftChain > 1
+    ? await chainDraftsByTone(draftChain, draftThroughGate, (post, firstComment) => judgeTone(post, firstComment, config))
+        .then((best) => (best.tone.score === null ? best : { ...best, gate: { ...best.gate, reasons: [toneReason(best.tone.score), ...best.gate.reasons] } }))
+    : await draftThroughGate([]);
 
   if (!qualityResult.pass) {
     // Throwing makes the batch loop skip this draft instead of saving a post that already failed the gate.
@@ -979,6 +989,8 @@ export interface GeneratePostsInput {
   referenceReplay?: { id: string; content: string; kind?: ReferenceKind; linkUrl?: string; manual?: boolean };
   /** 없으면 PENDING. 수동 레퍼런스처럼 사람이 승인해야 하는 글만 NEEDS_REVIEW로 저장한다. */
   initialStatus?: "NEEDS_REVIEW";
+  /** 1보다 크면 글마다 초안을 이만큼 체이닝해서 쓰고, 브랜드 톤 점수가 가장 높은 초안을 고른다(검토 파이프라인). */
+  draftChain?: number;
 }
 
 export interface GeneratePostsSummary {
@@ -1269,7 +1281,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         recentPostContext,
         2,
         inBatchPosts,
-        prohibitedPhrases
+        prohibitedPhrases,
+        input.draftChain
       );
     });
     // One failed draft (refusal, empty reply, API hiccup) must not discard the rest of the batch.

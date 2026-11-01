@@ -340,6 +340,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const [reviewOnly, setReviewOnly] = useState(false);
   const [insertAtFront, setInsertAtFront] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isReviewPipelineRunning, setIsReviewPipelineRunning] = useState(false);
   const [generateCount, setGenerateCount] = useState(21);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -495,6 +496,28 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
       setIsGenerating(false);
     }
   }, [brandId, generateCount, insertAtFront, fetchPosts, loadAccountIntelligence, loadCampaignSummary, showAccountIntelligence, showCampaign]);
+
+  const handleReviewPipeline = useCallback(async () => {
+    if (!confirm("트렌드 확인 → 글마다 초안 3개 → 톤 채점으로 3개를 만들어 승인 대기에 넣을까요? (약 2~4분)")) return;
+    setIsReviewPipelineRunning(true);
+    toast.loading("트렌드 확인하고 초안 3개씩 쓰는 중… (2~4분)", { id: "review-pipeline" });
+    try {
+      const response = await fetch("/api/generate/review-pipeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId, count: 3 }),
+      });
+      const data = await response.json() as { error?: string; count?: number; failedCount?: number };
+      if (!response.ok) throw new Error(data.error || "검토 파이프라인 실패");
+      toast.success(`승인 대기 ${data.count ?? 0}개${data.failedCount ? ` · 실패 ${data.failedCount}개` : ""} — 확인하고 승인하면 업로드돼요`, { id: "review-pipeline" });
+      setReviewOnly(true);
+      await fetchPosts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "검토 파이프라인 실패", { id: "review-pipeline" });
+    } finally {
+      setIsReviewPipelineRunning(false);
+    }
+  }, [brandId, fetchPosts]);
 
   const handlePlanCommand = useCallback(async () => {
     const text = commandText.trim();
@@ -1482,6 +1505,17 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   <Button size="sm" onClick={handleGenerate} disabled={isGenerating} className="bg-violet-600 hover:bg-violet-700 text-white flex-1 sm:flex-none">
                     {isGenerating ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1.5" />}
                     {isGenerating ? "생성 중..." : `AI ${generateCount}개 생성`}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleReviewPipeline()}
+                    disabled={isReviewPipelineRunning}
+                    title="트렌드 확인 → 글마다 초안 3개 체이닝 → 브랜드 톤 채점 → 승인 대기"
+                    className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/30 flex-1 sm:flex-none"
+                  >
+                    {isReviewPipelineRunning ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1.5" />}
+                    {isReviewPipelineRunning ? "초안 쓰는 중..." : "검토용 3개"}
                   </Button>
                   <Button variant="default" size="sm" onClick={() => void handleCreatePost()} className="bg-slate-600 hover:bg-slate-700 text-white flex-1 sm:flex-none">
                     <Pencil className="w-4 h-4 mr-1.5" />글 작성
