@@ -66,6 +66,14 @@ describe("parseToneVerdict", () => {
     expect(parseToneVerdict('```json\n{"score": 91, "fixes": []}\n```')).toEqual({ score: 91, fixes: [] });
   });
 
+  it("keeps the score and closed fixes when the reply is cut off at the token cap", () => {
+    expect(parseToneVerdict('{"score": 82, "fixes": ["\\"먹은 거임\\" → 단정형으로", "클로징이 코칭 톤 → 단언형으로 바꿔')).toEqual({
+      score: 82,
+      fixes: ['"먹은 거임" → 단정형으로'],
+    });
+    expect(parseToneVerdict('{"score": 74, "fi')).toEqual({ score: 74, fixes: [] });
+  });
+
   it("fails open on unparseable or out-of-range scores", () => {
     expect(parseToneVerdict("좋아요").score).toBeNull();
     expect(parseToneVerdict('{"score": "80"}').score).toBeNull();
