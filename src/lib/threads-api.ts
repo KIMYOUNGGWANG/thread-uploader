@@ -50,7 +50,32 @@ interface ThreadsError {
         message: string;
         type: string;
         code: number;
+        error_subcode?: number;
     };
+}
+
+export type ThreadsErrorKind = "token-expired" | "restricted" | "bad-request" | "retry" | "unknown";
+
+/**
+ * Sorts a Threads API error message (see threadsErrorDetail for the "(code X/Y)" suffix) into
+ * what to do next: re-auth, stop touching the account, fix the request, or just try again.
+ * Codes: 190 = token; 2207051 / 4279013 = Meta restricted the activity or the user;
+ * 100 = bad parameter; 4279009 = container not visible yet; 4 / 17 / 32 / 613 = rate limits.
+ */
+export function classifyThreadsError(message: string): ThreadsErrorKind {
+    if (/Error validating access token|Invalid OAuth access token|Session has expired|\bcode 190\b/i.test(message)) return "token-expired";
+    if (/2207051|4279013|restrict/i.test(message)) return "restricted";
+    if (/at most 500 characters|could not be fetched from this URI|Unsupported|Invalid parameter|\bcode 100\b/i.test(message)) return "bad-request";
+    if (/4279009|request limit reached|rate limit|\bcode (4|17|32|613)\b/i.test(message)) return "retry";
+    return "unknown";
+}
+
+/** Error message with Meta's code/subcode so logs and classifyThreadsError can tell errors apart. */
+function threadsErrorDetail(data: Partial<ThreadsError> | undefined): string {
+    const err = data?.error;
+    if (!err) return "Unknown error";
+    const code = [err.code, err.error_subcode].filter((value) => value !== undefined).join("/");
+    return code ? `${err.message} (code ${code})` : err.message;
 }
 
 interface TokenRefreshResponse {
@@ -643,7 +668,7 @@ export async function publishPostWithCredentials(
         if (topicTag) params.append("topic_tag", topicTag);
         const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
         const data = await res.json() as ThreadsContainerResponse | ThreadsError;
-        if (!res.ok) throw new Error(`[VideoContainer] ${ (data as ThreadsError).error?.message }`);
+        if (!res.ok) throw new Error(`[VideoContainer] ${threadsErrorDetail(data as ThreadsError)}`);
         containerId = (data as ThreadsContainerResponse).id;
         await waitForContainerReady(containerId, accessToken);
     } else if (validHttpImageUrls.length === 0) {
@@ -651,14 +676,14 @@ export async function publishPostWithCredentials(
         if (topicTag) params.append("topic_tag", topicTag);
         const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
         const data = await res.json() as ThreadsContainerResponse | ThreadsError;
-        if (!res.ok) throw new Error(`[Container] ${ (data as ThreadsError).error?.message }`);
+        if (!res.ok) throw new Error(`[Container] ${threadsErrorDetail(data as ThreadsError)}`);
         containerId = (data as ThreadsContainerResponse).id;
     } else if (validHttpImageUrls.length === 1) {
         const params = new URLSearchParams({ media_type: "IMAGE", image_url: validHttpImageUrls[0], text, access_token: accessToken });
         if (topicTag) params.append("topic_tag", topicTag);
         const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
         const data = await res.json() as ThreadsContainerResponse | ThreadsError;
-        if (!res.ok) throw new Error(`[Container] ${ (data as ThreadsError).error?.message }`);
+        if (!res.ok) throw new Error(`[Container] ${threadsErrorDetail(data as ThreadsError)}`);
         containerId = (data as ThreadsContainerResponse).id;
     } else {
         const itemIds: string[] = [];
@@ -666,7 +691,7 @@ export async function publishPostWithCredentials(
             const params = new URLSearchParams({ media_type: "IMAGE", image_url: imageUrl, is_carousel_item: "true", access_token: accessToken });
             const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
             const data = await res.json() as ThreadsContainerResponse | ThreadsError;
-            if (!res.ok) throw new Error(`[CarouselItem] ${ (data as ThreadsError).error?.message }`);
+            if (!res.ok) throw new Error(`[CarouselItem] ${threadsErrorDetail(data as ThreadsError)}`);
             itemIds.push((data as ThreadsContainerResponse).id);
             await sleep(1000);
         }
@@ -674,7 +699,7 @@ export async function publishPostWithCredentials(
         if (topicTag) params.append("topic_tag", topicTag);
         const res = await fetch(`${THREADS_API_BASE}/${userId}/threads?${params}`, { method: "POST" });
         const data = await res.json() as ThreadsContainerResponse | ThreadsError;
-        if (!res.ok) throw new Error(`[Carousel] ${ (data as ThreadsError).error?.message }`);
+        if (!res.ok) throw new Error(`[Carousel] ${threadsErrorDetail(data as ThreadsError)}`);
         containerId = (data as ThreadsContainerResponse).id;
     }
 
@@ -683,7 +708,7 @@ export async function publishPostWithCredentials(
     const publishParams = new URLSearchParams({ creation_id: containerId, access_token: accessToken });
     const publishRes = await fetch(`${THREADS_API_BASE}/${userId}/threads_publish?${publishParams}`, { method: "POST" });
     const publishData = await publishRes.json() as ThreadsPublishResponse | ThreadsError;
-    if (!publishRes.ok) throw new Error(`[Publish] ${ (publishData as ThreadsError).error?.message }`);
+    if (!publishRes.ok) throw new Error(`[Publish] ${threadsErrorDetail(publishData as ThreadsError)}`);
     return (publishData as ThreadsPublishResponse).id;
 }
 
@@ -720,31 +745,55 @@ export async function publishReplyWithRetryForBrand(
     const { accessToken, userId } = credentials;
     await sleep(initialDelayMs);
     let lastError: unknown;
+    // One container across attempts: a retry after a lost publish response must not post the reply twice.
+    let containerId: string | undefined;
 
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            const containerParams = new URLSearchParams({ media_type: "TEXT", text: safeText, reply_to_id: replyToId, access_token: accessToken });
-            const containerRes = await fetch(`${THREADS_API_BASE}/${userId}/threads?${containerParams}`, { method: "POST" });
-            const containerData = await containerRes.json() as ThreadsContainerResponse | ThreadsError;
-            if (!containerRes.ok) throw new Error(`[ReplyContainer] ${ (containerData as ThreadsError).error?.message }`);
-            const containerId = (containerData as ThreadsContainerResponse).id;
+            if (containerId) {
+                const status = await fetchContainerStatus(containerId, accessToken);
+                // ponytail: the container id stands in for the media id; Threads exposes no media id for an already-published container
+                if (status === "PUBLISHED") return containerId;
+                if (status === "ERROR" || status === "EXPIRED") containerId = undefined;
+            }
+            if (!containerId) {
+                const containerParams = new URLSearchParams({ media_type: "TEXT", text: safeText, reply_to_id: replyToId, access_token: accessToken });
+                const containerRes = await fetch(`${THREADS_API_BASE}/${userId}/threads?${containerParams}`, { method: "POST" });
+                const containerData = await containerRes.json() as ThreadsContainerResponse | ThreadsError;
+                if (!containerRes.ok) throw new Error(`[ReplyContainer] ${threadsErrorDetail(containerData as ThreadsError)}`);
+                containerId = (containerData as ThreadsContainerResponse).id;
+            }
 
             await sleep(2000);
 
             const publishParams = new URLSearchParams({ creation_id: containerId, access_token: accessToken });
             const publishRes = await fetch(`${THREADS_API_BASE}/${userId}/threads_publish?${publishParams}`, { method: "POST" });
             const publishData = await publishRes.json() as ThreadsPublishResponse | ThreadsError;
-            if (!publishRes.ok) throw new Error(`[ReplyPublish] ${ (publishData as ThreadsError).error?.message }`);
+            if (!publishRes.ok) throw new Error(`[ReplyPublish] ${threadsErrorDetail(publishData as ThreadsError)}`);
             return (publishData as ThreadsPublishResponse).id;
         } catch (error) {
             lastError = error;
+            const message = error instanceof Error ? error.message : String(error);
+            const kind = classifyThreadsError(message);
+            // Retrying an expired token, a restricted account or a rejected body only burns the publish quota.
+            if (kind === "token-expired" || kind === "restricted" || kind === "bad-request") {
+                throw new Error(`[${kind}] ${message}`);
+            }
             if (attempt < retries) {
-                console.warn(`Reply attempt ${attempt}/${retries} failed. Retrying...`, error);
+                console.warn(`Reply attempt ${attempt}/${retries} failed (${kind}). Retrying...`, error);
                 await sleep(3000 * attempt);
             }
         }
     }
     throw lastError instanceof Error ? lastError : new Error("Failed to publish reply");
+}
+
+async function fetchContainerStatus(containerId: string, accessToken: string): Promise<string | undefined> {
+    const params = new URLSearchParams({ fields: "status", access_token: accessToken });
+    const res = await fetch(`${THREADS_API_BASE}/${containerId}?${params}`);
+    const data = await res.json() as { status?: string } & Partial<ThreadsError>;
+    if (!res.ok) throw new Error(`[ContainerStatus] ${threadsErrorDetail(data)}`);
+    return data.status;
 }
 
 export interface ThreadChainPublishOptions {

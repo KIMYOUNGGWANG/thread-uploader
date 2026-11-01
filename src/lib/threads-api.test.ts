@@ -132,3 +132,48 @@ describe("fetchPublicProfileStats", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("classifyThreadsError", () => {
+  it("maps Meta error codes to retry / give-up kinds", async () => {
+    const { classifyThreadsError } = await import("./threads-api");
+    expect(classifyThreadsError("Error validating access token: Session has expired (code 190)")).toBe("token-expired");
+    expect(classifyThreadsError("We restrict certain activity to protect our community (code 368/2207051)")).toBe("restricted");
+    expect(classifyThreadsError("text must be at most 500 characters (code 100)")).toBe("bad-request");
+    expect(classifyThreadsError("Media ID is not available (code 24/4279009)")).toBe("retry");
+    expect(classifyThreadsError("fetch failed")).toBe("unknown");
+  });
+});
+
+describe("publishReplyWithRetryForBrand", () => {
+  it("does not post the reply twice when the first publish response was lost", async () => {
+    vi.useFakeTimers();
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url.includes("/threads_publish")) throw new TypeError("fetch failed");
+      if (url.includes("/threads?")) return new Response(JSON.stringify({ id: "container_1" }));
+      return new Response(JSON.stringify({ status: "PUBLISHED" }));
+    }));
+    const { publishReplyWithRetryForBrand } = await import("./threads-api");
+    const pending = publishReplyWithRetryForBrand("reply", "root_1", { accessToken: "t", userId: "u" }, 4, 0);
+    await vi.runAllTimersAsync();
+
+    expect(await pending).toBe("container_1");
+    expect(calls.filter((url) => url.includes("/u/threads?")).length).toBe(1);
+    expect(calls.filter((url) => url.includes("/threads_publish")).length).toBe(1);
+    vi.useRealTimers();
+  });
+
+  it("gives up at once on a non-retryable Meta error and keeps the code in the message", async () => {
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({ error: { message: "text must be at most 500 characters", type: "OAuthException", code: 100 } }),
+      { status: 400 }
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const { publishReplyWithRetryForBrand } = await import("./threads-api");
+    await expect(publishReplyWithRetryForBrand("x", "root_1", { accessToken: "t", userId: "u" }, 4, 0))
+      .rejects.toThrow(/^\[bad-request\] \[ReplyContainer\] text must be at most 500 characters \(code 100\)$/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+});
