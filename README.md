@@ -63,6 +63,8 @@ npm run build
 
 ## Cron Endpoints
 
+> 2026-10-31부터 `viral.yml`·`video-factory.yml` 스케줄은 꺼져 있고(수동 실행만), `shorts.yml`은 snapshot만 하루 1회(KST 12:37), `account-intelligence.yml`은 하루 1회(KST 09:00)로 줄였다. 아래 주기 설명은 켜져 있을 때 기준이다.
+
 - `GET /api/cron/publish` publishes one pending post per product profile. Optional `?brands=slug1,slug2` limits the run. It is the only publisher: GitHub Actions (`.github/workflows/cron.yml`) calls it hourly with `?slots=` (UTC hours), and the route publishes at most once per slot while the slot's 3-hour window is open, so late GitHub runs still post. Daily trust-tier quotas (newbie 1 / warming 2 / established 5 / authority 8, reset at KST midnight) skip the run with `daily_quota_reached` instead of demoting the post.
 - `GET /api/cron/refresh-token` refreshes Threads tokens when they are within 14 days of expiry.
 - `GET /api/cron/fetch-metrics` collects Threads insights (6h–14d posts, uncollected and 72h-mature first) and rescoring keeps click/conversion weight. A post Threads reports as deleted (400 "does not exist") is set to `ARCHIVED` with an `errorLog` instead of failing every run.
