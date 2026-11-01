@@ -1,4 +1,4 @@
-import { sampleBestArm, type BetaPrior } from "@/lib/thompson-sampling-router";
+import { NEUTRAL_PRIOR, sampleBestArm, type BetaPrior } from "@/lib/thompson-sampling-router";
 import {
   resolveViralIntentMode,
   SAJU_HIT_MODES,
@@ -49,6 +49,21 @@ const LEAN_ARM_IDS: readonly ViralIntentModeId[] = [
   ...SAJU_HIT_MODES.map((mode) => mode.id),
 ];
 
+// 2026-10-31: at the neutral prior the hit arms won ~44% of lean picks against the learned arms (~0.68 mean),
+// so the queue still leaned on situation-advice posts that sat at 40-60 views. The learn cron rebuilds every
+// arm from NEUTRAL_PRIOR, so the hit arms start from this prior instead and their own posts add on top (~2/3 of picks
+// before evidence). ponytail: fixed head start, drop it once each hit arm has its own posts in the learn window.
+const SAJU_HIT_SEED_PRIOR: BetaPrior = { alpha: 6, beta: 3 };
+const SAJU_HIT_IDS = new Set<string>(SAJU_HIT_MODES.map((mode) => mode.id));
+
+function seedHitArm(prior: BetaPrior | undefined): BetaPrior {
+  if (!prior) return SAJU_HIT_SEED_PRIOR;
+  return {
+    alpha: prior.alpha + SAJU_HIT_SEED_PRIOR.alpha - NEUTRAL_PRIOR.alpha,
+    beta: prior.beta + SAJU_HIT_SEED_PRIOR.beta - NEUTRAL_PRIOR.beta,
+  };
+}
+
 // Lean sprint picks its viral mode by Thompson sampling over learned priors, so the
 // learn cron actually steers CosmicPath output. Without priors it keeps the fixed allocation.
 // winner_replay joins the pool only when the caller found a high-view source post to replay.
@@ -74,6 +89,10 @@ export function selectLeanViralMode(
   const previous = recentFormulaIds[recentFormulaIds.length - 1];
   const candidates = modes.filter((mode) => armFormulaId(mode) !== previous);
   const pool = candidates.length > 0 ? candidates : modes;
-  const { armId } = sampleBestArm(pool.map(armFormulaId), priors ?? {});
+  const armPriors: Record<string, BetaPrior> = { ...priors };
+  for (const mode of pool) {
+    if (SAJU_HIT_IDS.has(mode.id)) armPriors[armFormulaId(mode)] = seedHitArm(priors?.[armFormulaId(mode)]);
+  }
+  const { armId } = sampleBestArm(pool.map(armFormulaId), armPriors);
   return pool.find((mode) => armFormulaId(mode) === armId) ?? fixedMode;
 }
