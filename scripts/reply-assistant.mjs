@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // An empty --post-id (e.g. `--post-id=$(lookup)` before the post is published) must not fall back to scanning every recent post.
 const postIdFlag = process.argv.find((a) => a.startsWith('--post-id='));
@@ -60,8 +60,49 @@ if (!ACCESS_TOKEN || !USER_ID) {
   process.exit(1);
 }
 
+const OWN_USERNAME = 'cosmicpath.app';
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Bursts of replies a few seconds apart read as automation to Threads; keep 30-45s between publishes.
+export function publishGapMs(random = Math.random) {
+  return 30_000 + Math.floor(random() * 15_000);
+}
+
+// The DM itself is sent by hand (the Threads API has no DM), so these replies never auto-post.
+export function needsManualDm(replyText) {
+  return /DM/.test(replyText);
+}
+
+const parentIdOf = (c) => c.replied_to?.id ?? c.replied_to;
+const isOwnReply = (c) => c.is_reply_owned_by_me === true || c.username === OWN_USERNAME;
+
+/**
+ * Top-level audience comments still waiting for us. Skips replies to replies (the conversation endpoint
+ * returns every depth), comments we already answered in this conversation (even if posted outside this
+ * script), and anyone we already talked to under this post.
+ */
+export function selectPendingComments(postId, comments, repliedSet) {
+  const byId = new Map(comments.map((c) => [c.id, c]));
+  const answeredIds = new Set();
+  const answeredUsers = new Set();
+  for (const c of comments) {
+    if (!isOwnReply(c)) continue;
+    const parent = byId.get(parentIdOf(c));
+    if (!parent) continue;
+    answeredIds.add(parent.id);
+    if (parent.username) answeredUsers.add(parent.username);
+  }
+  return comments.filter(
+    (c) =>
+      !isOwnReply(c) &&
+      parentIdOf(c) === postId &&
+      !repliedSet.has(c.id) &&
+      !answeredIds.has(c.id) &&
+      !answeredUsers.has(c.username)
+  );
 }
 
 // Replied Cache Helpers
@@ -112,11 +153,12 @@ async function fetchPostDetails(mediaId) {
 
 // 2. Fetch replies for a given post
 async function fetchPostReplies(mediaId) {
-  let url = `${THREADS_API_BASE}/${mediaId}/conversation?fields=id,text,timestamp,username,permalink&access_token=${encodeURIComponent(ACCESS_TOKEN)}`;
+  const fields = 'id,text,timestamp,username,permalink,replied_to,is_reply_owned_by_me';
+  let url = `${THREADS_API_BASE}/${mediaId}/conversation?fields=${fields}&access_token=${encodeURIComponent(ACCESS_TOKEN)}`;
   let res = await fetch(url);
-  
+
   if (!res.ok) {
-    url = `${THREADS_API_BASE}/${mediaId}/replies?fields=id,text,timestamp,username,permalink&access_token=${encodeURIComponent(ACCESS_TOKEN)}`;
+    url = `${THREADS_API_BASE}/${mediaId}/replies?fields=${fields}&access_token=${encodeURIComponent(ACCESS_TOKEN)}`;
     res = await fetch(url);
   }
 
@@ -212,16 +254,11 @@ function generateDomainReply(commentItem, parentPostText = '') {
 
   // 2. CTA / 참여형 짧은 댓글 ("나도!", "저요", "저도요!", "나도 확인하고싶어!!", "궁금해요!", "나궁금해")
   if (/^(나도!*|저요!*|저도!*|저도요!*|저두요!*|나~*|궁금해요!*|나\s*궁금해!*|나도\s*확인.*|확인하고.*|부탁드립니다!*)$/i.test(text) || (text.length <= 15 && /나도|저요|저도|저두|궁금|확인|부탁/i.test(text))) {
+    // Generic "sent you a link + coupon" replies match scam-template patterns Threads auto-removes, so each one names what the link does.
     const dmVariations = [
-      `DM(메시지 요청함)으로 진단 링크와 쿠폰 전달드렸습니다! 확인해보세요 🚀`,
-      `DM으로 링크 보내드렸습니다! (안 보이시면 메시지 요청함 확인해주세요 👍)`,
-      `DM으로 바로 확인해보실 수 있는 링크 보내드렸습니다! 메시지함 확인 부탁드려요 ✨`,
-      `DM으로 안내 링크 전달드렸습니다! 편하게 확인해보세요 :)`,
-      `DM(메시지 요청함)으로 진단 링크 보내드렸습니다! 확인 부탁드립니다 🚀`,
-      `DM으로 링크 전달드렸습니다! 혹시 요청함에도 안 보이면 말씀해주세요 👍`,
-      `DM으로 바로 확인 링크 보내드렸습니다! 메시지함 확인해보세요 ✨`,
-      `DM으로 진단 링크 발송해드렸습니다! 확인 후 편하게 피드백 남겨주세요 :)`,
-      `DM(메시지 요청함)으로 링크 전달드렸습니다! 확인 부탁드립니다 🚀`
+      `생년월일만 넣으면 바로 나오는 진단 링크, DM으로 보내줄게. 메시지 요청함도 한 번 봐줘`,
+      `DM으로 진단 링크 보낼게. 생년월일이랑 태어난 시간 넣으면 바로 나와`,
+      `링크는 DM으로 따로 줄게. 안 보이면 메시지 요청함에 들어가 있을 거야`,
     ];
     // Pick deterministic variation by hash of comment id or username
     let hash = 0;
@@ -366,7 +403,28 @@ function generateDomainReply(commentItem, parentPostText = '') {
 }
 
 // 4. Publish reply to Threads
-async function publishReplyToComment(commentId, replyText) {
+let lastPublishAt = 0;
+
+async function fetchCommentUsername(commentId) {
+  const res = await fetch(`${THREADS_API_BASE}/${commentId}?fields=username&access_token=${encodeURIComponent(ACCESS_TOKEN)}`);
+  if (!res.ok) return null;
+  return (await res.json()).username ?? null;
+}
+
+async function publishReplyToComment(comment, replyText) {
+  const commentId = comment.id;
+  // Re-read the target right before posting so a deleted comment or a shifted list never gets someone else's reply.
+  const currentAuthor = await fetchCommentUsername(commentId);
+  if (!comment.username || currentAuthor !== comment.username) {
+    throw new Error(`Target check failed: expected @${comment.username}, found @${currentAuthor ?? '(unreadable)'}`);
+  }
+
+  const waitMs = lastPublishAt + publishGapMs() - Date.now();
+  if (waitMs > 0) {
+    console.log(`⏳ Waiting ${Math.ceil(waitMs / 1000)}s before publishing...`);
+    await sleep(waitMs);
+  }
+
   const containerParams = new URLSearchParams({
     media_type: 'TEXT',
     text: replyText,
@@ -398,6 +456,7 @@ async function publishReplyToComment(commentId, replyText) {
     throw new Error(`Publish failed: ${publishData.error?.message || JSON.stringify(publishData)}`);
   }
 
+  lastPublishAt = Date.now();
   saveRepliedCommentId(commentId);
   return publishData.id;
 }
@@ -455,8 +514,7 @@ async function main() {
 
   for (const post of postsToProcess) {
     const allComments = await fetchPostReplies(post.id);
-    const audienceComments = allComments.filter(c => c.username !== 'cosmicpath.app' && c.username !== post.username);
-    const unreplied = audienceComments.filter(c => !repliedSet.has(c.id));
+    const unreplied = selectPendingComments(post.id, allComments, repliedSet);
 
     if (unreplied.length > 0) {
       totalPendingAcrossPosts += unreplied.length;
@@ -475,6 +533,8 @@ async function main() {
   }
 
   let commentCounter = 0;
+  // ponytail: per-run only; persist published texts if repeats across runs start showing up.
+  const usedReplies = new Set();
 
   for (const task of tasks) {
     console.log(`\n====================================================`);
@@ -493,6 +553,10 @@ async function main() {
 
       if (isDryRun) {
         continue;
+      }
+
+      if (usedReplies.has(draftReply)) {
+        console.log('⚠️ 이번 실행에서 이미 쓴 문구야. 똑같은 답글이 반복되면 대행 티가 나니까 바꿔서 보내.');
       }
 
       if (isInteractive) {
@@ -517,18 +581,22 @@ async function main() {
 
         try {
           console.log(`🚀 Publishing reply to @${comment.username}...`);
-          const publishedId = await publishReplyToComment(comment.id, finalReply);
+          const publishedId = await publishReplyToComment(comment, finalReply);
+          usedReplies.add(finalReply);
           console.log(`✅ Published successfully! (Reply ID: ${publishedId})`);
-          await sleep(3000);
         } catch (err) {
           console.error(`❌ Publish error: ${err.message}`);
         }
       } else if (isAutoPost) {
+        if (needsManualDm(draftReply) || usedReplies.has(draftReply)) {
+          console.log('⏭️ 자동 발행 제외: DM을 직접 보내야 하는 답글이거나 이번 실행에서 이미 쓴 문구야. --interactive로 처리해.');
+          continue;
+        }
         try {
           console.log(`🚀 Auto-publishing reply to @${comment.username}...`);
-          const publishedId = await publishReplyToComment(comment.id, draftReply);
+          const publishedId = await publishReplyToComment(comment, draftReply);
+          usedReplies.add(draftReply);
           console.log(`✅ Published! (Reply ID: ${publishedId})`);
-          await sleep(5000);
         } catch (err) {
           console.error(`❌ Auto-publish error: ${err.message}`);
         }
@@ -539,7 +607,9 @@ async function main() {
   console.log('\n🏁 Multi-post process completed.');
 }
 
-main().catch((err) => {
-  console.error('\n💥 Fatal Error:', err);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error('\n💥 Fatal Error:', err);
+    process.exit(1);
+  });
+}
