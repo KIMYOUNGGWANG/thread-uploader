@@ -59,6 +59,7 @@ describe("reply-assistant reply voice", async () => {
     "더 헷갈려요", "네 바뀌었네요", "썸머타임은요?", "만세력 어플에 다 있음", "야자시는요?", "미국에서 태어났어요",
     "23:10", "23:45", "9시 10분", "9시 40분", "아기가 오후 3시 5분", "역술가마다 다르고 오후 1시 5분", "새벽 4시",
     "나 사시생인데", "알고 있었어", "30분 빼도 똑같아", "서울에서 태어난거", "사주 관심 많아요", "좋은 글",
+    "감사합니다", "글 잘 봤어요",
   ];
   const replies = samples.map((text, i) => generateDomainReply({ id: `c${i}`, text, username: "u" }, ""));
 
@@ -67,6 +68,14 @@ describe("reply-assistant reply voice", async () => {
       expect(reply).not.toMatch(/(습니다|세요|에요|해요|드릴게요|드려요)/);
       expect(reply).not.toMatch(/\p{Extended_Pictographic}/u);
       expect(reply).not.toMatch(/리스크|32분|진태양시|데이터/);
+    }
+  });
+
+  it("answers short thanks with thanks, not a question", () => {
+    for (const [i, text] of ["감사합니다", "글 잘 봤어요", "좋은 정보 감사해요", "공감합니다"].entries()) {
+      const reply = generateDomainReply({ id: `thx${i}`, text });
+      expect(reply).toContain("고마워");
+      expect(reply).not.toContain("?");
     }
   });
 

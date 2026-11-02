@@ -398,14 +398,26 @@ export function generateDomainReply(commentItem, parentPostText = '') {
     return `조금 알 때가 제일 재밌지 ㅋㅋ 요즘 뭐가 제일 궁금해?`;
   }
 
+  let hash = 0;
+  for (let i = 0; i < commentItem.id.length; i++) hash += commentItem.id.charCodeAt(i);
+
+  // 16-1. 짧은 인사·감사 — thanks gets thanks back, not a question about their life.
+  if (text.length <= 30 && /감사|고마|잘\s*봤|잘\s*보고|좋은\s*(글|정보)|유익|공감|최고/.test(text)) {
+    const thanksReplies = [
+      `봐줘서 고마워`,
+      `오 고마워 ㅎㅎ`,
+      `고마워! 도움 됐으면 됐다`,
+      `댓글까지 남겨줘서 고마워`,
+    ];
+    return thanksReplies[hash % thanksReplies.length];
+  }
+
   // 17. 기본 참여형 답글 — fires for every unmatched comment, so vary it.
   const defaultReplies = [
     `고마워. 궁금한 거 있으면 태어난 시간이랑 같이 남겨줘`,
     `오 반갑다. 요즘 제일 고민되는 게 뭐야?`,
     `댓글 고마워! 몇 시생인지 알려주면 30분 빼서 봐줄게`,
   ];
-  let hash = 0;
-  for (let i = 0; i < commentItem.id.length; i++) hash += commentItem.id.charCodeAt(i);
   return defaultReplies[hash % defaultReplies.length];
 }
 
