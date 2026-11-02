@@ -225,7 +225,7 @@ function getSajuBranch(hours, minutes) {
 }
 
 // 3. Domain Expert Reply Engine
-function generateDomainReply(commentItem, parentPostText = '') {
+export function generateDomainReply(commentItem, parentPostText = '') {
   const text = (commentItem.text || '').trim();
   const username = commentItem.username || '독자';
 
@@ -244,12 +244,12 @@ function generateDomainReply(commentItem, parentPostText = '') {
 
   // 1. 공격적이거나 냉소적인 댓글 대응 ("가르칠 수 있는 수준", "오래 살았나 보네요")
   if (/가르칠|수준|오래\s*살았|잘난/i.test(text)) {
-    return `오랜 연륜과 경험을 존중합니다 :) 다만 표준시와 균시차에 따른 30분 편차는 천문 역법의 수학적 기준이라, 처음 접하시는 분들께 정보 차원에서 전달드린 점 너그럽게 양해 부탁드립니다!`;
+    return `맞아, 아는 사람한텐 당연한 얘기임. 처음 보는 사람들 보라고 쓴 거야`;
   }
 
   // 1-1. 커리어/퇴사/버티기 고민 및 감정 토로 ("퇴사일지 버틸지..힘들어요")
   if (/퇴사.*버틸|버틸.*퇴사|이직.*버틸|힘들/i.test(text)) {
-    return `힘든 감정에 휩쓸려 충동적으로 결정하면 공백기에 더 큰 리스크를 맞습니다. 지금 필요한 건 막연한 위로가 아니라, '현재 에너지 잔량'과 '이동 타이밍'을 데이터로 분리해 객관적으로 보는 것입니다. 프로필 링크에서 현재 상태부터 냉정하게 진단해보세요 👍`;
+    return `홧김에 던지면 속은 시원한데 3달 뒤 카드값 보고 오열하더라. 지금 얼마나 지쳤는지부터 봐봐, 프로필 링크에 있음`;
   }
 
   // 2. CTA / 참여형 짧은 댓글 ("나도!", "저요", "저도요!", "나도 확인하고싶어!!", "궁금해요!", "나궁금해")
@@ -268,42 +268,42 @@ function generateDomainReply(commentItem, parentPostText = '') {
 
   // 3. 균시차 / 천문 관련 질문
   if (/균시차|태양시|공전|이심률/i.test(text) && !/살아온|되짚어/i.test(text)) {
-    return `맞습니다! 지구 공전 궤도 이심률에 따른 균시차(±15분)까지 보면 더 정밀해지죠 👍 다만 가장 큰 왜곡은 일본 표준시 차용(-30분)에서 오기 때문에 이것부터 맞추는 게 1순위입니다. 사주에 관심 많으신가 봐요!`;
+    return `오 균시차까지 아네. 근데 제일 크게 어긋나는 건 표준시 30분 쪽이라 그거부터 맞추는 게 먼저야`;
   }
 
   // 4. 임상 경험 / 살아온 역사 피드백 ("살아온 역사 되짚어보면 표준시 사주가 더 잘맞더라구요")
   if (/살아온|되짚|임상.*맞|경험/i.test(text)) {
-    return `자시(23:30~01:30)는 날짜 변경선과 맞물려 야자시/조자시 논쟁까지 얽히는 가장 민감한 구간입니다! 명리학에서도 본인의 실제 인생 궤적(임상)과 일치하는 기준을 삼는 것이 정답입니다 👍 귀한 경험 공유 감사해요!`;
+    return `결국 내 인생이랑 맞는 기준이 정답이지. 자시 근처는 학파마다 갈려서 더 그럼`;
   }
 
   // 5. 헷갈려요 / 혼란 불평 ("이 말이 더 헷갈려요 ㅡㅡ;;;")
   if (/더\s*헷갈|더\s*혼란|어려워/i.test(text)) {
-    return `쉽게 요약해드릴게요! 본인 태어난 병원 기록 시간에서 '그냥 30분만 빼고' 만세력에 입력하시면 됩니다. 헷갈리시는 본인 출생시각(시/분)을 남겨주시면 딱 계산해드릴게요 :)`;
+    return `병원 기록 시간에서 30분만 빼고 만세력에 넣으면 끝이야. 몇 시 몇 분생인지 남겨주면 계산해줄게`;
   }
 
   // 6. "네바뀌엇네용" / 바뀜 확인 재대댓글
   if (/바뀌|바꼇|바꼈|달라/i.test(text) && !/똑같|안\s*바/i.test(text)) {
-    return `글자가 바뀌셨군요! 👶 사주 시주(時柱)는 말년운과 성향의 디테일을 좌우해서, 바뀐 글자 기준으로 다시 해석해보시면 기존과 성향 풀이가 완전히 다르게 느껴지실 겁니다!`;
+    return `글자 바뀌었구나. 시주 바뀌면 성향 풀이도 꽤 달라져서 다시 보면 느낌 다를 거야`;
   }
 
   // 7. 썸머타임 관련 질문 및 임상
   if (/썸머|서머|일광절약/i.test(text)) {
-    return `썸머타임 적용 연도(한국 87~88년 등)는 인위적으로 1시간을 당긴 거라 -1시간 30분을 빼는 게 표준 학설입니다! 다만 본인 임상에서 다르게 느껴지셨다면 실제 출생 분(分)이나 지역 경도 편차를 대조해보시는 걸 추천드려요!`;
+    return `87~88년생이면 썸머타임까지 껴서 1시간 30분 빼는 게 보통이야. 체감이랑 다르면 분 단위로 다시 봐봐`;
   }
 
   // 8. 비판/반론 (만세력 어플에 다 적용되어 있다 / 혼란 가중 등)
   if (/만세력|어플|혼란|다\s*알고/i.test(text)) {
-    return `맞습니다! 최신 만세력 앱들은 표준시 보정 옵션이 기본 탑재되어 있죠 👍 다만 본인 출생시각을 앱에 넣을 때 '이미 보정된 시간'인지 모르고 두 번 빼거나, 병원 기록 그대로 헷갈려하시는 분들이 여전히 많아 짚어드린 내용입니다 :)`;
+    return `맞아, 요즘 앱은 보정 옵션 다 있음. 근데 이미 보정된 시간을 또 넣어서 두 번 빼는 경우가 꽤 많더라`;
   }
 
   // 9. 야자시 / 조자시 관련 질문
   if (/야자시|조자시/i.test(text)) {
-    return `야자시/조자시는 역학계에서도 수백 년간 갈리는 최대 난제죠 😅 30분 보정(23:30 기준)을 먼저 적용해보시면 어느 쪽 해석이 본인 실제 인생 궤적과 맞는지 훨씬 명확해집니다!`;
+    return `야자시 조자시는 진짜 끝없는 논쟁이지 ㅋㅋ 30분 빼고 둘 다 대입해보면 어느 쪽인지 감 옴`;
   }
 
   // 10. 외국 / 해외 출생자
   if (/외국|해외|미국|유럽|일본|중국|캐나다|호주|이민|출생국/i.test(text)) {
-    return `외국 태생은 30분 빼시면 안 됩니다! ❌ 한국만 일본 표준시(동경 135도)를 쓰고 있어서 -30분 보정하는 거라, 외국은 '출생 국가 현지 시간 + 해당 도시 경도' 기준으로 봐야 합니다. 태어나신 국가/도시가 어디신가요?`;
+    return `외국에서 태어났으면 30분 빼면 안 돼. 그건 한국 표준시 얘기라서. 어느 나라 어느 도시야?`;
   }
 
   // 11. 구체적 시간 언급 파싱:
@@ -341,65 +341,72 @@ function generateDomainReply(commentItem, parentPostText = '') {
 
     // 특별 시간대 대응 (23:00 ~ 23:29 -> 30분 빼면 22시 후반 해시!)
     if (hour === 23 && minute < 30) {
-      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 자시(23:30~)가 아니라 '해시(亥時, 21:30~23:30)'가 됩니다! 23시 넘었다고 자시로 착각하기 쉬운데, 날짜와 시주 모두 전날로 유지되는 케이스입니다 👍`;
+      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 자시 아니고 해시(21:30~23:30)야. 날짜도 전날 그대로고`;
     }
 
     // 특별 시간대 대응 (23:30 ~ 23:59 -> 30분 빼면 23시 초반 해시!)
     if (hour === 23 && minute >= 30 && minute <= 59 && saju.adjustedTotal < 23 * 60 + 30) {
-      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 자시(23:30~) 직전인 '해시(亥時, 21:30~23:30)'가 됩니다! 날짜(일진)까지 안 넘어가는 초특급 반전 케이스네요 😮`;
+      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 자시 직전, 해시(21:30~23:30)야. 일진도 안 넘어감`;
     }
 
     // 09:10 ~ 09:20 진시 질문 ("9시10분은 진시맞지?")
     if (hour === 9 && minute <= 20) {
-      return `네 맞습니다! ${rawTimeStr}에서 30분 빼면 약 ${saju.adjustedTimeStr}이라 '${saju.branchName}(${saju.range})' 구간 딱 정중앙입니다 👍 100% ${saju.branchName.slice(0, 2)} 맞으세요!`;
+      return `맞아. ${rawTimeStr}에서 30분 빼도 ${saju.adjustedTimeStr}이라 ${saju.branchName}(${saju.range}) 한가운데야`;
     }
 
     // 09:45 사시 -> 진시 반전 케이스
     if (hour === 9 && minute >= 30 && minute <= 50) {
-      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 사시(09:30~)가 아니라 '${saju.branchName}(${saju.range})'가 100% 맞습니다! 사시생이 아니라 진시생으로 보셔야 합니다 🎯`;
+      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 사시 아니고 ${saju.branchName}(${saju.range})야. ${saju.branchName.slice(0, 2)}생으로 봐야 함`;
     }
 
     // 아기/가족 언급
     if (/애기|아기|아들|딸|아이/i.test(text)) {
-      return `${rawTimeStr}에서 30분 빼면 약 ${saju.adjustedTimeStr}이라 '${saju.branchName}(${saju.range})' 구간이 맞습니다! 기존 시주에서 글자가 바뀌었나요? 👶`;
+      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}, ${saju.branchName}(${saju.range})야. 원래 알던 시주랑 글자 바뀌었어?`;
     }
 
     // 역술가마다 달랐던 고민 (오후 1시 5분 등)
     if (/역술가|다르고|오시|미시/i.test(text)) {
-      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 '${saju.branchName}(${saju.range})'가 100% 맞습니다! 30분 보정을 안 하고 단순히 13시 넘었다고 뒤 글자로 본 분들이 잘못 본 케이스입니다 👍`;
+      return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}이라 ${saju.branchName}(${saju.range})가 맞아. 보정 안 하고 본 데서 다르게 나왔을 거야`;
     }
 
     // 일반 시간 질문
-    return `네! ${rawTimeStr}에서 30분 빼면 약 ${saju.adjustedTimeStr}이라 '${saju.branchName}(${saju.range})' 구간에 해당합니다 👍 30분 경계선만 아니면 글자 변동 없습니다!`;
+    return `${rawTimeStr}에서 30분 빼면 ${saju.adjustedTimeStr}, ${saju.branchName}(${saju.range}) 구간이야`;
   }
 
   // 12. 사시생 / 특정 시주 언급 ("헐 나 여태 사시생으로 알고 있었는데")
   if (/사시생|묘시생|진시생|자시생|축시생|인시생|오시생|미시생|신시생|유시생|술시생|해시생/i.test(text)) {
-    return `태어나신 정확한 시간(시/분)이 어떻게 되시나요? 30분 뺐을 때 앞뒤 글자로 넘어갔는지 바로 계산해드릴게요!`;
+    return `몇 시 몇 분생이야? 30분 빼서 글자 넘어가는지 바로 봐줄게`;
   }
 
   // 13. "알고 있었어 / 알고있었"
   if (/알고\s*있었/i.test(text)) {
-    return `오 역시 이미 알고 계셨군요! 한국인 10명 중 7명이 틀리게 보는데, 제대로 알고 계신 상위 30%이십니다 👏`;
+    return `오 이미 알고 있었네. 은근 모르는 사람 많더라`;
   }
 
   // 14. "30분 빼도 똑같아 / 안 바뀌어 / 그대로"
   if (/똑같|그대로|안\s*바[뀌꾀]|변함\s*없/i.test(text)) {
-    return `시(時)의 정중앙에 걸쳐 계시면 30분 빼도 안 바뀝니다! 원래 알고 계시던 사주가 100% 진짜 본인 사주 맞네요 🎯 혹시 몇 시 태생이신가요?`;
+    return `시 한가운데 태어났으면 30분 빼도 안 바뀌어. 원래 알던 게 맞는 거지`;
   }
 
   // 15. 서울 출생 / 지역 감안 재대댓글
   if (/서울|태어난거/i.test(text)) {
-    return `서울 출생이시면 딱 -32분 편차라 가장 정확하게 보신 게 맞습니다 👍 제대로 알고 계셨네요!`;
+    return `서울이면 30분 빼는 게 맞아. 제대로 보고 있었네`;
   }
 
   // 16. 사주 조금 알아요 등 가벼운 소통
   if (/관심|조금\s*알/i.test(text)) {
-    return `조금 아시는 수준이 아니라 균시차까지 언급하실 정도면 상당한 내공이십니다 👏`;
+    return `조금 알 때가 제일 재밌지 ㅋㅋ 요즘 뭐가 제일 궁금해?`;
   }
 
-  // 17. 기본 참여형 답글
-  return `댓글 감사합니다! 궁금하신 출생 시간대나 현재 고민 상황 남겨주시면 계산해드릴게요 👍`;
+  // 17. 기본 참여형 답글 — fires for every unmatched comment, so vary it.
+  const defaultReplies = [
+    `고마워. 궁금한 거 있으면 태어난 시간이랑 같이 남겨줘`,
+    `오 반갑다. 요즘 제일 고민되는 게 뭐야?`,
+    `댓글 고마워! 몇 시생인지 알려주면 30분 빼서 봐줄게`,
+  ];
+  let hash = 0;
+  for (let i = 0; i < commentItem.id.length; i++) hash += commentItem.id.charCodeAt(i);
+  return defaultReplies[hash % defaultReplies.length];
 }
 
 // 4. Publish reply to Threads
