@@ -1,29 +1,12 @@
 process.loadEnvFile(".env");
 
 import { prisma } from "../src/lib/prisma";
-import { getFreshBrandCredentials } from "../src/lib/threads-api";
+import { lookupThreadsUsername, planRadarSeed } from "../src/lib/reference-radar-seed";
 import { parseBrandConfig, serializeBrandConfigUpdate } from "../src/types/brand";
 
 // One-off seed: fills cosmicpath's empty viralDiscovery.keywords / ownHandle. Never overwrites existing values.
 // Usage: npx tsx scripts/seed-reference-radar.ts [--dry-run] [--own-handle=<name>]
-const KEYWORDS = ["사주", "궁합", "대운", "일주", "신년운세", "사주 궁합", "재물운", "이직 사주"];
-
-async function lookupUsername(brandId: string, threadsUserId: string | null): Promise<string | undefined> {
-  try {
-    if (!threadsUserId) throw new Error("threadsUserId is not set");
-    const { accessToken } = await getFreshBrandCredentials(brandId);
-    const url = `https://graph.threads.net/v1.0/${threadsUserId}?fields=username&access_token=${encodeURIComponent(accessToken)}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Threads API ${response.status}`);
-    const data: unknown = await response.json();
-    const username = typeof data === "object" && data !== null && "username" in data ? data.username : undefined;
-    if (typeof username !== "string" || !username) throw new Error("username missing in response");
-    return username;
-  } catch (error) {
-    console.error(`ownHandle lookup failed: ${error instanceof Error ? error.message : String(error)}`);
-    return undefined;
-  }
-}
+// Without a local .env, run the "Seed Reference Radar" GitHub workflow (same logic, /api/cron/seed-reference-radar).
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -40,13 +23,8 @@ async function main(): Promise<void> {
   if (!brand) throw new Error("Brand cosmicpath not found");
 
   const current = parseBrandConfig(brand.brandConfig).viralDiscovery;
-  const changes: { keywords?: string[]; ownHandle?: string } = {};
-
-  if (current.keywords.length === 0) changes.keywords = KEYWORDS;
-  if (!current.ownHandle) {
-    const ownHandle = ownHandleArg || (await lookupUsername(brand.id, brand.threadsUserId));
-    if (ownHandle) changes.ownHandle = ownHandle;
-  }
+  const ownHandle = current.ownHandle ? undefined : ownHandleArg || (await lookupThreadsUsername(brand.id, brand.threadsUserId));
+  const changes = planRadarSeed(current, ownHandle);
 
   console.log(changes.keywords ? `keywords: 설정 → [${changes.keywords.join(", ")}]` : `keywords: 그대로 (${current.keywords.length}개)`);
   console.log(
