@@ -197,21 +197,49 @@ export function skyBriefEn(now: Date): string | null {
   return lines.join("\n");
 }
 
+// Posts name month-day without a year, so only dates near now count; otherwise next year's "Nov 14" would
+// vouch for this year's.
+const DATE_WINDOW_DAYS = 120;
+
+function tableDayIndexesNear(now: Date): number[] {
+  const today = kstParts(now).dayIndex;
+  return [...SOLAR_TERMS.map((term) => term.at), ...MOON_PHASES.map((moon) => moon.at), ...YEAR_PILLARS.map((year) => year.from)]
+    .map((iso) => kstParts(iso).dayIndex)
+    .filter((dayIndex) => dayIndex >= today - 1 && dayIndex <= today + DATE_WINDOW_DAYS);
+}
+
+function monthDayKey(dayIndex: number): string {
+  const d = new Date(dayIndex * DAY_MS);
+  return `${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+}
+
 // "11월 7일" style dates in a Korean post that match no row of the table (term change, moon, year turn).
 // Only month-day pairs are checked; a bare "11월" or "연말" is a period, not a claim about a day.
 export function findDatesOutsideCalendar(post: string, now: Date): string[] {
-  const known = new Set(
-    [...SOLAR_TERMS.map((term) => term.at), ...MOON_PHASES.map((moon) => moon.at), ...YEAR_PILLARS.map((year) => year.from)]
-      .map((iso) => {
-        const p = kstParts(iso);
-        return `${p.m}-${p.d}`;
-      }),
-  );
+  const known = new Set(tableDayIndexesNear(now).map(monthDayKey));
   const today = kstParts(now);
   known.add(`${today.m}-${today.d}`);
   const outside: string[] = [];
   for (const match of post.matchAll(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/g)) {
     if (!known.has(`${Number(match[1])}-${Number(match[2])}`)) outside.push(match[0]);
+  }
+  return [...new Set(outside)];
+}
+
+const MONTH_INDEX: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
+// "Nov 7" / "November 7th" dates in an English post that match no row of the table. The day before a KST date
+// also counts: in the US the same moment falls on the previous evening.
+export function findEnglishDatesOutsideCalendar(post: string, now: Date): string[] {
+  const known = new Set<string>();
+  for (const dayIndex of [...tableDayIndexesNear(now), kstParts(now).dayIndex]) {
+    known.add(monthDayKey(dayIndex));
+    known.add(monthDayKey(dayIndex - 1));
+  }
+  const outside: string[] = [];
+  for (const match of post.matchAll(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/gi)) {
+    const month = MONTH_INDEX[match[1].toLowerCase()];
+    if (!known.has(`${month}-${Number(match[2])}`)) outside.push(match[0]);
   }
   return [...new Set(outside)];
 }

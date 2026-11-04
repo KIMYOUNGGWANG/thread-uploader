@@ -39,7 +39,7 @@ import {
   OWN_SHAPE_MODE_IDS,
   RANKED_TERM_MODE_IDS,
 } from "@/lib/viral-intent-modes";
-import { findDatesOutsideCalendar, skyBriefKo } from "@/lib/sky-calendar";
+import { findDatesOutsideCalendar, findEnglishDatesOutsideCalendar, skyBriefEn, skyBriefKo } from "@/lib/sky-calendar";
 import { NEW_YEAR_BRANDS, newYearSlotMode, type NewYearModeId } from "@/lib/new-year/new-year-season";
 import { buildNewYearBrief, buildNewYearLink, checkNewYearFacts, newYearFirstComment } from "@/lib/new-year/new-year-content";
 import { formatViralPromptContext } from "@/lib/viral-analysis";
@@ -387,7 +387,8 @@ async function generateWithQuality(
     }
     // A timely post may only name dates the calendar table has (term changes, moons, the year turn).
     if (experiment.calendarBrief) {
-      const outside = findDatesOutsideCalendar(post, experiment.calendarNow ?? new Date());
+      const calendarNow = experiment.calendarNow ?? new Date();
+      const outside = isEnglish ? findEnglishDatesOutsideCalendar(post, calendarNow) : findDatesOutsideCalendar(post, calendarNow);
       if (outside.length > 0) {
         gate = { ...gate, pass: false, reasons: [`달력 데이터에 없는 날짜: ${outside.join(", ")} — [달력 데이터]의 날짜만 써`, ...gate.reasons] };
       }
@@ -1309,6 +1310,14 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       if (formulaMode.id === "timely_forecast" && calendarBrief) {
         experiment.calendarBrief = calendarBrief;
         experiment.calendarNow = new Date();
+      }
+      // Global sky_now: real solar-term/moon dates in English. Past the table the shape check drops the draft.
+      if (formula.id === "sky_now") {
+        const brief = skyBriefEn(new Date());
+        if (brief) {
+          experiment.calendarBrief = brief;
+          experiment.calendarNow = new Date();
+        }
       }
       return generateWithQuality(
         experiment,

@@ -550,6 +550,11 @@ const LEGACY_FORMULA_MAP: Record<string, ViralIntentModeId> = {
   all_twelve_series: "saveable_tool",
   two_birthday_compatibility: "friend_share",
   destiny_partner_sign: "relationship_tension",
+  // Benchmark global formulas set their own shape; the observation mode adds no template of its own.
+  element_bridge: "friend_share",
+  check_in: "friend_share",
+  sky_now: "friend_share",
+  zodiac_lore: "friend_share",
 };
 
 function isSajuHitModeId(input: unknown): input is ViralIntentModeId {

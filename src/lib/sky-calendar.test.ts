@@ -56,3 +56,13 @@ describe("findDatesOutsideCalendar", () => {
     expect(findDatesOutsideCalendar("11월에 풀리는 띠", NOW)).toEqual([]);
   });
 });
+
+describe("findEnglishDatesOutsideCalendar", () => {
+  it("accepts table dates and the US evening before, rejects others", async () => {
+    const { findEnglishDatesOutsideCalendar } = await import("@/lib/sky-calendar");
+    expect(findEnglishDatesOutsideCalendar("Nov 7 is Ipdong. The Pig month begins.", NOW)).toEqual([]);
+    expect(findEnglishDatesOutsideCalendar("Friday, November 6th in New York", NOW)).toEqual([]);
+    expect(findEnglishDatesOutsideCalendar("full moon on Nov 24", NOW)).toEqual([]);
+    expect(findEnglishDatesOutsideCalendar("Mercury goes direct on Nov 13", NOW)).toEqual(["Nov 13"]);
+  });
+});
