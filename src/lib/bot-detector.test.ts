@@ -29,6 +29,20 @@ describe("bot-detector", () => {
     expect(isBotUserAgent(macChrome)).toBe(false);
   });
 
+  it("counts Instagram, Threads and Pinterest in-app browsers as humans", () => {
+    const instagramIos = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E236 Instagram 323.0.3.23.54 (iPhone15,2; iOS 17_4; ko_KR; ko; scale=3.00; 1179x2556; 580117040)";
+    const instagramAndroid = "Mozilla/5.0 (Linux; Android 14; SM-S918N Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.82 Mobile Safari/537.36 Instagram 329.0.0.41.93 Android (34/14; 480dpi; 1080x2340; samsung; SM-S918N; dm3q; qcom; ko_KR; 591192899)";
+    const threadsIos = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E236 Barcelona 323.0.3.23.54 (iPhone15,2; iOS 17_4; ko_KR; ko; scale=3.00; 1179x2556; 580117040)";
+    const pinterestApp = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [Pinterest/iOS]";
+
+    expect(isBotUserAgent(instagramIos)).toBe(false);
+    expect(isBotUserAgent(instagramAndroid)).toBe(false);
+    expect(isBotUserAgent(threadsIos)).toBe(false);
+    expect(isBotUserAgent(pinterestApp)).toBe(false);
+    expect(isBotUserAgent("Pinterestbot/1.0 (+http://www.pinterest.com/bot.html)")).toBe(true);
+    expect(isBotUserAgent("meta-externalagent/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)")).toBe(true);
+  });
+
   it("treats null, undefined, or empty User-Agent as bot", () => {
     expect(isBotUserAgent(null)).toBe(true);
     expect(isBotUserAgent(undefined)).toBe(true);

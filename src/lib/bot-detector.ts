@@ -10,14 +10,15 @@ const BOT_USER_AGENT_PATTERNS: readonly RegExp[] = [
   /facebookexternalhit/i,
   /Facebot/i,
   /meta-externalagent/i,
-  /Instagram/i,
+  // In-app browsers (Instagram, Threads "Barcelona", Pinterest, Facebook FBAN/FBAV) are real people tapping a link.
+  // Meta's link preview fetcher is facebookexternalhit / meta-externalagent above, so app names never mark a bot.
   /Twitterbot/i,
   /LinkedInBot/i,
   /Slackbot/i,
   /Discordbot/i,
   /TelegramBot/i,
   /WhatsApp/i,
-  /Pinterest/i,
+  /Pinterestbot/i,
   /SkypeUriPreview/i,
 
   // Search Engine Crawlers

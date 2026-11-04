@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkReadabilityRules, checkTemplateCap, endsWithNumberedChoices, findJargonTerms, opensWithReversal, tightenChoiceLines } from "@/lib/readability-rules";
+import { checkReadabilityRules, checkTemplateCap, endsWithNumberedChoices, findJargonTerms, findLectureReason, opensWithReversal, tightenChoiceLines } from "@/lib/readability-rules";
 
 describe("checkReadabilityRules", () => {
   it("fails a post with several jargon terms", () => {
@@ -183,5 +183,44 @@ describe("template detectors", () => {
     expect(endsWithNumberedChoices("고민임\n1. 바로 간다\n2. 기다린다")).toBe(true);
     expect(endsWithNumberedChoices("A) 가\nB) 나")).toBe(true);
     expect(endsWithNumberedChoices("고민임\n1. 하나만")).toBe(false);
+  });
+});
+
+// 2026-11-04: the live feed turned into lectures that told readers to skip fortunes and do homework; the account's
+// breakout posts end on a punchline. These are real published bodies (lecture) and the brand-voice winners (pass).
+describe("lecture and homework endings", () => {
+  const LECTURES = [
+    "연락 3일 중 먼저 보낸 게 나만 세 번이면 그건 운세보다 숫자가 먼저 말해줌.\n먼저 보내는 쪽이 늘 나인 것도 운세 탓이 아님.\n지금 고백할래, 아니면 기다릴래?",
+    "알림은 매주 '조심하라'고만 함.\n이직 날짜, 버틸 생활비, 포기 기준 숫자 세 개만 적어. 그 칸이 비어 있으면 결정은 불안이 내리는 거임.\n지금 존버할 건지, 판 엎을 건지?",
+    "태어난 시간 모르면 사주는 못 본다는 말, 반만 맞음.\n오늘 할 일: 부모님께 몇 시 몇 분인지 한 번 더 물어보고 메모해둬.\n지금 제일 가까운 쪽 골라봐.",
+    "성격 차이로 끝난 연애, 사실 성격은 멀쩡했을 가능성이 큼.\n지금 나는 밀고 있는지 기다리고 있는지 한 줄로 적어봐.\n지난 연애에서 먼저 지친 쪽이 늘 너였음?",
+  ];
+  const WINNERS = [
+    "혹시 '도화'보다 센 '홍염'보다 센 게 뭔지 알아?\n바로 '화개'야.\n화려함을 덮는다는 뜻인데 이게 터지면 스님도 파계시킴.",
+    "점집 가서 5만원 쓰고 타로집 가서 3만원 쓸 바에\n치킨이나 사 먹지 그랬어.",
+    "사주에 진술축미 깔려있어? 축하해.\n넌 타고난 돈 창고를 가진 거야.\n근데 창고 문 여는 열쇠가 언제 들어오는지 알아야 해.",
+    "자, 상상해봐. 퇴근길에 산 복권 1등 됐어.\n제일 먼저 뭐 할 거야?\n1. 냅다 퇴사\n2. 내 집 마련\n3. 조용히 회사 다님",
+  ];
+
+  it.each(LECTURES)("fails a lecture or homework post: %s", (post) => {
+    expect(findLectureReason(post)).not.toBeNull();
+    expect(checkReadabilityRules(post, "").pass).toBe(false);
+  });
+
+  it.each(WINNERS)("passes a breakout-shaped post: %s", (post) => {
+    expect(findLectureReason(post)).toBeNull();
+  });
+
+  it("only reads homework imperatives in the closing lines", () => {
+    expect(findLectureReason("적어두면 좋은 건 따로 있음.\n돈 창고는 타고나는 거임.\n문 열리는 때가 다를 뿐.\n그게 대운임.")).toBeNull();
+  });
+});
+
+describe("jargon cap option", () => {
+  const RANKED = "도화살보다 센 홍염살보다 센 게 뭔지 알아?\n바로 화개살이야.\n화려함을 덮는다는 뜻인데 이게 터지면 스님도 파계시킴.";
+
+  it("keeps one term by default and lets concept_hierarchy rank three", () => {
+    expect(checkReadabilityRules(RANKED, "").pass).toBe(false);
+    expect(checkReadabilityRules(RANKED, "", { maxJargonTerms: 3 }).pass).toBe(true);
   });
 });

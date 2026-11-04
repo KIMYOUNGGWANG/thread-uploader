@@ -6,11 +6,10 @@ import { formatGrowthPromptContext, parseStoredGrowthMemory } from "@/lib/growth
 import { findProhibitedPhrases, readProhibitedPhrases } from "@/lib/trend-radar/negative-pattern-learner";
 import { formatTrendRadarContext, readTrendRadar } from "@/lib/trend-radar/trend-radar-memory";
 import { isValidCampaignLandingUrl } from "@/lib/product-auto-setup";
-import { checkQuality, type QualityResult } from "@/lib/quality-gate";
+import { checkQuality, findFirstLineChartGate, type QualityResult } from "@/lib/quality-gate";
 import {
   checkAntiRepeatSimilarity,
   checkStructureRepeat,
-  extractStructureSignature,
   formatAntiRepeatContext,
   type RecentPostSummary,
 } from "@/lib/anti-repeat-memory";
@@ -59,7 +58,7 @@ import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
 import { judgeReadability } from "@/lib/readability-judge";
 import { chainDraftsByTone, judgeTone, toneReason } from "@/lib/tone-judge";
-import { checkReadabilityRules, checkTemplateCap, opensWithReversal, tightenChoiceLines } from "@/lib/readability-rules";
+import { checkReadabilityRules, checkTemplateCap, tightenChoiceLines } from "@/lib/readability-rules";
 import { lengthGateReason, lengthPromptLines, loadLengthExperimentState, planLengthArms, shuffleArms } from "@/lib/length-experiment";
 import { backlogHorizon } from "@/lib/queue-refill";
 import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
@@ -325,6 +324,8 @@ async function generateWithQuality(
   // Word overlap and a shared skeleton both count as a repeat; the skeleton rules are Korean saju templates,
   // so other profiles only get the word-overlap check.
   const checkStructure = experiment.qualityProfile === "saju_viral";
+  // concept_hierarchy ranks 2-3 terms of one kind, so it gets a wider jargon cap and a judge that expects it.
+  const rankedTerms = experiment.viralIntentMode?.id === "concept_hierarchy";
   const runQualityGate = (post: string, firstComment: string): QualityResult => {
     let gate: QualityResult = enforceGeneratedSurfaceSafety(
       checkQuality(post, experiment.qualityProfile, qualityContext),
@@ -379,7 +380,7 @@ async function generateWithQuality(
     }
     // Saju jargon cap, unanswerable questions, invented first-person stories (cosmicpath Korean posts only)
     if (experiment.qualityProfile === "saju_viral") {
-      const readability = checkReadabilityRules(post, firstComment);
+      const readability = checkReadabilityRules(post, firstComment, { maxJargonTerms: rankedTerms ? 3 : 1 });
       if (!readability.pass) {
         gate = { ...gate, pass: false, reasons: [...readability.reasons, ...gate.reasons] };
       }
@@ -406,7 +407,7 @@ async function generateWithQuality(
       if (!verdict.natural) gate = { ...gate, pass: false, reasons: [`unnatural English: ${verdict.reason}`, ...gate.reasons] };
     }
     if (gate.pass && experiment.qualityProfile === "saju_viral") {
-      const verdict = await judgeReadability(post, firstComment);
+      const verdict = await judgeReadability(post, firstComment, { rankedTerms });
       if (!verdict.readable) gate = { ...gate, pass: false, reasons: [`읽힘 판정 실패: ${verdict.reason}`, ...gate.reasons] };
     }
     return gate;
@@ -592,6 +593,9 @@ function buildGenerationPrompt(
         // produced drafts the gate then dropped.
         `- [Charlie Hills 2-Line Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내로 그 단언의 이유나 의외의 결과를 보여준다. 'X가 아니라 Y' 뒤집기 틀은 쓰지 않고, 비교가 필요하면 '~보다'를 한 번만 쓴다.`,
         "- [첫 줄 스크롤 멈춤]: 첫 줄은 누구나 겪어본 구체 상황이나 통념 반박으로 스크롤을 멈추게 한다. 숫자는 프롬프트에 주어진 것만 쓰고 지어내지 않는다. 첫 줄은 사주를 모르는 사람도 읽히게 쓰고, '신금 일주는', '일간이 ~', '도화살 있으면' 같은 독자 사주 전제로 시작하지 않는다. 살·일주는 둘째 줄 이후에 근거로만 쓴다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
+        ...(viralIntentMode.id === "concept_hierarchy"
+          ? ["- [개념 서열 예외]: 이번 글은 개념 서열 모드라 위 첫 줄 규칙의 '살·일주는 둘째 줄 이후' 제한을 따르지 않는다. 첫 줄에서 같은 종류 개념 2~3개를 '~보다 센'으로 줄 세운다(예: '도화'보다 센 '홍염'보다 센 게 뭔지 알아?)."]
+          : []),
         ...(isInfoReference ? [] : ["- [Single-Point Razor]: 원문이나 여러 주제를 요약/나열하지 말고, 상식을 뒤집는 단 하나의 반직관적 주장(Contrarian Insight)에만 모든 문장을 집중할 것."]),
         "- [Focused Conflict]: 타겟과 상황에 제시된 페르소나의 실전 마찰 1개만 깊게 파고들고, 여러 갈등이나 딜레마를 백화점식으로 나열하지 말 것.",
         "- [No Factual Hallucination]: 프롬프트에 제공되지 않은 가짜 개인 일화나 날조된 매출/사례 숫자를 지어내지 말고, 구조적 관찰과 냉철한 논리로 설득할 것.",
@@ -836,8 +840,10 @@ function formatCampaignPrompt(experiment: GrowthExperiment): string[] {
 // Mirrors the saju_viral quality gate so drafts are written to pass it instead of being discarded.
 const SAJU_VIRAL_REQUIREMENTS = [
   "[필수 조건 — 하나라도 빠지면 품질 게이트에서 폐기됨]",
-  "- 사주·궁합·운세 같은 단어는 자연스럽게 1번 이상 나온다. 사주 전문 용어(일간·재성·관성·도화살 등)는 1개까지만 쓰고, 쓰면 그 문장이나 바로 다음 문장에서 쉬운 말로 푼다.",
-  "- 기준 독자는 사주를 모르는 25~35세다. 독자가 자기 사주를 몰라도 오늘 써먹을 생각이나 행동 하나를 남긴다.",
+  "- 사주·궁합·운세 같은 단어는 자연스럽게 1번 이상 나온다. 사주 전문 용어(일간·재성·관성·도화살 등)는 1개까지만 쓰고(개념 서열 모드는 서열 안에서 3개까지), 쓰면 그 문장이나 바로 다음 문장에서 쉬운 말로 푼다.",
+  "- 기준 독자는 사주를 모르는 25~35세다. 읽고 나서 저장하거나, 친구에게 보내거나, '이거 나잖아' 하고 댓글을 달고 싶어지게 쓴다.",
+  "- 독자를 가르치지 않는다. '적어봐', '세봐', '오늘 할 일' 같은 숙제로 끝내지 말고, 판정을 세게 박는 단언·비유 한 줄이나 바로 답할 수 있는 질문으로 끝낸다.",
+  "- 사주·운세를 깎아내리지 않는다. '운세 볼 시간에', '운세 탓 아님', '운세보다 숫자가 먼저' 같은 말은 쓰지 않는다.",
   "- 마지막 질문과 첫 댓글은 독자가 자기 경험만으로 답할 수 있어야 한다. 독자의 원국·일주·사주 구조를 묻지 않는다.",
   "- 마지막 질문과 첫 댓글에는 사주 전문 용어를 쓰지 않는다. 첫 줄에 쓴 용어(예: 화개살)도 마지막 질문에서 되풀이하지 않는다.",
   "- 첫 댓글에 지어낸 1인칭 경험담을 쓰지 않는다.",
@@ -1020,10 +1026,12 @@ const REVERSAL_CAPPED_PROMPT_KO =
   "[첫 줄 제한]\n첫 두 줄에 '~가 아니라', '~아님', '~이 아니고' 같은 뒤집기를 쓰지 않는다. 비교가 필요하면 '~보다'로 쓴다.";
 // The template cap counts posts readers see or will see ("발행·대기 글"). This run's drafts carry no status and count;
 // archived, failed, and review-queue posts do not, so a regate that archives choice posts frees the cap.
-// Reference hooks shown as "검증 훅" get copied, so saju_viral only shows ones its gate would let through:
-// jargon cap, no "X가 아니라 Y" opener, no chained "A보다 센 B" ranking.
-function isReadableSajuHook(hook: string): boolean {
-  return checkReadabilityRules(hook, "").pass && !opensWithReversal(hook) && extractStructureSignature(hook).opener !== "hierarchy";
+// Reference hooks shown as "검증 훅" get copied. 2026-11-04: they used to be filtered through the readability gate,
+// which dropped the account's own 12.2만 "도화보다 센 홍염보다 센 화개" hook along with every other ranking or reversal
+// hook, so the prompt only modelled advice posts. Now only hooks no draft may ever carry are dropped: overclaims,
+// leaked meta text, and first lines that presume the reader's chart. Jargon and template caps still apply per draft.
+function isSafeReferenceHook(hook: string): boolean {
+  return !hasFortuneOverclaim(hook) && !hasGeneratedMeta(hook) && !findFirstLineChartGate(hook.split("\n")[0] ?? "");
 }
 
 const TEMPLATE_CAP_STATUSES = new Set(["PUBLISHED", "PUBLISHING", "PARTIAL_FAILED", "PENDING"]);
@@ -1103,7 +1111,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   const prohibitedPhrases = readProhibitedPhrases(brand.brandConfig);
   const growthContext = formatGrowthPromptContext(growthMemory);
   const viralContext = [
-    formatViralPromptContext(parseViralMemory(brand.viralMemory), domainProfile === "saju_viral" ? isReadableSajuHook : undefined),
+    formatViralPromptContext(parseViralMemory(brand.viralMemory), domainProfile === "saju_viral" ? isSafeReferenceHook : undefined),
     formatTrendRadarContext(readTrendRadar(brand.brandConfig)),
   ].filter(Boolean).join("\n\n");
   const notAnchor = { brandId, status: { not: INSTAGRAM_BIO_ANCHOR_STATUS } };
