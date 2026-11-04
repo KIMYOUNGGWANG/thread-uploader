@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { checkReadabilityRules } from "@/lib/readability-rules";
 import { judgeReadability } from "@/lib/readability-judge";
+import { REFERENCE_REPLAY_MANUAL_TAG } from "@/lib/reference-replay";
 import { parseBrandConfig } from "@/types/brand";
 
 export const maxDuration = 300; // one judge call per pending post, run sequentially
@@ -25,7 +26,10 @@ function generatedFirstComment(stored: string | null): string {
     .trim();
 }
 
-// Re-checks PENDING posts against the readability rules. Preview by default; apply=true archives (never deletes) the failures.
+// Re-checks PENDING posts (or NEEDS_REVIEW with status=NEEDS_REVIEW) against the readability rules.
+// Preview by default; apply=true archives (never deletes) the failures. NEEDS_REVIEW counts toward refill's backlog,
+// so drafts written under older rules that nobody reviews stall generation (2026-11-04: 13 of 14 backlog slots).
+const REGATE_STATUSES = new Set(["PENDING", "NEEDS_REVIEW"]);
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -33,6 +37,8 @@ export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("brand")?.trim();
   if (!slug) return NextResponse.json({ error: "brand is required" }, { status: 400 });
   const apply = request.nextUrl.searchParams.get("apply") === "true";
+  const status = request.nextUrl.searchParams.get("status")?.trim() || "PENDING";
+  if (!REGATE_STATUSES.has(status)) return NextResponse.json({ error: "status must be PENDING or NEEDS_REVIEW" }, { status: 400 });
 
   const brand = await prisma.brand.findUnique({ where: { slug } });
   if (!brand) return NextResponse.json({ error: `Brand not found: ${slug}` }, { status: 404 });
@@ -40,7 +46,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "regate-pending supports saju_viral brands only" }, { status: 400 });
   }
 
-  const pending = await prisma.post.findMany({ where: { brandId: brand.id, status: "PENDING" }, orderBy: { createdAt: "asc" } });
+  const pending = await prisma.post.findMany({ where: { brandId: brand.id, status }, orderBy: { createdAt: "asc" } });
   // Filtered in JS: a SQL NOT startsWith would also drop posts whose formulaId is NULL.
   const posts = pending.filter((post) => !(post.formulaId ?? "").startsWith("video:"));
 
@@ -48,6 +54,11 @@ export async function GET(request: NextRequest) {
   const skipped: { id: string; reason: string }[] = [];
   let archived = 0;
   for (const post of posts) {
+    // A draft rewritten from a post the operator pasted by hand waits for that operator; never archive it here.
+    if (parseReasons(post.qualityReasons).includes(REFERENCE_REPLAY_MANUAL_TAG)) {
+      skipped.push({ id: post.id, reason: "manual reference" });
+      continue;
+    }
     const firstComment = generatedFirstComment(post.firstComment);
     // Same per-mode allowance generation gives: concept_hierarchy ranks up to 3 terms of one kind.
     const rankedTerms = post.formulaId === "concept_hierarchy" || post.campaignFormulaId === "concept_hierarchy";
@@ -63,12 +74,12 @@ export async function GET(request: NextRequest) {
       const qualityReasons = [...parseReasons(post.qualityReasons), `regate_readability_failed: ${reasons.join(" / ")}`];
       // The judge loop is slow: the publish cron may have claimed this post since we read it, so only archive while still PENDING.
       const { count } = await prisma.post.updateMany({
-        where: { id: post.id, status: "PENDING" },
+        where: { id: post.id, status },
         data: { status: "ARCHIVED", qualityReasons: JSON.stringify(qualityReasons) },
       });
-      if (count === 0) skipped.push({ id: post.id, reason: "no longer PENDING" });
+      if (count === 0) skipped.push({ id: post.id, reason: `no longer ${status}` });
       else archived += count;
     }
   }
-  return NextResponse.json({ brand: slug, apply, checked: posts.length, failed, archived, skipped });
+  return NextResponse.json({ brand: slug, status, apply, checked: posts.length, failed, archived, skipped });
 }

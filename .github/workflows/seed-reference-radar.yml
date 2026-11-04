@@ -1,0 +1,35 @@
+name: Seed Reference Radar
+
+# 수동 실행 전용 — cosmicpath 레퍼런스 레이더 키워드·ownHandle이 비어 있을 때만 채운다(기존 값은 덮어쓰지 않음).
+# 키워드가 비어 있으면 viral 크론이 no_keywords로 건너뛰어 다른 계정 글을 하나도 수집하지 않는다.
+# apply를 끄면 미리보기만 한다.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '비어 있는 값을 실제로 저장 (끄면 미리보기)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: seed-reference-radar
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Seed reference radar
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          query="brand=cosmicpath"
+          if [ "$APPLY" = "true" ]; then query="${query}&apply=true"; fi
+          curl --fail-with-body --show-error --silent --location --max-time 120 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/seed-reference-radar?${query}"
+          echo
