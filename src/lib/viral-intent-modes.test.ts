@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   checkViralModeFidelity,
   IDENTITY_MARKER_PATTERN,
+  SAJU_HIT_MODES,
   normalizeViralIntentModeId,
   resolveViralIntentMode,
   selectViralIntentMode,
@@ -212,5 +213,30 @@ describe("referenceReplayMode", () => {
   it("resolves ref_replay_info and has an English label", () => {
     expect(resolveViralIntentMode("ref_replay_info", 0).id).toBe("ref_replay_info");
     expect(ENGLISH_VIRAL_MODE_LABELS.ref_replay_info.instruction).toMatch(/link|tool|resource/i);
+  });
+});
+
+describe("benchmark modes (2026-11-04)", () => {
+  const IDENTITY = "<무당도 절하는 사주>\n1. 눈치 빠름\n2. 혼자 있을 때 충전됨\n어떤 사주냐면,\n===NEXT===\n화개살 있는 사람이야.\n===NEXT===\n만세력 신살 칸에서 확인돼. 저장해둬.";
+
+  it("requires ===NEXT=== parts for the thread modes", () => {
+    expect(checkViralModeFidelity(IDENTITY, "identity_list").failureCodes).not.toContain("missing_thread_parts");
+    expect(checkViralModeFidelity(IDENTITY.replace(/===NEXT===/g, ""), "identity_list").failureCodes).toContain("missing_thread_parts");
+    expect(checkViralModeFidelity("1단계 만세력 앱 깔기", "self_check_guide").failureCodes).toContain("missing_thread_parts");
+  });
+
+  it("requires a calendar anchor and an animal for timely_forecast", () => {
+    const ok = "11월 7일 입동부터 흐름 바뀌는 띠\n1. 호랑이띠 - 막혔던 일 풀림\n해당되는 사람 태그해";
+    expect(checkViralModeFidelity(ok, "timely_forecast").pass).toBe(true);
+    expect(checkViralModeFidelity("요즘 흐름 바뀌는 띠\n1. 호랑이띠", "timely_forecast").failureCodes).toContain("missing_calendar_anchor");
+  });
+
+  it("offers the benchmark modes in the lean sprint pool", () => {
+    const ids = SAJU_HIT_MODES.map((mode) => mode.id);
+    expect(ids).toEqual(expect.arrayContaining(["identity_list", "timely_forecast", "self_check_guide"]));
+    for (const id of ["identity_list", "timely_forecast", "self_check_guide"] as const) {
+      const rules = SAJU_HIT_MODES.find((mode) => mode.id === id)?.rules ?? [];
+      expect(rules.find((rule) => rule.startsWith("첫 댓글:"))).toContain("링크·홍보 문구는 넣지 않는다");
+    }
   });
 });

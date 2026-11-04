@@ -17,6 +17,9 @@ export type ViralIntentModeId =
   | "wealth_vault_unlock"
   | "talent_reality_check"
   | "fact_bomb_incumbent_attack"
+  | "identity_list"
+  | "timely_forecast"
+  | "self_check_guide"
   | "winner_replay"
   | "ref_replay"
   | "ref_replay_info"
@@ -36,7 +39,9 @@ export type ViralModeFidelityFailureCode =
   | "missing_hierarchy"
   | "missing_identity_marker"
   | "missing_relationship_contrast"
-  | "missing_beginner_question";
+  | "missing_beginner_question"
+  | "missing_thread_parts"
+  | "missing_calendar_anchor";
 
 export interface ViralModeFidelityResult {
   readonly pass: boolean;
@@ -47,6 +52,15 @@ export const FORMAL_TONE_PATTERN = /(?:습니다|합니다|됩니다|입니다|�
 // "A가 아니라 B" and "A일 뿐, 정작 B" count as comparisons: with "보다 센" banned as a template, drafts rank concepts this way.
 const HIERARCHY_PATTERN = /보다\s*센|보다|아니라|아니고|아님|뿐|정작|(?:^|\s)vs(?:\s|$)|[<>＜＞]/gi;
 export const IDENTITY_MARKER_PATTERN = /화개살?|도화살?|홍염살?|문창귀인|천을귀인|진술축미|(?:신금|경금|갑목|을목|병화|정화|무토|기토|임수|계수)\s*(?:일주|타입)/;
+// Modes whose posts are a hook plus the author's own replies (===NEXT=== parts), and modes that may name up to
+// three saju concepts because the list or the ranking is the point.
+export const THREAD_PART_MODE_IDS: ReadonlySet<string> = new Set(["identity_list", "self_check_guide"]);
+export const RANKED_TERM_MODE_IDS: ReadonlySet<string> = new Set(["concept_hierarchy", "identity_list", "self_check_guide"]);
+// Modes that set their own structure and ending; the rotated closing format would contradict them.
+export const OWN_SHAPE_MODE_IDS: ReadonlySet<string> = new Set(["identity_list", "timely_forecast", "self_check_guide"]);
+// Numbered lines in these modes are a list of items, not a "pick 1/2/3" choice template.
+export const LIST_MODE_IDS: ReadonlySet<string> = new Set(["identity_list", "timely_forecast", "self_check_guide"]);
+const CALENDAR_ANCHOR_PATTERN = /\d{1,2}월|입동|대설|소한|입춘|경칩|청명|입하|망종|소서|입추|백로|한로|보름|그믐|정미년|병오년|연말|새해/;
 const RELATIONSHIP_PATTERN = /연애|궁합|애인|남친|여친|헤어|손절|관계|재회|전남친|전여친|썸|고백|설렘|결혼|이별|연락/;
 const RELATIONSHIP_CONTRAST_PATTERN = /절대|vs|대비|만나면|헤어지|망|놓치|파멸|귀인|원진|상극|보다|아니라|아니고|아님/;
 
@@ -127,6 +141,15 @@ export function checkViralModeFidelity(
 
   if (modeId === "beginner_qa" && !/[?？]/.test(opening)) {
     failureCodes.push("missing_beginner_question");
+  }
+
+  // Thread modes keep the hook short and put the explanation in the author's own replies.
+  if (THREAD_PART_MODE_IDS.has(modeId) && !/^[ \t]*===NEXT===[ \t]*$/m.test(content)) {
+    failureCodes.push("missing_thread_parts");
+  }
+
+  if (modeId === "timely_forecast" && !(/띠/.test(content) && CALENDAR_ANCHOR_PATTERN.test(opening))) {
+    failureCodes.push("missing_calendar_anchor");
   }
 
   return { pass: failureCodes.length === 0, failureCodes };
@@ -345,6 +368,50 @@ export const SAJU_HIT_MODES: readonly ViralIntentMode[] = [
       "첫 댓글: 본문에서 뒤집은 그 통념을 직접 들어봤거나 믿었던 적 있는지 묻는 한 줄. '제일 의심스러운 통념' 같은 일반 질문은 쓰지 않는다. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
+  // 2026-11-04 Threads benchmark (docs/research/2026-11-04-threads-saju-astrology-benchmark.md): the shapes the big
+  // saju accounts post. Same seeded prior as the hit arms above, so they get volume before their own posts exist.
+  {
+    id: "identity_list",
+    label: "정체성 목록 + 끊기 (스레드 사주 계정 1,100 좋아요 검증)",
+    primaryMetric: "saves",
+    instruction: "꺾쇠 제목 '<~한 사주>'로 독자가 '이거 완전 나잖아' 하게 만드는 성격·행동 목록을 쓰고, 어떤 사주인지는 이어지는 답글에서 밝힌다.",
+    rules: [
+      "구조: 본문 → ===NEXT=== → 답글 1 → ===NEXT=== → 답글 2. ===NEXT=== 줄은 그대로 출력한다. 이 구조와 길이가 위의 일반 길이·마무리 규칙보다 우선한다.",
+      "본문(280자 이하): 첫 줄은 '<무당도 절하는 사주>', '<평범한 남자와는 레벨이 안 맞는 여자 사주>'처럼 꺾쇠 제목 한 줄. 이어서 1~6번 목록, 줄마다 25자 안팎의 구체적인 성격·행동(장점과 약점을 섞는다). 마지막 줄은 '어떤 사주냐면,' 한 줄.",
+      "답글 1(300자 이하): 어떤 사주인지 밝힌다. 살·귀인·오행 같은 사주 개념을 3개까지 이름으로 쓰고, 각각 바로 쉬운 말 한 줄로 푼다.",
+      "답글 2(250자 이하): 만세력 앱에 생년월일시를 넣으면 신살·오행 칸에서 확인할 수 있다는 한 줄과, 저장하거나 해당되는 사람에게 보내라는 마무리 한 줄. 어느 일간에 어느 글자 같은 대응표는 쓰지 않는다.",
+      "독자를 추켜세우되 미래를 보장하지 않는다. 할 일·숙제·훈계는 쓰지 않는다. 본문 링크 금지.",
+      "첫 댓글: 목록 중 몇 개가 자기 얘기인지 묻는 한 줄. 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
+  {
+    id: "timely_forecast",
+    label: "띠별 시점 예보 (절기·달 바뀜에 걸기)",
+    primaryMetric: "shares",
+    instruction: "[달력 데이터]에 있는 다가오는 절기·달 바뀜·해 바뀜 하나에 걸어, 그 시기에 흐름이 바뀌는 띠 3~4개를 짚는다. 독자가 자기 띠를 찾아 저장하고 해당되는 사람을 태그하게 만든다.",
+    rules: [
+      "첫 두 줄 안에 [달력 데이터]의 날짜나 절기 이름 하나를 넣는다(예: '11월 7일 입동부터 흐름 바뀌는 띠'). 날짜·간지·달 이름은 [달력 데이터]에 있는 것만 쓰고, 그 밖의 날짜는 쓰지 않는다.",
+      "띠 3~4개를 '1. 호랑이띠 - 막혀 있던 일이 풀리는 흐름'처럼 한 줄씩 쓴다. 띠마다 다른 영역(돈·사람·일·연애)을 짚는다. 출생연도는 쓰지 않는다.",
+      "'~하는 흐름', '~하기 쉬움' 수준으로만 말하고 금액·당첨·특정 사건을 보장하지 않는다.",
+      "마지막 줄은 '해당되는 사람 태그해' 또는 '저장해두고 ○월에 다시 봐' 중 하나. 할 일·숙제는 쓰지 않는다.",
+      "본문 140~300자. 본문 링크 금지.",
+      "첫 댓글: 독자의 띠를 묻는 한 줄. 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
+  {
+    id: "self_check_guide",
+    label: "셀프 사주 확인 가이드 (공유 618 검증)",
+    primaryMetric: "saves",
+    instruction: "'점집에 돈 쓰기 전에, 네 사주 네가 보는 법'처럼 만세력으로 자기 일간 하나를 직접 확인하는 순서를 단계별로 알려주고, 확인한 일간이 무슨 뜻인지 짧게 읽어준다.",
+    rules: [
+      "구조: 본문 → ===NEXT=== → 답글 1 → ===NEXT=== → 답글 2. ===NEXT=== 줄은 그대로 출력한다. 이 구조와 길이가 위의 일반 길이·마무리 규칙보다 우선한다.",
+      "본문(280자 이하): 왜 직접 보는 게 나은지 한두 줄 + 1단계(만세력 앱에 생년월일시를 넣는다. 양력·음력을 구분하고, 태어난 시간을 모르면 시주는 비워 둔다).",
+      "답글 1(350자 이하): 2단계(일간 = 태어난 날 기둥의 위 글자, 그게 '나'다) + 일간 3개를 골라 '갑목 - 곧게 뻗는 나무, 밀고 나가는 타입'처럼 한 줄씩 예로 든다.",
+      "답글 2(250자 이하): 일간을 알면 무엇이 보이는지(나와 맞는 사람·일하는 방식) 한두 줄과, 저장 유도 한 줄. 단정하지 않고 '~한 편' 수준으로 쓴다.",
+      "이 글에 없는 계산법(대운 계산, 신살 대응표)은 쓰지 않는다. 마지막 세 줄에는 적어봐·메모해 같은 숙제 말을 쓰지 않는다. 본문 링크 금지.",
+      "첫 댓글: 확인해 보니 일간이 뭐였는지 묻는 한 줄. 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
 ];
 
 // Rewrites an outside post found in Threads keyword-search TOP (src/lib/reference-replay.ts picks it).
@@ -483,6 +550,11 @@ const LEGACY_FORMULA_MAP: Record<string, ViralIntentModeId> = {
   all_twelve_series: "saveable_tool",
   two_birthday_compatibility: "friend_share",
   destiny_partner_sign: "relationship_tension",
+  // Benchmark global formulas set their own shape; the observation mode adds no template of its own.
+  element_bridge: "friend_share",
+  check_in: "friend_share",
+  sky_now: "friend_share",
+  zodiac_lore: "friend_share",
 };
 
 function isSajuHitModeId(input: unknown): input is ViralIntentModeId {
@@ -731,6 +803,21 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
     ],
   },
   // SAJU_HIT_MODES run only in the Korean lean sprint; these entries keep the map total.
+  identity_list: {
+    label: "Identity List With A Cliffhanger",
+    instruction: "List traits readers recognize in themselves under a bracketed title, and reveal the chart behind them in the replies.",
+    rules: ["Split the post into parts with a line holding only ===NEXT===.", "No link in the body."],
+  },
+  timely_forecast: {
+    label: "Timely Forecast By Zodiac Animal",
+    instruction: "Anchor on one upcoming date from [Sky data] and name the 3-4 animals whose flow turns then.",
+    rules: ["Use only dates from [Sky data].", "No guarantees. No link in the body."],
+  },
+  self_check_guide: {
+    label: "Read Your Own Chart Guide",
+    instruction: "Walk readers step by step to finding their own Day Master, then read it in one line each for three examples.",
+    rules: ["Split the post into parts with a line holding only ===NEXT===.", "No link in the body."],
+  },
   cost_loss_punch: {
     label: "Overpriced Reading Roast",
     instruction: "Name what the reader already paid for a reading and point out they got only generic lines for it.",

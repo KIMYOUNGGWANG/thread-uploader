@@ -4,6 +4,7 @@ import { verifyCronSecret } from "@/lib/cron-auth";
 import { checkReadabilityRules } from "@/lib/readability-rules";
 import { judgeReadability } from "@/lib/readability-judge";
 import { REFERENCE_REPLAY_MANUAL_TAG } from "@/lib/reference-replay";
+import { RANKED_TERM_MODE_IDS } from "@/lib/viral-intent-modes";
 import { parseBrandConfig } from "@/types/brand";
 
 export const maxDuration = 300; // one judge call per pending post, run sequentially
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
     }
     const firstComment = generatedFirstComment(post.firstComment);
     // Same per-mode allowance generation gives: concept_hierarchy ranks up to 3 terms of one kind.
-    const rankedTerms = post.formulaId === "concept_hierarchy" || post.campaignFormulaId === "concept_hierarchy";
+    const rankedTerms = RANKED_TERM_MODE_IDS.has(post.formulaId ?? "") || RANKED_TERM_MODE_IDS.has(post.campaignFormulaId ?? "");
     const rules = checkReadabilityRules(post.content, firstComment, { maxJargonTerms: rankedTerms ? 3 : 1 });
     const reasons = [...rules.reasons];
     if (rules.pass) {

@@ -1,5 +1,5 @@
 import type { Brand } from "@prisma/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const SOURCE = {
   id: "winner_1",
@@ -300,6 +300,11 @@ describe("winner_replay draft gate", () => {
 
     it("still rotates numbered choices in when the cap is not hit", async () => {
       lengthOn();
+      // Benchmark modes (identity_list …) own their ending and skip the rotation, so pin a rotating arm.
+      const { resolveViralIntentMode } = await import("@/lib/viral-intent-modes");
+      const actual = await vi.importActual<typeof import("@/lib/lean-mode-selector")>("@/lib/lean-mode-selector");
+      vi.mocked(selectLeanViralMode).mockImplementation(() => resolveViralIntentMode("identity_profile", 0));
+      onTestFinished(() => { vi.mocked(selectLeanViralMode).mockImplementation(actual.selectLeanViralMode); });
       state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
       await generatePostsForBrand(brand, { ...input, count: 4 });
       expect(state.requests.join("\n")).toContain("1/2/3으로 끝낸다");

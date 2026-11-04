@@ -41,6 +41,16 @@ const ENGLISH_FORMULA_SHAPES: Record<string, string> = {
   all_twelve_series:
     "Then a blank line and exactly 12 lines in zodiac order (Rat, Ox, Tiger, Rabbit, Dragon, Snake, Horse, Goat, Monkey, Rooster, Dog, Pig), each 'Animal: verdict' under 30 characters. " +
     "Then a blank line and one closing line asking readers to save this and find their animal. Whole post under 450 characters. No 'A) ' or 'B) ' option lines.",
+  element_bridge:
+    "Then 3-6 short lines, a blank line between ideas, 150-350 characters in total. " +
+    "End with one line asking which element they are. No 'A) ' or 'B) ' option lines.",
+  check_in:
+    "Then 2-4 short lines, 120-300 characters in total. The last line asks readers to reply with their animal or element. No 'A) ' or 'B) ' option lines.",
+  sky_now:
+    "Then 3-6 short lines, a blank line between ideas, 150-380 characters in total. Name one date from [Sky data] in the first two lines. " +
+    "End with one validating line, not a question. No 'A) ' or 'B) ' option lines.",
+  zodiac_lore:
+    "Then the story in 4-7 short lines, 250-480 characters in total, ending on one line about people born in that animal year. No 'A) ' or 'B) ' option lines.",
   two_birthday_compatibility:
     "Then one sentence per line, a blank line between ideas, 200-420 characters in total. " +
     "The last line asks the reader to send this to that person. No 'A) ' or 'B) ' option lines.",
@@ -318,7 +328,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           id: "trend_correction",
           name: "Trending Zodiac Headline Correction",
           track: "track_a",
-          weight: 5,
+          weight: 2,
           instruction: `Take a trending zodiac headline (e.g. Fire Horse 2026, Fire Goat 2027) and correct it with what Korean saju actually says. Line 1 names what the headlines claim, line 2 contradicts it. Calm, specific, no CTA. ${globalHybridRule("trend_correction")}`,
           hookArchetype: "Headline Correction Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
@@ -327,7 +337,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           id: "real_sign_boundary",
           name: "Your Real Sign May Be Different",
           track: "track_a",
-          weight: 5,
+          weight: 2,
           instruction: `Show why the reader's zodiac animal or chart may be wrong: January to early February births vs ipchun (Feb 4; always spell it 'ipchun') and Lunar New Year, birth time and time zone shifts. End with one concrete self-check the reader can do right now. No CTA. ${globalHybridRule("real_sign_boundary")}`,
           hookArchetype: "Hidden Mistake Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
@@ -353,8 +363,46 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           hookArchetype: "Age Call-Out Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
+        // 2026-11-04 Threads benchmark (docs/research/2026-11-04-threads-saju-astrology-benchmark.md): the shapes that
+        // carry English astrology Threads. "Correct the Western frame" posts barely appear there, so their weight dropped.
+        {
+          id: "element_bridge",
+          name: "Element Bridge: Western Elements to Saju Day Masters",
+          track: "track_a",
+          weight: 4,
+          instruction: `Readers already call themselves fire, earth, air or water signs. Bridge that to saju: name one element group and what saju says that element is like as a Day Master (the element of the day you were born). Relatable and flattering, like an element meme, not a lecture. Never claim a Western sign equals a saju element: saju has five elements (Wood, Fire, Earth, Metal, Water) and no Air. No CTA. ${globalHybridRule("element_bridge")}`,
+          hookArchetype: "Element Identity Hook",
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
+        },
+        {
+          id: "check_in",
+          name: "Check-In Call: Animal Year or Day Master Group",
+          track: "track_a",
+          weight: 4,
+          instruction: `Line 1 calls one group to check in, e.g. 'Horse years, check in.' or 'Water Day Masters, check in.' Then say what that group tends to carry or feel, relatable and warm, never predicting events. Do not list birth years. The last line asks readers to reply with their animal or element. ${globalHybridRule("check_in")}`,
+          hookArchetype: "Check-In Hook",
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
+        },
       ],
       track_b: [
+        {
+          id: "sky_now",
+          name: "Sky Now: Korean Solar Terms and Moon This Week",
+          track: "track_b",
+          weight: 4,
+          instruction: `Tie the post to one upcoming moment from [Sky data] (a solar term that starts a new animal month, a full or new moon, the Ipchun year turn) and say what it means in Korean saju, validating how readers feel right now ("if this week feels heavy, that tracks"). Use only dates and names from [Sky data]; never mention retrogrades or planets. No CTA. ${globalHybridRule("sky_now")}`,
+          hookArchetype: "Right-Now Sky Hook",
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
+        },
+        {
+          id: "zodiac_lore",
+          name: "Zodiac Lore: The Great Race and Animal Stories",
+          track: "track_b",
+          weight: 4,
+          instruction: `Tell one widely known zodiac legend as a short story, e.g. the Great Race where the rat rode the ox and jumped ahead at the finish, and the cat, who missed the race, has chased rats ever since. Call it a legend, keep only the well-known version, and invent no details. End by tying it to people born in that animal year in one line. No CTA. ${globalHybridRule("zodiac_lore")}`,
+          hookArchetype: "Legend Story Hook",
+          forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
+        },
         {
           id: "all_twelve_series",
           name: "All 12 Animals Series",
@@ -472,7 +520,8 @@ const YEAR_BOUNDARY_PATTERN = /\b(?:ip[\s-]?chun|li[\s-]?chun|feb(?:ruary)?\.?\s
 
 export function findBorrowedYearBoundaryClaim(formulaId: string, post: string): string | null {
   // New Year season modes are built on the Lichun boundary (ny_ipchun, ny_monthly), so they co-own the angle.
-  if (formulaId === YEAR_BOUNDARY_OWNER || isNewYearModeId(formulaId) || !YEAR_BOUNDARY_PATTERN.test(post)) return null;
+  // sky_now names the Ipchun year turn as a date from the calendar table, not as the birthday-boundary angle.
+  if (formulaId === YEAR_BOUNDARY_OWNER || formulaId === "sky_now" || isNewYearModeId(formulaId) || !YEAR_BOUNDARY_PATTERN.test(post)) return null;
   return `Off-formula claim: the ipchun year-boundary angle belongs to ${YEAR_BOUNDARY_OWNER}. Write what the ${formulaId} formula asks for, without ipchun or January/February birthdays.`;
 }
 
@@ -480,11 +529,20 @@ export const ZODIAC_ANIMAL_PATTERNS = [/\brats?\b/i, /\box(?:en)?\b/i, /\btigers
 // ponytail: 10 of 12 tolerates a missed or renamed animal; tighten to 12 if drafts start dropping lines.
 const MIN_ANIMALS_NAMED = 10;
 const AB_OPTION_LINE = /^\s*[AB]\)\s/m;
+const BENCHMARK_GLOBAL_FORMULAS: ReadonlySet<string> = new Set(["element_bridge", "check_in", "sky_now", "zodiac_lore"]);
+const ENGLISH_DATE_PATTERN = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b|\bfull moon\b|\bnew moon\b|\bipchun\b|\bipdong\b/i;
 
 /** Minimal shape check for formulas whose shape differs from the shared A/B post. */
 export function findFormulaShapeViolation(formulaId: string, post: string): string | null {
   if (!ENGLISH_FORMULA_SHAPES[formulaId]) return null;
   if (AB_OPTION_LINE.test(post)) return `Off-shape: ${formulaId} does not end with 'A) ' / 'B) ' options. ${englishShapeRule(formulaId)}`;
+  if (formulaId === "check_in" && !/check[\s-]?in/i.test(post.split("\n")[0] ?? "")) {
+    return `Off-shape: check_in line 1 must call a group to check in. ${englishShapeRule(formulaId)}`;
+  }
+  if (formulaId === "sky_now" && !ENGLISH_DATE_PATTERN.test(post.split("\n").slice(0, 3).join("\n"))) {
+    return `Off-shape: sky_now must name one date from [Sky data] in its opening lines. ${englishShapeRule(formulaId)}`;
+  }
+  if (BENCHMARK_GLOBAL_FORMULAS.has(formulaId)) return null;
   if (formulaId === "all_twelve_series") {
     const named = ZODIAC_ANIMAL_PATTERNS.filter((pattern) => pattern.test(post)).length;
     return named >= MIN_ANIMALS_NAMED ? null : `Off-shape: all_twelve_series named ${named} of 12 animals. ${englishShapeRule(formulaId)}`;

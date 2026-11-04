@@ -11,6 +11,8 @@
  * Minimum passing score: 80 / 100
  */
 
+import { threadRootPart } from "@/lib/thread-splitter";
+
 import { validateAntiSlop, validateBurstiness } from "@/lib/marketing-skills";
 import { checkMetaPolicySafety } from "@/lib/meta-policy-guard";
 import { IDENTITY_MARKER_PATTERN, hasFortuneOverclaim, hasReplyBurdenPromise } from "@/lib/viral-intent-modes";
@@ -260,7 +262,8 @@ export function scoreThreadsPostAlgorithmic(
   const formatStrengths: string[] = [];
   const formatWeaknesses: string[] = [];
 
-  const charCount = content.length;
+  // Length is judged on what the feed shows: the root part of a self-reply thread.
+  const charCount = threadRootPart(content).length;
   if (charCount < 80) {
     formatScore -= 5;
     formatWeaknesses.push("분량이 너무 짧아 정보 가치 부족 (-5)");

@@ -122,7 +122,8 @@ describe("ecommerce_d2c batch keeps one claim per formula", () => {
 
   it("lets only real_sign_boundary use the ipchun year-boundary claim", () => {
     expect(findBorrowedYearBoundaryClaim("real_sign_boundary", yearBoundaryDraft)).toBeNull();
-    const borrowers = globalFormulas.filter((formula) => formula.id !== "real_sign_boundary");
+    // sky_now names the Ipchun year turn as a calendar date (2026-11-04), not the birthday-boundary angle.
+    const borrowers = globalFormulas.filter((formula) => formula.id !== "real_sign_boundary" && formula.id !== "sky_now");
     expect(borrowers.length).toBeGreaterThan(0);
     for (const formula of borrowers) {
       expect(findBorrowedYearBoundaryClaim(formula.id, yearBoundaryDraft)).toContain("real_sign_boundary");
