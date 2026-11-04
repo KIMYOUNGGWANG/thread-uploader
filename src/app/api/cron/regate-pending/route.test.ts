@@ -15,6 +15,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/readability-rules", () => ({ checkReadabilityRules: mocks.rules }));
 vi.mock("@/lib/readability-judge", () => ({ judgeReadability: mocks.judge }));
+vi.mock("@/lib/reference-replay", () => ({ REFERENCE_REPLAY_MANUAL_TAG: "ref_replay_manual" }));
 
 const call = async (query: string) => {
   const { GET } = await import("@/app/api/cron/regate-pending/route");
@@ -61,7 +62,7 @@ describe("GET /api/cron/regate-pending", () => {
   it("reports failures without writing when apply is not set", async () => {
     mocks.findPosts.mockResolvedValue([post("p1", { content: "bad" }), post("p2")]);
     const { body } = await call("brand=cosmicpath");
-    expect(body).toEqual({ brand: "cosmicpath", apply: false, checked: 2, failed: [{ id: "p1", reasons: ["룰 위반"] }], archived: 0, skipped: [] });
+    expect(body).toEqual({ brand: "cosmicpath", status: "PENDING", apply: false, checked: 2, failed: [{ id: "p1", reasons: ["룰 위반"] }], archived: 0, skipped: [] });
     expect(mocks.updatePost).not.toHaveBeenCalled();
   });
 
@@ -112,6 +113,26 @@ describe("GET /api/cron/regate-pending", () => {
     expect(mocks.rules).toHaveBeenNthCalledWith(1, "본문 p1", "댓글 p1", { maxJargonTerms: 1 });
     expect(mocks.rules).toHaveBeenNthCalledWith(2, "본문 p2", "댓글 p2", { maxJargonTerms: 3 });
     expect(mocks.judge).toHaveBeenNthCalledWith(2, "본문 p2", "댓글 p2", { rankedTerms: true });
+  });
+
+  // 2026-11-04: 13 unreviewed NEEDS_REVIEW drafts filled refill's backlog and stopped generation.
+  it("regates NEEDS_REVIEW drafts when asked, archiving only while they are still NEEDS_REVIEW", async () => {
+    mocks.findPosts.mockResolvedValue([post("p1", { content: "bad" }), post("p2")]);
+    const { body } = await call("brand=cosmicpath&status=NEEDS_REVIEW&apply=true");
+    expect(mocks.findPosts).toHaveBeenCalledWith(expect.objectContaining({ where: { brandId: "b1", status: "NEEDS_REVIEW" } }));
+    expect(mocks.updatePost).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "p1", status: "NEEDS_REVIEW" } }));
+    expect(body).toMatchObject({ status: "NEEDS_REVIEW", archived: 1 });
+  });
+
+  it("rejects any other status", async () => {
+    expect((await call("brand=cosmicpath&status=PUBLISHED")).status).toBe(400);
+  });
+
+  it("never archives a draft rewritten from a hand-pasted reference", async () => {
+    mocks.findPosts.mockResolvedValue([post("p1", { content: "bad", qualityReasons: JSON.stringify(["ref_replay_manual"]) })]);
+    const { body } = await call("brand=cosmicpath&status=NEEDS_REVIEW&apply=true");
+    expect(body.skipped).toEqual([{ id: "p1", reason: "manual reference" }]);
+    expect(mocks.updatePost).not.toHaveBeenCalled();
   });
 
   it("skips promo video posts", async () => {

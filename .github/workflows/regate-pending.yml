@@ -1,6 +1,7 @@
 name: Regate Pending Posts
 
-# 수동 실행 전용 — 대기 중(PENDING) 글을 읽히는 글 기준으로 다시 검사한다.
+# 수동 실행 전용 — 대기 중(PENDING) 또는 검토 대기(NEEDS_REVIEW) 글을 읽히는 글 기준으로 다시 검사한다.
+# NEEDS_REVIEW도 refill backlog에 세어지므로, 옛 규칙 초안이 쌓이면 생성이 backlog_full로 멈춘다.
 # apply를 끄면 미리보기만, 켜면 떨어진 글을 ARCHIVED로 바꾼다 (삭제 안 함).
 on:
   workflow_dispatch:
@@ -9,6 +10,11 @@ on:
         description: 'Brand slug (saju_viral 브랜드만)'
         required: true
         default: 'cosmicpath'
+      status:
+        description: '검사할 상태'
+        type: choice
+        options: [PENDING, NEEDS_REVIEW]
+        default: PENDING
       apply:
         description: '떨어진 글을 ARCHIVED로 바꾸기 (끄면 미리보기)'
         type: boolean
@@ -28,12 +34,14 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           BRAND: ${{ inputs.brand }}
           APPLY: ${{ inputs.apply }}
+          STATUS: ${{ inputs.status }}
         run: |
           test -n "$APP_URL"
           test -n "$CRON_SECRET"
           # Inputs reach the shell through env only; reject anything that isn't a slug.
           [[ "$BRAND" =~ ^[a-z0-9-]+$ ]] || { echo "invalid brand: $BRAND"; exit 1; }
-          query="brand=${BRAND}"
+          [[ "$STATUS" =~ ^(PENDING|NEEDS_REVIEW)$ ]] || { echo "invalid status: $STATUS"; exit 1; }
+          query="brand=${BRAND}&status=${STATUS}"
           if [ "$APPLY" = "true" ]; then query="${query}&apply=true"; fi
           curl --fail-with-body --show-error --silent --location --max-time 300 \
             -H "Authorization: Bearer ${CRON_SECRET}" \
