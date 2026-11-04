@@ -106,6 +106,14 @@ describe("GET /api/cron/regate-pending", () => {
     expect(mocks.judge).not.toHaveBeenCalled();
   });
 
+  it("gives concept_hierarchy posts the same 3-term allowance generation does", async () => {
+    mocks.findPosts.mockResolvedValue([post("p1"), post("p2", { formulaId: "concept_hierarchy" })]);
+    await call("brand=cosmicpath");
+    expect(mocks.rules).toHaveBeenNthCalledWith(1, "본문 p1", "댓글 p1", { maxJargonTerms: 1 });
+    expect(mocks.rules).toHaveBeenNthCalledWith(2, "본문 p2", "댓글 p2", { maxJargonTerms: 3 });
+    expect(mocks.judge).toHaveBeenNthCalledWith(2, "본문 p2", "댓글 p2", { rankedTerms: true });
+  });
+
   it("skips promo video posts", async () => {
     mocks.findPosts.mockResolvedValue([post("p1", { formulaId: "video:promo:2026-10-27", content: "bad" }), post("p2", { formulaId: null })]);
     const { body } = await call("brand=cosmicpath");
@@ -135,7 +143,7 @@ describe("GET /api/cron/regate-pending", () => {
       post("p1", { firstComment: "너라면 바로 답장해?\n\n📌 5대 계산 엔진(사주·점성술·자미두수) 교차 판정 리포트:\nhttps://cosmicpath.app/r/abc" }),
     ]);
     await call("brand=cosmicpath");
-    expect(mocks.rules).toHaveBeenCalledWith("본문 p1", "너라면 바로 답장해?");
-    expect(mocks.judge).toHaveBeenCalledWith("본문 p1", "너라면 바로 답장해?");
+    expect(mocks.rules).toHaveBeenCalledWith("본문 p1", "너라면 바로 답장해?", { maxJargonTerms: 1 });
+    expect(mocks.judge).toHaveBeenCalledWith("본문 p1", "너라면 바로 답장해?", { rankedTerms: false });
   });
 });

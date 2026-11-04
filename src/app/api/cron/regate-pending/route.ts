@@ -49,10 +49,12 @@ export async function GET(request: NextRequest) {
   let archived = 0;
   for (const post of posts) {
     const firstComment = generatedFirstComment(post.firstComment);
-    const rules = checkReadabilityRules(post.content, firstComment);
+    // Same per-mode allowance generation gives: concept_hierarchy ranks up to 3 terms of one kind.
+    const rankedTerms = post.formulaId === "concept_hierarchy" || post.campaignFormulaId === "concept_hierarchy";
+    const rules = checkReadabilityRules(post.content, firstComment, { maxJargonTerms: rankedTerms ? 3 : 1 });
     const reasons = [...rules.reasons];
     if (rules.pass) {
-      const verdict = await judgeReadability(post.content, firstComment);
+      const verdict = await judgeReadability(post.content, firstComment, { rankedTerms });
       if (!verdict.readable) reasons.push(`읽힘 판정 실패: ${verdict.reason}`);
     }
     if (reasons.length === 0) continue;
