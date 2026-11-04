@@ -32,12 +32,25 @@ const LENGTH_EXPERIMENT_CANDIDATES = 50;
 
 export const maxDuration = 300; // video containers can take minutes to process
 
-const SAFE_WARMUP_TEMPLATES = [
-  "일과 삶의 균형을 찾는 과정에서 가장 중요한 건, 나만의 속도를 잃지 않는 것입니다. 오늘 하루도 묵묵히 버텨낸 모든 분들을 응원합니다. 오늘 하루 중 가장 기억에 남는 순간은 무엇이었나요?",
-  "어떤 결정을 내릴 때 가장 불안한 순간은 바로 시작 직전인 것 같습니다. 막상 한 걸음 내딛고 나면 생각보다 담담해지곤 하죠. 요즘 가장 고민되는 선택이 있으신가요?",
-  "휴식도 일의 일부라는 말을 다시금 되새기게 되는 저녁입니다. 잠시 스마트폰을 내려놓고 스스로에게 온전한 쉼을 선물해보세요. 여러분만의 스트레스 해소 루틴이 있다면 나눠주세요.",
-  "실패를 두려워하지 않는 사람은 없습니다. 단지 그 두려움보다 앞으로 나아가고 싶은 열망이 조금 더 클 뿐이죠. 이번 주 스스로에게 가장 칭찬해주고 싶은 행동은 무엇인가요?",
+// Shadowban-recovery fallback: link-free, low-risk posts that still give readers a reason to react.
+// 2026-11-04 benchmark: "이 글 보신 분들 … 대운 터지세요" blessing posts drew 1.5k-3k likes on Korean saju Threads,
+// while the old life-advice lines had no reason to be answered. English accounts post the same shape.
+const SAFE_WARMUP_TEMPLATES_KO = [
+  "우연히 이 글 본 사람\n이번 달 막혀 있던 일 하나 풀린다.\n좋은 소식 하나 들어올 거야.",
+  "이 글 보는 사람들\n이번 주 귀인 하나 붙는다.\n연락 오면 그냥 넘기지 마.",
+  "지금 이 글 보는 사람\n연말 전에 돈 들어올 구멍 하나 생긴다.\n받을 준비만 해둬.",
+  "스크롤 내리다 이 글 멈춘 사람\n요즘 고생한 거 다 보상받는 흐름 온다.\n조금만 더 버텨.",
 ];
+const SAFE_WARMUP_TEMPLATES_EN = [
+  "If this found you today, something that has been stuck is about to move.\nLet it.",
+  "Whoever is reading this: the help you have been waiting for is closer than it looks.\nAnswer when it calls.",
+  "This is your sign that the hard season is ending.\nYou did not go through all that for nothing.",
+  "If you stopped scrolling here, good news is on its way to you this week.",
+];
+
+function warmupTemplates(language: string | undefined, slug: string): readonly string[] {
+  return language === "en" || slug.includes("global") ? SAFE_WARMUP_TEMPLATES_EN : SAFE_WARMUP_TEMPLATES_KO;
+}
 
 type UnpublishableQueue = { qualityBlocked: number; awaitingReview: number; scheduledLater: number };
 
@@ -235,7 +248,8 @@ export async function GET(request: NextRequest) {
 
           // If no WARMUP post found in queue, generate safe on-demand warmup fallback
           if (!post) {
-            const fallbackContent = SAFE_WARMUP_TEMPLATES[Math.floor(Math.random() * SAFE_WARMUP_TEMPLATES.length)];
+            const templates = warmupTemplates(brandConfig.voiceProfile?.language, brand.slug ?? "");
+            const fallbackContent = templates[Math.floor(Math.random() * templates.length)];
             post = await prisma.post.create({
               data: {
                 brandId: brand.id,

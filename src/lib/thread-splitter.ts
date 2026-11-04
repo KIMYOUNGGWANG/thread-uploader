@@ -15,7 +15,33 @@ export interface SplitOptions {
   numberingStyle?: "plain" | "brackets" | "parentheses"; // "1/3" vs "[1/3]" vs "(1/3)"
 }
 
+// A line holding only this marker ends one part of a self-reply thread: the root post stays a short hook and the
+// explanation follows as the author's own replies, the shape the big saju/astrology accounts use (2026-11 benchmark).
+// Explicit parts carry no "1/n" prefix. Generated drafts store the marker; publishing splits on it.
+export const THREAD_PART_MARKER = "===NEXT===";
+const THREAD_PART_MARKER_RE = /^[ \t]*===NEXT===[ \t]*$/m;
+const THREAD_PART_MARKER_SPLIT_RE = /^[ \t]*===NEXT===[ \t]*$/gm;
+
+export function hasThreadPartMarker(content: string): boolean {
+  return THREAD_PART_MARKER_RE.test(content);
+}
+
+function explicitParts(content: string): string[] {
+  return content.split(THREAD_PART_MARKER_SPLIT_RE).map((part) => part.trim()).filter(Boolean);
+}
+
+// What the feed shows before "more replies": the first explicit part, or the whole post without markers.
+export function threadRootPart(content: string): string {
+  return hasThreadPartMarker(content) ? explicitParts(content)[0] ?? "" : content;
+}
+
+// For surfaces that show one block of text (dashboard previews, other channels).
+export function stripThreadPartMarkers(content: string): string {
+  return hasThreadPartMarker(content) ? explicitParts(content).join("\n\n") : content;
+}
+
 export function isMultiPartThread(content: string): boolean {
+  if (hasThreadPartMarker(content)) return explicitParts(content).length > 1;
   return content.trim().length > THREADS_SINGLE_MAX_LENGTH;
 }
 
@@ -93,6 +119,15 @@ export function splitContentIntoThreadParts(
   content: string,
   options: SplitOptions = {}
 ): string[] {
+  const maxPartsAllowed = options.maxParts ?? THREADS_MAX_PARTS;
+  if (hasThreadPartMarker(content)) {
+    const parts = explicitParts(content);
+    // Author-chosen breaks win while every part fits one Threads post; otherwise fall back to length packing.
+    if (parts.length <= maxPartsAllowed && parts.every((part) => part.length <= THREADS_SINGLE_MAX_LENGTH)) {
+      return parts.length > 0 ? parts : [""];
+    }
+    content = parts.join("\n\n");
+  }
   const trimmed = content.trim();
   if (trimmed.length <= THREADS_SINGLE_MAX_LENGTH) {
     return [trimmed];

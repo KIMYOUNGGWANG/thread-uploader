@@ -470,6 +470,8 @@ const VIRAL_MODE_FAILURE_MESSAGES: Record<ViralModeFidelityFailureCode, string> 
   missing_identity_marker: "기질 프로파일 모드에 구체적 살/일주/글자 없음",
   missing_relationship_contrast: "관계 텐션 모드에 관계 키워드와 대비 구조 없음",
   missing_beginner_question: "입문자 질문 모드인데 첫 줄에 질문이 없음",
+  missing_thread_parts: "답글형 모드인데 ===NEXT=== 줄로 본문과 답글을 나누지 않음",
+  missing_calendar_anchor: "시점 예보 모드인데 첫 두 줄에 날짜·절기가 없거나 띠가 없음",
 };
 
 function formatViralModeFidelityFailure(code: ViralModeFidelityFailureCode): string {

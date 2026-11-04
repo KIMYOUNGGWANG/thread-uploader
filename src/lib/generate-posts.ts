@@ -35,7 +35,11 @@ import {
   REFERENCE_INFO_MODE_ID,
   type ReferenceKind,
   WINNER_REPLAY_MODE,
+  LIST_MODE_IDS,
+  OWN_SHAPE_MODE_IDS,
+  RANKED_TERM_MODE_IDS,
 } from "@/lib/viral-intent-modes";
+import { findDatesOutsideCalendar, skyBriefKo } from "@/lib/sky-calendar";
 import { NEW_YEAR_BRANDS, newYearSlotMode, type NewYearModeId } from "@/lib/new-year/new-year-season";
 import { buildNewYearBrief, buildNewYearLink, checkNewYearFacts, newYearFirstComment } from "@/lib/new-year/new-year-content";
 import { formatViralPromptContext } from "@/lib/viral-analysis";
@@ -112,6 +116,9 @@ interface GrowthExperiment {
   newYearMode?: NewYearModeId;
   newYearSlotIndex?: number;
   newYearBrief?: string;
+  // Real solar-term / moon dates for timely modes (src/lib/sky-calendar.ts); the gate rejects any other date.
+  calendarBrief?: string;
+  calendarNow?: Date;
 }
 
 interface GenerationFormula {
@@ -325,7 +332,7 @@ async function generateWithQuality(
   // so other profiles only get the word-overlap check.
   const checkStructure = experiment.qualityProfile === "saju_viral";
   // concept_hierarchy ranks 2-3 terms of one kind, so it gets a wider jargon cap and a judge that expects it.
-  const rankedTerms = experiment.viralIntentMode?.id === "concept_hierarchy";
+  const rankedTerms = RANKED_TERM_MODE_IDS.has(experiment.viralIntentMode?.id ?? "");
   const runQualityGate = (post: string, firstComment: string): QualityResult => {
     let gate: QualityResult = enforceGeneratedSurfaceSafety(
       checkQuality(post, experiment.qualityProfile, qualityContext),
@@ -378,6 +385,13 @@ async function generateWithQuality(
     if (lengthReason) {
       gate = { ...gate, pass: false, reasons: [lengthReason, ...gate.reasons] };
     }
+    // A timely post may only name dates the calendar table has (term changes, moons, the year turn).
+    if (experiment.calendarBrief) {
+      const outside = findDatesOutsideCalendar(post, experiment.calendarNow ?? new Date());
+      if (outside.length > 0) {
+        gate = { ...gate, pass: false, reasons: [`달력 데이터에 없는 날짜: ${outside.join(", ")} — [달력 데이터]의 날짜만 써`, ...gate.reasons] };
+      }
+    }
     // Saju jargon cap, unanswerable questions, invented first-person stories (cosmicpath Korean posts only)
     if (experiment.qualityProfile === "saju_viral") {
       const readability = checkReadabilityRules(post, firstComment, { maxJargonTerms: rankedTerms ? 3 : 1 });
@@ -386,7 +400,7 @@ async function generateWithQuality(
       }
       // Safety net for the template cap: reversal openers, and numbered choices from a formula other than the excluded one
       // An info list ("1. uiverse.io …") is not a choice template, so ref_replay_info skips the cap.
-      const template = experiment.formula.id === REFERENCE_INFO_MODE_ID
+      const template = experiment.formula.id === REFERENCE_INFO_MODE_ID || LIST_MODE_IDS.has(experiment.formula.id)
         ? { pass: true, reasons: [] }
         : checkTemplateCap(post, recentPosts.filter(countsTowardTemplateCap));
       if (!template.pass) {
@@ -690,7 +704,7 @@ function buildGenerationPrompt(
         `[최근 생성 글 회피]\n${recentPostContext}`,
         ...formatQualityFeedback(qualityFeedback, false),
         "",
-        `${isInfoReference ? "위 실험 조건을 조합해서 300~900자 Threads 포스트 1개를 작성해줘." : lengthLines?.request ?? `위 실험 조건을 조합해서 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하) Threads 포스트 1개를 작성해줘.`} 작성 후 ${SEPARATOR} 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.`,
+        `${OWN_SHAPE_MODE_IDS.has(viralIntentMode.id) ? "위 실험 조건과 [바이럴 모드] 규칙의 구조·길이대로 Threads 글 1개를 작성해줘. 파트를 나누는 모드면 ===NEXT=== 줄을 그대로 출력해." : isInfoReference ? "위 실험 조건을 조합해서 300~900자 Threads 포스트 1개를 작성해줘." : lengthLines?.request ?? `위 실험 조건을 조합해서 ${THREADS_CONTENT_TARGET_LENGTH}자 내외(140~240자, 최대 ${THREADS_CONTENT_MAX_LENGTH}자 이하) Threads 포스트 1개를 작성해줘.`} 작성 후 ${SEPARATOR} 를 출력하고, 바로 아래에 첫 댓글을 작성해줘.`,
         "본문과 첫 댓글에 실제 URL은 쓰지 마. 시스템이 저장 후 필요한 경우 UTM 링크를 붙인다.",
       ];
 
@@ -707,6 +721,7 @@ function buildGenerationPrompt(
     ...(experiment.winnerReference
       ? [`[참고 글: ${!experiment.referenceReplay ? "조회수가 높았던 글. 구조만 따르고 주제·문장은 새로 써" : isInfoReference ? "다른 계정에서 반응이 좋았던 정보 글. 소개한 항목 이름과 순서는 그대로 두고 문장은 전부 새로 써" : "다른 계정에서 반응이 좋았던 글. 상황과 감정의 흐름을 가져오되 인물·표현·문장·고유 디테일은 새로 써"}]\n---\n${experiment.winnerReference}\n---`]
       : []),
+    ...(experiment.calendarBrief ? [experiment.calendarBrief] : []),
     ...(experiment.newYearBrief
       ? [`${isEnglish
           ? "[New Year facts: use only these values; never invent other day masters, months or ganji]"
@@ -1037,7 +1052,8 @@ function isSafeReferenceHook(hook: string): boolean {
 const TEMPLATE_CAP_STATUSES = new Set(["PUBLISHED", "PUBLISHING", "PARTIAL_FAILED", "PENDING"]);
 // Info posts list items, not choices, so they never fill the numbered-choice window either.
 function countsTowardTemplateCap(post: RecentPostSummary): boolean {
-  return post.formulaId !== REFERENCE_INFO_MODE_ID && (post.status == null || TEMPLATE_CAP_STATUSES.has(post.status));
+  return post.formulaId !== REFERENCE_INFO_MODE_ID && !LIST_MODE_IDS.has(post.formulaId ?? "")
+    && (post.status == null || TEMPLATE_CAP_STATUSES.has(post.status));
 }
 
 // First publish slot for this run: after the queue's last pending post, or squeezed in front of the first one.
@@ -1183,8 +1199,14 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       // relationship_tension must open with a relationship word, so on a career/money slot it leaves the pool
       // instead of pulling a relationship topic in (that swap pushed batches from 50% to 62% dating).
       const plannedTopic = slotTopics[batchIndex % slotTopics.length];
+      // timely_forecast needs real dates; past the calendar table it leaves the pool.
+      const calendarBrief = skyBriefKo(new Date());
       const excludedModeIds = isLeanSprint
-        ? [...(choicesCapped ? ["imagination_dilemma"] : []), ...(isRelationshipTopic(plannedTopic) ? [] : ["relationship_tension"])]
+        ? [
+            ...(choicesCapped ? ["imagination_dilemma"] : []),
+            ...(isRelationshipTopic(plannedTopic) ? [] : ["relationship_tension"]),
+            ...(calendarBrief ? [] : ["timely_forecast"]),
+          ]
         : [];
       // A New Year slot takes its mode from the season schedule, skipping the bandit and the replay arm.
       const slotIndex = contextOffset + batchIndex;
@@ -1280,7 +1302,14 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         }
       } else if (replaySource) experiment.winnerReference = replaySource.content;
       // The gate caps numbered choices only for saju_viral, so only there is a capped "choices" slot turned into a question.
-      else experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
+      // Benchmark modes set their own structure and ending; a rotated closing would contradict them.
+      else if (!OWN_SHAPE_MODE_IDS.has(formulaMode.id)) {
+        experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
+      }
+      if (formulaMode.id === "timely_forecast" && calendarBrief) {
+        experiment.calendarBrief = calendarBrief;
+        experiment.calendarNow = new Date();
+      }
       return generateWithQuality(
         experiment,
         config,

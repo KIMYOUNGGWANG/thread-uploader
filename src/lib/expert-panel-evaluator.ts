@@ -6,6 +6,8 @@
  * 3. Managing Editor (AI Slop & Natural Prose Judge) - 24 AI slop patterns, natural Korean rhythm
  */
 
+import { threadRootPart } from "@/lib/thread-splitter";
+
 export interface PersonaScore {
   persona: "roy_lee" | "target_user" | "managing_editor";
   name: string;
@@ -151,7 +153,8 @@ export function evaluateTargetUser(content: string, context?: EvaluationContext)
   // 4. Fold optimization check:
   // Korean folds around 260~280 chars, but English threads target ~450 chars
   const foldThreshold = isEnglish ? 450 : 280;
-  if (!context?.ignoreFoldLength && content.length > foldThreshold) {
+  // A self-reply thread only folds its root part; the replies sit below the feed by design.
+  if (!context?.ignoreFoldLength && threadRootPart(content).length > foldThreshold) {
     score -= 10;
     flags.push(`글이 ${foldThreshold}자를 초과하여 모바일 Fold 아래로 접혀 즉각적 스크롤 스토핑 효과가 감소함`);
   }

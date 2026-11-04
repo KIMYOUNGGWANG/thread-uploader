@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasThreadPartMarker,
   isMultiPartThread,
+  stripThreadPartMarkers,
+  threadRootPart,
   splitContentIntoThreadParts,
   THREADS_SINGLE_MAX_LENGTH,
 } from "./thread-splitter";
@@ -84,5 +87,36 @@ describe("validatePost", () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors[0]).toContain("Invalid image path");
+  });
+});
+
+describe("explicit thread parts (===NEXT===)", () => {
+  const POST = "<무당도 절하는 사주>\n1. 눈치 빠름\n2. 혼자 있을 때 충전됨\n어떤 사주냐면,\n===NEXT===\n화개살이 있는 사람이야.\n화려함을 덮는다는 뜻.\n===NEXT===\n내 사주에 있는지 확인해봐.";
+
+  it("splits on the marker without 1/n prefixes", () => {
+    expect(splitContentIntoThreadParts(POST)).toEqual([
+      "<무당도 절하는 사주>\n1. 눈치 빠름\n2. 혼자 있을 때 충전됨\n어떤 사주냐면,",
+      "화개살이 있는 사람이야.\n화려함을 덮는다는 뜻.",
+      "내 사주에 있는지 확인해봐.",
+    ]);
+    expect(isMultiPartThread(POST)).toBe(true);
+  });
+
+  it("exposes the root part and a marker-free text", () => {
+    expect(threadRootPart(POST)).toBe("<무당도 절하는 사주>\n1. 눈치 빠름\n2. 혼자 있을 때 충전됨\n어떤 사주냐면,");
+    expect(stripThreadPartMarkers(POST)).not.toContain("===NEXT===");
+    expect(hasThreadPartMarker("짧은 글")).toBe(false);
+    expect(threadRootPart("짧은 글")).toBe("짧은 글");
+  });
+
+  it("falls back to length packing when an explicit part is too long for one post", () => {
+    const parts = splitContentIntoThreadParts(`짧은 훅\n===NEXT===\n${"가".repeat(600)}`);
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.join("")).not.toContain("===NEXT===");
+    expect(parts.every((part) => part.length <= 500)).toBe(true);
+  });
+
+  it("drops empty parts from stray markers", () => {
+    expect(splitContentIntoThreadParts("훅\n===NEXT===\n\n===NEXT===\n답글")).toEqual(["훅", "답글"]);
   });
 });
