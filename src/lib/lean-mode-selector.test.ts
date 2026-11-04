@@ -6,6 +6,7 @@ import { resolveViralIntentMode, selectViralIntentMode, VIRAL_INTENT_MODES } fro
 const LEAN_IDS = [
   "imagination_dilemma", "concept_hierarchy", "identity_profile", "relationship_tension", "beginner_qa",
   "cost_loss_punch", "wealth_vault_unlock", "talent_reality_check", "fact_bomb_incumbent_attack",
+  "identity_list", "timely_forecast", "self_check_guide",
 ];
 
 describe("selectLeanViralMode", () => {
