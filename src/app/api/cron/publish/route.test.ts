@@ -342,6 +342,20 @@ describe("GET /api/cron/publish", () => {
       vi.useRealTimers();
     });
 
+    // 2026-11-04: the Cloudflare worker still sent 0,3,9,12,14 for cosmicpath; the brand's pinned slots win.
+    it("publishes cosmicpath only in its pinned slots, whatever the caller sent", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-12T00:30:00Z")); // KST 09:30, inside the caller's 0 slot, outside 2/13/16
+      mocks.findBrands.mockResolvedValue([{ id: "brand_slot", name: "CosmicPath", slug: "cosmicpath" }]);
+      mocks.findPost.mockReset();
+      mocks.findPost.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+      const body = await (await callWithSlots("0,3,9,12,14")).json();
+
+      expect(body.skipped).toEqual([{ brandId: "brand_slot", brandName: "CosmicPath", reason: "outside_publish_slot" }]);
+      vi.useRealTimers();
+    });
+
     it("rejects malformed slots", async () => {
       mocks.findBrands.mockResolvedValue([{ id: "brand_slot", name: "CosmicPath" }]);
       const response = await callWithSlots("25");

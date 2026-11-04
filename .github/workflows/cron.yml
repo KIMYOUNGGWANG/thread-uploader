@@ -32,6 +32,7 @@ jobs:
           test -n "$CRON_SECRET"
           status=0
           for slug in ${PUBLISH_BRAND_SLUGS//,/ }; do
+            # The server pins cosmicpath/cosmicpath-global slots (src/lib/publish-slots.ts); keep these equal to it.
             # Slots are UTC hours. KR: KST 11/22/01 — 3 slots to match the campaign dailyPostTarget; 5/day halved
             # per-post reach (2026-10-23..27 median 150 → 40) while account-level daily views stayed flat.
             # Global (new account, 2/day): US evening + US morning.

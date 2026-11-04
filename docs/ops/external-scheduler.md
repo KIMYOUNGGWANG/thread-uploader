@@ -10,6 +10,8 @@
 
 코드는 `cloudflare/scheduler/`에 있다. `worker.js`가 `wrangler.toml`의 크론마다 깨어나 Vercel 라우트를 호출한다.
 
+> 2026-11-04: cosmicpath·cosmicpath-global의 발행 슬롯은 서버가 고정한다(`src/lib/publish-slots.ts`). 스케줄러가 어떤 `slots=`를 보내도 그 브랜드는 고정 슬롯에서만 발행되니, 슬롯을 바꿀 때는 그 파일만 고치면 된다. 아래 `slots=` 값은 슬롯 게이트를 켜는 신호로만 쓰인다.
+
 | 크론 (UTC) | 호출 |
 |---|---|
 | `*/15 * * * *` | 발행 KR(`slots=2,13,16`, KST 11/22/01 — `.github/workflows/cron.yml`과 같게) + 발행 Global(`slots=0,12`) |
