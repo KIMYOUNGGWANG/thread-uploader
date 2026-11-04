@@ -13,7 +13,8 @@ export interface PromoPostItem {
 
 export type PromoPostResult =
   | { brandSlug: string; postId: string }
-  | { brandSlug: string; skipped: "brand_not_found" | "already_queued" };
+  | { brandSlug: string; skipped: "brand_not_found" }
+  | { brandSlug: string; skipped: "already_queued"; postId: string; status: string };
 
 const SITE_ORIGIN = "https://cosmicpath.app";
 const MAX_CONTENT_CHARS = 480; // longer captions get split into a Threads chain
@@ -54,8 +55,10 @@ async function queueOne(date: string, item: PromoPostItem): Promise<PromoPostRes
   const brand = await prisma.brand.findUnique({ where: { slug: item.brandSlug } });
   if (!brand) return { brandSlug: item.brandSlug, skipped: "brand_not_found" };
   const formulaId = `video:promo:${date}`;
-  const existing = await prisma.post.findFirst({ where: { brandId: brand.id, formulaId } });
-  if (existing) return { brandSlug: item.brandSlug, skipped: "already_queued" };
+  // An ARCHIVED post was taken out of the queue (by hand or a cleanup), so it no longer holds the slot.
+  const existing = await prisma.post.findFirst({ where: { brandId: brand.id, formulaId, status: { not: "ARCHIVED" } } });
+  // The existing post's id and status go into the CI log, so a skipped brand can be traced to the post holding its slot.
+  if (existing) return { brandSlug: item.brandSlug, skipped: "already_queued", postId: existing.id, status: existing.status };
   // One transaction: a post without its UTM first comment would be skipped as already_queued forever.
   const postId = await prisma.$transaction(async (tx) => {
     const post = await tx.post.create({

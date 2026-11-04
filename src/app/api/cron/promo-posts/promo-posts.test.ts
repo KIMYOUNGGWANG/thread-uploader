@@ -81,15 +81,23 @@ describe("POST /api/cron/promo-posts", () => {
   });
 
   it("skips an already queued brand and a missing brand without failing the others", async () => {
-    db.post.findFirst.mockResolvedValueOnce({ id: "old" });
+    db.post.findFirst.mockResolvedValueOnce({ id: "old", status: "PUBLISHED" });
     db.brand.findUnique
       .mockResolvedValueOnce({ id: "b1", slug: "cosmicpath" })
       .mockResolvedValueOnce(null);
     const body = await (await POST(request({ date: "2026-10-19", items: [item(), item({ brandSlug: "ghost" })] }))).json();
     expect(body.results).toEqual([
-      { brandSlug: "cosmicpath", skipped: "already_queued" },
+      { brandSlug: "cosmicpath", skipped: "already_queued", postId: "old", status: "PUBLISHED" },
       { brandSlug: "ghost", skipped: "brand_not_found" },
     ]);
     expect(db.post.create).not.toHaveBeenCalled();
+  });
+
+  it("lets an archived post free its slot so the rotation can queue a new video", async () => {
+    await POST(request({ date: "2026-10-19", items: [item()] }));
+    expect(db.post.findFirst).toHaveBeenCalledWith({
+      where: { brandId: "b1", formulaId: "video:promo:2026-10-19", status: { not: "ARCHIVED" } },
+    });
+    expect(db.post.create).toHaveBeenCalledTimes(1);
   });
 });
