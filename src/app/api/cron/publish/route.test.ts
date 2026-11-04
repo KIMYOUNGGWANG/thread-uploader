@@ -356,6 +356,32 @@ describe("GET /api/cron/publish", () => {
       vi.useRealTimers();
     });
 
+    // 2026-11-05: cosmicpath's KST 01 slot (UTC 16) is inside the 01:00-06:30 quiet window and never published.
+    it("lets a pinned slot publish through quiet hours, but keeps the guard for unpinned brands", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-05T16:05:00Z")); // KST 01:05
+      const { isCircadianQuietHour } = await import("@/lib/behavioral-jitter");
+      vi.mocked(isCircadianQuietHour).mockReturnValue(true);
+      const jitter = JSON.stringify({ jitterEnabled: true });
+      mocks.findBrands.mockResolvedValue([
+        { id: "brand_kr", name: "CosmicPath", slug: "cosmicpath", brandConfig: jitter },
+        { id: "brand_other", name: "Other", slug: "other", brandConfig: jitter },
+      ]);
+      mocks.findPost.mockReset();
+      mocks.findPost
+        .mockResolvedValueOnce(null) // no PARTIAL_FAILED resume
+        .mockResolvedValueOnce({ status: "PUBLISHED", publishedAt: new Date("2026-11-05T16:01:00Z") });
+
+      const body = await (await callWithSlots("2,13,16")).json();
+
+      expect(body.skipped).toEqual([
+        { brandId: "brand_kr", brandName: "CosmicPath", reason: "slot_already_served" },
+        { brandId: "brand_other", brandName: "Other", reason: "circadian_quiet_hour" },
+      ]);
+      vi.mocked(isCircadianQuietHour).mockReturnValue(false);
+      vi.useRealTimers();
+    });
+
     it("rejects malformed slots", async () => {
       mocks.findBrands.mockResolvedValue([{ id: "brand_slot", name: "CosmicPath" }]);
       const response = await callWithSlots("25");
