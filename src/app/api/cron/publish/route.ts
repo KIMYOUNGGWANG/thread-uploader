@@ -21,6 +21,7 @@ import {
   recordCircuitBreakerFailure,
   recordCircuitBreakerSuccess,
 } from "@/lib/threads-publisher";
+import { resolvePublishSlots } from "@/lib/publish-slots";
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -172,8 +173,9 @@ export async function GET(request: NextRequest) {
           where: { brandId: brand.id, status: "PUBLISHED", publishedAt: { not: null } },
           orderBy: { publishedAt: "desc" },
         });
-        if (slotHours) {
-          const openSlot = findOpenPublishSlot(now, slotHours, SLOT_WINDOW_HOURS);
+        const brandSlots = resolvePublishSlots(brand.slug, slotHours);
+        if (brandSlots) {
+          const openSlot = findOpenPublishSlot(now, brandSlots, SLOT_WINDOW_HOURS);
           const slotServed = Boolean(openSlot && lastPublished?.publishedAt && lastPublished.publishedAt >= openSlot);
           if (!openSlot || slotServed) {
             skipped.push({ brandId: brand.id, brandName: brand.name, reason: openSlot ? "slot_already_served" : "outside_publish_slot" });
