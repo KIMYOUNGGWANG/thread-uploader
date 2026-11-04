@@ -40,8 +40,18 @@ describe("GET /api/cron/refill", () => {
   it("never counts the instagram bio anchor toward the backlog", async () => {
     mocks.countPosts.mockResolvedValue(10);
     await call("brand=cosmicpath&target=10");
-    const [args] = mocks.countPosts.mock.calls[0] as unknown as [{ where: { status: { in: string[] } } }];
-    expect(args.where.status.in).not.toContain("ANCHOR");
+    expect(JSON.stringify(mocks.countPosts.mock.calls[0])).not.toContain("ANCHOR");
+  });
+
+  // 2026-11-04: ten unapproved promo videos (created NEEDS_REVIEW) held 10 of 14 backlog slots and stopped text refill.
+  it("counts approved posts and text drafts in review, but not promo videos waiting for approval", async () => {
+    mocks.countPosts.mockResolvedValue(10);
+    await call("brand=cosmicpath&target=10");
+    const [args] = mocks.countPosts.mock.calls[0] as unknown as [{ where: { OR: unknown[] } }];
+    expect(args.where.OR).toEqual([
+      { status: "PENDING" },
+      { status: "NEEDS_REVIEW", OR: [{ formulaId: null }, { NOT: { formulaId: { startsWith: "video:" } } }] },
+    ]);
   });
 
   it("leaves drafts scheduled more than 48h ahead out of the backlog", async () => {

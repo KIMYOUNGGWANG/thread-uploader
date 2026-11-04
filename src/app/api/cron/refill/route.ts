@@ -10,7 +10,11 @@ import { parseBrandConfig } from "@/types/brand";
 export const maxDuration = 300; // up to MAX_REFILL_PER_RUN drafts with quality retries
 
 // Drafts waiting for review count toward the backlog: a stalled review queue should stall refill too.
-const BACKLOG_STATUSES = ["PENDING", "NEEDS_REVIEW"];
+// Unapproved promo videos (formulaId "video:...", always created NEEDS_REVIEW) are a separate approval channel:
+// on 2026-11-04 ten of them filled 10 of 14 backlog slots, so no text post was generated and the queue ran dry.
+// A NULL formulaId must stay counted, and SQL NOT startsWith drops NULLs, hence the explicit OR.
+const NOT_PROMO_VIDEO = { OR: [{ formulaId: null }, { NOT: { formulaId: { startsWith: "video:" } } }] };
+const BACKLOG_WHERE = { OR: [{ status: "PENDING" }, { status: "NEEDS_REVIEW", ...NOT_PROMO_VIDEO }] };
 
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
@@ -33,7 +37,7 @@ export async function GET(request: NextRequest) {
   }));
 
   const backlog = await prisma.post.count({
-    where: { brandId: brand.id, status: { in: BACKLOG_STATUSES }, scheduledAt: { lte: backlogHorizon(new Date()) } },
+    where: { brandId: brand.id, ...BACKLOG_WHERE, scheduledAt: { lte: backlogHorizon(new Date()) } },
   });
   // During the length experiment nobody reviews drafts, so unreviewed ones must not stall refill:
   // fill each arm's PENDING drafts to half the target instead.
