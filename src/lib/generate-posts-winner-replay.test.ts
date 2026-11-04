@@ -78,7 +78,8 @@ vi.mock("@/lib/remediation-engine", () => ({
   })),
 }));
 
-vi.mock("@/lib/quality-gate", () => ({
+vi.mock("@/lib/quality-gate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/quality-gate")>()),
   checkQuality: vi.fn(() => ({ pass: true, score: 5, profile: "saju_viral", reasons: [] })),
 }));
 
@@ -222,14 +223,16 @@ describe("winner_replay draft gate", () => {
       expect(prompt).not.toContain("통념 반박 중 하나로");
     });
 
-    it("keeps reference hooks that break the readability rules out of the prompt", async () => {
+    // 2026-11-04: ranking, reversal and jargon hooks are what the account's breakouts looked like, so they reach the
+    // prompt; only overclaims and first lines that presume the reader's chart stay out.
+    it("shows the account's ranking and reversal hooks, and drops only unsafe ones", async () => {
       state.reply = PASSING_REPLY;
       const viralMemory = JSON.stringify({
         sampleSize: 3,
         topPatterns: [],
         topPerformers: [
           { hook: "혹시 '도화'보다 센 '홍염'보다 센 게 뭔지 알아? 바로 '화개'야.", score: 90 },
-          { hook: "재성 약하고 관성 센 사람이 이직하면 생기는 일", score: 80 },
+          { hook: "경금 일주는 연애할 때 이렇게 됨", score: 85 },
           { hook: "점집 가서 10만원 복채 내고 들은 말이 제일 쓸모없었음", score: 70 },
         ],
         nextHookCandidates: [
@@ -239,9 +242,9 @@ describe("winner_replay draft gate", () => {
       await generatePostsForBrand({ ...brand, viralMemory } as Brand, input);
       const prompt = promptStrings().join("\n");
       expect(prompt).toContain("점집 가서 10만원 복채 내고 들은 말이 제일 쓸모없었음");
-      expect(prompt).not.toContain("'홍염'보다 센");
-      expect(prompt).not.toContain("재성 약하고 관성 센");
-      expect(prompt).not.toContain("배터리 용량이 다른 거임");
+      expect(prompt).toContain("'홍염'보다 센");
+      expect(prompt).toContain("배터리 용량이 다른 거임");
+      expect(prompt).not.toContain("경금 일주는 연애할 때");
     });
   });
 

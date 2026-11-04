@@ -79,7 +79,7 @@ describe("viral mode shapes", () => {
     const rules = (id: ViralIntentModeId) => modeById.get(id)?.rules.join(" ") ?? "";
     expect(rules("identity_profile")).not.toContain("1줄에 직설적으로 호명");
     expect(rules("identity_profile")).toContain("둘째 줄");
-    expect(rules("concept_hierarchy")).toContain("첫 두 줄");
+    expect(rules("concept_hierarchy")).toContain("첫 줄에서");
     expect(rules("relationship_tension")).toContain("첫 두 줄");
   });
 
@@ -170,11 +170,14 @@ describe("global offer formulas", () => {
     expect(normalizeViralIntentModeId("synastry_blueprint_offer")).toBeNull();
   });
 
-  it("concept_hierarchy no longer asks for 2-3 saju concepts or the reader's chart", () => {
+  // 2026-11-04: restored to the 12.2만 ranking shape (2-3 concepts of one kind), still without the reader's chart.
+  it("concept_hierarchy ranks 2-3 concepts of one kind and never asks for the reader's chart", () => {
     const mode = resolveViralIntentMode("concept_hierarchy", 0);
     const text = [mode.instruction, ...mode.rules].join("\n");
-    expect(text).not.toMatch(/2~3개|십신|원국/);
-    expect(mode.rules).toContain("첫 댓글: 독자가 자기 경험으로 답할 수 있는 질문 한 줄. 링크·홍보 문구는 넣지 않는다.");
+    expect(text).toContain("보다 센");
+    expect(text).not.toMatch(/십신|원국/);
+    expect(mode.rules.join("\n")).toContain("할 일로 끝내지 않는다");
+    expect(mode.rules.find((rule) => rule.startsWith("첫 댓글:"))).toContain("독자의 사주 글자를 묻지 않는다");
   });
 
   it("keeps first comments and jargon in the lean modes answerable by a reader who does not know saju", () => {

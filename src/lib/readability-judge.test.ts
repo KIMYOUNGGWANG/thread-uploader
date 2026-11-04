@@ -15,7 +15,8 @@ describe("parseReadabilityVerdict", () => {
       parseReadabilityVerdict('{"keepReading": true, "understandable": false, "takeaway": true, "reason": "재성·겁재 풀이 없음"}')
     ).toEqual({ readable: false, reason: "재성·겁재 풀이 없음" });
     expect(parseReadabilityVerdict('{"keepReading": false, "understandable": true, "takeaway": true, "reason": "첫 줄이 약함"}').readable).toBe(false);
-    expect(parseReadabilityVerdict('{"keepReading": true, "understandable": true, "takeaway": false, "reason": "남는 게 없음"}').readable).toBe(false);
+    // A post that ends on a punchline with no to-do is a valid shape, so an old "takeaway" answer no longer fails it.
+    expect(parseReadabilityVerdict('{"keepReading": true, "understandable": true, "takeaway": false, "reason": "남는 게 없음"}').readable).toBe(true);
   });
 
   it("passes when all three are yes", () => {

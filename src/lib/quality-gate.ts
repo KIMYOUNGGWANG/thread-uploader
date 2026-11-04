@@ -39,8 +39,8 @@ export function findFirstLineChartGate(firstLine: string): string | null {
 }
 
 const SAJU_KEYWORDS = [
-  // 살(煞) 계열
-  "화개살", "도화살", "홍염살", "역마살", "원진살", "귀문관살",
+  // 살(煞) 계열. The 12.2만 hierarchy post named them bare ("도화보다 센 홍염보다 센 화개").
+  "화개살", "도화살", "홍염살", "역마살", "원진살", "귀문관살", "도화", "홍염", "화개",
   // 십성
   "편인", "식신", "재성", "관성", "상관", "비견", "겁재", "정인", "편관", "정관",
   // 지지 조합

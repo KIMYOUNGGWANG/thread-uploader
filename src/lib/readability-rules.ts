@@ -52,13 +52,38 @@ function lastQuestionSentence(post: string): string | null {
   return body.slice(start + 1, end + 1);
 }
 
-export function checkReadabilityRules(post: string, firstComment: string): { pass: boolean; reasons: string[] } {
+// A saju account telling readers to skip fortunes ("운세 볼 시간에 숫자부터 세라") argues against its own feed:
+// the 2026-11 posts that read this way all sat at one reaction.
+const FORTUNE_DISMISSAL_RE = /(운세|사주)\s*(볼|보는|확인할)\s*시간에|운세\s*탓(이)?\s*아|운세보다\s*[^\n.]{0,12}(먼저|부터)/;
+// Homework endings ("세 개만 적어", "오늘 할 일:") give nothing to save, share or tag; the breakout posts end on a punchline.
+const HOMEWORK_RE = /오늘\s*할\s*일|(적어|세어|메모해|기록해|체크해|정리해)\s*(봐|둬|놔|보자)|(적어|세라)(?=[\s.!]|$)|세봐라?(?=[\s.!]|$)/;
+const HOMEWORK_TAIL_LINES = 3;
+
+export function findLectureReason(post: string): string | null {
+  const dismissal = post.match(FORTUNE_DISMISSAL_RE);
+  if (dismissal) return `운세·사주를 깎아내리는 훈계("${dismissal[0]}"): 사주 계정이 사주 보지 말라고 하지 마`;
+  const tail = post.split("\n").filter((line) => line.trim() !== "").slice(-HOMEWORK_TAIL_LINES).join("\n");
+  const homework = post.match(/오늘\s*할\s*일/) ?? tail.match(HOMEWORK_RE);
+  if (homework) return `숙제형 마무리("${homework[0]}"): 할 일 대신 판정을 세게 박는 한 줄이나 독자가 바로 답할 질문으로 끝내`;
+  return null;
+}
+
+export interface ReadabilityOptions {
+  // concept_hierarchy ranks 2-3 terms of one kind ("도화보다 센 홍염보다 센 화개"); everything else keeps 1.
+  maxJargonTerms?: number;
+}
+
+export function checkReadabilityRules(post: string, firstComment: string, options: ReadabilityOptions = {}): { pass: boolean; reasons: string[] } {
   const reasons: string[] = [];
+  const maxTerms = options.maxJargonTerms ?? 1;
 
   const terms = findJargonTerms(post);
-  if (terms.length >= 2) {
-    reasons.push(`사주 용어 ${terms.length}개(${terms.join(", ")}): 1개까지만, 쓰면 바로 쉬운 말로 풀어줘`);
+  if (terms.length > maxTerms) {
+    reasons.push(`사주 용어 ${terms.length}개(${terms.join(", ")}): ${maxTerms}개까지만, 쓰면 바로 쉬운 말로 풀어줘`);
   }
+
+  const lecture = findLectureReason(post);
+  if (lecture) reasons.push(lecture);
 
   const commentText = firstComment
     .split("\n")
