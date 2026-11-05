@@ -94,6 +94,14 @@ const CONVERSATION_CHOICE_PATTERNS = [
 ];
 
 const CONVERSATION_INVITATION_PATTERNS = [
+  // Reply devices from the 2026-11-04 Threads benchmark: tag/save asks (KR), check-ins and reply asks (EN).
+  /태그/,
+  /저장해/,
+  /check[\s-]?in/i,
+  /\breply\b/i,
+  /\bcomment\b/i,
+  /\btag\b/i,
+  /\bdrop (?:your|a)\b/i,
   /댓글/,
   /어때\?/,
   /있어\?/,

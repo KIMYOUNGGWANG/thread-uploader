@@ -220,3 +220,13 @@ describe("threads-algorithm-scorer english hooks", () => {
     expect(hint).toContain("~보다");
   });
 });
+
+describe("benchmark reply devices (2026-11-05)", () => {
+  it("counts check-in, reply, tag and save asks as conversation invitations", () => {
+    const conv = (post: string) => scoreThreadsPostAlgorithmic(post).dimensions.conversationDepth.score;
+    const flat = conv("Water Day Masters carry everyone.\n\nYou hold it all quietly.");
+    expect(conv("Water Day Masters, check in.\n\nYou hold it all quietly.")).toBeGreaterThan(flat);
+    expect(conv("You hold it all quietly.\n\nReply with your element.")).toBeGreaterThan(flat);
+    expect(conv("11월 7일 입동부터 풀리는 띠\n1. 호랑이띠\n해당되는 사람 태그해")).toBeGreaterThanOrEqual(conv("11월 7일 입동부터 풀리는 띠\n1. 호랑이띠"));
+  });
+});
