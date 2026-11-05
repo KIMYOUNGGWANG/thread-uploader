@@ -228,6 +228,8 @@ export const DEFAULT_BRAND_CONFIG: BrandConfig = {
       { id: "owned_posts", enabled: true },
       { id: "threads_keyword", enabled: true },
       { id: "threads_profile", enabled: true },
+      // Paid scraping provider; also needs SCRAPECREATORS_API_KEY. Replaces the official keyword/profile calls when on.
+      { id: "threads_scrapecreators", enabled: false },
       { id: "manual", enabled: true },
       { id: "youtube_shorts", enabled: false },
     ],

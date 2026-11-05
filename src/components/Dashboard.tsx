@@ -2119,6 +2119,7 @@ function sourceLabel(source: string): string {
     manual: "수동 입력",
     threads_keyword: "키워드",
     threads_profile: "프로필",
+    threads_scrapecreators: "ScrapeCreators",
   };
   return labels[source] ?? source;
 }

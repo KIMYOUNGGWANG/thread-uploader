@@ -959,6 +959,7 @@ function adapterLabel(id: ViralAdapterId): string {
     owned_posts: "내 게시물",
     threads_keyword: "Threads 키워드",
     threads_profile: "경쟁 프로필",
+    threads_scrapecreators: "Threads 검색 (ScrapeCreators)",
     manual: "수동 레퍼런스",
     youtube_shorts: "유튜브 쇼츠",
   };
@@ -970,6 +971,7 @@ function adapterDescription(id: ViralAdapterId): string {
     owned_posts: "성과 있는 발행 글을 다시 학습",
     threads_keyword: "저장 키워드와 제품 토픽 검색",
     threads_profile: "경쟁 계정 공개 글 수집",
+    threads_scrapecreators: "다른 계정 글과 좋아요 수 수집, 켜면 공식 검색 대신 사용 (SCRAPECREATORS_API_KEY 필요, 유료)",
     manual: "직접 붙여넣은 레퍼런스 저장",
     youtube_shorts: "키워드·채널로 48시간 내 쇼츠 수집 (YOUTUBE_API_KEY 필요)",
   };

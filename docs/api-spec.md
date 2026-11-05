@@ -203,7 +203,7 @@ interface ViralDiscoveryConfig {
   maxExamplesPerRun: number;     // default 15, hard max 50
   minViralScore: number;         // default 0
   adapters: Array<{
-    id: "owned_posts" | "threads_keyword" | "threads_profile" | "manual" | "youtube_shorts";
+    id: "owned_posts" | "threads_keyword" | "threads_profile" | "threads_scrapecreators" | "manual" | "youtube_shorts";
     enabled: boolean;
   }>;
   youtube: {
@@ -1048,7 +1048,7 @@ interface WeeklyScorecardResponse {
 | `POST` | `/api/viral/learn` | 저장된 레퍼런스로 viralMemory 및 ViralPattern 재학습 |
 
 ```typescript
-type ViralAdapterId = "owned_posts" | "threads_keyword" | "threads_profile" | "manual" | "youtube_shorts";
+type ViralAdapterId = "owned_posts" | "threads_keyword" | "threads_profile" | "threads_scrapecreators" | "manual" | "youtube_shorts";
 
 interface ViralPatternSummary {
   dimension: "hook" | "topic" | "emotion" | "structure" | "cta";

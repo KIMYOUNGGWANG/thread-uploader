@@ -1,5 +1,11 @@
 export type ViralPatternDimension = "hook" | "topic" | "emotion" | "structure" | "cta";
-export type ViralAdapterId = "owned_posts" | "threads_keyword" | "threads_profile" | "manual" | "youtube_shorts";
+export type ViralAdapterId =
+  | "owned_posts"
+  | "threads_keyword"
+  | "threads_profile"
+  | "threads_scrapecreators"
+  | "manual"
+  | "youtube_shorts";
 
 export interface ViralPatternSummary {
   dimension: ViralPatternDimension;

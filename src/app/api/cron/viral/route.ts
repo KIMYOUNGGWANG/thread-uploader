@@ -7,6 +7,9 @@ import { sendSystemAlert } from "@/lib/alert-service";
 import { refillReferenceReplay, type ReferenceRefillResult } from "@/lib/reference-replay-refill";
 import { parseBrandConfig } from "@/types/brand";
 
+// About 11 days of one brand at 15 calls × 6 runs a day (spec 4.5).
+const SCRAPECREATORS_LOW_CREDITS = 1000;
+
 export const maxDuration = 300; // discovery + Claude analysis + ref_replay 생성 1개 per brand
 
 export async function GET(request: NextRequest) {
@@ -61,9 +64,18 @@ export async function GET(request: NextRequest) {
           brandName: brand.name,
         });
       }
+      if (discovery.creditsRemaining !== null && discovery.creditsRemaining < SCRAPECREATORS_LOW_CREDITS && analyze) {
+        await sendSystemAlert({
+          level: "warning",
+          title: "ScrapeCreators credits running low",
+          message: `ScrapeCreators 크레딧이 ${discovery.creditsRemaining}개 남았습니다. 다 쓰면 viral 수집이 공식 Threads 검색으로 돌아갑니다.`,
+          brandName: brand.name,
+        });
+      }
       results.push({
         slug: brand.slug,
         success: true,
+        creditsRemaining: discovery.creditsRemaining,
         saved: discovery.saved,
         learnedPatterns: learning.learnedPatterns,
         llmAnalysis,

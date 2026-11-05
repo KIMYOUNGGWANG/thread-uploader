@@ -131,6 +131,22 @@ describe("mergeStoredRawMetrics", () => {
     expect(mergeStoredRawMetrics("{}", {}).signal.timesSeen).toBe(2);
   });
 
+  it("appends likeHistory only for rows that carry a like count, capped like rankHistory", () => {
+    let raw: string | null = null;
+    for (let index = 0; index < 14; index++) {
+      const at = new Date(Date.UTC(2026, 10, 5, index));
+      raw = JSON.stringify(mergeStoredRawMetrics(raw, { searchRank: 1, likeCount: 100 + index }, at).merged);
+    }
+    const history = JSON.parse(raw ?? "{}").likeHistory;
+    expect(history).toHaveLength(12);
+    expect(history.at(-1)).toEqual({ at: "2026-11-05T13:00:00.000Z", likes: 113 });
+
+    // An official-API sighting without likes keeps the history but adds nothing.
+    const official = mergeStoredRawMetrics(raw, { searchRank: 2 });
+    expect(official.merged.likeHistory).toHaveLength(12);
+    expect(mergeStoredRawMetrics(null, { searchRank: 1 }).merged.likeHistory).toBeUndefined();
+  });
+
   it("appends one rankHistory entry per sighting, newest last", () => {
     const first = mergeStoredRawMetrics(null, { searchRank: 5, keywordHits: 1 }, new Date("2026-10-28T00:00:00.000Z"));
     const second = mergeStoredRawMetrics(JSON.stringify(first.merged), { searchRank: 2, keywordHits: 2 }, new Date("2026-10-28T04:00:00.000Z"));

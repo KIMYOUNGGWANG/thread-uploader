@@ -17,6 +17,11 @@ import {
 import { fetchPublicProfilePosts, searchThreadsByKeyword, type ThreadsPublicPost } from "@/lib/threads-api";
 import { allExternalSourcesFailed, harvestFromThreadsSources } from "@/lib/viral-harvester";
 import { calculateReferenceScore, isEligibleSource, normalizeHandle, type EligibilityRules } from "@/lib/reference-radar";
+import {
+  createScrapeCreatorsThreadsClient,
+  getScrapeCreatorsApiKey,
+  type ScrapeCreatorsThreadsClient,
+} from "@/lib/scrapecreators/threads-client";
 import { parseBrandConfig } from "@/types/brand";
 import {
   parseViralMemory,
@@ -61,6 +66,7 @@ interface DiscoveryRunConfig {
   limit: number;
   includeOwnPosts: boolean;
   includeManual: boolean;
+  useScrapeCreators: boolean;
 }
 
 export async function getViralReport(brandId: string) {
@@ -133,6 +139,8 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
   const errors: ViralSourceError[] = [];
   const candidates: CandidateExample[] = [];
   let externalAllFailed = false;
+  let creditsRemaining: number | null = null;
+  const scrapeCreators = resolveScrapeCreatorsClient(runConfig.useScrapeCreators, errors);
 
   if (runConfig.includeOwnPosts) {
     candidates.push(...await collectOwnPostCandidates(brandId, runConfig.limit));
@@ -145,9 +153,10 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
     }
   }
 
-  if (brand.accessToken) {
+  if (brand.accessToken || scrapeCreators) {
     const harvestResult = await harvestFromThreadsSources({
-      accessToken: decryptToken(brand.accessToken),
+      accessToken: brand.accessToken ? decryptToken(brand.accessToken) : null,
+      scrapeCreators,
       keywords: runConfig.keywords,
       handles: runConfig.handles,
       excludedTerms: runConfig.excludedTerms,
@@ -157,6 +166,7 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
 
     errors.push(...harvestResult.errors);
     externalAllFailed = allExternalSourcesFailed(harvestResult);
+    creditsRemaining = harvestResult.creditsRemaining;
 
     for (const harvested of harvestResult.candidates) {
       candidates.push({
@@ -208,6 +218,7 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
     errors,
     externalAllFailed,
     keywordOnlyOwnPosts,
+    creditsRemaining,
     ...(await getViralReport(brandId)),
   };
 }
@@ -267,10 +278,12 @@ function buildDiscoveryRunConfig(
 ): DiscoveryRunConfig {
   const useSavedSources = options.useSavedSources !== false;
   const sourceConfig = config.viralDiscovery;
-  const savedKeywords = useSavedSources && isAdapterEnabled(sourceConfig.adapters, "threads_keyword")
+  // The ScrapeCreators adapter replaces both official sources, so it reads the saved keywords and handles on its own.
+  const useScrapeCreators = isAdapterEnabled(sourceConfig.adapters, "threads_scrapecreators");
+  const savedKeywords = useSavedSources && (useScrapeCreators || isAdapterEnabled(sourceConfig.adapters, "threads_keyword"))
     ? sourceConfig.keywords
     : [];
-  const savedHandles = useSavedSources && isAdapterEnabled(sourceConfig.adapters, "threads_profile")
+  const savedHandles = useSavedSources && (useScrapeCreators || isAdapterEnabled(sourceConfig.adapters, "threads_profile"))
     ? sourceConfig.competitorHandles
     : [];
   const keywords = uniqueStrings([...savedKeywords, ...normalizeList(options.keywords)]);
@@ -285,7 +298,19 @@ function buildDiscoveryRunConfig(
     limit: clampInteger(options.limit ?? sourceConfig.maxExamplesPerRun, 1, 50),
     includeOwnPosts: options.includeOwnPosts ?? (useSavedSources && isAdapterEnabled(sourceConfig.adapters, "owned_posts")),
     includeManual: !useSavedSources || isAdapterEnabled(sourceConfig.adapters, "manual"),
+    useScrapeCreators,
   };
+}
+
+/** The toggle alone is not enough: without the key the run reports it and stays on the official API. */
+function resolveScrapeCreatorsClient(enabled: boolean, errors: ViralSourceError[]): ScrapeCreatorsThreadsClient | null {
+  if (!enabled) return null;
+  const apiKey = getScrapeCreatorsApiKey();
+  if (!apiKey) {
+    errors.push({ adapter: "threads_scrapecreators", source: "auth", message: "SCRAPECREATORS_API_KEY missing" });
+    return null;
+  }
+  return createScrapeCreatorsThreadsClient(apiKey);
 }
 
 async function collectOwnPostCandidates(brandId: string, limit: number): Promise<CandidateExample[]> {
@@ -394,7 +419,10 @@ async function saveCandidate(
   const scoreMetrics = { ...candidate, discoveredAt };
   // Other accounts' posts come back without counts, so TOP-search placement stands in for engagement.
   const searchBonus = candidate.views === null ? calculateSearchSignalScore(stored.signal) : 0;
-  const viralScore = calculateViralScore(scoreMetrics, candidate.content) + searchBonus;
+  // ScrapeCreators like counts are stored, not scored, until the 20-post judgement (spec 4.4/6): likes × 3 would put
+  // these rows on a different scale from count-less outside posts (~40) and skew pattern learning.
+  const viralScoreMetrics = candidate.adapter === "threads_scrapecreators" ? withoutCounts(scoreMetrics) : scoreMetrics;
+  const viralScore = calculateViralScore(viralScoreMetrics, candidate.content) + searchBonus;
   // minViralScore is tuned for posts with counts (own posts, shorts). A count-less outside post tops out near 40,
   // so the threshold would drop every keyword-search hit and ref_replay would never get a source; those are ranked by referenceScore instead.
   if (candidate.views !== null && viralScore < minViralScore) return null;
@@ -426,7 +454,7 @@ async function saveCandidate(
     quotes: candidate.quotes,
     shares: candidate.shares,
     engagementRate: calculateEngagementRate(candidate),
-    velocityScore: calculateVelocityScore(scoreMetrics),
+    velocityScore: calculateVelocityScore(viralScoreMetrics),
     viralScore,
     rawMetrics: JSON.stringify(stored.merged),
     discoveredAt,
@@ -439,6 +467,10 @@ async function saveCandidate(
     update: stored.isLlmAnalyzed ? fields : { ...fields, ...analysis },
     create: { brandId, source: candidate.source, sourceKey: candidate.sourceKey, ...fields, ...analysis },
   });
+}
+
+function withoutCounts<T extends CandidateExample & { discoveredAt: Date }>(metrics: T): T {
+  return { ...metrics, views: null, likes: null, replies: null, reposts: null, quotes: null, shares: null };
 }
 
 function buildRuleAnalysisFields(content: string, brandTopics: string[]) {

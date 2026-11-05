@@ -7,9 +7,11 @@ import {
   annotateSearchSignals,
   allExternalSourcesFailed,
   harvestFromThreadsSources,
+  convertScrapeCreatorsPostToCandidate,
   type HarvestedCandidate,
 } from "./viral-harvester";
-import { searchThreadsByKeyword } from "@/lib/threads-api";
+import { fetchPublicProfilePosts, searchThreadsByKeyword } from "@/lib/threads-api";
+import type { ScrapeCreatorsThreadsClient, ScrapeCreatorsThreadsPost } from "@/lib/scrapecreators/threads-client";
 
 vi.mock("@/lib/threads-api", () => ({
   searchThreadsByKeyword: vi.fn(async () => []),
@@ -117,5 +119,112 @@ describe("annotateSearchSignals", () => {
 
     expect(result.attemptedSources).toBe(10);
     expect(searchThreadsByKeyword).toHaveBeenCalledTimes(10);
+  });
+});
+
+describe("ScrapeCreators source", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const scPost = (code: string, overrides: Partial<ScrapeCreatorsThreadsPost> = {}): ScrapeCreatorsThreadsPost => ({
+    code,
+    pk: `pk_${code}`,
+    text: `글 ${code}`,
+    username: "the.saju",
+    url: `https://www.threads.com/@the.saju/post/${code}`,
+    takenAt: new Date("2026-11-04T00:00:00Z"),
+    likeCount: 120,
+    replyCount: null,
+    repostCount: null,
+    quoteCount: null,
+    ...overrides,
+  });
+
+  function fakeClient(overrides: Partial<ScrapeCreatorsThreadsClient> = {}): ScrapeCreatorsThreadsClient {
+    return {
+      search: vi.fn(async () => ({ posts: [scPost("A1"), scPost("B2")], creditsRemaining: 900 })),
+      userPosts: vi.fn(async () => ({ posts: [scPost("P1")], creditsRemaining: 880 })),
+      ...overrides,
+    };
+  }
+
+  it("keys a post by its shortcode and keeps likes as a count, never views", () => {
+    const candidate = convertScrapeCreatorsPostToCandidate(scPost("A1", { replyCount: 3 }), "keyword:사주", { keyword: "사주" });
+
+    expect(candidate).toMatchObject({
+      adapter: "threads_scrapecreators",
+      source: "keyword:사주",
+      sourceKey: "A1",
+      likes: 120,
+      replies: 3,
+      views: null,
+      rawMetrics: { keyword: "사주", provider: "scrapecreators", scPk: "pk_A1", likeCount: 120, hasReplies: true },
+    });
+    expect(convertScrapeCreatorsPostToCandidate(scPost("A1"), "keyword:사주")?.rawMetrics.hasReplies).toBeNull();
+    expect(convertScrapeCreatorsPostToCandidate(scPost("A1", { text: "   " }), "keyword:사주")).toBeNull();
+  });
+
+  it("replaces the official calls, ranks search hits and reports the lowest credit balance", async () => {
+    const client = fakeClient();
+    const now = new Date("2026-11-05T00:00:00Z");
+    const result = await harvestFromThreadsSources({
+      accessToken: "t",
+      scrapeCreators: client,
+      keywords: ["사주"],
+      handles: ["the.saju"],
+      requestDelayMs: 0,
+      now,
+    });
+
+    expect(searchThreadsByKeyword).not.toHaveBeenCalled();
+    expect(fetchPublicProfilePosts).not.toHaveBeenCalled();
+    expect(client.search).toHaveBeenCalledWith("사주", { startDate: new Date("2026-10-29T00:00:00Z") });
+    expect(result.candidates.map((c) => [c.source, c.sourceKey, c.rawMetrics.searchRank])).toEqual([
+      ["keyword:사주", "A1", 1],
+      ["keyword:사주", "B2", 2],
+      ["profile:@the.saju", "P1", undefined],
+    ]);
+    expect(result).toMatchObject({ attemptedSources: 2, errors: [], creditsRemaining: 880 });
+  });
+
+  it("runs without a Threads token", async () => {
+    const result = await harvestFromThreadsSources({ accessToken: null, scrapeCreators: fakeClient(), keywords: ["사주"], requestDelayMs: 0 });
+
+    expect(result.candidates).toHaveLength(2);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("falls back to the official search in the same run when every paid call fails", async () => {
+    const failing = fakeClient({ search: vi.fn(async () => { throw new Error("scrapecreators /v1/threads/search 402"); }) });
+    vi.mocked(searchThreadsByKeyword).mockResolvedValueOnce([{ id: "official1", text: "공식 결과" }]);
+
+    const result = await harvestFromThreadsSources({ accessToken: "t", scrapeCreators: failing, keywords: ["사주"], requestDelayMs: 0 });
+
+    expect(searchThreadsByKeyword).toHaveBeenCalledTimes(1);
+    expect(result.candidates.map((c) => c.sourceKey)).toEqual(["official1"]);
+    expect(result.errors).toEqual([{ adapter: "threads_scrapecreators", source: "사주", message: "scrapecreators /v1/threads/search 402" }]);
+    expect(allExternalSourcesFailed(result)).toBe(false);
+  });
+
+  it("does not fall back while at least one paid call succeeds", async () => {
+    const search = vi.fn()
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockResolvedValueOnce({ posts: [scPost("C3")], creditsRemaining: 10 });
+    const result = await harvestFromThreadsSources({
+      accessToken: "t",
+      scrapeCreators: fakeClient({ search }),
+      keywords: ["a", "b"],
+      requestDelayMs: 0,
+    });
+
+    expect(searchThreadsByKeyword).not.toHaveBeenCalled();
+    expect(result.candidates.map((c) => c.sourceKey)).toEqual(["C3"]);
+    expect(result.errors).toHaveLength(1);
+  });
+
+  it("reports all sources failed when the paid calls fail and there is no token to fall back to", async () => {
+    const failing = fakeClient({ search: vi.fn(async () => { throw new Error("401"); }) });
+    const result = await harvestFromThreadsSources({ accessToken: null, scrapeCreators: failing, keywords: ["사주"], requestDelayMs: 0 });
+
+    expect(allExternalSourcesFailed(result)).toBe(true);
   });
 });

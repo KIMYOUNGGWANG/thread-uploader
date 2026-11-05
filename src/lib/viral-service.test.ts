@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { harvestFromThreadsSources, type HarvestedCandidate } from "@/lib/viral-harvester";
 import { discoverViralExamples, getViralReport, learnViralPatterns } from "@/lib/viral-service";
@@ -19,6 +19,10 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 vi.mock("@/lib/crypto", () => ({ decryptToken: vi.fn(() => "token") }));
+vi.mock("@/lib/scrapecreators/threads-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/scrapecreators/threads-client")>()),
+  createScrapeCreatorsThreadsClient: vi.fn(() => ({ search: vi.fn(), userPosts: vi.fn() })),
+}));
 vi.mock("@/lib/viral-harvester", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/viral-harvester")>()),
   harvestFromThreadsSources: vi.fn(),
@@ -106,6 +110,7 @@ describe("viral-service reference score and eligibility", () => {
       errors: [],
       totalDiscovered: candidates.length,
       attemptedSources: 1,
+      creditsRemaining: null,
     });
   }
 
@@ -221,5 +226,109 @@ describe("viral-service reference score and eligibility", () => {
       upsertCalls().map((call) => [call.create.authorUsername, JSON.parse(call.create.rawMetrics).eligibleSource]),
     );
     expect(eligibleByAuthor).toEqual({ "the.saju": true, cosmicpath: false, "blocked.account": false });
+  });
+});
+
+describe("viral-service ScrapeCreators adapter", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const savedKey = process.env.SCRAPECREATORS_API_KEY;
+
+  function brandWith(adapters: Array<{ id: string; enabled: boolean }>, accessToken: string | null = "enc") {
+    vi.mocked(prisma.brand.findUnique).mockResolvedValue({
+      id: "b1",
+      viralMemory: "{}",
+      accessToken,
+      brandConfig: JSON.stringify({ viralDiscovery: { keywords: ["사주"], competitorHandles: ["the.saju"], adapters } }),
+    } as never);
+  }
+
+  function scCandidate(likes: number): HarvestedCandidate {
+    return {
+      adapter: "threads_scrapecreators",
+      source: "keyword:사주",
+      sourceKey: "DLF-jv2tmNg",
+      contentHash: "h",
+      authorUsername: "the.saju",
+      permalink: "https://www.threads.com/@the.saju/post/DLF-jv2tmNg",
+      content: "솔직히 사주 볼 때 이거 먼저 봐?",
+      publishedAt: new Date(Date.now() - DAY_MS),
+      views: null,
+      likes,
+      replies: null,
+      reposts: null,
+      quotes: null,
+      shares: null,
+      rawMetrics: { searchRank: 1, keywordHits: 1, likeCount: likes, provider: "scrapecreators" },
+    };
+  }
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(prisma.viralExample.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.viralExample.count).mockResolvedValue(0);
+    vi.mocked(prisma.viralExample.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.viralExample.upsert).mockResolvedValue({} as never);
+    vi.mocked(prisma.viralPattern.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.post.findMany).mockResolvedValue([]);
+    vi.mocked(harvestFromThreadsSources).mockResolvedValue({ candidates: [], errors: [], totalDiscovered: 0, attemptedSources: 0, creditsRemaining: null });
+    process.env.SCRAPECREATORS_API_KEY = "sk_test";
+  });
+
+  afterEach(() => {
+    if (savedKey === undefined) delete process.env.SCRAPECREATORS_API_KEY;
+    else process.env.SCRAPECREATORS_API_KEY = savedKey;
+  });
+
+  it("stays on the official API while the adapter is off, even with a key", async () => {
+    brandWith([]);
+    await discoverViralExamples("b1");
+
+    expect(harvestFromThreadsSources).toHaveBeenCalledWith(expect.objectContaining({ accessToken: "token", scrapeCreators: null }));
+  });
+
+  it("passes a client and the saved keywords/handles when on, even with both official toggles off and no token", async () => {
+    brandWith(
+      [
+        { id: "threads_scrapecreators", enabled: true },
+        { id: "threads_keyword", enabled: false },
+        { id: "threads_profile", enabled: false },
+      ],
+      null,
+    );
+    await discoverViralExamples("b1");
+
+    expect(harvestFromThreadsSources).toHaveBeenCalledWith(
+      expect.objectContaining({ accessToken: null, scrapeCreators: expect.anything(), keywords: ["사주"], handles: ["the.saju"] }),
+    );
+  });
+
+  it("reports a missing key and keeps the official path", async () => {
+    delete process.env.SCRAPECREATORS_API_KEY;
+    brandWith([{ id: "threads_scrapecreators", enabled: true }]);
+    const result = await discoverViralExamples("b1");
+
+    expect(harvestFromThreadsSources).toHaveBeenCalledWith(expect.objectContaining({ accessToken: "token", scrapeCreators: null }));
+    expect(result.errors).toContainEqual({ adapter: "threads_scrapecreators", source: "auth", message: "SCRAPECREATORS_API_KEY missing" });
+  });
+
+  it("stores likes but keeps them out of viralScore, and returns the credit balance", async () => {
+    brandWith([{ id: "threads_scrapecreators", enabled: true }]);
+    vi.mocked(harvestFromThreadsSources).mockResolvedValueOnce({
+      candidates: [scCandidate(5000)],
+      errors: [],
+      totalDiscovered: 1,
+      attemptedSources: 2,
+      creditsRemaining: 750,
+    });
+    const result = await discoverViralExamples("b1");
+    const created = (vi.mocked(prisma.viralExample.upsert).mock.calls[0][0] as unknown as {
+      create: { likes: number; viralScore: number; velocityScore: number; rawMetrics: string };
+    }).create;
+
+    expect(result.creditsRemaining).toBe(750);
+    expect(created.likes).toBe(5000);
+    expect(created.viralScore).toBeLessThan(100);
+    expect(created.velocityScore).toBe(0);
+    expect(JSON.parse(created.rawMetrics).likeHistory).toEqual([{ at: expect.any(String), likes: 5000 }]);
   });
 });

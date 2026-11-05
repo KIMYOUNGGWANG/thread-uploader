@@ -173,6 +173,22 @@ export function readRankHistory(raw: Record<string, unknown>): RankHistoryEntry[
   return entries;
 }
 
+export type LikeHistoryEntry = { at: string; likes: number };
+
+/** Read the per-sighting like count history; a broken value yields [], and only entries with a numeric count survive. */
+export function readLikeHistory(raw: Record<string, unknown>): LikeHistoryEntry[] {
+  if (!Array.isArray(raw.likeHistory)) return [];
+  const entries: LikeHistoryEntry[] = [];
+  for (const item of raw.likeHistory as unknown[]) {
+    if (typeof item !== "object" || item === null) continue;
+    const { at, likes } = item as Record<string, unknown>;
+    const parsedLikes = readNumber(likes);
+    if (parsedLikes === null) continue;
+    entries.push({ at: typeof at === "string" ? at : "", likes: parsedLikes });
+  }
+  return entries;
+}
+
 /** Merge a re-harvested post's raw metrics with what is stored: bump timesSeen, keep the persisted keys. */
 export function mergeStoredRawMetrics(previousRaw: string | null, next: Record<string, unknown>, now: Date = new Date()): StoredRawMetrics {
   const previous = parseRecord(previousRaw);
@@ -188,6 +204,11 @@ export function mergeStoredRawMetrics(previousRaw: string | null, next: Record<s
   const rank = readNumber(next.searchRank);
   if (rank !== null) history.push({ at: now.toISOString(), rank, hits: readNumber(next.keywordHits) ?? 1 });
   if (history.length > 0) merged.rankHistory = history.slice(-RANK_HISTORY_LIMIT);
+  // ScrapeCreators rows carry likeCount; keep the per-sighting series for the like-velocity judgement (spec 4.4, stage 2).
+  const likeHistory = readLikeHistory(previous);
+  const likes = readNumber(next.likeCount);
+  if (likes !== null) likeHistory.push({ at: now.toISOString(), likes });
+  if (likeHistory.length > 0) merged.likeHistory = likeHistory.slice(-RANK_HISTORY_LIMIT);
   return {
     merged,
     signal: { searchRank: readNumber(merged.searchRank), keywordHits: readNumber(merged.keywordHits), timesSeen },
