@@ -48,7 +48,7 @@ const ENGLISH_FORMULA_SHAPES: Record<string, string> = {
     "Then 2-4 short lines, 120-300 characters in total. The last line asks readers to reply with their animal or element. No 'A) ' or 'B) ' option lines.",
   sky_now:
     "Then 3-6 short lines, a blank line between ideas, 150-380 characters in total. Name one date from [Sky data] in the first two lines. " +
-    "End with one validating line, not a question. No 'A) ' or 'B) ' option lines.",
+    "Then one validating line, and end with a short check-in question about how this week is landing for them. No 'A) ' or 'B) ' option lines.",
   zodiac_lore:
     "Then the story in 4-7 short lines, 250-480 characters in total, ending on one line about people born in that animal year. No 'A) ' or 'B) ' option lines.",
   two_birthday_compatibility:

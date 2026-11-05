@@ -10,7 +10,9 @@ const PASS: ReadabilityVerdict = { readable: true, reason: "" };
 // 2026-11-04: the third question ("오늘 바로 써먹을 행동이 남는가?") failed every draft that ended on a punchline,
 // so the feed turned into homework posts ("세 개만 적어", "오늘 할 일:"). Shares and saves, not homework, carry reach.
 const TERM_RULE_DEFAULT = "- 사주 용어는 많아야 하나, 같은 문장이나 바로 다음 문장에서 쉬운 말로 풀어주면 의도된 것이다.";
-const TERM_RULE_RANKED = "- 같은 종류 사주 개념 2~3개를 '~보다 센'으로 줄 세운 서열 비교는 의도된 형식이다. 마지막 개념만 쉬운 말로 풀어줘도 된다.";
+// identity_list / self_check_guide name up to three concepts with a short gloss each; on 2026-11-05 the judge's own
+// reason called such a draft understandable but still answered false, because this rule only described rankings.
+const TERM_RULE_RANKED = "- 사주 개념(살·귀인·오행·일간)을 3개까지 이름으로 쓰고 각각 짧게 풀어주는 것, 또는 같은 종류 개념 2~3개를 '~보다 센'으로 줄 세운 서열 비교는 의도된 형식이다. 개념마다 한 줄 풀이가 있으면 이해 가능한 것으로 본다.";
 
 const buildPrompt = (post: string, firstComment: string, rankedTerms: boolean) => `너는 사주를 전혀 모르는 25~35세 독자야. 썸·이별·이직 고민이 있고, 피드에서 첫 두 줄만 보고 계속 읽을지 정해.
 아래 Threads 글(본문과 첫 댓글)을 이 독자로서 읽고 두 질문에 답해.
