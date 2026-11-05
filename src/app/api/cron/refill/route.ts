@@ -14,7 +14,15 @@ export const maxDuration = 300; // up to MAX_REFILL_PER_RUN drafts with quality 
 // on 2026-11-04 ten of them filled 10 of 14 backlog slots, so no text post was generated and the queue ran dry.
 // A NULL formulaId must stay counted, and SQL NOT startsWith drops NULLs, hence the explicit OR.
 const NOT_PROMO_VIDEO = { OR: [{ formulaId: null }, { NOT: { formulaId: { startsWith: "video:" } } }] };
-const BACKLOG_WHERE = { OR: [{ status: "PENDING" }, { status: "NEEDS_REVIEW", ...NOT_PROMO_VIDEO }] };
+// A draft left in review this long is abandoned, not backlog. On 2026-11-05 cosmicpath-global held 7 drafts from
+// 11-01/02 that nobody reviewed against a target of 4, so every refill returned backlog_full and the brand stopped publishing.
+const REVIEW_STALE_MS = 48 * 60 * 60 * 1000;
+const backlogWhere = (now: Date) => ({
+  OR: [
+    { status: "PENDING" },
+    { status: "NEEDS_REVIEW", createdAt: { gte: new Date(now.getTime() - REVIEW_STALE_MS) }, ...NOT_PROMO_VIDEO },
+  ],
+});
 
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
@@ -36,8 +44,9 @@ export async function GET(request: NextRequest) {
     reason: error instanceof Error ? error.message : "Reference replay failed",
   }));
 
+  const now = new Date();
   const backlog = await prisma.post.count({
-    where: { brandId: brand.id, ...BACKLOG_WHERE, scheduledAt: { lte: backlogHorizon(new Date()) } },
+    where: { brandId: brand.id, ...backlogWhere(now), scheduledAt: { lte: backlogHorizon(now) } },
   });
   // During the length experiment nobody reviews drafts, so unreviewed ones must not stall refill:
   // fill each arm's PENDING drafts to half the target instead.

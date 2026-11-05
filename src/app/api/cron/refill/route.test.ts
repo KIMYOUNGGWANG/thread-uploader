@@ -44,14 +44,24 @@ describe("GET /api/cron/refill", () => {
   });
 
   // 2026-11-04: ten unapproved promo videos (created NEEDS_REVIEW) held 10 of 14 backlog slots and stopped text refill.
-  it("counts approved posts and text drafts in review, but not promo videos waiting for approval", async () => {
-    mocks.countPosts.mockResolvedValue(10);
-    await call("brand=cosmicpath&target=10");
-    const [args] = mocks.countPosts.mock.calls[0] as unknown as [{ where: { OR: unknown[] } }];
-    expect(args.where.OR).toEqual([
-      { status: "PENDING" },
-      { status: "NEEDS_REVIEW", OR: [{ formulaId: null }, { NOT: { formulaId: { startsWith: "video:" } } }] },
-    ]);
+  // 2026-11-05: cosmicpath-global had 7 drafts from 11-01/02 nobody reviewed, target 4 → backlog_full every day.
+  it("counts approved posts and text drafts in review under 48h old, but not promo videos waiting for approval", async () => {
+    vi.useFakeTimers({ now: new Date("2026-11-05T00:00:00.000Z"), toFake: ["Date"] });
+    try {
+      mocks.countPosts.mockResolvedValue(10);
+      await call("brand=cosmicpath&target=10");
+      const [args] = mocks.countPosts.mock.calls.at(-1) as unknown as [{ where: { OR: unknown[] } }];
+      expect(args.where.OR).toEqual([
+        { status: "PENDING" },
+        {
+          status: "NEEDS_REVIEW",
+          createdAt: { gte: new Date("2026-11-03T00:00:00.000Z") },
+          OR: [{ formulaId: null }, { NOT: { formulaId: { startsWith: "video:" } } }],
+        },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("leaves drafts scheduled more than 48h ahead out of the backlog", async () => {

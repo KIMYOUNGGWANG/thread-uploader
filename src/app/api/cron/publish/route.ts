@@ -21,7 +21,7 @@ import {
   recordCircuitBreakerFailure,
   recordCircuitBreakerSuccess,
 } from "@/lib/threads-publisher";
-import { resolvePublishSlots } from "@/lib/publish-slots";
+import { BRAND_PUBLISH_SLOTS_UTC, resolvePublishSlots } from "@/lib/publish-slots";
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -54,7 +54,7 @@ function warmupTemplates(language: string | undefined, slug: string): readonly s
 
 type UnpublishableQueue = { qualityBlocked: number; awaitingReview: number; scheduledLater: number };
 
-// Refill counts PENDING + NEEDS_REVIEW as backlog, so a queue that is empty here can look full there.
+// Refill counts PENDING + NEEDS_REVIEW (under 48h old) as backlog, so a queue that is empty here can look full there.
 // Naming why it is empty keeps that deadlock visible in the run log (Global sat idle 2026-10-16..21 as "no_pending").
 async function countUnpublishableQueue(brandId: string, now: Date): Promise<UnpublishableQueue> {
   const [qualityBlocked, awaitingReview, scheduledLater] = await Promise.all([
@@ -118,8 +118,9 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // 1. Circadian Quiet Hours Guard (if jitterEnabled is true)
-      if (brandConfig.jitterEnabled && isCircadianQuietHour(now)) {
+      // 1. Circadian Quiet Hours Guard (if jitterEnabled is true). Pinned slots are hand-picked hours and win:
+      // cosmicpath's KST 01 slot (UTC 16) sits inside the 01:00-06:30 quiet window, so it never published (10-28..11-05).
+      if (brandConfig.jitterEnabled && !BRAND_PUBLISH_SLOTS_UTC[brand.slug] && isCircadianQuietHour(now)) {
         skipped.push({ brandId: brand.id, brandName: brand.name, reason: "circadian_quiet_hour" });
         continue;
       }
@@ -294,7 +295,7 @@ export async function GET(request: NextRequest) {
           await sendSystemAlert({
             level: "warning",
             title: "Publish queue waiting on review",
-            message: `${queue.awaitingReview} draft(s) in NEEDS_REVIEW and nothing publishable. Refill counts them as backlog, so nothing new is generated until they are approved or archived.`,
+            message: `${queue.awaitingReview} draft(s) in NEEDS_REVIEW and nothing publishable. Refill counts drafts under 48h old as backlog, so new ones are generated only after that or once these are approved or archived.`,
             brandName: brand.name,
           });
         }
