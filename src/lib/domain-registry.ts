@@ -34,27 +34,38 @@ const GLOBAL_FRAME_RULE =
   "Leave the zodiac year boundary (when the animal year starts, January or early February birthdays) out unless this formula is about it.";
 // Body length and ending are per formula. One shared A/B ending made the 12-line list and the
 // send-it-to-them post collapse into the same generic A/B post, and the rewrite enforced it again.
+// 2026-11-06 audit (cosmicpath-global, 60 days): 82 of 113 posts ran 390+ characters (median 15 views) against 38 for
+// 150-260; posts ending in the shared A/B + "Which one are you?" closing had half the views of the rest (10 vs 20).
+// So the default is short and ends on a statement, and ENGLISH_MAX_CHARS enforces the length in the gate.
 const DEFAULT_ENGLISH_SHAPE =
-  "Then one sentence per line, a blank line between ideas, 200-420 characters in total. " +
-  "End with two options on their own lines starting 'A) ' and 'B) ', then the line 'Which one are you?'.";
+  "Then one sentence per line, a blank line between ideas, 150-280 characters in total. " +
+  "End on one flat, quotable line: no question, and no 'A) ' / 'B) ' option lines.";
 const ENGLISH_FORMULA_SHAPES: Record<string, string> = {
   all_twelve_series:
     "Then a blank line and exactly 12 lines in zodiac order (Rat, Ox, Tiger, Rabbit, Dragon, Snake, Horse, Goat, Monkey, Rooster, Dog, Pig), each 'Animal: verdict' under 30 characters. " +
     "Then a blank line and one closing line asking readers to save this and find their animal. Whole post under 450 characters. No 'A) ' or 'B) ' option lines.",
   element_bridge:
-    "Then 3-6 short lines, a blank line between ideas, 150-350 characters in total. " +
+    "Then 3-5 short lines, a blank line between ideas, 150-280 characters in total. " +
     "End with one line asking which element they are. No 'A) ' or 'B) ' option lines.",
   check_in:
-    "Then 2-4 short lines, 120-300 characters in total. The last line asks readers to reply with their animal or element. No 'A) ' or 'B) ' option lines.",
+    "Then 2-4 short lines, 120-260 characters in total. The last line asks readers to reply with their animal or element. No 'A) ' or 'B) ' option lines.",
   sky_now:
-    "Then 3-6 short lines, a blank line between ideas, 150-380 characters in total. Name one date from [Sky data] in the first two lines. " +
+    "Then 3-5 short lines, a blank line between ideas, 150-280 characters in total. Name one date from [Sky data] in the first two lines. " +
     "Then one validating line, and end with a short check-in question about how this week is landing for them. No 'A) ' or 'B) ' option lines.",
   zodiac_lore:
-    "Then the story in 4-7 short lines, 250-480 characters in total, ending on one line about people born in that animal year. No 'A) ' or 'B) ' option lines.",
+    "Then the story in 4-6 short lines, 200-400 characters in total, ending on one line about people born in that animal year. No 'A) ' or 'B) ' option lines.",
   two_birthday_compatibility:
-    "Then one sentence per line, a blank line between ideas, 200-420 characters in total. " +
+    "Then one sentence per line, a blank line between ideas, 150-280 characters in total. " +
     "The last line asks the reader to send this to that person. No 'A) ' or 'B) ' option lines.",
 };
+
+// Hard length cap per English formula (root part), enforced by the generation gate. List and story shapes need more room.
+const ENGLISH_MAX_CHARS_DEFAULT = 300;
+const ENGLISH_MAX_CHARS_BY_FORMULA: Record<string, number> = { all_twelve_series: 450, zodiac_lore: 420 };
+
+export function englishMaxChars(formulaId: string): number {
+  return ENGLISH_MAX_CHARS_BY_FORMULA[formulaId] ?? ENGLISH_MAX_CHARS_DEFAULT;
+}
 
 export function englishShapeRule(formulaId: string): string {
   return ENGLISH_FORMULA_SHAPES[formulaId] ?? DEFAULT_ENGLISH_SHAPE;

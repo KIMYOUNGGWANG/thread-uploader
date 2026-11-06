@@ -455,7 +455,7 @@ function checkSajuViralQuality(post: string, context: ProductQualityContext): Qu
     : { pass: true, failureCodes: [] };
   reasons.push(...fidelity.failureCodes.map(formatViralModeFidelityFailure));
 
-  const chartGate = findFirstLineChartGate(firstLine);
+  const chartGate = context.allowChartFirstLine ? null : findFirstLineChartGate(firstLine);
   if (chartGate) reasons.push(chartGate);
 
   // A saju_viral post without any saju term is off-campaign. Hook and engagement only inform the score:

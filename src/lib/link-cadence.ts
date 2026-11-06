@@ -8,9 +8,11 @@ export function shouldLinkAt(input: { index: number; linkOffset: number; cadence
   return (input.linkOffset + input.index + 1) % cadence === 0;
 }
 
-// A post without a link must not ask readers to "check the link"; a linked post should.
+// The link CTA is never forced. 2026-11-06 audit (cosmicpath, 60 days): "링크 확인" posts had a 43-view median, the
+// lowest of every CTA, and linked posts 74 vs 122 unlinked. A linked post keeps its first-comment link and uses the
+// same CTAs as any other post; a post without a link must not ask readers to "check the link" either.
 export function coupleCtaToLink(ctaCandidates: string[], shouldLink: boolean): string[] {
-  if (shouldLink) return [LINK_CTA];
+  void shouldLink;
   const withoutLinkCta = ctaCandidates.filter((cta) => cta !== LINK_CTA);
   return withoutLinkCta.length > 0 ? withoutLinkCta : ctaCandidates;
 }

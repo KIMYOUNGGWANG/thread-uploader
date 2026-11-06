@@ -9,7 +9,7 @@ const PASS: NaturalnessVerdict = { natural: true, reason: "" };
 
 const buildPrompt = (post: string) => `You are a native English-speaking editor reviewing a Threads post.
 Flag any sentence a native speaker would not write: stacked hedges (e.g. "actually ..., instead"), translation-ese or calques, forced rhetorical questions.
-The closing option lines starting with "A) " / "B) " and a closing question like "Which one are you?" are required format; never flag them.
+Closing option lines starting with "A) " / "B) " and a closing question like "Which one are you?" are an allowed format; never flag them.
 Romanized Korean terms followed by a one-line gloss are intended, not awkward.
 Flag only if a native speaker would clearly not write it; when unsure, answer natural.
 Reply with ONLY one JSON object, no other text:

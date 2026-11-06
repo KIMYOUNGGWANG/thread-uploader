@@ -6,7 +6,8 @@
 export const BRAND_PUBLISH_SLOTS_UTC: Readonly<Record<string, readonly number[]>> = {
   // 2026-11-06 metrics since 10/28: posts landing around KST 00 had a 127-view median (n=7) vs ~60 at KST 09/12;
   // the KST 01 slot (UTC 16) had never published before 11/5 because of the quiet-hour guard, so it was unproven.
-  cosmicpath: [2, 13, 15], // KST 11 / 22 / 00
+  // 2026-11-06 60-day audit: KST 09/11/12 were the weakest hours (50/90/54), KST 17 146; KST 11 moved to 17.
+  cosmicpath: [8, 13, 15], // KST 17 / 22 / 00
   "cosmicpath-global": [0, 12], // US evening / US morning
 };
 

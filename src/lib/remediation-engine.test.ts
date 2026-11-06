@@ -128,7 +128,7 @@ describe("remediatePostAlgorithmic rewrite attempts", () => {
 
   // The fixed checklist ("under 430 characters", "Keep the closing A)/B)") squeezed every rewrite into the A/B post.
   it("rewrites a shaped formula with its own length and ending, not the A/B template", () => {
-    expect(englishRewriteChecklist("trend_correction")).toContain("Which one are you?");
+    expect(englishRewriteChecklist("trend_correction")).toContain("no 'A) ' / 'B) ' option lines");
     for (const formulaId of ["all_twelve_series", "two_birthday_compatibility"]) {
       const checklist = englishRewriteChecklist(formulaId);
       expect(checklist).toContain(ENGLISH_HOOK_RULE);

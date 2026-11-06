@@ -30,3 +30,12 @@ describe("global benchmark formulas (2026-11-04)", () => {
     expect(findBorrowedYearBoundaryClaim("check_in", "Born before Ipchun? You may be the year before.")).not.toBeNull();
   });
 });
+
+describe("2026-11-06 global length cap", () => {
+  it("caps English posts at 300 characters, with room for the 12-line list and the legend", async () => {
+    const { englishMaxChars } = await import("@/lib/domain-registry");
+    expect(englishMaxChars("trend_correction")).toBe(300);
+    expect(englishMaxChars("all_twelve_series")).toBe(450);
+    expect(englishMaxChars("zodiac_lore")).toBe(420);
+  });
+});

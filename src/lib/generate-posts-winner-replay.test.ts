@@ -311,6 +311,22 @@ describe("winner_replay draft gate", () => {
     });
   });
 
+  // 2026-11-06 audit: identity_profile alternates the hit-style 살·일주 opener with the plain one and tags each draft.
+  it("alternates identity_profile between the chart-callout and plain first line, tagged for comparison", async () => {
+    const { resolveViralIntentMode } = await import("@/lib/viral-intent-modes");
+    const actual = await vi.importActual<typeof import("@/lib/lean-mode-selector")>("@/lib/lean-mode-selector");
+    vi.mocked(selectLeanViralMode).mockImplementation(() => resolveViralIntentMode("identity_profile", 0));
+    onTestFinished(() => { vi.mocked(selectLeanViralMode).mockImplementation(actual.selectLeanViralMode); });
+    state.reply = "도화살 있는 사람이 연락 답장을 일부러 늦게 하는 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+    await generatePostsForBrand(brand, { ...input, count: 1 });
+    const tags = state.created.flatMap((post) => JSON.parse(String(post.qualityReasons)) as string[]).filter((tag) => tag.startsWith("first_line:"));
+    expect(state.created.length).toBeGreaterThan(0);
+    expect(tags.length).toBe(state.created.length);
+    const prompt = state.requests.join("\n");
+    if (tags.includes("first_line:chart_callout")) expect(prompt).toContain("[첫 줄 실험]");
+    else expect(prompt).not.toContain("[첫 줄 실험]");
+  });
+
   // relationship_tension must open with a relationship word. Swapping a relationship topic into a career slot
   // pushed batches to 62% dating, so the career slot drops the arm instead and keeps its own topic.
   it("excludes relationship_tension on a career slot and keeps the planned topic", async () => {
