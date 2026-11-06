@@ -24,12 +24,39 @@ export async function GET(request: NextRequest) {
     select: {
       id: true, publishedAt: true, formulaId: true, postCategory: true, content: true,
       views: true, likes: true, replies: true, reposts: true, clicks: true, linkUrl: true, metricsAt: true,
+      topic: true, hookType: true, ctaType: true, imageUrls: true, threadTotalParts: true, firstComment: true,
     },
   });
+  // Follower count per daily account-intelligence snapshot, to see whether the audience itself grows or shrinks.
+  const insights = await prisma.accountInsight.findMany({
+    where: { brandId: brand.id, generatedAt: { gte: new Date(Date.now() - days * DAY_MS) } },
+    orderBy: { generatedAt: "asc" },
+    select: { generatedAt: true, metrics: true },
+  });
+  const followers = insights.map((insight) => {
+    let count: number | null = null;
+    try {
+      const parsed: unknown = JSON.parse(insight.metrics);
+      const value = typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>).followersCount : null;
+      count = typeof value === "number" ? value : null;
+    } catch {
+      count = null;
+    }
+    return { at: insight.generatedAt, followers: count };
+  });
+  const imageCount = (raw: string) => {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+      return 0;
+    }
+  };
   return NextResponse.json({
     brand: slug,
     days,
     count: posts.length,
+    followers,
     posts: posts.map((post) => ({
       id: post.id,
       publishedAt: post.publishedAt,
@@ -43,6 +70,16 @@ export async function GET(request: NextRequest) {
       linked: Boolean(post.linkUrl),
       metricsAt: post.metricsAt,
       opening: post.content.split("\n").find((line) => line.trim())?.slice(0, 60) ?? "",
+      length: post.content.length,
+      lines: post.content.split("\n").filter((line) => line.trim()).length,
+      endsWithQuestion: /[?？]\s*$/.test(post.content.trim()),
+      numberedLines: post.content.split("\n").filter((line) => /^\s*\d+[.)]/.test(line)).length,
+      images: imageCount(post.imageUrls),
+      parts: post.threadTotalParts,
+      topic: post.topic,
+      hookType: post.hookType,
+      ctaType: post.ctaType,
+      firstComment: post.firstComment?.split("\n").find((line) => line.trim())?.slice(0, 60) ?? null,
     })),
   });
 }

@@ -4,7 +4,9 @@
 // lowest-reach hours. A pinned brand ignores the caller's list, so changing a brand's slots is one edit here
 // instead of three deploys. Unpinned brands keep using the caller's list.
 export const BRAND_PUBLISH_SLOTS_UTC: Readonly<Record<string, readonly number[]>> = {
-  cosmicpath: [2, 13, 16], // KST 11 / 22 / 01
+  // 2026-11-06 metrics since 10/28: posts landing around KST 00 had a 127-view median (n=7) vs ~60 at KST 09/12;
+  // the KST 01 slot (UTC 16) had never published before 11/5 because of the quiet-hour guard, so it was unproven.
+  cosmicpath: [2, 13, 15], // KST 11 / 22 / 00
   "cosmicpath-global": [0, 12], // US evening / US morning
 };
 

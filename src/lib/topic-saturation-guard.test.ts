@@ -39,3 +39,20 @@ describe("findSaturatedTopics", () => {
     expect(formatSaturationReason({ id: "birth_time_offset", recentHits: 2, maxInRecent: 1 })).toContain("2");
   });
 });
+
+describe("2026-11-06 repetition guards", () => {
+  it("allows one career-prep and one paid-reading post per window", async () => {
+    const { findSaturatedTopics } = await import("@/lib/topic-saturation-guard");
+    const recent = ["공시 붙잡은 지 오래인데 성적은 그대로", "다른 글"];
+    expect(findSaturatedTopics("자격증은 여러 개 땄는데 연봉은 그대로", recent).map((t) => t.id)).toContain("career_prep_stuck");
+    expect(findSaturatedTopics("복채 10만원 내고 들은 말", ["복채 5만원 내고"]).map((t) => t.id)).toContain("paid_reading_roast");
+    expect(findSaturatedTopics("자격증 얘기", ["연애 얘기"])).toEqual([]);
+  });
+
+  it("flags a first comment that repeats a recent one", async () => {
+    const { findRepeatedFirstComment } = await import("@/lib/topic-saturation-guard");
+    const recent = ["제일 오래 붙잡고 있는 준비가 뭐야? 자격증이든 공시든 대학원이든 한 줄로 적어줘.\n📌 리포트:\nhttps://x.y/r/1"];
+    expect(findRepeatedFirstComment("지금 제일 오래 붙잡고 있는 준비가 뭐임? 자격증이든 공시든 대학원이든.", recent)).not.toBeNull();
+    expect(findRepeatedFirstComment("돈 내고 들었던 말 중에 제일 뻔했던 한 마디는 뭐였음?", recent)).toBeNull();
+  });
+});

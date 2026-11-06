@@ -13,7 +13,7 @@ const base = { months: EVERY, mdays: EVERY, wdays: EVERY, timezone: "UTC", expir
 
 // Only routes where hours of lag hurt. refill (3/day) and the daily metrics chain stay on GitHub Actions.
 const JOBS = [
-  { title: "threads publish KR", url: `${APP_URL}/api/cron/publish?brands=cosmicpath&slots=2,13,16`, schedule: { ...base, hours: EVERY, minutes: [2, 17, 32, 47] } },
+  { title: "threads publish KR", url: `${APP_URL}/api/cron/publish?brands=cosmicpath&slots=2,13,15`, schedule: { ...base, hours: EVERY, minutes: [2, 17, 32, 47] } },
   { title: "threads publish Global", url: `${APP_URL}/api/cron/publish?brands=cosmicpath-global&slots=0,12`, schedule: { ...base, hours: EVERY, minutes: [5, 20, 35, 50] } },
   { title: "threads replies", url: `${APP_URL}/api/cron/replies`, schedule: { ...base, hours: EVERY, minutes: [17] } },
   { title: "threads account-intelligence", url: `${APP_URL}/api/cron/account-intelligence`, schedule: { ...base, hours: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22], minutes: [0] } },
