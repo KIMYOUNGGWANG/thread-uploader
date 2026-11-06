@@ -447,3 +447,11 @@ describe("checkQuality length experiment drafts", () => {
     expect(checkQuality(longPost, "saju_viral", { ignoreFoldLength: true }).reasons.join(" ")).not.toContain("Fold");
   });
 });
+
+describe("identity_profile first-line experiment (2026-11-06)", () => {
+  it("lets the chart-callout arm open on a 살·일주 callout and keeps the gate for the plain arm", () => {
+    const post = "경금 일주에 화개살이 있으면, 재회 후 불안을 사랑으로 착각하기 쉬움.\n화개살은 혼자 파고드는 기운이라 더 그래.\n너도 그랬음?";
+    expect(checkQuality(post, "saju_viral").reasons.join(" ")).toContain("독자 사주를 전제");
+    expect(checkQuality(post, "saju_viral", { allowChartFirstLine: true }).reasons.join(" ")).not.toContain("독자 사주를 전제");
+  });
+});

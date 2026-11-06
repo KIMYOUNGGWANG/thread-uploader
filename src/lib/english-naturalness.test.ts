@@ -79,7 +79,7 @@ describe("judgeEnglishNaturalness", () => {
     );
   });
 
-  it("tells the judge the A)/B) closing and the closing question are required format", async () => {
+  it("tells the judge the A)/B) closing and the closing question are an allowed format", async () => {
     process.env.ANTHROPIC_API_KEY = "test-key";
     create.mockResolvedValue({ stop_reason: "end_turn", content: [{ type: "text", text: '{"natural": true, "reason": ""}' }] });
     await judgeEnglishNaturalness(POST);
@@ -88,7 +88,7 @@ describe("judgeEnglishNaturalness", () => {
     expect(prompt).toContain('"A) "');
     expect(prompt).toContain('"B) "');
     expect(prompt).toContain("Which one are you?");
-    expect(prompt).toContain("required format");
+    expect(prompt).toContain("allowed format");
     expect(prompt).toMatch(/romanized Korean/i);
     expect(prompt).toContain("when unsure, answer natural");
   });

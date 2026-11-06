@@ -32,9 +32,10 @@ describe("coupleCtaToLink", () => {
     expect(coupleCtaToLink(candidates, false)).toEqual(["저장 유도", "공유 유도"]);
   });
 
-  it("guarantees the link CTA on posts that carry a link", () => {
-    expect(coupleCtaToLink(["저장 유도"], true)).toEqual([LINK_CTA]);
-    expect(coupleCtaToLink(candidates, true)).toEqual([LINK_CTA]);
+  // 2026-11-06: the link CTA had the lowest median of every CTA, so a linked post keeps the normal CTAs.
+  it("never forces the link CTA on posts that carry a link", () => {
+    expect(coupleCtaToLink(["저장 유도"], true)).toEqual(["저장 유도"]);
+    expect(coupleCtaToLink(candidates, true)).toEqual(["저장 유도", "공유 유도"]);
   });
 
   it("falls back to the original candidates when filtering would leave nothing", () => {

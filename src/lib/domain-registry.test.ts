@@ -189,7 +189,9 @@ describe("ecommerce_d2c batch keeps one claim per formula", () => {
     }
     expect(formulaById.get("all_twelve_series")?.instruction).toMatch(/exactly 12 lines/);
     expect(formulaById.get("two_birthday_compatibility")?.instruction).toMatch(/send this to that person/);
-    expect(formulaById.get("trend_correction")?.instruction).toContain("Which one are you?");
+    // 2026-11-06: the shared A/B closing is gone; the default now ends on a flat line.
+    expect(formulaById.get("trend_correction")?.instruction).not.toContain("Which one are you?");
+    expect(formulaById.get("trend_correction")?.instruction).toContain("150-280 characters");
   });
 
   it("fails drafts that fall back to the generic A/B post", () => {

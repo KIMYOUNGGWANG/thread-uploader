@@ -12,6 +12,8 @@ export interface ProductQualityContext {
   readonly viralIntentModeId?: ViralIntentModeId;
   // Length experiment drafts skip the expert panel's fold-length penalty.
   ignoreFoldLength?: boolean;
+  // identity_profile's first-line experiment: the hit-style 살·일주 callout opener ("경금 일주에 화개살이 있으면").
+  allowChartFirstLine?: boolean;
 }
 
 const GENERIC_SELF_HELP_PATTERNS = [

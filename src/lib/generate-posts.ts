@@ -18,7 +18,7 @@ import { buildAdmissionFirstComment, buildConversationIgniterComment } from "@/l
 import { buildShortRedirectUrl, buildTrackedUrl } from "@/lib/tracking-url";
 import { selectLearnedFormula } from "@/lib/thompson-sampling-router";
 import { isLeanSprintRun, selectCampaignFormulaForViralMode, selectLeanViralMode } from "@/lib/lean-mode-selector";
-import { splitContentIntoThreadParts } from "@/lib/thread-splitter";
+import { splitContentIntoThreadParts, threadRootPart } from "@/lib/thread-splitter";
 import {
   ENGLISH_VIRAL_MODE_LABELS,
   formatViralIntentModePrompt,
@@ -52,7 +52,7 @@ import {
 import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
-import { findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
+import { englishMaxChars, findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
 import { resolveDynamicContext, isRelationshipTopic, planTopicQuota, alignRelationshipSlots } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
@@ -120,6 +120,9 @@ interface GrowthExperiment {
   // Real solar-term / moon dates for timely modes (src/lib/sky-calendar.ts); the gate rejects any other date.
   calendarBrief?: string;
   calendarNow?: Date;
+  // First-line experiment on identity_profile (2026-11-06 audit): true opens on the 살·일주 callout that the 1k+ hits
+  // used, false keeps the readable-claim opener. Tagged "first_line:*" in qualityReasons for comparison.
+  chartCalloutFirst?: boolean;
 }
 
 interface GenerationFormula {
@@ -326,6 +329,7 @@ async function generateWithQuality(
   const qualityContext = {
     ...buildProductQualityContext(config, experiment.viralIntentMode?.id),
     ignoreFoldLength: Boolean(experiment.lengthTarget),
+    allowChartFirstLine: Boolean(experiment.chartCalloutFirst),
   };
 
   // One gate for the first draft, every retry, and the post-remediation re-check.
@@ -392,6 +396,14 @@ async function generateWithQuality(
       : null;
     if (lengthReason) {
       gate = { ...gate, pass: false, reasons: [lengthReason, ...gate.reasons] };
+    }
+    // English posts ran 400-700 characters despite the shape rule (median 15 views vs 38 at 150-260): cap it in the gate.
+    if (isEnglish && experiment.qualityProfile === "ecommerce_d2c") {
+      const max = englishMaxChars(experiment.formula.id);
+      const length = threadRootPart(post).length;
+      if (length > max) {
+        gate = { ...gate, pass: false, reasons: [`Too long: ${length} characters, keep the post under ${max}. Cut to the hook and the 3-4 lines that matter.`, ...gate.reasons] };
+      }
     }
     // A timely post may only name dates the calendar table has (term changes, moons, the year turn).
     if (experiment.calendarBrief) {
@@ -480,7 +492,10 @@ async function generateWithQuality(
     qualityScore: qualityResult.score,
     qualityProfile: qualityResult.profile,
     qualityPass: qualityResult.pass,
-    qualityReasons: qualityResult.reasons,
+    qualityReasons: [
+      ...qualityResult.reasons,
+      ...(experiment.chartCalloutFirst === undefined ? [] : [`first_line:${experiment.chartCalloutFirst ? "chart_callout" : "plain"}`]),
+    ],
     campaignId: experiment.campaign?.id ?? null,
     campaignFormulaId: experiment.campaignFormulaId,
     careerDecisionType: qualityResult.careerDecisionType ?? null,
@@ -616,6 +631,9 @@ function buildGenerationPrompt(
         // produced drafts the gate then dropped.
         `- [Charlie Hills 2-Line Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내로 그 단언의 이유나 의외의 결과를 보여준다. 'X가 아니라 Y' 뒤집기 틀은 쓰지 않고, 비교가 필요하면 '~보다'를 한 번만 쓴다.`,
         "- [첫 줄 스크롤 멈춤]: 첫 줄은 누구나 겪어본 구체 상황이나 통념 반박으로 스크롤을 멈추게 한다. 숫자는 프롬프트에 주어진 것만 쓰고 지어내지 않는다. 첫 줄은 사주를 모르는 사람도 읽히게 쓰고, '신금 일주는', '일간이 ~', '도화살 있으면' 같은 독자 사주 전제로 시작하지 않는다. 살·일주는 둘째 줄 이후에 근거로만 쓴다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
+        ...(experiment.chartCalloutFirst
+          ? ["- [첫 줄 실험]: 이번 글은 첫 줄에서 살·일주·글자를 바로 호명한다(예: '경금 일주에 화개살이 있으면, 재회 후 불안을 사랑으로 착각하기 쉬움.'). 바이럴 모드의 '첫 줄은 사주를 몰라도 읽히는 행동이나 상황' 규칙과 '독자 사주 전제로 시작하지 않는다', '살·일주는 둘째 줄 이후' 제한보다 이 지시가 우선한다. 호명한 개념은 바로 다음 줄에서 쉬운 말로 푼다."]
+          : []),
         ...(viralIntentMode.id === "concept_hierarchy"
           ? ["- [개념 서열 예외]: 이번 글은 개념 서열 모드라 위 첫 줄 규칙의 '살·일주는 둘째 줄 이후' 제한을 따르지 않는다. 첫 줄에서 같은 종류 개념 2~3개를 '~보다 센'으로 줄 세운다(예: '도화'보다 센 '홍염'보다 센 게 뭔지 알아?)."]
           : []),
@@ -1333,6 +1351,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       // Benchmark modes set their own structure and ending; a rotated closing would contradict them.
       else if (!OWN_SHAPE_MODE_IDS.has(formulaMode.id)) {
         experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
+      }
+      if (formulaMode.id === "identity_profile" && experiment.qualityProfile === "saju_viral") {
+        experiment.chartCalloutFirst = slotIndex % 2 === 0;
       }
       if (formulaMode.id === "timely_forecast" && calendarBrief) {
         experiment.calendarBrief = calendarBrief;

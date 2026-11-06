@@ -33,12 +33,12 @@ jobs:
           status=0
           for slug in ${PUBLISH_BRAND_SLUGS//,/ }; do
             # The server pins cosmicpath/cosmicpath-global slots (src/lib/publish-slots.ts); keep these equal to it.
-            # Slots are UTC hours. KR: KST 11/22/00 — 3 slots to match the campaign dailyPostTarget; 5/day halved
+            # Slots are UTC hours. KR: KST 17/22/00 — 3 slots to match the campaign dailyPostTarget; 5/day halved
             # per-post reach (2026-10-23..27 median 150 → 40) while account-level daily views stayed flat.
             # Global (new account, 2/day): US evening + US morning.
             case "$slug" in
               cosmicpath-global) slots="0,12" ;;
-              *) slots="2,13,15" ;;
+              *) slots="8,13,15" ;;
             esac
             # Manual dispatch publishes immediately; only scheduled runs are slot-gated.
             query="brands=${slug}"
