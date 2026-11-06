@@ -36,6 +36,7 @@ import {
   type ReferenceKind,
   WINNER_REPLAY_MODE,
   LIST_MODE_IDS,
+  normalizeViralIntentModeId,
   OWN_SHAPE_MODE_IDS,
   RANKED_TERM_MODE_IDS,
 } from "@/lib/viral-intent-modes";
@@ -55,7 +56,7 @@ import { findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPres
 import { resolveDynamicContext, isRelationshipTopic, planTopicQuota, alignRelationshipSlots } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
-import { findSaturatedTopics, formatSaturationReason, isSituationSaturated, SATURATION_WINDOW } from "@/lib/topic-saturation-guard";
+import { findRepeatedFirstComment, findSaturatedTopics, formatSaturationReason, isSituationSaturated, SATURATION_WINDOW } from "@/lib/topic-saturation-guard";
 import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
 import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
@@ -354,6 +355,13 @@ async function generateWithQuality(
     const saturated = findSaturatedTopics(post, recentPosts.map((recent) => recent.content));
     if (saturated.length > 0) {
       gate = { ...gate, pass: false, reasons: [...saturated.map(formatSaturationReason), ...gate.reasons] };
+    }
+    // Same scope as the other Korean saju repetition rules (where the repeat was seen, 2026-11-06).
+    const repeatedComment = experiment.qualityProfile === "saju_viral"
+      ? findRepeatedFirstComment(firstComment, recentPosts.map((recent) => recent.firstComment))
+      : null;
+    if (repeatedComment) {
+      gate = { ...gate, pass: false, reasons: [`첫 댓글이 최근 댓글과 거의 같음("${repeatedComment}") - 이 글 내용에 맞는 다른 질문으로`, ...gate.reasons] };
     }
     if (recentPosts.length > 0) {
       const repeat = [
@@ -1050,6 +1058,23 @@ function isSafeReferenceHook(hook: string): boolean {
   return !hasFortuneOverclaim(hook) && !hasGeneratedMeta(hook) && !findFirstLineChartGate(hook.split("\n")[0] ?? "");
 }
 
+// No lean arm may hold more than ARM_SHARE_CAP of the last ARM_SHARE_WINDOW posts. 2026-11-06 metrics: concept_hierarchy
+// took 21 of 72 posts in three weeks at a 42-view median (identity_profile 93, relationship_tension 113), and the
+// talent arm ran twice in three days. Learned priors alone let one arm flood the feed; this keeps the mix.
+export const ARM_SHARE_WINDOW = 10;
+export const ARM_SHARE_CAP = 2;
+
+export function overusedLeanArms(recentFormulaIdsNewestFirst: readonly string[]): string[] {
+  const counts = new Map<string, number>();
+  for (const id of recentFormulaIdsNewestFirst.slice(0, ARM_SHARE_WINDOW)) {
+    if (!id) continue;
+    // Legacy formula aliases (e.g. lotto_zero_friction) count toward the arm they resolve to.
+    const arm = normalizeViralIntentModeId(id) ?? id;
+    counts.set(arm, (counts.get(arm) ?? 0) + 1);
+  }
+  return [...counts.entries()].filter(([, count]) => count >= ARM_SHARE_CAP).map(([id]) => id);
+}
+
 const TEMPLATE_CAP_STATUSES = new Set(["PUBLISHED", "PUBLISHING", "PARTIAL_FAILED", "PENDING"]);
 // Info posts list items, not choices, so they never fill the numbered-choice window either.
 function countsTowardTemplateCap(post: RecentPostSummary): boolean {
@@ -1204,6 +1229,8 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       const calendarBrief = skyBriefKo(new Date());
       const excludedModeIds = isLeanSprint
         ? [
+            // Counted on posts already saved, so one dashboard batch keeps its designed allocation.
+            ...overusedLeanArms(recentPosts.filter((recent) => recent.status == null || TEMPLATE_CAP_STATUSES.has(recent.status)).map((recent) => recent.formulaId ?? "")),
             ...(choicesCapped ? ["imagination_dilemma"] : []),
             ...(isRelationshipTopic(plannedTopic) ? [] : ["relationship_tension"]),
             ...(calendarBrief ? [] : ["timely_forecast"]),

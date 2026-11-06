@@ -6,11 +6,11 @@ const DEFAULT_APP_URL = "https://thread-uploader.vercel.app";
 
 // cron expression (must match wrangler.toml) → routes to call. Publish is slot-gated server-side, so the
 // 15-minute cadence only gives each 3-hour slot window more chances; extra calls are no-ops.
-// KR slots must match .github/workflows/cron.yml (2026-10-28: KST 11/22/01). With the old 0,3,9,12,14 the
+// KR slots must match .github/workflows/cron.yml (2026-11-06: KST 11/22/00). With the old 0,3,9,12,14 the
 // daily cap of 3 was spent by the KST 09/12 slots, the lowest-reach hours, before the evening slot opened.
 export const ROUTES = {
   "*/15 * * * *": [
-    "/api/cron/publish?brands=cosmicpath&slots=2,13,16",
+    "/api/cron/publish?brands=cosmicpath&slots=2,13,15",
     "/api/cron/publish?brands=cosmicpath-global&slots=0,12",
     "/api/cron/instagram-publish?brands=cosmicpath",
   ],

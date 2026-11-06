@@ -375,3 +375,14 @@ describe("winner_replay draft gate", () => {
     });
   });
 });
+
+describe("overusedLeanArms", () => {
+  it("drops an arm that already holds 2 of the last 10 posts, counting legacy aliases", async () => {
+    const { overusedLeanArms } = await import("@/lib/generate-posts");
+    expect(overusedLeanArms(["concept_hierarchy", "a", "concept_hierarchy", "b"])).toEqual(["concept_hierarchy"]);
+    expect(overusedLeanArms(["lotto_zero_friction", "imagination_dilemma"])).toEqual(["imagination_dilemma"]);
+    expect(overusedLeanArms(["x", "y", "z"])).toEqual([]);
+    // Older than the window does not count.
+    expect(overusedLeanArms([...Array(10).fill("other"), "concept_hierarchy", "concept_hierarchy"])).toEqual(["other"]);
+  });
+});

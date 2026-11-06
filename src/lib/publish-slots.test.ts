@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { resolvePublishSlots } from "@/lib/publish-slots";
 
 describe("resolvePublishSlots", () => {
-  it("pins cosmicpath to KST 11/22/01 whatever list the scheduler sent", () => {
-    expect(resolvePublishSlots("cosmicpath", [0, 3, 9, 12, 14])).toEqual([2, 13, 16]);
+  it("pins cosmicpath to KST 11/22/00 whatever list the scheduler sent", () => {
+    expect(resolvePublishSlots("cosmicpath", [0, 3, 9, 12, 14])).toEqual([2, 13, 15]);
     expect(resolvePublishSlots("cosmicpath-global", [3])).toEqual([0, 12]);
   });
 
