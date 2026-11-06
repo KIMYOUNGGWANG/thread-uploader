@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findEnglishNegationHook, findMissingFirstLineConcept, hasFirstLineSajuConcept } from "./first-line-rules";
+import { findMissingFirstLineConcept, findMissingWesternAnchor, hasFirstLineSajuConcept, hasWesternAnchor } from "./first-line-rules";
 
 describe("hasFirstLineSajuConcept", () => {
   // First lines of cosmicpath posts that reached 300+ views.
@@ -34,22 +34,25 @@ describe("hasFirstLineSajuConcept", () => {
   });
 });
 
-describe("findEnglishNegationHook", () => {
+describe("hasWesternAnchor", () => {
   it.each([
-    "Your zodiac animal is not the first thing saju checks.",
-    "Saju doesn't have a 29 problem.",
-    "Imposter syndrome isn't a confidence problem.",
-    "Your sun sign was never the problem.",
-  ])("rejects the correction opener %s", (line) => {
-    expect(findEnglishNegationHook(`${line}\n\nMore.`)).toContain("Line 1 corrects the reader");
+    "Scorpio suns at work: they notice everything.\n\nKorean saju looks at the day you were born.",
+    "Water signs, check in.\n\nYou feel it first.",
+    "Your Saturn return hits at 29.\n\nSaju reads a 10-year cycle.",
+    "Short line.\nScorpio season feels heavy for a reason.",
+  ])("accepts %s", (post) => {
+    expect(hasWesternAnchor(post)).toBe(true);
+    expect(findMissingWesternAnchor(post)).toBeNull();
   });
 
   it.each([
-    "Water Day Masters, check in.",
-    "Horse years feel everything first.",
-    "Sat Nov 7 starts the Pig month in saju.",
-    "Once upon a time, the rat rode the ox.",
-  ])("accepts %s", (line) => {
-    expect(findEnglishNegationHook(`${line}\n\nAnd this isn't line 1.`)).toBeNull();
+    "Your day master is the real you.\n\nSaju reads the pillar of your birth day.",
+    "The fortune teller is not predicting your fate.\n\nSaju asks when.",
+  ])("rejects an opening with only saju vocabulary: %s", (post) => {
+    expect(findMissingWesternAnchor(post)).toContain("Western sign");
+  });
+
+  it("only reads the first two lines", () => {
+    expect(hasWesternAnchor("Line one.\nLine two.\nScorpio on line three.")).toBe(false);
   });
 });

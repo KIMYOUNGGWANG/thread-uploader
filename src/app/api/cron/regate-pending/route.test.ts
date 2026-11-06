@@ -127,12 +127,12 @@ describe("GET /api/cron/regate-pending", () => {
     expect(mocks.judge).toHaveBeenCalledTimes(1);
   });
 
-  it("regates global drafts on length, the A/B ending and correction openers, with no Korean judge", async () => {
+  it("regates global drafts on length, the A/B ending and a missing Western anchor, with no Korean judge", async () => {
     mocks.findBrand.mockResolvedValueOnce({ id: "g1", slug: "cosmicpath-global", brandConfig: JSON.stringify({ qualityProfile: "ecommerce_d2c" }) });
     mocks.findPosts.mockResolvedValue([
-      post("ok", { formulaId: "check_in", content: "Water Day Masters, check in.\n\nYou feel it first." }),
-      post("ab", { formulaId: "saturn_reboot_timeline", content: "Money moves in decades.\n\nA) I earn well\nB) I keep it\nWhich one are you?" }),
-      post("neg", { formulaId: "saturn_reboot_timeline", content: "Your Saturn return is not your turning point.\n\nShort." }),
+      post("ok", { formulaId: "check_in", content: "Water signs, check in.\n\nYou feel it first." }),
+      post("ab", { formulaId: "saturn_reboot_timeline", content: "Your Saturn return moves money.\n\nA) I earn well\nB) I keep it\nWhich one are you?" }),
+      post("neg", { formulaId: "identity_callout", content: "Your day master is the real you.\n\nShort." }),
       post("long", { formulaId: "sky_now", content: `Sat Nov 7 starts the Pig month.\n\n${"x".repeat(320)}` }),
     ]);
     const { body } = await call("brand=cosmicpath-global");

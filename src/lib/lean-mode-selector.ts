@@ -56,11 +56,20 @@ const LEAN_ARM_IDS: readonly ViralIntentModeId[] = [
 const SAJU_HIT_SEED_PRIOR: BetaPrior = { alpha: 6, beta: 3 };
 const SAJU_HIT_IDS = new Set<string>(SAJU_HIT_MODES.map((mode) => mode.id));
 
-function seedHitArm(prior: BetaPrior | undefined): BetaPrior {
-  if (!prior) return SAJU_HIT_SEED_PRIOR;
+// 2026-11-06 peer comparison (docs/research/2026-11-06-competitor-post-comparison.md): numbered lists get 2.55x the
+// account's usual likes on saju Threads (ours 168 vs 89 views), and putting down 점집·복채 is 2% of their posts while
+// ours sat at 55 vs 106 views. So the list arm starts ahead and the 복채 roast starts behind.
+const HIT_SEED_OVERRIDES: Partial<Record<ViralIntentModeId, BetaPrior>> = {
+  identity_list: { alpha: 9, beta: 3 },
+  cost_loss_punch: { alpha: 2, beta: 6 },
+};
+
+function seedHitArm(prior: BetaPrior | undefined, modeId: ViralIntentModeId): BetaPrior {
+  const seed = HIT_SEED_OVERRIDES[modeId] ?? SAJU_HIT_SEED_PRIOR;
+  if (!prior) return seed;
   return {
-    alpha: prior.alpha + SAJU_HIT_SEED_PRIOR.alpha - NEUTRAL_PRIOR.alpha,
-    beta: prior.beta + SAJU_HIT_SEED_PRIOR.beta - NEUTRAL_PRIOR.beta,
+    alpha: prior.alpha + seed.alpha - NEUTRAL_PRIOR.alpha,
+    beta: prior.beta + seed.beta - NEUTRAL_PRIOR.beta,
   };
 }
 
@@ -91,7 +100,7 @@ export function selectLeanViralMode(
   const pool = candidates.length > 0 ? candidates : modes;
   const armPriors: Record<string, BetaPrior> = { ...priors };
   for (const mode of pool) {
-    if (SAJU_HIT_IDS.has(mode.id)) armPriors[armFormulaId(mode)] = seedHitArm(priors?.[armFormulaId(mode)]);
+    if (SAJU_HIT_IDS.has(mode.id)) armPriors[armFormulaId(mode)] = seedHitArm(priors?.[armFormulaId(mode)], mode.id);
   }
   const { armId } = sampleBestArm(pool.map(armFormulaId), armPriors);
   return pool.find((mode) => armFormulaId(mode) === armId) ?? fixedMode;

@@ -53,7 +53,7 @@ import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
 import { englishMaxChars, findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
-import { CONCEPT_FIRST_MODE_IDS, findEnglishNegationHook, findMissingFirstLineConcept } from "@/lib/first-line-rules";
+import { CONCEPT_FIRST_MODE_IDS, WESTERN_ANCHOR_FORMULA_IDS, findMissingFirstLineConcept, findMissingWesternAnchor } from "@/lib/first-line-rules";
 import { resolveDynamicContext, isRelationshipTopic, planTopicQuota, alignRelationshipSlots } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
@@ -402,9 +402,9 @@ async function generateWithQuality(
       const missingConcept = findMissingFirstLineConcept(post);
       if (missingConcept) gate = { ...gate, pass: false, reasons: [missingConcept, ...gate.reasons] };
     }
-    if (isEnglish && experiment.qualityProfile === "ecommerce_d2c") {
-      const negationHook = findEnglishNegationHook(post);
-      if (negationHook) gate = { ...gate, pass: false, reasons: [negationHook, ...gate.reasons] };
+    if (isEnglish && experiment.qualityProfile === "ecommerce_d2c" && WESTERN_ANCHOR_FORMULA_IDS.has(experiment.formula.id)) {
+      const missingAnchor = findMissingWesternAnchor(post);
+      if (missingAnchor) gate = { ...gate, pass: false, reasons: [missingAnchor, ...gate.reasons] };
     }
     // English posts ran 400-700 characters despite the shape rule (median 15 views vs 38 at 150-260): cap it in the gate.
     if (isEnglish && experiment.qualityProfile === "ecommerce_d2c") {
@@ -624,7 +624,7 @@ function buildGenerationPrompt(
         "[Threads Viral Compression & High-Retention Hook Rules]",
         isInfoReference ? REFERENCE_INFO_LENGTH_RULE_EN : `- Target body length: ~${THREADS_CONTENT_TARGET_LENGTH} chars (approx 35-55 words / max ${THREADS_CONTENT_MAX_LENGTH} chars). Highly compressed and punchy.`,
         "- Hook within the first 100 characters before the feed fold. Stop the scroll instantly. No boring preamble, no lectures, no bullet lists.",
-        "- [2-Line Hook]: Line 1 calls out a group, a feeling right now, or one bold verdict (<60 chars). Line 2 adds the saju detail that makes it land. Never open by correcting the reader ('X is not Y').",
+        "- [2-Line Hook]: Line 1 starts from what the reader already knows: their sign or element group, their big three, or a planet/season (<60 chars). Line 2 adds the Korean saju detail that makes it land.",
         ...(isInfoReference ? [] : ["- [Single-Point Razor]: Focus on ONE idea. Never summarize or list multiple unfocused ideas."]),
         "- [Focused Conflict]: Zero in on one specific persona friction and internal conflict.",
         "- [Zero-in-body URL]: Never place links or URLs inside the post body.",

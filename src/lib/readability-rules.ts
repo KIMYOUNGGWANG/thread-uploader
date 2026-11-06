@@ -123,7 +123,12 @@ export function tightenChoiceLines(post: string): string {
     .join("\n");
 }
 
+// A numbered list (4+ items: "1. … 6.") is the best format on saju Threads (2026-11-06 peer comparison: 2.55x the
+// account's usual likes; ours 168 vs 89 views). It used to count as a "pick 1/2/3" ending and hit this cap.
+const LIST_ITEM_4PLUS_RE = /^\s*(?:[4-9]|\d{2,})[.)]\s/m;
+
 export function endsWithNumberedChoices(post: string): boolean {
+  if (LIST_ITEM_4PLUS_RE.test(post)) return false;
   return post.split("\n").filter((line) => CHOICE_LINE_RE.test(line)).length >= 2;
 }
 

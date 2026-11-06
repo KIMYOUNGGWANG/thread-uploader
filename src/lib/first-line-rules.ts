@@ -37,15 +37,35 @@ export function findMissingFirstLineConcept(post: string): string | null {
   return `첫 줄에 사주 개념이 없음: "${firstLine.slice(0, 40)}" — 살·글자·십성·띠·대운 중 하나를 첫 줄에서 바로 꺼내`;
 }
 
-// cosmicpath-global, 60 days: 31 of 110 posts opened by correcting the reader ("Your zodiac animal is not...",
-// "Saturn return is not...") at a median of 15 views vs 18 for the rest. The gap is small because the account has
-// 6 followers; the rule is for variety and follows the benchmark: the big astrology accounts open on identity,
-// the sky right now, a check-in, or a story, never on a correction.
-const ENGLISH_NEGATION_HOOK_PATTERN = /\b(?:not|never|no longer)\b|n['’]t\b/i;
+// 2026-11-06 peer comparison (docs/research/2026-11-06-competitor-post-comparison.md, 64 astrology accounts):
+// 51% of their posts name a Western sign or element group and those posts get 1.6x the account's usual likes;
+// 1% use Eastern terms. 61% of ours opened on saju vocabulary (day master, pillar) the audience doesn't know.
+// These formulas talk to the reader about themselves, so they must anchor on what the reader already uses.
+// (The 11/6 "no 'not' in line 1" gate was dropped: peers open that way 18% of the time at 1.13x.)
+export const WESTERN_ANCHOR_FORMULA_IDS: ReadonlySet<string> = new Set([
+  "identity_callout",
+  "element_bridge",
+  "check_in",
+  "two_birthday_compatibility",
+  "saturn_reboot_timeline",
+]);
 
-export function findEnglishNegationHook(post: string): string | null {
-  const firstLine = threadRootPart(post).split("\n").find((line) => line.trim()) ?? "";
-  return ENGLISH_NEGATION_HOOK_PATTERN.test(firstLine)
-    ? `Line 1 corrects the reader ("${firstLine.slice(0, 50)}"). Open on an identity call-out, how this week feels, a check-in, or a story instead. No "not", "isn't", "never" in line 1.`
-    : null;
+const WESTERN_ANCHOR_PATTERN = new RegExp(
+  [
+    "aries", "taurus", "gemini", "cancer", "leo", "virgo", "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces",
+    "(?:fire|water|earth|air) signs?", "sun signs?", "moon signs?", "rising", "big three", "birth chart", "natal chart",
+    "mercury", "venus", "mars", "saturn", "jupiter", "retrograde", "full moon", "new moon", "eclipse", "[a-z]+ season",
+  ].map((term) => `\\b${term}\\b`).join("|"),
+  "i"
+);
+
+export function hasWesternAnchor(post: string): boolean {
+  const opening = threadRootPart(post).split("\n").filter((line) => line.trim()).slice(0, 2).join("\n");
+  return WESTERN_ANCHOR_PATTERN.test(opening);
+}
+
+export function findMissingWesternAnchor(post: string): string | null {
+  return hasWesternAnchor(post)
+    ? null
+    : "Lines 1-2 name nothing the reader already uses. Open on a Western sign or element group (Scorpio, water signs), their big three, or a planet/season they know, then add the Korean saju layer.";
 }

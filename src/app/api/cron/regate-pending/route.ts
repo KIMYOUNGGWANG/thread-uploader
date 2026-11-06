@@ -5,7 +5,7 @@ import { checkReadabilityRules } from "@/lib/readability-rules";
 import { judgeReadability } from "@/lib/readability-judge";
 import { REFERENCE_REPLAY_MANUAL_TAG } from "@/lib/reference-replay";
 import { RANKED_TERM_MODE_IDS } from "@/lib/viral-intent-modes";
-import { CONCEPT_FIRST_MODE_IDS, findEnglishNegationHook, findMissingFirstLineConcept } from "@/lib/first-line-rules";
+import { CONCEPT_FIRST_MODE_IDS, WESTERN_ANCHOR_FORMULA_IDS, findMissingFirstLineConcept, findMissingWesternAnchor } from "@/lib/first-line-rules";
 import { englishMaxChars } from "@/lib/domain-registry";
 import { threadRootPart } from "@/lib/thread-splitter";
 import { parseBrandConfig } from "@/types/brand";
@@ -45,7 +45,7 @@ async function sajuDraftProblems(content: string, firstComment: string, formulaI
   return reasons;
 }
 
-// The global gates added 2026-11-06 (length cap, no shared A/B ending, no correction opener) only run at generation.
+// The global gates added 2026-11-06 (length cap, no shared A/B ending, Western anchor) only run at generation.
 const OPTION_LINE_PATTERN = /^\s*[AB]\)\s/m;
 function englishDraftProblems(content: string, formulaId: string): string[] {
   const reasons: string[] = [];
@@ -53,8 +53,8 @@ function englishDraftProblems(content: string, formulaId: string): string[] {
   const length = threadRootPart(content).length;
   if (length > max) reasons.push(`Too long: ${length} > ${max}`);
   if (OPTION_LINE_PATTERN.test(content)) reasons.push("Shared A/B option ending");
-  const negation = findEnglishNegationHook(content);
-  if (negation) reasons.push(negation);
+  const missingAnchor = WESTERN_ANCHOR_FORMULA_IDS.has(formulaId) ? findMissingWesternAnchor(content) : null;
+  if (missingAnchor) reasons.push(missingAnchor);
   return reasons;
 }
 
