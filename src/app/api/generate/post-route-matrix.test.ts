@@ -63,7 +63,8 @@ vi.mock("@anthropic-ai/sdk", () => ({
         state.prompts.push(JSON.stringify(request));
         const body = state.englishBody
           ? `Your birth hour is probably off by an hour ${mockPostCallCounter}.\n\nMost charts shift when it moves.`
-          : DIVERSE_POST_BODIES[mockPostCallCounter % DIVERSE_POST_BODIES.length];
+          // Saju concept-first modes require a concept in line 1 (first-line-rules); the career bodies carry one up front.
+          : `대운 바뀌는 해, ${DIVERSE_POST_BODIES[mockPostCallCounter % DIVERSE_POST_BODIES.length]}`;
         const count = mockPostCallCounter++;
         return {
           content: [{

@@ -49,14 +49,14 @@ describe("GET /api/cron/regate-pending", () => {
     expect((await call("brand=cosmicpath")).status).toBe(401);
   });
 
-  it("rejects a missing brand, an unknown slug, and a non-saju brand", async () => {
+  it("rejects a missing brand, an unknown slug, and an unsupported brand", async () => {
     expect((await call("")).status).toBe(400);
     mocks.findBrand.mockResolvedValueOnce(null);
     expect((await call("brand=nope")).status).toBe(404);
     mocks.findBrand.mockResolvedValueOnce({ id: "b2", slug: "other", brandConfig: JSON.stringify({ qualityProfile: "career_decision" }) });
     const { status, body } = await call("brand=other");
     expect(status).toBe(400);
-    expect(body.error).toBe("regate-pending supports saju_viral brands only");
+    expect(body.error).toBe("regate-pending supports saju_viral and ecommerce_d2c brands only");
   });
 
   it("reports failures without writing when apply is not set", async () => {
@@ -108,11 +108,37 @@ describe("GET /api/cron/regate-pending", () => {
   });
 
   it("gives concept_hierarchy posts the same 3-term allowance generation does", async () => {
-    mocks.findPosts.mockResolvedValue([post("p1"), post("p2", { formulaId: "concept_hierarchy" })]);
+    mocks.findPosts.mockResolvedValue([post("p1"), post("p2", { formulaId: "concept_hierarchy", content: "도화보다 센 화개" })]);
     await call("brand=cosmicpath");
     expect(mocks.rules).toHaveBeenNthCalledWith(1, "본문 p1", "댓글 p1", { maxJargonTerms: 1 });
-    expect(mocks.rules).toHaveBeenNthCalledWith(2, "본문 p2", "댓글 p2", { maxJargonTerms: 3 });
-    expect(mocks.judge).toHaveBeenNthCalledWith(2, "본문 p2", "댓글 p2", { rankedTerms: true });
+    expect(mocks.rules).toHaveBeenNthCalledWith(2, "도화보다 센 화개", "댓글 p2", { maxJargonTerms: 3 });
+    expect(mocks.judge).toHaveBeenNthCalledWith(2, "도화보다 센 화개", "댓글 p2", { rankedTerms: true });
+  });
+
+  // 2026-11-06: concept-first modes written before the rule open on a plain situation.
+  it("fails a concept-first draft whose first line names no saju concept, without calling the judge", async () => {
+    mocks.findPosts.mockResolvedValue([
+      post("p1", { formulaId: "wealth_vault_unlock", content: "월급은 올랐는데 통장은 그대로인 사람\n진술축미는 창고 글자" }),
+      post("p2", { formulaId: "wealth_vault_unlock", content: "사주에 진술축미 깔려 있으면 주목해\n창고 글자임" }),
+    ]);
+    const { body } = await call("brand=cosmicpath");
+    expect(body.failed.map((row: { id: string }) => row.id)).toEqual(["p1"]);
+    expect(body.failed[0].reasons[0]).toContain("첫 줄에 사주 개념이 없음");
+    expect(mocks.judge).toHaveBeenCalledTimes(1);
+  });
+
+  it("regates global drafts on length, the A/B ending and correction openers, with no Korean judge", async () => {
+    mocks.findBrand.mockResolvedValueOnce({ id: "g1", slug: "cosmicpath-global", brandConfig: JSON.stringify({ qualityProfile: "ecommerce_d2c" }) });
+    mocks.findPosts.mockResolvedValue([
+      post("ok", { formulaId: "check_in", content: "Water Day Masters, check in.\n\nYou feel it first." }),
+      post("ab", { formulaId: "saturn_reboot_timeline", content: "Money moves in decades.\n\nA) I earn well\nB) I keep it\nWhich one are you?" }),
+      post("neg", { formulaId: "saturn_reboot_timeline", content: "Your Saturn return is not your turning point.\n\nShort." }),
+      post("long", { formulaId: "sky_now", content: `Sat Nov 7 starts the Pig month.\n\n${"x".repeat(320)}` }),
+    ]);
+    const { body } = await call("brand=cosmicpath-global");
+    expect(body.failed.map((row: { id: string }) => row.id)).toEqual(["ab", "neg", "long"]);
+    expect(mocks.rules).not.toHaveBeenCalled();
+    expect(mocks.judge).not.toHaveBeenCalled();
   });
 
   // 2026-11-04: 13 unreviewed NEEDS_REVIEW drafts filled refill's backlog and stopped generation.

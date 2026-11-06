@@ -27,10 +27,15 @@ export interface DomainFormulaConfig {
 const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
 // Shared with the remediation rewrite checklist so generation and rewrite can't drift apart again.
 // No example sentence: every formula copied the old one ("Your zodiac animal is probably wrong.") into the same post.
+// 2026-11-06 full-text audit: the old rule ("flips an assumption", "reveal how saju reads it differently") made the
+// correction ("X is not Y") the default opener (31 of 110 posts, the rest mostly "may not" variants). The large astrology accounts open on
+// identity ("Water signs..."), the sky right now, a check-in, a story, or a flattering verdict. The gate rejects
+// a line 1 with "not / n't / never".
 export const ENGLISH_HOOK_RULE =
-  "line 1 is the hook alone on its own line, under 60 characters, a flat declarative claim a native speaker would actually write, that flips an assumption about this post's own subject: no question mark, no 'vs'";
+  "line 1 is the hook alone on its own line, under 60 characters, the way big astrology accounts open: call out a group of readers, name how right now feels, or state one flattering or funny verdict. " +
+  "Never open by correcting the reader: no 'not', 'isn't', 'doesn't' or 'never' in line 1, no question mark, no 'vs'";
 const GLOBAL_FRAME_RULE =
-  "Open with a familiar Western or Chinese-zodiac frame, then reveal how Korean saju reads it differently. Romanize any Korean term and gloss it in one line. No Hangul. " +
+  "Write as the account that brings Korean saju to people who already love astrology: share it, don't argue with Western astrology or debunk the reader. Romanize any Korean term and gloss it in one line. No Hangul. " +
   "Leave the zodiac year boundary (when the animal year starts, January or early February birthdays) out unless this formula is about it.";
 // Body length and ending are per formula. One shared A/B ending made the 12-line list and the
 // send-it-to-them post collapse into the same generic A/B post, and the rewrite enforced it again.
@@ -325,9 +330,9 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
     name: "CosmicPath Global (Dual-Cosmic Intelligence PRD v4.0)",
     description: "동양 명리학(BaZi) ✕ 서양 천문 점성술(Astrology) 듀얼 교차 검증 마스터 도시에 ($29.99~$44.99)",
     defaultTopics: [
-      "Every 2027 Fire Goat headline gets this wrong: what Korean saju actually says about the year",
-      "Born in January or early February? Your real zodiac animal may be the previous year's",
-      "Your birth time is probably off: time zones and why your chart may be built on the wrong hour",
+      "What the 2027 Fire Goat year feels like for each zodiac animal",
+      "The zodiac animals that carry 'expensive energy' in Korean saju",
+      "Water Day Masters: why they feel everything first",
       "The Day Master type that quietly runs every office (and burns out first)",
       "Zodiac-animal pairs that fall hard and fast, and the pairs that slowly outlast everyone",
       "2027 money luck for all 12 animals, one line each",

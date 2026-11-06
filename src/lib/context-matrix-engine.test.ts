@@ -93,9 +93,15 @@ describe("context-matrix-engine", () => {
     });
 
     expect(context.targetAudience).not.toBe("일반 독자");
-    expect(context.targetAudience).toContain(context.persona);
-    expect(context.targetAudience).toContain(context.friction);
+    expect(context.targetAudience).toBe(context.persona);
+    // Paired saju scenes stay one scene: no separate tension stacked on top.
+    expect(context.situation).toBe(context.friction);
+    expect(context.dynamicTopic).not.toContain(context.tension);
+  });
 
+  it("still combines persona, friction and tension for unpaired domains", () => {
+    const context = resolveDynamicContext({ domainId: "career_decision", index: 5 });
+    expect(context.targetAudience).toContain(context.persona);
     expect(context.situation).toContain(context.friction);
     expect(context.situation).toContain(context.tension);
   });

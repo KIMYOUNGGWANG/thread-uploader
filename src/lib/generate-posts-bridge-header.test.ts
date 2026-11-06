@@ -8,7 +8,7 @@ function config(overrides: Record<string, unknown>) {
 
 describe("firstCommentBridgeHeader", () => {
   it("keeps the CosmicPath report headers on CosmicPath brands", () => {
-    expect(firstCommentBridgeHeader("cosmicpath", config({ qualityProfile: "saju_viral" }), undefined)).toContain("5대 계산 엔진");
+    expect(firstCommentBridgeHeader("cosmicpath", config({ qualityProfile: "saju_viral" }), undefined)).toContain("무료");
     expect(firstCommentBridgeHeader("cosmicpath-global", config({ qualityProfile: "ecommerce_d2c" }), undefined)).toContain("cosmicpath.app");
   });
 
