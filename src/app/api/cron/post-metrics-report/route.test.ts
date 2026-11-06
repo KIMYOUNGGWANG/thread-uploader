@@ -33,6 +33,15 @@ describe("GET /api/cron/post-metrics-report", () => {
     expect(body.posts[0]).toMatchObject({ formulaId: "cost_loss_punch", views: 42, linked: false, opening: "복채 10만원 내고", endsWithQuestion: true, images: 1, firstComment: "뭐였음?" });
     expect(body.followers.map((row: { followers: number | null }) => row.followers)).toEqual([570, null]);
     expect(body.days).toBe(7);
+    expect(body.posts[0].content).toBeUndefined();
+    expect(body.queue).toBeUndefined();
+  });
+
+  it("adds whole texts and the waiting drafts with full=1", async () => {
+    const { body } = await call("brand=cosmicpath&full=1");
+    expect(body.posts[0]).toMatchObject({ content: "\n복채 10만원 내고\n둘째 줄?", firstCommentFull: "뭐였음?" });
+    expect(mocks.findPosts).toHaveBeenLastCalledWith(expect.objectContaining({ where: { brandId: "b1", status: { in: ["PENDING", "NEEDS_REVIEW"] } } }));
+    expect(Array.isArray(body.queue)).toBe(true);
   });
 
   it("caps the window at 60 days", async () => {
