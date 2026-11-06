@@ -230,3 +230,17 @@ describe("benchmark reply devices (2026-11-05)", () => {
     expect(conv("11월 7일 입동부터 풀리는 띠\n1. 호랑이띠\n해당되는 사람 태그해")).toBeGreaterThanOrEqual(conv("11월 7일 입동부터 풀리는 띠\n1. 호랑이띠"));
   });
 });
+
+describe("english flat closing (2026-11-06)", () => {
+  const post = "Water Day Masters feel it first.\n\nSaju reads water as the element that absorbs the room.\n\nYou were never too sensitive. You were early.";
+  it("counts the first-comment question as the reply device when the body ends on a flat line", () => {
+    const withQuestion = scoreThreadsPostAlgorithmic(post, "Which element are you?");
+    const without = scoreThreadsPostAlgorithmic(post, "Save this.");
+    expect(withQuestion.dimensions.conversationDepth.score - without.dimensions.conversationDepth.score).toBeGreaterThanOrEqual(9);
+  });
+  it("keeps Korean bodies on the body-ending rule", () => {
+    const ko = "화개살 있는 사람 특징\n혼자 있어야 회복됨\n그게 약점이 아님";
+    expect(scoreThreadsPostAlgorithmic(ko, "너는 어때?").dimensions.conversationDepth.score)
+      .toBeLessThan(scoreThreadsPostAlgorithmic(`${ko}\n너는 어때?`, "너는 어때?").dimensions.conversationDepth.score);
+  });
+});
