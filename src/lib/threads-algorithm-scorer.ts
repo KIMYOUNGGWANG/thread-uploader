@@ -166,7 +166,8 @@ export function scoreThreadsPostAlgorithmic(
   if (!hasContrast && !hasCuriosity && !hasFlatEnglishHook) {
     hookWeaknesses.push("첫 문장에 긴장감(대비/호기심 갭)이 부족함");
     // The remediation rewrite follows this; it must not ask for what the first-line gate and reversal cap reject.
-    actionableFixes.push("첫 줄에 구체 숫자나 누구나 겪는 상황을 넣고, 비교가 필요하면 첫 두 줄 안에서 '~보다'로 쓰십시오. 첫 줄을 살·일주 호명이나 '~가 아니라' 뒤집기로 시작하지 마십시오.");
+    // 2026-11-06: concept-first openings won 150 vs 54, and the generation gate now requires them (first-line-rules).
+    actionableFixes.push("첫 줄에 사주 개념 하나(살·글자·십성·띠·대운)와 누구나 겪는 상황을 같이 넣고, 비교가 필요하면 첫 두 줄 안에서 '~보다'로 쓰십시오. '~가 아니라' 뒤집기로 시작하지 마십시오.");
   }
   hookScore = Math.max(0, Math.min(25, hookScore));
 
@@ -180,7 +181,10 @@ export function scoreThreadsPostAlgorithmic(
   // A closing direct question is the same one-second reply device as numbered choices; once choices are
   // capped (readability template cap) drafts end this way, and scoring it lower dropped them under 80.
   const lastLine = content.split("\n").map((line) => line.trim()).filter(Boolean).pop() ?? "";
-  const hasChoice = CONVERSATION_CHOICE_PATTERNS.some((p) => p.test(content)) || /[?？]$/.test(lastLine);
+  // English posts end on a flat line by rule (global audit: question endings 10 vs 20 median views) and carry the
+  // question in the first comment instead, so that question is the reply device there.
+  const englishCommentQuestion = isEnglishFirstLine && Boolean(firstComment && /\?\s*$/.test(firstComment.trim()));
+  const hasChoice = CONVERSATION_CHOICE_PATTERNS.some((p) => p.test(content)) || /[?？]$/.test(lastLine) || englishCommentQuestion;
   const hasInvitation = CONVERSATION_INVITATION_PATTERNS.some((p) => p.test(content));
   // "한 줄로 적어줘" style asks invite a reply as much as a question mark does
   const hasFirstCommentPrompt = firstComment && /\?|댓글|적어|알려줘|말해줘/.test(firstComment);
