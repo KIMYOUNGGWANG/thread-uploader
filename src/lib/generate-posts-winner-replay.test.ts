@@ -282,7 +282,7 @@ describe("winner_replay draft gate", () => {
     it("lets a numbered-choice draft through the gate when only archived posts used numbered choices", async () => {
       lengthOn();
       state.recent = withChoices("ARCHIVED");
-      state.reply = "카톡 읽씹 당하면 제일 먼저 뭐 함?\n1. 한 번 더 보냄\n2. 그냥 기다림\n3. 나도 읽씹";
+      state.reply = "도화살 있는 애가 카톡 읽씹 당하면 제일 먼저 뭐 함?\n1. 한 번 더 보냄\n2. 그냥 기다림\n3. 나도 읽씹";
       const result = await generatePostsForBrand(brand, input);
       if (!result.ok) throw new Error(result.error);
       expect(result.summary.failureReasons.join(" ")).not.toContain("번호 선택지 글이 이미");
@@ -312,7 +312,7 @@ describe("winner_replay draft gate", () => {
   });
 
   // 2026-11-06 audit: identity_profile alternates the hit-style 살·일주 opener with the plain one and tags each draft.
-  it("alternates identity_profile between the chart-callout and plain first line, tagged for comparison", async () => {
+  it("opens identity_profile on a saju concept every time, tagged for comparison", async () => {
     const { resolveViralIntentMode } = await import("@/lib/viral-intent-modes");
     const actual = await vi.importActual<typeof import("@/lib/lean-mode-selector")>("@/lib/lean-mode-selector");
     vi.mocked(selectLeanViralMode).mockImplementation(() => resolveViralIntentMode("identity_profile", 0));
@@ -322,9 +322,20 @@ describe("winner_replay draft gate", () => {
     const tags = state.created.flatMap((post) => JSON.parse(String(post.qualityReasons)) as string[]).filter((tag) => tag.startsWith("first_line:"));
     expect(state.created.length).toBeGreaterThan(0);
     expect(tags.length).toBe(state.created.length);
-    const prompt = state.requests.join("\n");
-    if (tags.includes("first_line:chart_callout")) expect(prompt).toContain("[첫 줄 실험]");
-    else expect(prompt).not.toContain("[첫 줄 실험]");
+    expect(new Set(tags)).toEqual(new Set(["first_line:chart_callout"]));
+    expect(state.requests.join("\n")).toContain("[첫 줄 사주 개념 — 필수]");
+  });
+
+  it("sends a concept-first draft back when its first line names no saju concept", async () => {
+    const { resolveViralIntentMode } = await import("@/lib/viral-intent-modes");
+    const actual = await vi.importActual<typeof import("@/lib/lean-mode-selector")>("@/lib/lean-mode-selector");
+    vi.mocked(selectLeanViralMode).mockImplementation(() => resolveViralIntentMode("identity_profile", 0));
+    onTestFinished(() => { vi.mocked(selectLeanViralMode).mockImplementation(actual.selectLeanViralMode); });
+    state.reply = "답장을 일부러 늦게 하는 사람의 진짜 속사정\n\n관심 없어서가 아니라 기대받는 게 부담스러워서야\n\n너 주변에도 이런 사람 있어?";
+    await expect(generatePostsForBrand(brand, { ...input, count: 1 })).rejects.toThrow("첫 줄에 사주 개념이 없음");
+    expect(state.created).toHaveLength(0);
+    // The retry prompt carries the reason so the second draft can fix it.
+    expect(state.requests.at(-1)).toContain("첫 줄에 사주 개념이 없음");
   });
 
   // relationship_tension must open with a relationship word. Swapping a relationship topic into a career slot
@@ -332,7 +343,7 @@ describe("winner_replay draft gate", () => {
   it("excludes relationship_tension on a career slot and keeps the planned topic", async () => {
     const config = JSON.parse(brand.brandConfig);
     const careerFirst = { ...brand, brandConfig: JSON.stringify({ ...config, topics: ["이직 타이밍 판정", "썸 상대 고백 타이밍"] }) } as Brand;
-    state.reply = "썸 탈 때 연락 속도보다 먼저 볼 게 있음\n\n답장은 아침에 해도 늦지 않음\n\n너라면 먼저 연락해?";
+    state.reply = "썸 탈 때 연락 속도보다 먼저 볼 게 궁합임\n\n답장은 아침에 해도 늦지 않음\n\n너라면 먼저 연락해?";
     await generatePostsForBrand(careerFirst, { ...input, count: 2 });
     // planTopicQuota alternates axes: slot 0 relationship, slot 1 career.
     const excluded = vi.mocked(selectLeanViralMode).mock.calls.map((call) => call[5]);

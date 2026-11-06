@@ -270,7 +270,9 @@ describe("ref_replay draft", () => {
   it("a normal draft still gets the matrix topic and target", async () => {
     state.reply = "점집에서 10만원 내고 들은 말이 '좋은 흐름 온다'뿐이었다면\n\n그 돈으로 차라리 내 흐름을 직접 읽는 법을 배우는 게 낫지 않을까\n\n너라면 어느 쪽이야?";
     await generatePostsForBrand(brand, { ...input, count: 1 });
-    expect(promptSection("주제")).toMatch(/사례\)$/);
+    // Paired saju matrices pass the plain topic; the scene goes to [상황/맥락] on its own.
+    expect(promptSection("주제")).toBe("대운 교운기 번아웃");
+    expect(promptSection("상황/맥락").length).toBeGreaterThan(0);
     expect(promptSection("타겟 독자")).not.toBe(REFERENCE_TARGET_PROMPT);
   });
 

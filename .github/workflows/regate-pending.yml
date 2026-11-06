@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       brand:
-        description: 'Brand slug (saju_viral 브랜드만)'
+        description: 'Brand slug (saju_viral 또는 ecommerce_d2c 브랜드)'
         required: true
         default: 'cosmicpath'
       status:

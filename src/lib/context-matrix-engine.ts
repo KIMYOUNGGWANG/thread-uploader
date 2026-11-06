@@ -43,24 +43,24 @@ export const DOMAIN_MATRICES: Record<string, MatrixDimensionSet> = {
   saju_viral: {
     personas: [
       "점집에서 10만원 내고 나온 20대",
-      "태어난 시간을 부모님께 물어봐도 애매한 사람",
+      "사람을 끄는 매력이 남다르다는 말을 자주 듣는 사람",
       "올해 대운이 바뀐다는 말을 들은 30대",
       "월급이 들어오면 바로 사라지는 사람",
       "'올해는 이동수 없다'는 말에 3년째 같은 자리인 사람",
-      "운세 앱 알림만 열어보고 아무것도 안 바꾸는 사람",
-      "연말마다 신년운세 보러 가는 직장인",
-      "사주를 한 번도 안 봤는데 친구가 계속 권하는 사람",
+      "혼자 있는 시간이 없으면 방전되는 사람",
+      "공부는 잘했는데 일에서는 안 풀리는 사람",
+      "몇 년 붙어 다닌 사람과 갑자기 멀어진 사람",
     ],
     // frictions[i]는 personas[i]의 상황 (pairedFrictions)
     frictions: [
       "복채는 냈는데 '좋은 흐름 온다'는 말밖에 못 들은 상황",
-      "시간 한 칸 틀리면 사주 전체가 바뀐다는 걸 알게 된 순간",
+      "도화·홍염 같은 매력 살이 있다는 말을 처음 들은 순간",
       "뭐가 어떻게 바뀌는지는 아무도 안 알려주는 상황",
       "버는 건 늘었는데 통장에는 쌓이지 않는 1년",
       "'때가 아니다'를 믿고 기회를 세 번 넘긴 상황",
-      "'이번 주 조심' 알림은 쌓이는데 결정은 그대로인 상태",
-      "작년 신년운세가 하나도 안 맞았던 기억",
-      "친구는 사주 보고 결정했다는데 나는 감으로만 정하는 차이",
+      "사람 많은 자리 뒤에 꼭 혼자 숨어야 회복되는 패턴",
+      "자격증은 쌓이는데 연봉은 그대로인 상황",
+      "인간관계가 한꺼번에 정리되는 시기",
     ],
     tensions: [
       "지금 움직여야 한다는 조급함과 때를 기다리라는 흐름의 엇갈림",
@@ -287,13 +287,20 @@ export function resolveDynamicContext(options: ResolveDynamicContextOptions): Dy
 
   const isEnglish = domainKey === "ecommerce_d2c";
   const baseTopic = options.baseTopic?.trim();
-  const dynamicTopic = baseTopic
+  // Paired saju matrices: persona + friction is already one scene. Stacking the topic, the scene and a separate
+  // tension made two-topic posts (2026-11-06: "평가 끝나고 움직일지…" + "부모님한테 태어난 시간…" in one post).
+  const singleScene = Boolean(matrix.pairedFrictions) && !isEnglish;
+  const dynamicTopic = singleScene
+    ? (baseTopic || `${persona}의 ${friction}`)
+    : baseTopic
     ? (isEnglish ? `${baseTopic} (${persona} Case: ${friction})` : `${baseTopic} (${persona}의 ${friction} 사례)`)
     : (isEnglish ? `${persona} facing ${friction} and ${tension}` : `${persona}가 겪는 ${friction}과 ${tension}`);
 
   // If user provided a specific non-default target/situation, respect it while enriching
   const isDefaultTarget = !options.userTarget || ["일반 독자", "2030 직장인"].includes(options.userTarget.trim());
-  const targetAudience = isDefaultTarget
+  const targetAudience = isDefaultTarget && singleScene
+    ? persona
+    : isDefaultTarget
     ? (isEnglish
         ? `${persona} struggling with ${friction} and torn by ${tension}`
         : `${friction}을 겪으며 ${tension}으로 흔들리는 ${persona}`)
@@ -302,7 +309,9 @@ export function resolveDynamicContext(options: ResolveDynamicContextOptions): Dy
         : `${options.userTarget} (${persona} 관점)`);
 
   const isDefaultSituation = !options.userSituation || ["일상적인 상황", "퇴사와 이직 사이에서 흔들리는 상황"].includes(options.userSituation.trim());
-  const situation = isDefaultSituation
+  const situation = isDefaultSituation && singleScene
+    ? friction
+    : isDefaultSituation
     ? (isEnglish
         ? `Facing ${friction} while navigating ${tension}`
         : `${friction} 상황에서 ${tension}의 결정을 내려야 하는 순간`)

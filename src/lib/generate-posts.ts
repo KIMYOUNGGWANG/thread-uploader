@@ -53,6 +53,7 @@ import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
 import { englishMaxChars, findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
+import { CONCEPT_FIRST_MODE_IDS, findEnglishNegationHook, findMissingFirstLineConcept } from "@/lib/first-line-rules";
 import { resolveDynamicContext, isRelationshipTopic, planTopicQuota, alignRelationshipSlots } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
@@ -397,6 +398,14 @@ async function generateWithQuality(
     if (lengthReason) {
       gate = { ...gate, pass: false, reasons: [lengthReason, ...gate.reasons] };
     }
+    if (experiment.chartCalloutFirst) {
+      const missingConcept = findMissingFirstLineConcept(post);
+      if (missingConcept) gate = { ...gate, pass: false, reasons: [missingConcept, ...gate.reasons] };
+    }
+    if (isEnglish && experiment.qualityProfile === "ecommerce_d2c") {
+      const negationHook = findEnglishNegationHook(post);
+      if (negationHook) gate = { ...gate, pass: false, reasons: [negationHook, ...gate.reasons] };
+    }
     // English posts ran 400-700 characters despite the shape rule (median 15 views vs 38 at 150-260): cap it in the gate.
     if (isEnglish && experiment.qualityProfile === "ecommerce_d2c") {
       const max = englishMaxChars(experiment.formula.id);
@@ -615,8 +624,8 @@ function buildGenerationPrompt(
         "[Threads Viral Compression & High-Retention Hook Rules]",
         isInfoReference ? REFERENCE_INFO_LENGTH_RULE_EN : `- Target body length: ~${THREADS_CONTENT_TARGET_LENGTH} chars (approx 35-55 words / max ${THREADS_CONTENT_MAX_LENGTH} chars). Highly compressed and punchy.`,
         "- Hook within the first 100 characters before the feed fold. Stop the scroll instantly. No boring preamble, no lectures, no bullet lists.",
-        "- [Charlie Hills 2-Line Contrast Hook]: Line 1 is a bold provocative assertion (<40 chars). Line 2 immediately delivers a counter-intuitive twist/contrast (<40 chars) shattering conventional wisdom.",
-        ...(isInfoReference ? [] : ["- [Single-Point Razor]: Focus on ONE contrarian insight. Never summarize or list multiple unfocused ideas."]),
+        "- [2-Line Hook]: Line 1 calls out a group, a feeling right now, or one bold verdict (<60 chars). Line 2 adds the saju detail that makes it land. Never open by correcting the reader ('X is not Y').",
+        ...(isInfoReference ? [] : ["- [Single-Point Razor]: Focus on ONE idea. Never summarize or list multiple unfocused ideas."]),
         "- [Focused Conflict]: Zero in on one specific persona friction and internal conflict.",
         "- [Zero-in-body URL]: Never place links or URLs inside the post body.",
         "- [Zero AI Slop]: Avoid cliché patterns like 'Here is the truth', 'Imagine if', 'Let's dive in', or checkbox emojis.",
@@ -632,7 +641,7 @@ function buildGenerationPrompt(
         `- [Charlie Hills 2-Line Hook]: 첫 문장은 40자 이내의 대담한 단언(Opening)으로 시작하고, 바로 다음 줄은 40자 이내로 그 단언의 이유나 의외의 결과를 보여준다. 'X가 아니라 Y' 뒤집기 틀은 쓰지 않고, 비교가 필요하면 '~보다'를 한 번만 쓴다.`,
         "- [첫 줄 스크롤 멈춤]: 첫 줄은 누구나 겪어본 구체 상황이나 통념 반박으로 스크롤을 멈추게 한다. 숫자는 프롬프트에 주어진 것만 쓰고 지어내지 않는다. 첫 줄은 사주를 모르는 사람도 읽히게 쓰고, '신금 일주는', '일간이 ~', '도화살 있으면' 같은 독자 사주 전제로 시작하지 않는다. 살·일주는 둘째 줄 이후에 근거로만 쓴다. 최근 글에 쓰인 첫 줄 틀은 반복하지 않고, 평서문 끝에 억지로 물음표를 붙이지 않는다.",
         ...(experiment.chartCalloutFirst
-          ? ["- [첫 줄 실험]: 이번 글은 첫 줄에서 살·일주·글자를 바로 호명한다(예: '경금 일주에 화개살이 있으면, 재회 후 불안을 사랑으로 착각하기 쉬움.'). 바이럴 모드의 '첫 줄은 사주를 몰라도 읽히는 행동이나 상황' 규칙과 '독자 사주 전제로 시작하지 않는다', '살·일주는 둘째 줄 이후' 제한보다 이 지시가 우선한다. 호명한 개념은 바로 다음 줄에서 쉬운 말로 푼다."]
+          ? ["- [첫 줄 사주 개념 — 필수]: 첫 줄에서 살·글자·십성·띠·대운 같은 사주 개념 하나를 바로 꺼낸다. 우리 계정 실측: '혹시 도화보다 센 홍염보다 센 게 뭔지 알아? 바로 화개야.'(22,693뷰), '사주에 진술축미 깔려 있는 애들은 주목해.'(5,521뷰), '자격증 5개 있는데 취업 안 되는 애들, 사주 보면 인성이 과하게 깔려 있는 경우 많음.'(302뷰). 첫 줄에 사주 개념이 없으면 폐기된다. 위 '첫 줄은 사주를 모르는 사람도 읽히게', '독자 사주 전제로 시작하지 않는다', '살·일주는 둘째 줄 이후' 제한보다 이 지시가 우선한다. 꺼낸 개념은 둘째 줄에서 쉬운 말로 한 번만 푼다."]
           : []),
         ...(viralIntentMode.id === "concept_hierarchy"
           ? ["- [개념 서열 예외]: 이번 글은 개념 서열 모드라 위 첫 줄 규칙의 '살·일주는 둘째 줄 이후' 제한을 따르지 않는다. 첫 줄에서 같은 종류 개념 2~3개를 '~보다 센'으로 줄 세운다(예: '도화'보다 센 '홍염'보다 센 게 뭔지 알아?)."]
@@ -695,9 +704,9 @@ function buildGenerationPrompt(
     return stripped || fallback;
   }
 
-  const enTopic = sanitizeEnglishField(experiment.topic, "Western Astrology vs Korean Saju: debunking birth chart myths");
-  const enTarget = sanitizeEnglishField(experiment.targetAudience, "Western 22-36 Gen Z & Millennials (US, CA, UK, AU)");
-  const enSituation = sanitizeEnglishField(experiment.situation, "Questioning why Western horoscopes fail to give concrete life answers");
+  const enTopic = sanitizeEnglishField(experiment.topic, "What Korean saju says about your zodiac animal and Day Master");
+  const enTarget = sanitizeEnglishField(experiment.targetAudience, "Western 22-36 Gen Z & Millennials (US, CA, UK, AU) who already love astrology");
+  const enSituation = sanitizeEnglishField(experiment.situation, "Curious what their chart says beyond their sun sign");
 
   const experimentParams = isEnglish
     ? [
@@ -891,6 +900,10 @@ const SAJU_VIRAL_REQUIREMENTS = [
   "- 첫 댓글에 지어낸 1인칭 경험담을 쓰지 않는다.",
   "- 100% 반말/독백체(~임, ~했음, ~야)로 쓰고 ~습니다/~하세요 같은 존댓말은 쓰지 않는다.",
   "- 첫 줄 모양과 끝맺음은 바이럴 모드 규칙을 따른다. 모든 글을 질문이나 번호 선택지로 끝낼 필요는 없다.",
+  // 2026-11-06 full-text audit: recent posts hedged every claim ("가능성이 큼", "~일 수 있음") while the 1k+ posts asserted.
+  "- 단언으로 쓴다. '~일 수 있음', '가능성이 큼', '경우가 많음' 같은 얼버무림은 글 전체에서 한 번까지만 쓴다.",
+  // The persona, situation and topic come from three separate seeds; stacking them produced two-topic posts.
+  "- [주제]·[타겟 독자]·[상황/맥락]은 소재 후보다. 서로 안 맞으면 [주제] 하나만 남기고 나머지는 버린다. 글 하나에는 이야기 하나만 쓴다.",
 ];
 
 function formatCareerCampaignPrompt(experiment: CampaignGrowthExperiment): string[] {
@@ -1133,9 +1146,10 @@ export function firstCommentBridgeHeader(brandSlug: string, config: BrandConfig,
   const isGlobal = brandSlug === "cosmicpath-global" ||
     config.voiceProfile?.language === "en" ||
     config.qualityProfile === "ecommerce_d2c";
+  // The old KR header promised "5대 엔진" and listed three; both landings open on a free diagnosis, so say that.
   return isGlobal
-    ? "📌 Full Dual-Engine Birth Chart & Decision Dossier (cosmicpath.app):"
-    : "📌 5대 계산 엔진(사주·점성술·자미두수) 교차 판정 리포트:";
+    ? "📌 Free birth-chart diagnosis (cosmicpath.app):"
+    : "📌 내 사주로 직접 확인 (무료, 생년월일만):";
 }
 
 export async function generatePostsForBrand(brand: Brand, input: GeneratePostsInput): Promise<GeneratePostsResult> {
@@ -1352,8 +1366,10 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       else if (!OWN_SHAPE_MODE_IDS.has(formulaMode.id)) {
         experiment.closingFormat = pickClosingFormat(batchIndex + contextOffset, formulaMode.id, choicesCapped && experiment.qualityProfile === "saju_viral");
       }
-      if (formulaMode.id === "identity_profile" && experiment.qualityProfile === "saju_viral") {
-        experiment.chartCalloutFirst = slotIndex % 2 === 0;
+      // 2026-11-06: concept-first openings beat plain-situation openings 150 vs 54 median views since 10/17 (150 vs 81 over 60 days),
+      // so the 11/6 half-slot experiment becomes the rule for every mode that writes a saju claim.
+      if (experiment.qualityProfile === "saju_viral" && !experiment.winnerReference && CONCEPT_FIRST_MODE_IDS.has(formulaMode.id)) {
+        experiment.chartCalloutFirst = true;
       }
       if (formulaMode.id === "timely_forecast" && calendarBrief) {
         experiment.calendarBrief = calendarBrief;
