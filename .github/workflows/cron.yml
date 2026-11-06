@@ -71,3 +71,20 @@ jobs:
           curl --fail-with-body --show-error --silent --location --max-time 120 \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             "${APP_URL%/}/api/cron/replies"
+
+  # Link reply on posts that took off (≥300 views or ≥10 replies within 48h). Hourly: a viral post gets its
+  # link within about an hour of crossing the bar; move to the 15-minute entry if that proves too late.
+  auto-plug:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 * * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Plug a link into posts that took off
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --show-error --silent --location --max-time 120 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/auto-plug"
