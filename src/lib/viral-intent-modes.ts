@@ -269,7 +269,7 @@ export const VIRAL_INTENT_MODES: readonly ViralIntentMode[] = [
       "첫 줄에서 특정 글자·살·일주(예: 화개살, 신금 일주, 진술축미)를 바로 호명한다(예: '사주에 진술축미 깔려 있는 애들은 주목해.'). 둘째 줄에서 그게 어떤 사람인지 쉬운 말로 푼다.",
       "두루뭉술한 위로 대신 날카로운 양면성(치명적 무기 vs 발목 잡는 덫)을 짚는다.",
       "본문 링크 금지.",
-      "번호 선택지를 쓰지 않고, 독자에게 직접 묻는 한 문장으로 끝낸다.",
+      "번호 선택지를 쓰지 않고, 그 기질을 한 번 더 세게 박는 단언 한 줄로 끝낸다.",
       "첫 댓글: 독자가 자기 경험으로 답할 수 있는 질문 한 줄. 독자의 일주나 살을 묻지 않는다. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
@@ -339,7 +339,7 @@ export const SAJU_HIT_MODES: readonly ViralIntentMode[] = [
     rules: [
       "첫 줄에서 돈 글자나 구조(진술축미, 식신생재, 편재 등) 하나를 돈 상황과 함께 바로 호명한다(예: '사주에 진술축미 깔려 있으면 20대에 돈 안 모이는 게 정상임.'). 둘째 줄에서 쉬운 말로 푼다.",
       "문이 열리는 때는 대운·세운이 바뀌는 때라는 수준까지만 말하고, 연도·금액은 약속하지 않는다.",
-      "번호 선택지를 쓰지 않고, 독자에게 직접 묻는 한 문장으로 끝낸다. 본문 링크 금지.",
+      "번호 선택지를 쓰지 않고, 단언 한 줄로 끝낸다. 본문 링크 금지.",
       "첫 댓글: 돈이 제일 많이 새는 곳을 묻는 한 줄. 독자의 사주 글자를 묻지 않는다. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
@@ -935,7 +935,10 @@ export function hasFortuneOverclaim(content: string): boolean {
 // template), so the share is raised by rotating the closing per post instead.
 export type ClosingFormat = "choices" | "question" | "statement";
 
-const CLOSING_FORMAT_ROTATION: readonly ClosingFormat[] = ["question", "statement", "question", "choices", "question", "statement"];
+// 2026-11-06 peer comparison: saju accounts end on a question 5% of the time; we were at 68% since 10/17, so every
+// post had the same "situation, concept, verdict, question" skeleton. Question endings themselves showed no harm
+// (peers 1.33x, ours 65 vs 65), so they stay, just not as the default.
+const CLOSING_FORMAT_ROTATION: readonly ClosingFormat[] = ["statement", "question", "statement", "choices", "statement", "statement"];
 
 // choicesCapped: the numbered-choice template cap is already hit, so the gate would reject a numbered-choice ending.
 export function pickClosingFormat(index: number, modeId?: ViralIntentModeId | null, choicesCapped = false): ClosingFormat {

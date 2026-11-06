@@ -183,6 +183,8 @@ describe("template detectors", () => {
     expect(endsWithNumberedChoices("고민임\n1. 바로 간다\n2. 기다린다")).toBe(true);
     expect(endsWithNumberedChoices("A) 가\nB) 나")).toBe(true);
     expect(endsWithNumberedChoices("고민임\n1. 하나만")).toBe(false);
+    // A 4+ item list is a list, not a pick-one ending.
+    expect(endsWithNumberedChoices("<혼자 숨어야 사는 사주>\n1. 가\n2. 나\n3. 다\n4. 라\n5. 마\n어떤 사주냐면,")).toBe(false);
   });
 });
 

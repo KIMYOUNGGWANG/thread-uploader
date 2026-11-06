@@ -1,0 +1,39 @@
+name: Apply Topic Plan
+
+# 수동 실행 전용 — src/lib/topic-plans.ts의 주제 목록을 브랜드 설정(brandConfig.topics)에 쓴다.
+# 이전 목록은 previousTopics에 남는다. apply를 끄면 미리보기만 한다.
+on:
+  workflow_dispatch:
+    inputs:
+      brand:
+        description: 'Brand slug (cosmicpath 또는 cosmicpath-global)'
+        required: true
+      apply:
+        description: '실제로 저장 (끄면 미리보기)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: apply-topic-plan
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply topic plan
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BRAND: ${{ inputs.brand }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          [[ "$BRAND" =~ ^[a-z0-9-]+$ ]] || { echo "invalid brand: $BRAND"; exit 1; }
+          query="brand=${BRAND}"
+          if [ "$APPLY" = "true" ]; then query="${query}&apply=true"; fi
+          curl --fail-with-body --show-error --silent --location --max-time 120 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/apply-topic-plan?${query}"
+          echo

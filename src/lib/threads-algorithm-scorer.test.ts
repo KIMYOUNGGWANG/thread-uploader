@@ -238,9 +238,9 @@ describe("english flat closing (2026-11-06)", () => {
     const without = scoreThreadsPostAlgorithmic(post, "Save this.");
     expect(withQuestion.dimensions.conversationDepth.score - without.dimensions.conversationDepth.score).toBeGreaterThanOrEqual(9);
   });
-  it("keeps Korean bodies on the body-ending rule", () => {
+  it("gives a Korean statement ending the same credit when the first comment asks", () => {
     const ko = "화개살 있는 사람 특징\n혼자 있어야 회복됨\n그게 약점이 아님";
-    expect(scoreThreadsPostAlgorithmic(ko, "너는 어때?").dimensions.conversationDepth.score)
-      .toBeLessThan(scoreThreadsPostAlgorithmic(`${ko}\n너는 어때?`, "너는 어때?").dimensions.conversationDepth.score);
+    expect(scoreThreadsPostAlgorithmic(ko, "너는 몇 개 해당됨?").dimensions.conversationDepth.score)
+      .toBeGreaterThan(scoreThreadsPostAlgorithmic(ko, "저장해둬").dimensions.conversationDepth.score);
   });
 });

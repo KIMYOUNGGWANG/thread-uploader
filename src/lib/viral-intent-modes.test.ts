@@ -97,9 +97,8 @@ describe("viral mode shapes", () => {
   });
 
   it("keeps numbered choices out of the identity and relationship modes", () => {
-    for (const id of ["identity_profile", "relationship_tension"] as const) {
-      expect(modeById.get(id)?.rules).toContain("번호 선택지를 쓰지 않고, 독자에게 직접 묻는 한 문장으로 끝낸다.");
-    }
+    expect(modeById.get("identity_profile")?.rules).toContain("번호 선택지를 쓰지 않고, 그 기질을 한 번 더 세게 박는 단언 한 줄로 끝낸다.");
+    expect(modeById.get("relationship_tension")?.rules).toContain("번호 선택지를 쓰지 않고, 독자에게 직접 묻는 한 문장으로 끝낸다.");
   });
 
   it("requires the beginner Q&A opener to be the reader's question", () => {
@@ -116,10 +115,11 @@ describe("viral mode shapes", () => {
 });
 
 describe("pickClosingFormat", () => {
-  it("rotates closings so questions and choices outnumber plain statements", () => {
+  // 2026-11-06 peer comparison: questions were 68% of our endings vs 5% on other saju accounts.
+  it("rotates closings so plain statements are the default", () => {
     const formats = Array.from({ length: 12 }, (_, index) => pickClosingFormat(index, "concept_hierarchy"));
-    expect(formats.filter((format) => format === "question")).toHaveLength(6);
-    expect(formats.filter((format) => format === "statement")).toHaveLength(4);
+    expect(formats.filter((format) => format === "statement")).toHaveLength(8);
+    expect(formats.filter((format) => format === "question")).toHaveLength(2);
     expect(formats.filter((format) => format === "choices")).toHaveLength(2);
   });
 

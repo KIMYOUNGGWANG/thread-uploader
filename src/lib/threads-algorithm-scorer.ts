@@ -181,10 +181,10 @@ export function scoreThreadsPostAlgorithmic(
   // A closing direct question is the same one-second reply device as numbered choices; once choices are
   // capped (readability template cap) drafts end this way, and scoring it lower dropped them under 80.
   const lastLine = content.split("\n").map((line) => line.trim()).filter(Boolean).pop() ?? "";
-  // English posts end on a flat line by rule (global audit: question endings 10 vs 20 median views) and carry the
-  // question in the first comment instead, so that question is the reply device there.
-  const englishCommentQuestion = isEnglishFirstLine && Boolean(firstComment && /\?\s*$/.test(firstComment.trim()));
-  const hasChoice = CONVERSATION_CHOICE_PATTERNS.some((p) => p.test(content)) || /[?？]$/.test(lastLine) || englishCommentQuestion;
+  // Bodies end on a flat line by default (2026-11-06: global question endings 10 vs 20 median views; KR peers end
+  // on a question 5% of the time vs our 68%) and carry the question in the first comment, which is the reply device.
+  const commentQuestion = Boolean(firstComment && /[?？]\s*$/.test(firstComment.split("\n").find((line) => line.trim())?.trim() ?? ""));
+  const hasChoice = CONVERSATION_CHOICE_PATTERNS.some((p) => p.test(content)) || /[?？]$/.test(lastLine) || commentQuestion;
   const hasInvitation = CONVERSATION_INVITATION_PATTERNS.some((p) => p.test(content));
   // "한 줄로 적어줘" style asks invite a reply as much as a question mark does
   const hasFirstCommentPrompt = firstComment && /\?|댓글|적어|알려줘|말해줘/.test(firstComment);

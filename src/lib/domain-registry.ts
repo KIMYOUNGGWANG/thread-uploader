@@ -27,15 +27,15 @@ export interface DomainFormulaConfig {
 const GLOBAL_FORBIDDEN_KEYWORDS = ["대운", "사주", "도화살"];
 // Shared with the remediation rewrite checklist so generation and rewrite can't drift apart again.
 // No example sentence: every formula copied the old one ("Your zodiac animal is probably wrong.") into the same post.
-// 2026-11-06 full-text audit: the old rule ("flips an assumption", "reveal how saju reads it differently") made the
-// correction ("X is not Y") the default opener (31 of 110 posts, the rest mostly "may not" variants). The large astrology accounts open on
-// identity ("Water signs..."), the sky right now, a check-in, a story, or a flattering verdict. The gate rejects
-// a line 1 with "not / n't / never".
+// 2026-11-06 peer comparison (64 astrology accounts): half their posts start from the reader's Western sign or element
+// group (1.6x likes) and 1% use Eastern terms, while 61% of ours opened on saju vocabulary. The old "flip an
+// assumption" rule also made "X is not Y" our default opener. So: start from what the reader uses, then add saju.
 export const ENGLISH_HOOK_RULE =
-  "line 1 is the hook alone on its own line, under 60 characters, the way big astrology accounts open: call out a group of readers, name how right now feels, or state one flattering or funny verdict. " +
-  "Never open by correcting the reader: no 'not', 'isn't', 'doesn't' or 'never' in line 1, no question mark, no 'vs'";
+  "line 1 is the hook alone on its own line, under 60 characters, starting from what the reader already uses: their sign or element group, their big three, or a planet or season, " +
+  "or a call-out, a feeling right now, or one flattering or funny verdict about them: no question mark, no 'vs'";
 const GLOBAL_FRAME_RULE =
-  "Write as the account that brings Korean saju to people who already love astrology: share it, don't argue with Western astrology or debunk the reader. Romanize any Korean term and gloss it in one line. No Hangul. " +
+  "Write for people who already love Western astrology: start from their sign, element group, big three or a current transit, then add Korean saju as the extra layer they haven't seen. " +
+  "Never claim a Western sign equals a saju element or animal: saju reads the birth date and hour itself. Don't debunk Western astrology or the reader. Romanize any Korean term and gloss it in one line. No Hangul. " +
   "Leave the zodiac year boundary (when the animal year starts, January or early February birthdays) out unless this formula is about it.";
 // Body length and ending are per formula. One shared A/B ending made the 12-line list and the
 // send-it-to-them post collapse into the same generic A/B post, and the rewrite enforced it again.
@@ -363,7 +363,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "Zodiac Animal / Day Master Identity Call-Out",
           track: "track_a",
           weight: 4,
-          instruction: `Call out one zodiac animal or Day Master type with one sharp, relatable behavior at work, in dating, or with money (e.g. "To every Yang Fire Day Master: ..."). Line 2 reveals what saju says sits underneath it. No theory lecture, no CTA. ${globalHybridRule("identity_callout")}`,
+          instruction: `Call out one Western sign or element group with one sharp, relatable behavior at work, in dating, or with money (e.g. "Scorpio suns at work: ..."). Line 2 adds what Korean saju looks at underneath it (their Day Master, the element of the day they were born), without claiming the sign decides it. No theory lecture, no CTA. ${globalHybridRule("identity_callout")}`,
           hookArchetype: "Identity Call-Out Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -395,7 +395,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "Check-In Call: Animal Year or Day Master Group",
           track: "track_a",
           weight: 4,
-          instruction: `Line 1 calls one group to check in, e.g. 'Horse years, check in.' or 'Water Day Masters, check in.' Then say what that group tends to carry or feel, relatable and warm, never predicting events. Do not list birth years. The last line asks readers to reply with their animal or element. ${globalHybridRule("check_in")}`,
+          instruction: `Line 1 calls one group readers already use to check in, e.g. 'Scorpio suns, check in.' or 'Water signs, check in.' Then say what that group tends to carry or feel, relatable and warm, never predicting events. Do not list birth years. The last line asks readers to reply with their animal or element. ${globalHybridRule("check_in")}`,
           hookArchetype: "Check-In Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
@@ -433,7 +433,7 @@ export const DOMAIN_PRESETS: Record<string, DomainPresetConfig> = {
           name: "Two-Birthday Compatibility",
           track: "track_b",
           weight: 4,
-          instruction: `Describe what happens when two specific elements or zodiac animals date or work together: the pull, the friction, the tell-tale moment. Close by asking the reader to send it to that person. Profile-link mention only, no URL. ${globalHybridRule("two_birthday_compatibility")}`,
+          instruction: `Start from two Western signs or element groups readers already pair up (e.g. a fire sign with a water sign), then describe what Korean saju compatibility looks at for two people like that: the pull, the friction, the tell-tale moment. Close by asking the reader to send it to that person. Profile-link mention only, no URL. ${globalHybridRule("two_birthday_compatibility")}`,
           hookArchetype: "Send-It-To-Them Hook",
           forbiddenKeywords: GLOBAL_FORBIDDEN_KEYWORDS,
         },
