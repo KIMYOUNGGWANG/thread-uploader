@@ -363,11 +363,9 @@ function checkEcommerceD2CQuality(post: string): QualityResult {
 
   // Check 3: Contrarian / Insight structure (contains vs, or, but, however, not, instead)
   const hasContrastOrConflict = /(vs\.|instead|demolishes|dilute|invisible|trap|truth|mismatch|collapse|lie|myth|actually|wrong|\bnot\b|n['’]t\b|differently)/i.test(post);
-  if (hasContrastOrConflict) {
-    score++;
-  } else {
-    reasons.push("대비(Contrast) 및 역설적 인사이트 구조 부재");
-  }
+  // Score only: as a retry reason it pushed drafts toward "X is not Y", which the line-1 negation gate now rejects
+  // (2026-11-06, first-line-rules).
+  if (hasContrastOrConflict) score++;
 
   return {
     pass: hasFlatHook && (hasAstroTerm || hasContrastOrConflict),
