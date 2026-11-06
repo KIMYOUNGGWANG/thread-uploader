@@ -13,6 +13,9 @@ on:
       days:
         description: '최근 며칠 (1-60)'
         default: '14'
+      full:
+        description: '본문 전체와 대기 중 초안 포함 (true/false)'
+        default: 'false'
 
 jobs:
   report:
@@ -24,10 +27,12 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           PUBKEY_B64: ${{ inputs.public_key_b64 }}
           DAYS: ${{ inputs.days }}
+          FULL: ${{ inputs.full }}
         run: |
           test -n "$APP_URL"
           test -n "$CRON_SECRET"
           [[ "$DAYS" =~ ^[0-9]{1,2}$ ]] || { echo "invalid days: $DAYS"; exit 1; }
+          [[ "$FULL" == "true" ]] && FULL_Q="&full=1" || FULL_Q=""
           [[ "$PUBKEY_B64" =~ ^[A-Za-z0-9+/=]+$ ]] || { echo "public_key_b64 must be base64"; exit 1; }
           umask 077
           printf '%s' "$PUBKEY_B64" | base64 -d > pub.pem
@@ -36,7 +41,7 @@ jobs:
             for slug in cosmicpath cosmicpath-global; do
               curl --fail --show-error --silent --location --max-time 120 \
                 -H "Authorization: Bearer ${CRON_SECRET}" \
-                "${APP_URL%/}/api/cron/post-metrics-report?brand=${slug}&days=${DAYS}"
+                "${APP_URL%/}/api/cron/post-metrics-report?brand=${slug}&days=${DAYS}${FULL_Q}"
               echo
             done
           } > report.jsonl

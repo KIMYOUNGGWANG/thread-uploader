@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("brand")?.trim();
   if (!slug) return NextResponse.json({ error: "brand is required" }, { status: 400 });
   const days = Math.min(MAX_DAYS, Math.max(1, Number(request.nextUrl.searchParams.get("days")) || 14));
+  // full=1 adds each post's whole text and the drafts waiting to publish, for reading what actually went out.
+  const full = request.nextUrl.searchParams.get("full") === "1";
 
   const brand = await prisma.brand.findUnique({ where: { slug }, select: { id: true } });
   if (!brand) return NextResponse.json({ error: `Brand not found: ${slug}` }, { status: 404 });
@@ -52,11 +54,20 @@ export async function GET(request: NextRequest) {
       return 0;
     }
   };
+  const queue = full
+    ? await prisma.post.findMany({
+        where: { brandId: brand.id, status: { in: ["PENDING", "NEEDS_REVIEW"] } },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: { id: true, status: true, createdAt: true, formulaId: true, content: true, firstComment: true, qualityReasons: true },
+      })
+    : undefined;
   return NextResponse.json({
     brand: slug,
     days,
     count: posts.length,
     followers,
+    ...(queue ? { queue } : {}),
     posts: posts.map((post) => ({
       id: post.id,
       publishedAt: post.publishedAt,
@@ -80,6 +91,7 @@ export async function GET(request: NextRequest) {
       hookType: post.hookType,
       ctaType: post.ctaType,
       firstComment: post.firstComment?.split("\n").find((line) => line.trim())?.slice(0, 60) ?? null,
+      ...(full ? { content: post.content, firstCommentFull: post.firstComment } : {}),
     })),
   });
 }
