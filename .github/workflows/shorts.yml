@@ -1,10 +1,10 @@
 name: Shorts Radar
 
 on:
-  # 수집 중지 (2026-10-31): 궁합 유입 기여 없음. 다시 켜려면 discover cron 주석 해제.
-  # snapshot은 7일 지난 쇼츠 삭제(YouTube 캐싱 약관)를 맡아서 하루 1회로 남김.
+  # 2026-11-08 수집 재개: 10/31에 껐더니 snapshot이 7일 지난 쇼츠를 지워(YouTube 캐싱 약관) 레이더가 비었다.
+  # discover는 6시간마다, snapshot은 하루 1회.
   schedule:
-    # - cron: '7 */6 * * *'
+    - cron: '7 */6 * * *'
     - cron: '37 3 * * *'
   workflow_dispatch:
     inputs:
