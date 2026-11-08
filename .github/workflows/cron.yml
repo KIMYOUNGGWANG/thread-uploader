@@ -72,10 +72,10 @@ jobs:
             -H "Authorization: Bearer ${CRON_SECRET}" \
             "${APP_URL%/}/api/cron/replies"
 
-  # Link reply on posts that took off (≥300 views or ≥10 replies within 48h). Hourly: a viral post gets its
-  # link within about an hour of crossing the bar; move to the 15-minute entry if that proves too late.
+  # Link reply on posts that took off (≥300 views or ≥10 replies within 48h). Runs on every trigger, not only the
+  # hourly entry: GitHub fired the '17' entry 4 times on 2026-11-06 (5–8h apart), too late for a post peaking now.
+  # The claim on linkUrl keeps repeat runs from replying twice; each run reads insights for ≤10 posts.
   auto-plug:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 * * * *'
     runs-on: ubuntu-latest
     steps:
       - name: Plug a link into posts that took off
