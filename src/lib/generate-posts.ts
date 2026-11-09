@@ -41,7 +41,7 @@ import {
   RANKED_TERM_MODE_IDS,
 } from "@/lib/viral-intent-modes";
 import { findDatesOutsideCalendar, findEnglishDatesOutsideCalendar, skyBriefEn, skyBriefKo } from "@/lib/sky-calendar";
-import { NEW_YEAR_BRANDS, newYearSlotMode, type NewYearModeId } from "@/lib/new-year/new-year-season";
+import { NEW_YEAR_BRANDS, newYearForcesLink, newYearSlotMode, type NewYearModeId } from "@/lib/new-year/new-year-season";
 import { buildNewYearBrief, buildNewYearLink, checkNewYearFacts, newYearFirstComment } from "@/lib/new-year/new-year-content";
 import { formatViralPromptContext } from "@/lib/viral-analysis";
 import {
@@ -1339,9 +1339,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         experiment.newYearMode = newYearMode;
         experiment.newYearSlotIndex = slotIndex;
         experiment.newYearBrief = buildNewYearBrief(newYearMode, NEW_YEAR_BRANDS[brand.slug], slotIndex);
-        // The modes set their own length (a 12-month list cannot fit a short arm), and every one carries the sample link.
+        // The modes set their own length (a 12-month list cannot fit a short arm).
         experiment.lengthTarget = undefined;
-        experiment.shouldLink = true;
+        if (newYearForcesLink(brand.slug)) experiment.shouldLink = true;
         experiment.closingFormat = newYearMode === "ny_pick" ? "choices" : undefined;
       }
       // A replay keeps the source's own closing, so it gets no rotated closing format to contradict it.
