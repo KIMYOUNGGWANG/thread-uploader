@@ -53,6 +53,7 @@ model Brand {
   marketLabel String?
   locale      String?
   channelAccounts ChannelAccount[]
+  channelUploads  ChannelUpload[]
 
   @@index([groupId])
 }
@@ -115,6 +116,7 @@ model Post {
   instagramAttempts     Int       @default(0)
   instagramError        String?
   publications Publication[]
+  channelUploads ChannelUpload[]
 
   @@index([brandId, instagramStatus])
   @@index([brandId, campaignId])
@@ -350,6 +352,7 @@ model ChannelAccount {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   publications   Publication[]
+  uploads        ChannelUpload[]
 
   @@unique([brandId, platform, externalUserId])
   @@index([brandId, enabled])
@@ -422,10 +425,57 @@ model VideoDraft {
   coverUrl     String?
   userVerdict  String?    // good | bad
   verdictAt    DateTime?
+  // Cancel window: uploads start at autoPublishAt unless canceledAt is set first.
+  autoPublishAt DateTime?
+  canceledAt   DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  uploads      ChannelUpload[]
 
   @@index([brandId, kstDate])
   @@index([status, updatedAt])
   @@index([clipAssetId])
+  @@index([status, autoPublishAt])
+}
+
+// One upload of one source (video draft, card set, Threads post) to one connected channel.
+// Kept apart from Publication, which mirrors Threads/Instagram reel state per Post.
+model ChannelUpload {
+  id               String         @id @default(cuid())
+  brandId          String
+  brand            Brand          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  channelAccountId String
+  channelAccount   ChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+  kind             String         // video | carousel | text
+  sourceKey        String         // "video:<draftId>" | "cards:<postId>" | "post:<postId>"
+  videoDraftId     String?
+  videoDraft       VideoDraft?    @relation(fields: [videoDraftId], references: [id], onDelete: Cascade)
+  postId           String?
+  post             Post?          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  status           String         @default("QUEUED") // QUEUED | UPLOADING | PROCESSING | PUBLISHED | FAILED | CANCELED
+  privacy          String         @default("public") // public | private
+  caption          String         @default("")
+  mediaUrls        String         @default("[]")
+  scheduledAt      DateTime
+  lockedUntil      DateTime?
+  attempts         Int            @default(0)
+  nextAttemptAt    DateTime?
+  externalId       String?
+  externalUrl      String?
+  platformData     String         @default("{}")
+  errorLog         String?
+  publishedAt      DateTime?
+  views            Int?
+  likes            Int?
+  comments         Int?
+  shares           Int?
+  metricsAt        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([channelAccountId, sourceKey])
+  @@index([status, scheduledAt])
+  @@index([brandId, createdAt])
+  @@index([videoDraftId])
+  @@index([postId])
 }

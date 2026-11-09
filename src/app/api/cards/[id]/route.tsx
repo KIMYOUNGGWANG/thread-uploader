@@ -2,6 +2,27 @@ import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parsePostForSlide } from "@/lib/card-parser";
+import { parseBrandConfig } from "@/types/brand";
+
+const CACHE_CONTROL = "public, s-maxage=31536000, max-age=3600, stale-while-revalidate=86400";
+
+function websiteHost(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+/** Instagram's publishing API accepts JPEG images only, so carousel slides ask for ?format=jpg. */
+async function toJpeg(png: Response): Promise<Response> {
+  const sharp = (await import("sharp")).default;
+  const jpeg = await sharp(Buffer.from(await png.arrayBuffer())).jpeg({ quality: 90 }).toBuffer();
+  return new Response(new Uint8Array(jpeg), {
+    status: 200,
+    headers: { "Content-Type": "image/jpeg", "Cache-Control": CACHE_CONTROL },
+  });
+}
 
 export const runtime = "nodejs";
 
@@ -24,6 +45,7 @@ export async function GET(
           select: {
             name: true,
             slug: true,
+            brandConfig: true,
           },
         },
       },
@@ -37,9 +59,11 @@ export async function GET(
     const brandName = post.brand?.name || "CosmicPath";
     const topic = post.topic || "대운 & 커리어 타이밍";
     const displayHeader = oracleTag ? `${oracleTag.toUpperCase()} · ${topic}` : `${brandName.toUpperCase()} · ${topic}`;
-    const slideTag = totalSlides && totalSlides > 1 ? `SLIDE ${slideIndex + 1}/${totalSlides}` : "CRITICAL TIMING CHECK";
+    const slideTag = totalSlides && totalSlides > 1 ? `${slideIndex + 1} / ${totalSlides}` : "";
+    const site = post.brand ? websiteHost(parseBrandConfig(post.brand.brandConfig).websiteUrl) : null;
+    const footerNote = totalSlides && totalSlides > 1 && slideIndex === 0 ? "넘겨서 보기 →" : brandName;
 
-    return new ImageResponse(
+    const image = new ImageResponse(
       (
         <div
           style={{
@@ -160,13 +184,12 @@ export async function GET(
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <span style={{ fontSize: "24px", color: "#38BDF8", fontWeight: "700" }}>💬</span>
               <span style={{ fontSize: "24px", color: "#94A3B8", fontWeight: "600" }}>
-                당신의 상황을 댓글로 남겨주시면 솔루션을 짚어드립니다
+                {footerNote}
               </span>
             </div>
             <span style={{ fontSize: "22px", color: "#64748B", fontWeight: "600" }}>
-              www.cosmicpath.app
+              {site ?? ""}
             </span>
           </div>
         </div>
@@ -175,10 +198,11 @@ export async function GET(
         width: 1080,
         height: 1080,
         headers: {
-          "Cache-Control": "public, s-maxage=31536000, max-age=3600, stale-while-revalidate=86400",
+          "Cache-Control": CACHE_CONTROL,
         },
       }
     );
+    return request.nextUrl.searchParams.get("format") === "jpg" ? await toJpeg(image) : image;
   } catch (error) {
     console.error("[Card Route Error]", error);
     return new Response("Internal Server Error", { status: 500 });

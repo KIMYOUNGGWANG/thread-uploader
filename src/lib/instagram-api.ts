@@ -35,6 +35,66 @@ export async function createReelsContainer(
   return readId("container creation", data);
 }
 
+/** One image of a carousel. Instagram only accepts JPEG image URLs. */
+export async function createCarouselItemContainer(credentials: InstagramCredentials, imageUrl: string): Promise<string> {
+  const body = new URLSearchParams({
+    image_url: imageUrl,
+    is_carousel_item: "true",
+    access_token: credentials.accessToken,
+  });
+  const data = await requestInstagram("carousel item", `${INSTAGRAM_GRAPH_BASE}/${credentials.userId}/media`, {
+    method: "POST",
+    body,
+  });
+  return readId("carousel item", data);
+}
+
+export async function createCarouselContainer(
+  credentials: InstagramCredentials,
+  input: { childIds: string[]; caption: string },
+): Promise<string> {
+  const body = new URLSearchParams({
+    media_type: "CAROUSEL",
+    children: input.childIds.join(","),
+    caption: input.caption,
+    access_token: credentials.accessToken,
+  });
+  const data = await requestInstagram("carousel container", `${INSTAGRAM_GRAPH_BASE}/${credentials.userId}/media`, {
+    method: "POST",
+    body,
+  });
+  return readId("carousel container", data);
+}
+
+/** Permalink of a published media, or null (never throws: the post is already live). */
+export async function getMediaPermalink(mediaId: string, accessToken: string): Promise<string | null> {
+  try {
+    const data = await requestInstagram("permalink", `${INSTAGRAM_GRAPH_BASE}/${mediaId}?fields=permalink`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const permalink = isRecord(data) ? data["permalink"] : null;
+    return typeof permalink === "string" ? permalink : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Media insights as name → value. Metric names Instagram rejects for this media type throw; callers catch. */
+export async function getMediaInsights(mediaId: string, accessToken: string, metrics: string[]): Promise<Record<string, number>> {
+  const url = `${INSTAGRAM_GRAPH_BASE}/${mediaId}/insights?metric=${encodeURIComponent(metrics.join(","))}`;
+  const data = await requestInstagram("insights", url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const out: Record<string, number> = {};
+  const entries = isRecord(data) && Array.isArray(data["data"]) ? data["data"] : [];
+  for (const entry of entries) {
+    if (!isRecord(entry) || typeof entry["name"] !== "string") continue;
+    const total = isRecord(entry["total_value"]) ? entry["total_value"]["value"] : undefined;
+    const values = Array.isArray(entry["values"]) && isRecord(entry["values"][0]) ? entry["values"][0]["value"] : undefined;
+    const value = typeof total === "number" ? total : values;
+    if (typeof value === "number") out[entry["name"]] = value;
+  }
+  return out;
+}
+
 export async function getContainerStatus(containerId: string, accessToken: string): Promise<InstagramContainerStatus> {
   const data = await requestInstagram("status check", `${INSTAGRAM_GRAPH_BASE}/${containerId}?fields=status_code`, {
     headers: { Authorization: `Bearer ${accessToken}` },

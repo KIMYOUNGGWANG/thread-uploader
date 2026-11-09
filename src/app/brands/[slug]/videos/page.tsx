@@ -24,6 +24,11 @@ export default async function BrandVideosPage({ params }: PageProps) {
       select: {
         id: true, status: true, kstDate: true, script: true, renderErrors: true, videoUrl: true,
         coverUrl: true, userVerdict: true, createdAt: true, clipAsset: { select: { license: true } },
+        autoPublishAt: true, canceledAt: true,
+        uploads: {
+          select: { id: true, status: true, externalUrl: true, errorLog: true, privacy: true, channelAccount: { select: { platform: true } } },
+          orderBy: { createdAt: "asc" },
+        },
       },
     }),
     // ponytail: last 30 completed is enough for a 5-in-a-row goal; streaks above 30 show as 30

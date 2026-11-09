@@ -6,6 +6,7 @@ import { pickClip } from "./clip-picker";
 import { generateKineticListScript } from "./generate-kinetic-list";
 import { checkKineticListScript, type KineticListScript, type ScriptCheck } from "./kinetic-list-script";
 import { buildKineticListVariables } from "./render-variables";
+import { autoPublishAtFor } from "@/lib/distribution/config";
 
 export interface FactoryJob {
   draftId: string;
@@ -164,7 +165,15 @@ export async function completeDraft(input: CompleteInput): Promise<"ok" | "not_f
       return exists ? "conflict" : "not_found";
     }
     if (succeeded) {
-      const draft = await tx.videoDraft.findUnique({ where: { id: input.draftId }, select: { clipAssetId: true } });
+      const draft = await tx.videoDraft.findUnique({
+        where: { id: input.draftId },
+        select: { clipAssetId: true, brand: { select: { brandConfig: true } } },
+      });
+      // Opens the cancel window: uploads start at autoPublishAt unless the draft is canceled first.
+      await tx.videoDraft.update({
+        where: { id: input.draftId },
+        data: { autoPublishAt: autoPublishAtFor(draft?.brand.brandConfig, new Date()) },
+      });
       if (draft?.clipAssetId) {
         await tx.clipAsset.update({
           where: { id: draft.clipAssetId },

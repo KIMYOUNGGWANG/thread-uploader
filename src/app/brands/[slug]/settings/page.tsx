@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { parseBrandConfig } from "@/types/brand";
 import { instagramBioAnchorWhere, tryBuildInstagramBioLink } from "@/lib/instagram-bio-anchor";
 import { BrandSettingsForm } from "@/components/BrandSettingsForm";
+import { parseDistributionConfig } from "@/lib/distribution/config";
+import { readAppCredentials } from "@/lib/distribution/oauth-providers";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -27,6 +29,11 @@ export default async function BrandSettingsPage({ params }: PageProps) {
       })
     : null;
   const instagramExpiry = brand.instagramTokenExpiry;
+  const channelAccounts = await prisma.channelAccount.findMany({
+    where: { brandId: brand.id, platform: { in: ["youtube", "tiktok", "x"] } },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, platform: true, handle: true, enabled: true, accessToken: true },
+  });
 
   return (
     <BrandSettingsForm
@@ -47,6 +54,23 @@ export default async function BrandSettingsPage({ params }: PageProps) {
           bioLink: tryBuildInstagramBioLink(config.websiteUrl, anchorPost?.id),
           clicks: anchorPost?.clicks ?? 0,
           conversions: anchorPost?.conversions ?? 0,
+        },
+        channels: {
+          // Never ship tokens to the browser: only whether one is stored.
+          accounts: channelAccounts.map((a) => ({
+            id: a.id,
+            platform: a.platform as "youtube" | "tiktok" | "x",
+            handle: a.handle,
+            enabled: a.enabled,
+            connected: a.accessToken !== null,
+          })),
+          instagramConnected: Boolean(instagramExpiry && instagramExpiry > new Date()),
+          distribution: parseDistributionConfig(brand.brandConfig),
+          configured: {
+            youtube: readAppCredentials("youtube") !== null,
+            tiktok: readAppCredentials("tiktok") !== null,
+            x: readAppCredentials("x") !== null,
+          },
         },
       }}
     />

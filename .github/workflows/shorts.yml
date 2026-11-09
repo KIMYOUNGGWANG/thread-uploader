@@ -2,10 +2,10 @@ name: Shorts Radar
 
 on:
   # 2026-11-08 수집 재개: 10/31에 껐더니 snapshot이 7일 지난 쇼츠를 지워(YouTube 캐싱 약관) 레이더가 비었다.
-  # discover는 6시간마다, snapshot은 하루 1회.
+  # discover는 6시간마다. snapshot은 2026-11-09 동결 해제로 다시 매시간(velocityScore가 6시간 창을 쓰므로).
   schedule:
     - cron: '7 */6 * * *'
-    - cron: '37 3 * * *'
+    - cron: '37 * * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -37,7 +37,7 @@ jobs:
           echo
 
   snapshot:
-    if: github.event.schedule == '37 3 * * *' || github.event.inputs.mode == 'snapshot'
+    if: github.event.schedule == '37 * * * *' || github.event.inputs.mode == 'snapshot'
     runs-on: ubuntu-latest
     steps:
       - name: Snapshot Shorts views

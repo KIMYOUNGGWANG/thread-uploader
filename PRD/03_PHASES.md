@@ -64,18 +64,22 @@ Phase 1a 범위:
 
 ### 전제 조건
 - Phase 1a 완료 기준 통과
-- **자동 업로드는 11/17 Threads 글 길이 실험 판정 뒤에 켠다 [사용자 결정, 2026-10-29].** 그 전에는 업로드 코드를 만들고 수동 실행으로 테스트만 한다. 1a 자동 렌더는 지금 켜도 된다.
+- ~~자동 업로드는 11/17 Threads 글 길이 실험 판정 뒤에 켠다 [사용자 결정, 2026-10-29].~~ **2026-11-09 사용자 결정으로 동결 해제: 자동 렌더·자동 업로드를 지금 켠다.**
+
+### 구현 (2026-11-09)
+- 업로드 기록은 `Publication.videoDraftId` 대신 새 표 `ChannelUpload`에 둔다. `Publication.postId`는 필수이고 Threads·릴스 상태를 비추는 용도라, 영상·카드뉴스·X 업로드를 같은 표에 넣으면 Threads 발행 경로를 건드려야 해서다. `ChannelUpload`는 (채널 계정, `sourceKey`) 유일 키로 중복 업로드를 막는다.
+- 코드: `src/lib/distribution/` (OAuth·어댑터·스케줄러·러너·취소), 크론 `/api/cron/distribute`, 워크플로 `distribute.yml`.
 
 ### 목표
 완성 영상이 취소 창을 지나면 릴스·쇼츠에 공개, 틱톡에 비공개로 자동으로 올라간다.
 
 ### 기능
-- [ ] 유튜브 쇼츠: 채널 연결(OAuth) + 업로드 (YouTube Data API `videos.insert`, 공식 문서 기준 하루 100회)
-- [ ] 인스타 릴스: 재사용은 API 함수(`src/lib/instagram-api.ts`의 `createReelsContainer`·`getContainerStatus`·`publishContainer`)까지만 한다. `instagram-reels-sync.ts`는 `Post` 기반이라, 선점·중복 방지·재시도는 `Publication(videoDraftId)` 기준으로 새로 짠다 (기존 패턴을 참고)
-- [ ] 틱톡: 채널 연결 + 업로드. 앱 심사 전에는 **비공개만 가능** (공식 문서). 심사 신청을 병행한다
-- [ ] 취소 창: `autoPublishAt` 전에 취소 버튼으로 막기
-- [ ] 채널별 캡션·해시태그
-- [ ] 실패 재시도와 중복 업로드 방지 (인스타 쪽 기존 패턴 재사용)
+- [x] 유튜브 쇼츠: 채널 연결(OAuth) + 업로드 (YouTube Data API `videos.insert`, 공식 문서 기준 하루 100회)
+- [x] 인스타 릴스: 재사용은 API 함수(`src/lib/instagram-api.ts`의 `createReelsContainer`·`getContainerStatus`·`publishContainer`)까지만 한다. `instagram-reels-sync.ts`는 `Post` 기반이라, 선점·중복 방지·재시도는 `Publication(videoDraftId)` 기준으로 새로 짠다 (기존 패턴을 참고)
+- [x] 틱톡: 채널 연결 + 업로드. 앱 심사 전에는 **비공개만 가능** (공식 문서). 심사 신청을 병행한다
+- [x] 취소 창: `autoPublishAt` 전에 취소 버튼으로 막기 (기본 3시간, 설정에서 0~48시간)
+- [x] 채널별 캡션·해시태그
+- [x] 실패 재시도와 중복 업로드 방지 (업로드 전 UPLOADING 선점, 중단된 업로드는 다시 올리지 않고 실패로 표시)
 
 ### 추가 데이터
 - `Publication.videoDraftId`, `ChannelAccount`에 youtube·tiktok 줄
@@ -97,9 +101,9 @@ Phase 1a 범위:
 대시보드 첫 화면 하나로 "잘 올라갔나 / 남은 것 / 내 할 일"을 안다.
 
 ### 기능
-- [ ] 첫 화면 보고판: 어제~지금 업로드 결과 (채널별 성공·실패와 이유), 오늘 대기 (자동 업로드까지 남은 시간 + 취소 버튼), 내 할 일 (틱톡 공개 전환, 토큰 만료, 클립 부족 등)
-- [ ] 채널별 조회수 수집 (Publication.views)
-- [ ] 다른 브랜드로 확장 (cosmicpath-global 등)
+- [x] 첫 화면 보고판 (`/`): 어제~지금 업로드 결과 (채널별 성공·실패와 이유), 오늘 대기 (자동 업로드까지 남은 시간 + 취소 버튼), 내 할 일 (틱톡 공개 전환, 토큰 만료, 클립 부족 등)
+- [x] 채널별 조회수 수집 (`ChannelUpload.views`, `/api/cron/channel-metrics`)
+- [ ] 다른 브랜드로 확장 (cosmicpath-global 등) — 배포는 브랜드 단위로 이미 돈다. 영상 공장은 GitHub 변수 `VIDEO_FACTORY_BRANDS`에 슬러그를 더하면 되지만, 원고 생성이 한국어 kinetic-list라 영어 브랜드는 원고 프롬프트를 따로 만들어야 한다
 
 ### 디자인
 - 화면 작업이라 `~/.claude/PIPELINE.md` 3단계(brand-web-design → taste-skill)를 탄다.
@@ -108,14 +112,14 @@ Phase 1a 범위:
 
 ## Phase 3: 카드뉴스 (인스타 캐러셀)
 
-- [ ] 원고 → 이미지 여러 장 렌더 (HyperFrames 정지 프레임 또는 HTML 캡처)
-- [ ] 인스타 캐러셀 업로드
-- 설계는 Phase 3 시작 때 따로 한다.
+- [x] 원고 → 이미지 여러 장 렌더: 반응 좋은 Threads 글을 기존 `/api/cards/[id]` 렌더러로 1080×1080 슬라이드로 만들고 `?format=jpg`로 JPEG 변환 (인스타 API는 JPEG만 받음)
+- [x] 인스타 캐러셀 업로드: 하루 `cardNews.dailyCap`개, 취소 창 뒤 자동 업로드
 
 ## Phase 4: X
 
-- [ ] X 계정 연결 + 글·이미지 업로드
-- 주의: X API는 유료 플랜이 필요할 수 있다. 시작 전에 비용 확인.
+- [x] X 계정 연결(OAuth 2.0 PKCE) + 글 교차 게시: Threads에 발행된 글을 X 가중치 280자에 맞춰 올린다 (하루 `x.dailyCap`개)
+- [ ] 이미지 첨부 — 아직 안 함
+- 주의: X API 무료 플랜은 월 게시 수가 적다. 한도를 넘으면 업로드가 실패로 뜬다.
 
 ---
 

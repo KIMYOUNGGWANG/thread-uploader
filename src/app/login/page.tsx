@@ -33,7 +33,7 @@ export default function LoginPage() {
 
       if (response.ok) {
         toast.success("로그인 성공!");
-        router.push("/brands");
+        router.push("/");
         router.refresh();
       } else {
         setError(data.error ?? "로그인에 실패했습니다.");

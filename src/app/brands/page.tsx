@@ -55,6 +55,9 @@ export default function BrandsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => router.push("/")} className="text-slate-300 hover:text-white">
+              아침 보고
+            </Button>
             <Button
               onClick={() => setShowCreateForm(true)}
               size="sm"

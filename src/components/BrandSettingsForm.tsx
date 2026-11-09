@@ -13,6 +13,7 @@ import { parseOptimizationGoal } from "@/types/brand";
 import { buildBioLinkUrl } from "@/lib/tracking-url";
 import type { ViralAdapterId } from "@/types/viral";
 import { ProductSettingsTab } from "@/components/ProductSettingsTab";
+import { ChannelDistributionSection, type ChannelDistributionData } from "@/components/ChannelDistributionSection";
 
 interface InitialData {
   name: string;
@@ -21,6 +22,7 @@ interface InitialData {
   tokenExpiry: string | null;
   config: BrandConfig;
   instagram: InstagramConnection;
+  channels?: ChannelDistributionData;
 }
 
 export interface InstagramConnection {
@@ -245,6 +247,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
             tokenExpiry={tokenExpiry} setTokenExpiry={setTokenExpiry}
             instagram={initialData.instagram}
             captionSuffix={instagramCaptionSuffix} setCaptionSuffix={setInstagramCaptionSuffix}
+            channels={initialData.channels}
           />
         )}
         {activeTab === "ai" && (
@@ -370,6 +373,7 @@ function BasicTab({
   tokenExpiry, setTokenExpiry,
   instagram,
   captionSuffix, setCaptionSuffix,
+  channels,
 }: {
   brandId: string;
   name: string; setName: (v: string) => void;
@@ -378,6 +382,7 @@ function BasicTab({
   tokenExpiry: string; setTokenExpiry: (v: string) => void;
   instagram: InstagramConnection;
   captionSuffix: string; setCaptionSuffix: (v: string) => void;
+  channels?: ChannelDistributionData;
 }) {
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -437,6 +442,7 @@ function BasicTab({
         captionSuffix={captionSuffix}
         setCaptionSuffix={setCaptionSuffix}
       />
+      {channels && <ChannelDistributionSection brandId={brandId} data={channels} />}
     </div>
   );
 }
