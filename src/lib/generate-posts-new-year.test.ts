@@ -153,11 +153,20 @@ describe("New Year season slots in generatePostsForBrand", () => {
     vi.useRealTimers();
   });
 
-  it("시즌 정점의 cosmicpath 5개 생성 중 2개가 신년 모드이고, 첫 댓글이 고정 문구+단축 링크", async () => {
+  it("시즌 정점의 cosmicpath 5개 생성 중 2개가 신년 모드이고, 링크를 끈 캠페인이면 발행 때 링크가 없다", async () => {
     vi.setSystemTime(new Date("2027-01-10T03:00:00Z"));
     await generatePostsForBrand(cosmicBrand, { ...input, count: 5 });
     const ny = state.created.filter((p) => p.formulaId?.startsWith("ny_"));
     expect(ny).toHaveLength(2);
+    // KO New Year posts follow perPostLinks=false like any post; the auto-plug cron links the ones that take off.
+    expect(state.updates.filter((u) => u.linkUrl)).toHaveLength(0);
+  });
+
+  it("링크를 켠 캠페인이면 KO 신년 글은 신년 링크와 고정 첫 댓글(문구+단축 링크)을 단다", async () => {
+    vi.setSystemTime(new Date("2027-01-10T03:00:00Z"));
+    const config = JSON.parse(cosmicBrand.brandConfig);
+    config.campaigns[0] = { ...config.campaigns[0], perPostLinks: true, linkCadenceEvery: 1 };
+    await generatePostsForBrand({ ...cosmicBrand, brandConfig: JSON.stringify(config) } as Brand, { ...input, count: 5 });
     expect(state.updates.filter((u) => u.linkUrl?.includes("utm_campaign=new_year_2027"))).toHaveLength(2);
     expect(state.updates.find((u) => u.linkUrl?.includes("utm_campaign=new_year_2027"))?.firstComment).toMatch(/^내 2027 캘린더는 홈 맨 위에서:\nhttps?:\/\/.+\/r\//);
   });

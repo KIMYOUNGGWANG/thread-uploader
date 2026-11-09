@@ -68,6 +68,13 @@ export function dailyVideoSeason(brandSlug: string, now: Date, env: NodeJS.Proce
   return ko && isKoNewYearSeason(now, env) ? "new_year_2027" : undefined;
 }
 
+// 2026-11-09: KO New Year posts follow the campaign's link rule like any post (linked campaign posts had a median
+// of 63 views vs 115 unlinked), and the auto-plug cron links the ones that take off. EN has no auto-plug, so it
+// keeps the link on every New Year post.
+export function newYearForcesLink(brandSlug: string): boolean {
+  return NEW_YEAR_BRANDS[brandSlug] === "en";
+}
+
 export function newYearSlotMode(input: {
   brandSlug: string;
   plannedAt: Date;

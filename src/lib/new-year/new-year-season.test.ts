@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { zodiacTopicFor } from "./new-year-content";
-import { isNewYearModeId, newYearSlotMode } from "./new-year-season";
+import { isNewYearModeId, newYearForcesLink, newYearSlotMode } from "./new-year-season";
 
 const kst = (iso: string) => new Date(`${iso}+09:00`);
 const slot = (brandSlug: string, at: string, slotIndex: number, choicesCapped = false) =>
@@ -80,6 +80,14 @@ describe("newYearSlotMode", () => {
       topics.slice(1).forEach((t, i) => expect(t).not.toBe(topics[i]));
       expect(new Set(topics).size).toBe(8);
     }
+  });
+});
+
+describe("newYearForcesLink", () => {
+  it("KO 신년 글은 캠페인 링크 규칙을 따르고(auto-plug가 반응 온 글에 링크), EN만 링크를 강제한다", () => {
+    expect(newYearForcesLink("cosmicpath")).toBe(false);
+    expect(newYearForcesLink("cosmicpath-global")).toBe(true);
+    expect(newYearForcesLink("other-brand")).toBe(false);
   });
 });
 
