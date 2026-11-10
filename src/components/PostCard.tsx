@@ -11,6 +11,8 @@ import { ParsedPost, validatePost } from "@/lib/parser";
 import { toast } from "sonner";
 import { ScoreRadarPopover, type ScoreDimension } from "@/components/ScoreRadarPopover";
 import { isVideoMediaUrl } from "@/lib/media-url";
+import { CardNewsEditor, CardNewsPreview } from "@/components/CardNewsReview";
+import { COMPLIANCE_PREFIX, parseCardSlides, type CardSlide } from "@/lib/wellness/slides";
 
 // Same value as REFERENCE_REPLAY_MANUAL_TAG in src/lib/reference-replay.ts (that module imports prisma, so it can't be bundled here).
 const MANUAL_REFERENCE_TAG = "ref_replay_manual";
@@ -58,6 +60,9 @@ interface PostCardProps {
     } | null;
     algorithmicFixes?: string[];
     rewriteCount?: number | null;
+    /** Card-first brands only: JSON slide texts and the Instagram caption. */
+    cardSlides?: string;
+    instagramCaption?: string | null;
     onUpdate: (index: number, post: ParsedPost) => void;
     onDelete: (index: number, reason?: string) => void;
     onTogglePosted?: (index: number) => void;
@@ -100,6 +105,8 @@ export function PostCard({
     algorithmicDimensions,
     algorithmicFixes,
     rewriteCount,
+    cardSlides = "[]",
+    instagramCaption = null,
     onUpdate,
     onDelete,
     onTogglePosted,
@@ -116,6 +123,11 @@ export function PostCard({
     const [isRemediating, setIsRemediating] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
     const [reviewReason, setReviewReason] = useState("");
+    const slides = parseCardSlides(cardSlides);
+    const isCardPost = slides.length > 0;
+    const [editedSlides, setEditedSlides] = useState<CardSlide[]>(slides);
+    const [editedCaption, setEditedCaption] = useState(instagramCaption ?? "");
+    const complianceIssues = qualityReasons.filter((reason) => reason.startsWith(COMPLIANCE_PREFIX));
     const isQualityBlocked = qualityPass === false;
     // Written by the review pipeline as `톤 NN점` (toneReason in lib/tone-judge, kept out of the client bundle).
     const toneReasonLabel = qualityReasons.find((reason) => /^톤 \d+점$/.test(reason));
@@ -250,11 +262,19 @@ export function PostCard({
                         content: editedContent,
                         firstComment: editedComment || "",
                         scheduledAt: editedDate || undefined,
+                        ...(isCardPost && {
+                            cardSlides: editedSlides.map((slide) => ({ ...slide, items: slide.items?.filter((item) => item.trim()) })),
+                            instagramCaption: editedCaption,
+                        }),
                     }),
                 });
                 if (res.ok) {
                     toast.success("포스트가 수정되었습니다.");
                     onRefresh?.();
+                } else {
+                    const data = (await res.json().catch(() => null)) as { error?: string } | null;
+                    toast.error(data?.error ?? "저장하지 못했어요. 다시 시도해 주세요.");
+                    return;
                 }
             } catch (err) {
                 console.error("Failed to update post:", err);
@@ -273,6 +293,8 @@ export function PostCard({
         setEditedContent(post.content);
         setEditedComment(post.firstComment || "");
         setEditedDate(post.scheduledAt ? format(post.scheduledAt, "yyyy-MM-dd'T'HH:mm") : "");
+        setEditedSlides(slides);
+        setEditedCaption(instagramCaption ?? "");
         setIsEditing(false);
     };
 
@@ -327,6 +349,15 @@ export function PostCard({
                             />
                         </div>
 
+                        {isCardPost && (
+                            <CardNewsEditor
+                                slides={editedSlides}
+                                caption={editedCaption}
+                                onSlidesChange={setEditedSlides}
+                                onCaptionChange={setEditedCaption}
+                            />
+                        )}
+
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">예약 일시</label>
                             <Input
@@ -359,6 +390,16 @@ export function PostCard({
                                 playsInline
                                 aria-label="영상 미리보기"
                                 className="mt-3 w-full max-w-[240px] aspect-[9/16] rounded-lg bg-black object-contain"
+                            />
+                        )}
+
+                        {isCardPost && dbPostId && (
+                            <CardNewsPreview
+                                postId={dbPostId}
+                                slides={slides}
+                                rawSlides={cardSlides}
+                                instagramCaption={instagramCaption}
+                                issues={complianceIssues}
                             />
                         )}
 

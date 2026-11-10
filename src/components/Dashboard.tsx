@@ -262,6 +262,8 @@ interface ManualReferenceFormState {
 interface DBPost {
   id: string;
   content: string;
+  cardSlides?: string;
+  instagramCaption?: string | null;
   imageUrls: string[];
   scheduledAt: string;
   publishedAt: string | null;
@@ -1569,6 +1571,8 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   algorithmicDimensions={dbPost.algorithmicDimensions}
                   algorithmicFixes={dbPost.algorithmicFixes}
                   rewriteCount={dbPost.rewriteCount}
+                  cardSlides={dbPost.cardSlides}
+                  instagramCaption={dbPost.instagramCaption}
                   onUpdate={() => { }}
                   onDelete={(_, reason) => handleDeletePost(dbPost.id, reason)}
                   onRefresh={fetchPosts}
