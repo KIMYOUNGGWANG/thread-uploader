@@ -59,8 +59,15 @@ const SAJU_HIT_IDS = new Set<string>(SAJU_HIT_MODES.map((mode) => mode.id));
 // 2026-11-06 peer comparison (docs/research/2026-11-06-competitor-post-comparison.md): numbered lists get 2.55x the
 // account's usual likes on saju Threads (ours 168 vs 89 views), and putting down 점집·복채 is 2% of their posts while
 // ours sat at 55 vs 106 views. So the list arm starts ahead and the 복채 roast starts behind.
+// 2026-11-10 logged-in scan (docs/research/2026-11-10-threads-logged-in-account-scan.md): blessing, checklist,
+// top-3 ranking, self-check and identity-list shapes were the ones small saju accounts got likes on, so those five
+// start ahead. ponytail: fixed head start, the learn cron's own counts take over once each arm has posts.
 const HIT_SEED_OVERRIDES: Partial<Record<ViralIntentModeId, BetaPrior>> = {
   identity_list: { alpha: 9, beta: 3 },
+  blessing_callout: { alpha: 9, beta: 3 },
+  checklist_reveal: { alpha: 9, beta: 3 },
+  top3_ranking: { alpha: 9, beta: 3 },
+  self_check_guide: { alpha: 9, beta: 3 },
   cost_loss_punch: { alpha: 2, beta: 6 },
 };
 

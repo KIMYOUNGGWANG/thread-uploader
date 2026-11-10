@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findMissingFirstLineConcept, findMissingWesternAnchor, hasFirstLineSajuConcept, hasWesternAnchor } from "./first-line-rules";
+import { findMissingFirstLineConcept, findMissingWesternAnchor, hasFirstLineSajuConcept, hasWesternAnchor, withSignatureOpener } from "./first-line-rules";
 
 describe("hasFirstLineSajuConcept", () => {
   // First lines of cosmicpath posts that reached 300+ views.
@@ -54,5 +54,19 @@ describe("hasWesternAnchor", () => {
 
   it("only reads the first two lines", () => {
     expect(hasWesternAnchor("Line one.\nLine two.\nScorpio on line three.")).toBe(false);
+  });
+});
+
+describe("withSignatureOpener", () => {
+  it("prepends the opener once and leaves posts alone when unset", () => {
+    expect(withSignatureOpener("<합격운 TOP3>\n1위. 갑목", "명리 노트입니다.")).toBe("명리 노트입니다.\n<합격운 TOP3>\n1위. 갑목");
+    expect(withSignatureOpener("명리 노트입니다.\n본문", "명리 노트입니다.")).toBe("명리 노트입니다.\n본문");
+    expect(withSignatureOpener("본문", undefined)).toBe("본문");
+  });
+
+  it("skips the opener when the first part would exceed the Threads limit", () => {
+    const full = "가".repeat(495);
+    expect(withSignatureOpener(full, "명리 노트입니다.")).toBe(full);
+    expect(withSignatureOpener(`짧은 훅\n===NEXT===\n${full}`, "명리 노트입니다.")).toBe(`명리 노트입니다.\n짧은 훅\n===NEXT===\n${full}`);
   });
 });

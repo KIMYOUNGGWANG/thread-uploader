@@ -231,10 +231,21 @@ describe("benchmark modes (2026-11-04)", () => {
     expect(checkViralModeFidelity("요즘 흐름 바뀌는 띠\n1. 호랑이띠", "timely_forecast").failureCodes).toContain("missing_calendar_anchor");
   });
 
+  it("requires blessing_callout to address the reader up front", () => {
+    expect(checkViralModeFidelity("이 글이 보인다면\n막혔던 재회운이 풀리기 시작할 거야", "blessing_callout").pass).toBe(true);
+    expect(checkViralModeFidelity("재회운이 풀리는 흐름\n소띠 — 연락 올 수 있어", "blessing_callout").failureCodes).toContain("missing_blessing_callout");
+  });
+
+  it("requires thread parts for checklist_reveal and top3_ranking", () => {
+    expect(checkViralModeFidelity("아래 3개 이상 걸리면 거의 확정임\n1. 낯가림", "checklist_reveal").failureCodes).toContain("missing_thread_parts");
+    expect(checkViralModeFidelity("<합격운 TOP3>\n1위. 갑목 일간\n===NEXT===\n인성이 들어옴", "top3_ranking").pass).toBe(true);
+  });
+
   it("offers the benchmark modes in the lean sprint pool", () => {
     const ids = SAJU_HIT_MODES.map((mode) => mode.id);
-    expect(ids).toEqual(expect.arrayContaining(["identity_list", "timely_forecast", "self_check_guide"]));
-    for (const id of ["identity_list", "timely_forecast", "self_check_guide"] as const) {
+    const benchmarkIds = ["identity_list", "timely_forecast", "self_check_guide", "blessing_callout", "checklist_reveal", "top3_ranking"] as const;
+    expect(ids).toEqual(expect.arrayContaining([...benchmarkIds]));
+    for (const id of benchmarkIds) {
       const rules = SAJU_HIT_MODES.find((mode) => mode.id === id)?.rules ?? [];
       expect(rules.find((rule) => rule.startsWith("첫 댓글:"))).toContain("링크·홍보 문구는 넣지 않는다");
     }

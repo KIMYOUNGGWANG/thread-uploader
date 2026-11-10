@@ -1,4 +1,5 @@
 import { threadRootPart } from "@/lib/thread-splitter";
+import { THREADS_CONTENT_MAX_LENGTH } from "@/lib/threads-limits";
 
 // 2026-11-06 full-text audit (cosmicpath, published since 10/17, measured 48h+, this exact pattern):
 // posts whose first line names a saju concept had a median of 150 views (7 of 25 at 300+);
@@ -68,4 +69,14 @@ export function findMissingWesternAnchor(post: string): string | null {
   return hasWesternAnchor(post)
     ? null
     : "Lines 1-2 name nothing the reader already uses. Open on a Western sign or element group (Scorpio, water signs), their big three, or a planet/season they know, then add the Korean saju layer.";
+}
+
+// 2026-11-10 logged-in scan: the saju accounts that get likes open every post with the same line ("무당입니다.",
+// "아가…"), so readers learn the voice. Added after the gates so first-line rules still judge the hook itself;
+// skipped when it would push the first Threads part over the length limit.
+export function withSignatureOpener(content: string, opener: string | undefined): string {
+  const line = opener?.trim();
+  if (!line || content.trimStart().startsWith(line)) return content;
+  const next = `${line}\n${content}`;
+  return threadRootPart(next).length > THREADS_CONTENT_MAX_LENGTH ? content : next;
 }

@@ -20,6 +20,9 @@ export type ViralIntentModeId =
   | "identity_list"
   | "timely_forecast"
   | "self_check_guide"
+  | "blessing_callout"
+  | "checklist_reveal"
+  | "top3_ranking"
   | "winner_replay"
   | "ref_replay"
   | "ref_replay_info"
@@ -41,7 +44,8 @@ export type ViralModeFidelityFailureCode =
   | "missing_relationship_contrast"
   | "missing_beginner_question"
   | "missing_thread_parts"
-  | "missing_calendar_anchor";
+  | "missing_calendar_anchor"
+  | "missing_blessing_callout";
 
 export interface ViralModeFidelityResult {
   readonly pass: boolean;
@@ -54,12 +58,13 @@ const HIERARCHY_PATTERN = /보다\s*센|보다|아니라|아니고|아님|뿐|�
 export const IDENTITY_MARKER_PATTERN = /화개살?|도화살?|홍염살?|문창귀인|천을귀인|진술축미|(?:신금|경금|갑목|을목|병화|정화|무토|기토|임수|계수)\s*(?:일주|타입)/;
 // Modes whose posts are a hook plus the author's own replies (===NEXT=== parts), and modes that may name up to
 // three saju concepts because the list or the ranking is the point.
-export const THREAD_PART_MODE_IDS: ReadonlySet<string> = new Set(["identity_list", "self_check_guide"]);
-export const RANKED_TERM_MODE_IDS: ReadonlySet<string> = new Set(["concept_hierarchy", "identity_list", "self_check_guide"]);
+export const THREAD_PART_MODE_IDS: ReadonlySet<string> = new Set(["identity_list", "self_check_guide", "checklist_reveal", "top3_ranking"]);
+export const RANKED_TERM_MODE_IDS: ReadonlySet<string> = new Set(["concept_hierarchy", "identity_list", "self_check_guide", "checklist_reveal", "top3_ranking"]);
 // Modes that set their own structure and ending; the rotated closing format would contradict them.
-export const OWN_SHAPE_MODE_IDS: ReadonlySet<string> = new Set(["identity_list", "timely_forecast", "self_check_guide"]);
+export const OWN_SHAPE_MODE_IDS: ReadonlySet<string> = new Set(["identity_list", "timely_forecast", "self_check_guide", "blessing_callout", "checklist_reveal", "top3_ranking"]);
 // Numbered lines in these modes are a list of items, not a "pick 1/2/3" choice template.
-export const LIST_MODE_IDS: ReadonlySet<string> = new Set(["identity_list", "timely_forecast", "self_check_guide"]);
+export const LIST_MODE_IDS: ReadonlySet<string> = new Set(["identity_list", "timely_forecast", "self_check_guide", "blessing_callout", "checklist_reveal", "top3_ranking"]);
+const BLESSING_CALLOUT_PATTERN = /이 글|보인다면|본 사람|보는 사람|스친/;
 const CALENDAR_ANCHOR_PATTERN = /\d{1,2}월|입동|대설|소한|입춘|경칩|청명|입하|망종|소서|입추|백로|한로|보름|그믐|정미년|병오년|연말|새해/;
 const RELATIONSHIP_PATTERN = /연애|궁합|애인|남친|여친|헤어|손절|관계|재회|전남친|전여친|썸|고백|설렘|결혼|이별|연락/;
 const RELATIONSHIP_CONTRAST_PATTERN = /절대|vs|대비|만나면|헤어지|망|놓치|파멸|귀인|원진|상극|보다|아니라|아니고|아님/;
@@ -150,6 +155,10 @@ export function checkViralModeFidelity(
 
   if (modeId === "timely_forecast" && !(/띠/.test(content) && CALENDAR_ANCHOR_PATTERN.test(opening))) {
     failureCodes.push("missing_calendar_anchor");
+  }
+
+  if (modeId === "blessing_callout" && !BLESSING_CALLOUT_PATTERN.test(opening)) {
+    failureCodes.push("missing_blessing_callout");
   }
 
   return { pass: failureCodes.length === 0, failureCodes };
@@ -411,6 +420,48 @@ export const SAJU_HIT_MODES: readonly ViralIntentMode[] = [
       "답글 2(250자 이하): 일간을 알면 무엇이 보이는지(나와 맞는 사람·일하는 방식) 한두 줄과, 저장 유도 한 줄. 단정하지 않고 '~한 편' 수준으로 쓴다.",
       "이 글에 없는 계산법(대운 계산, 신살 대응표)은 쓰지 않는다. 마지막 세 줄에는 적어봐·메모해 같은 숙제 말을 쓰지 않는다. 본문 링크 금지.",
       "첫 댓글: 확인해 보니 일간이 뭐였는지 묻는 한 줄. 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
+  // 2026-11-10 logged-in scan (docs/research/2026-11-10-threads-logged-in-account-scan.md, 142 accounts): blessings
+  // (x1.58 the account's usual likes; 283 likes on a 16-follower account), "3개 이상이면" checklists and top-3 rankings
+  // carried the small accounts that got likes at all. Same seeded prior as the arms above.
+  {
+    id: "blessing_callout",
+    label: "축복·운 부르기 (팔로워 16명 계정 좋아요 283 검증)",
+    primaryMetric: "replies",
+    instruction: "'이 글이 보인다면'처럼 지금 이 글을 본 독자에게 막혀 있던 운(연애·재회·돈·일)이 풀리기 시작한다는 짧은 축복을 건넨다. 사주 설명은 하지 않는다.",
+    rules: [
+      "첫 줄은 '이 글이 보인다면', '우연히 이 글 본 사람'처럼 지금 읽는 독자를 부른다.",
+      "본문 3~6줄, 140자 이하. 띠를 쓰면 3~4개까지 '소띠 — 끊긴 연락이 다시 오는 흐름'처럼 한 줄씩 쓰고 출생연도는 쓰지 않는다.",
+      "'~할 수 있어', '~하는 흐름' 수준으로만 말하고 금액·당첨·특정 사건을 보장하지 않는다. 겁주거나 조건을 걸지 않는다.",
+      "사주 강의·용어 풀이·할 일·숙제는 쓰지 않는다. 마지막 줄은 '필요한 사람한테 보내줘' 같은 짧은 한 줄. 본문 링크 금지.",
+      "첫 댓글: 지금 제일 불러오고 싶은 운 하나를 남기라는 한 줄(예: 재회운, 재물운). 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
+  {
+    id: "checklist_reveal",
+    label: "체크리스트 + 정체 공개 (3개 이상이면 ○○ 사주)",
+    primaryMetric: "replies",
+    instruction: "독자가 자기 얘기인지 세어 보게 만드는 행동 체크리스트를 먼저 주고, 몇 개 이상 걸리면 어떤 사주 개념인지는 이어지는 답글에서 밝힌다.",
+    rules: [
+      "구조: 본문 → ===NEXT=== → 답글 1. ===NEXT=== 줄은 그대로 출력한다. 이 구조와 길이가 위의 일반 길이·마무리 규칙보다 우선한다.",
+      "본문(280자 이하): 첫 줄은 '인간관계에서 아래 3개 이상 걸리면 거의 확정임'처럼 영역과 기준 개수를 말한다. 이어서 1~6번, 줄마다 25자 안팎의 구체적인 행동. 마지막 줄은 '왜 이러냐면,' 한 줄.",
+      "답글 1(300자 이하): 사주 개념 하나(살·귀인·십신 등)를 이름으로 밝히고 쉬운 말 두세 줄로 푼다. 성격 결함이 아니라 타고난 쓰임이라는 단언 한 줄로 끝낸다.",
+      "독자를 비하하지 않고 미래를 보장하지 않는다. 할 일·숙제는 쓰지 않는다. 본문 링크 금지.",
+      "첫 댓글: 목록 중 몇 개가 걸렸는지 묻는 한 줄. 링크·홍보 문구는 넣지 않는다.",
+    ],
+  },
+  {
+    id: "top3_ranking",
+    label: "1~3위 순위 (일간·띠 TOP3)",
+    primaryMetric: "shares",
+    instruction: "'<연말에 합격운 들어오는 일간>'처럼 하나의 운을 정하고, 해당하는 일간이나 띠를 1~3위로만 뽑는다. 이유는 이어지는 답글에서 1위부터 푼다.",
+    rules: [
+      "구조: 본문 → ===NEXT=== → 답글 1. ===NEXT=== 줄은 그대로 출력한다. 이 구조와 길이가 위의 일반 길이·마무리 규칙보다 우선한다.",
+      "본문(200자 이하): 꺾쇠 제목 한 줄 + 왜 궁금한지 한두 줄 + '1위. 경금 일간'처럼 1~3위 세 줄. 4위 이하나 10개 일간·12띠 전체 나열은 쓰지 않는다.",
+      "답글 1(300자 이하): 1~3위마다 이유를 사주 개념 하나와 쉬운 말 한 줄로 쓴다. 날짜는 [달력 데이터]에 있는 것만 쓰고, 없으면 '연말'·'이번 달' 수준으로만 쓴다.",
+      "'~하기 쉬움', '~하는 흐름' 수준으로만 말하고 합격·당첨·금액을 보장하지 않는다. 할 일·숙제는 쓰지 않는다. 본문 링크 금지.",
+      "첫 댓글: 독자의 일간이나 띠를 묻는 한 줄. 링크·홍보 문구는 넣지 않는다.",
     ],
   },
 ];
@@ -804,6 +855,21 @@ export const ENGLISH_VIRAL_MODE_LABELS: Record<ViralIntentModeId, { label: strin
     ],
   },
   // SAJU_HIT_MODES run only in the Korean lean sprint; these entries keep the map total.
+  blessing_callout: {
+    label: "Blessing Callout",
+    instruction: "Tell whoever is reading right now that a stuck kind of luck is starting to move.",
+    rules: ["Address the reader in the first line.", "No guarantees. No link in the body."],
+  },
+  checklist_reveal: {
+    label: "Checklist With A Reveal",
+    instruction: "List behaviors readers count against themselves, and reveal the chart concept behind them in a reply.",
+    rules: ["Split the post into parts with a line holding only ===NEXT===.", "No link in the body."],
+  },
+  top3_ranking: {
+    label: "Top 3 Ranking",
+    instruction: "Pick one kind of luck and rank only three Day Masters or animals for it; explain them in a reply.",
+    rules: ["Split the post into parts with a line holding only ===NEXT===.", "No link in the body."],
+  },
   identity_list: {
     label: "Identity List With A Cliffhanger",
     instruction: "List traits readers recognize in themselves under a bracketed title, and reveal the chart behind them in the replies.",
