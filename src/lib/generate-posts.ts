@@ -238,6 +238,8 @@ function ensureMaxThreadsLength(content: string): string {
   return content;
 }
 
+const TOO_LONG_PREFIX = "Too long:";
+
 async function generateOne(
   experiment: GrowthExperiment,
   config: BrandConfig,
@@ -411,7 +413,7 @@ async function generateWithQuality(
       const max = englishMaxChars(experiment.formula.id);
       const length = threadRootPart(post).length;
       if (length > max) {
-        gate = { ...gate, pass: false, reasons: [`Too long: ${length} characters, keep the post under ${max}. Cut to the hook and the 3-4 lines that matter.`, ...gate.reasons] };
+        gate = { ...gate, pass: false, reasons: [`${TOO_LONG_PREFIX} ${length} characters, keep the post under ${max}. Cut to the hook and the 3-4 lines that matter.`, ...gate.reasons] };
       }
     }
     // A timely post may only name dates the calendar table has (term changes, moons, the year turn).
@@ -465,7 +467,12 @@ async function generateWithQuality(
       // Feeding "too close to the source" back would only paraphrase to just under the threshold; drop the draft instead.
       if (experiment.referenceReplay && gate.reasons.some((reason) => reason.startsWith(REFERENCE_COPY_REASON))) break;
       console.warn(`Quality FAIL (${gate.profile}, score ${gate.score}, attempt ${attempt}/${maxRetries}):`, gate.reasons);
-      result = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, [...feedback, ...gate.reasons]);
+      // A blind retry told only "too long" wrote a fresh, equally long post (global refills 2026-11-07..10 failed at 392-575
+      // characters), so a too-long draft is handed back to be cut down instead of rewritten from scratch.
+      const shortenDraft = gate.reasons.some((reason) => reason.startsWith(TOO_LONG_PREFIX))
+        ? [`Previous draft, too long. Keep its hook and strongest lines and cut it down; do not write a new post:\n${result.post}`]
+        : [];
+      result = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, [...feedback, ...gate.reasons, ...shortenDraft]);
       gate = await gateWithJudges(result.post, result.firstComment);
     }
     return { result, gate };
@@ -585,6 +592,8 @@ function buildGenerationPrompt(
     experiment.qualityProfile === "ecommerce_d2c" ||
     config.voiceProfile?.language === "en" ||
     Boolean(config.productProfile?.productName?.toLowerCase().includes("global"));
+  // The prompt says the same cap the gate enforces: a "max 500" here against a 300 gate cap made English drafts fail as too long.
+  const englishMax = experiment.qualityProfile === "ecommerce_d2c" ? englishMaxChars(experiment.formula.id) : THREADS_CONTENT_MAX_LENGTH;
 
   const creatorPatternContext = formatCreatorPatternContext(experiment.hookType, experiment.ctaType);
   const lengthLines = experiment.lengthTarget ? lengthPromptLines(experiment.lengthTarget) : null;
@@ -622,7 +631,7 @@ function buildGenerationPrompt(
   const viralRules = isEnglish
     ? [
         "[Threads Viral Compression & High-Retention Hook Rules]",
-        isInfoReference ? REFERENCE_INFO_LENGTH_RULE_EN : `- Target body length: ~${THREADS_CONTENT_TARGET_LENGTH} chars (approx 35-55 words / max ${THREADS_CONTENT_MAX_LENGTH} chars). Highly compressed and punchy.`,
+        isInfoReference ? REFERENCE_INFO_LENGTH_RULE_EN : `- Target body length: ~${THREADS_CONTENT_TARGET_LENGTH} chars (approx 35-55 words / max ${englishMax} chars). Highly compressed and punchy.`,
         "- Hook within the first 100 characters before the feed fold. Stop the scroll instantly. No boring preamble, no lectures, no bullet lists.",
         "- [2-Line Hook]: Line 1 starts from what the reader already knows: their sign or element group, their big three, or a planet/season (<60 chars). Line 2 adds the Korean saju detail that makes it land.",
         ...(isInfoReference ? [] : ["- [Single-Point Razor]: Focus on ONE idea. Never summarize or list multiple unfocused ideas."]),
@@ -722,7 +731,7 @@ function buildGenerationPrompt(
         `[Recent Post Avoidance]\n${sanitizedRecentPostContext}`,
         ...formatQualityFeedback(qualityFeedback, true),
         "",
-        `Combine the experimental conditions above and write 1 high-retention Threads post (${isInfoReference ? "300-900 chars" : `~${THREADS_CONTENT_TARGET_LENGTH} chars, max ${THREADS_CONTENT_MAX_LENGTH} chars`}) STRICTLY IN ENGLISH. Output ${SEPARATOR} and immediately write the first comment in English below it.`,
+        `Combine the experimental conditions above and write 1 high-retention Threads post (${isInfoReference ? "300-900 chars" : `~${THREADS_CONTENT_TARGET_LENGTH} chars, max ${englishMax} chars`}) STRICTLY IN ENGLISH. Output ${SEPARATOR} and immediately write the first comment in English below it.`,
         "Do NOT write actual URLs in the body or first comment. The system handles UTM tracking links.",
       ]
     : [
