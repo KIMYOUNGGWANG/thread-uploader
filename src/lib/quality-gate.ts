@@ -470,6 +470,7 @@ const VIRAL_MODE_FAILURE_MESSAGES: Record<ViralModeFidelityFailureCode, string> 
   missing_beginner_question: "입문자 질문 모드인데 첫 줄에 질문이 없음",
   missing_thread_parts: "답글형 모드인데 ===NEXT=== 줄로 본문과 답글을 나누지 않음",
   missing_calendar_anchor: "시점 예보 모드인데 첫 두 줄에 날짜·절기가 없거나 띠가 없음",
+  missing_blessing_callout: "축복 모드인데 첫 두 줄에서 '이 글이 보인다면'처럼 지금 읽는 독자를 부르지 않음",
 };
 
 function formatViralModeFidelityFailure(code: ViralModeFidelityFailureCode): string {

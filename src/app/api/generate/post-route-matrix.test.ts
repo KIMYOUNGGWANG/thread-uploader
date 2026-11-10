@@ -334,7 +334,7 @@ describe("POST /api/generate viral sprint matrix", () => {
     expect(state.checkStructureRepeat).not.toHaveBeenCalled();
   }, 10000);
 
-  it("persists a 4:4:3:3:1 CosmicPath sprint with tracked links only on every third post", async () => {
+  it("persists a 4:4:3:3:1 CosmicPath sprint with no per-post links", async () => {
     state.checkStructureRepeat.mockClear();
     state.createdPosts.length = 0;
     const { POST } = await import("@/app/api/generate/route");
@@ -367,15 +367,9 @@ describe("POST /api/generate viral sprint matrix", () => {
       beginner_qa: 1,
     });
 
-    expect(state.createdPosts.map((post) => Boolean(post.linkUrl))).toEqual([
-      false, false, true,
-      false, false, true,
-      false, false, true,
-      false, false, true,
-      false, false, true,
-    ]);
-    expect(state.createdPosts.filter((post) => post.linkUrl)).toHaveLength(5);
-    expect(state.createdPosts.filter((post) => post.utmContent)).toHaveLength(5);
+    // 2026-11-10: lean saju posts carry no per-post link (linked saju posts got 0.73x likes); the profile holds it.
+    expect(state.createdPosts.filter((post) => post.linkUrl)).toHaveLength(0);
+    expect(state.createdPosts.filter((post) => post.utmContent)).toHaveLength(0);
     // Saju drafts got auto card carousels until 2026-10-22, so refill queued image posts only.
     expect(state.createdPosts.map((post) => post.imageUrls)).toEqual(Array(15).fill("[]"));
 

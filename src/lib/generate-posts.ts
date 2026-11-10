@@ -53,7 +53,7 @@ import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
 import type { BrandConfig, CampaignConfig, QualityProfileId } from "@/types/brand";
 import { parseViralMemory } from "@/types/viral";
 import { englishMaxChars, findBorrowedYearBoundaryClaim, findFormulaShapeViolation, getDomainPreset, normalizeIpchunSpelling } from "@/lib/domain-registry";
-import { CONCEPT_FIRST_MODE_IDS, WESTERN_ANCHOR_FORMULA_IDS, findMissingFirstLineConcept, findMissingWesternAnchor } from "@/lib/first-line-rules";
+import { CONCEPT_FIRST_MODE_IDS, WESTERN_ANCHOR_FORMULA_IDS, findMissingFirstLineConcept, findMissingWesternAnchor, withSignatureOpener } from "@/lib/first-line-rules";
 import { resolveDynamicContext, isRelationshipTopic, planTopicQuota, alignRelationshipSlots } from "@/lib/context-matrix-engine";
 import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
@@ -1340,6 +1340,14 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         referenceReplay ? [] : recentSituations
       );
       experiment.lengthTarget = lengthArms[batchIndex];
+      // 2026-11-10 logged-in scan (docs/research/2026-11-10-threads-logged-in-account-scan.md): saju posts carrying a
+      // link got 0.73x their account's usual likes, and our linked posts sat at 74 vs 122 views (11/6 audit). Lean posts
+      // carry no per-post link; readers go to the profile. New Year slots keep the campaign's link (the 2027 promo), and
+      // a manual reference rewrite keeps its own link handling below.
+      if (isLeanSprint && !newYearMode && !referenceReplay && experiment.shouldLink) {
+        experiment.shouldLink = false;
+        experiment.ctaType = pickRandom(experimentCtaTypes(config, experiment.qualityProfile, false));
+      }
       // The gate caps reversal openers only for saju_viral (same scope as the numbered-choice cap).
       experiment.reversalCapped = reversalCapped && experiment.qualityProfile === "saju_viral";
       const replaySource = formulaMode.id === WINNER_REPLAY_MODE.id ? winnerSource : null;
@@ -1485,7 +1493,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       continue;
     }
 
-    const postContent = reconciled.content;
+    const postContent = withSignatureOpener(reconciled.content, config.signatureOpener);
     const initialComment = referenceReplay?.linkUrl
       ? appendFirstCommentLink(reconciled.firstComment ?? "", referenceReplay.linkUrl)
       : reconciled.firstComment;
