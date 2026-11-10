@@ -62,7 +62,11 @@ export async function collectChannelMetrics(now = new Date()): Promise<MetricsRe
         if (!row) continue;
         await prisma.channelUpload.update({
           where: { id: row.id },
-          data: { views: m.views, likes: m.likes, comments: m.comments, shares: m.shares, metricsAt: now },
+          data: {
+            views: m.views, likes: m.likes, comments: m.comments, shares: m.shares, metricsAt: now,
+            ...(m.saves !== undefined && { saves: m.saves }),
+            ...(m.reach !== undefined && { reach: m.reach }),
+          },
         });
         report.updated += 1;
       }

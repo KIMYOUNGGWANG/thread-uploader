@@ -84,6 +84,29 @@ describe("scheduleCardNews", () => {
   it("builds one slide URL per card, capped at 10", () => {
     expect(cardSlideUrls("p1", listPost.content, "https://a")).toHaveLength(4);
   });
+
+  it("keeps the Threads-views query for brands without wellness config", async () => {
+    db.accounts.mockResolvedValueOnce(new Map([["instagram", account("ai")]]));
+    db.uploadCount.mockResolvedValueOnce(0);
+    db.postFindMany.mockResolvedValueOnce([]);
+    await scheduleCardNews(now, [brand()]);
+    expect(db.postFindMany.mock.calls[0][0].where).toMatchObject({ status: "PUBLISHED", views: { gte: 0 } });
+  });
+
+  it("queues approved card-first posts with their stored slides and Instagram caption", async () => {
+    const slides = JSON.stringify(Array.from({ length: 8 }, (_, i) => ({ headline: `카드 ${i + 1}` })));
+    db.accounts.mockResolvedValueOnce(new Map([["instagram", account("ai")]]));
+    db.uploadCount.mockResolvedValueOnce(0);
+    db.postFindMany.mockResolvedValueOnce([{ id: "w1", content: "스레드 글", cardSlides: slides, instagramCaption: "💜훅💜 캡션" }]);
+    const wellness = brand({ wellness: { feeds: [] }, instagram: { captionSuffix: "#웰니스" } });
+    expect(await scheduleCardNews(now, [wellness])).toBe(1);
+    const where = db.postFindMany.mock.calls[0][0].where;
+    expect(where.status).toEqual({ in: ["PENDING", "PUBLISHED"] });
+    expect(where).not.toHaveProperty("views");
+    const row = db.createMany.mock.calls[0][0].data[0];
+    expect(JSON.parse(row.mediaUrls as string)).toHaveLength(8);
+    expect(row.caption).toBe("💜훅💜 캡션\n\n#웰니스");
+  });
 });
 
 describe("scheduleXPosts", () => {

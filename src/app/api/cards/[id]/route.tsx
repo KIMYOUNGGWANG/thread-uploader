@@ -3,6 +3,9 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parsePostForSlide } from "@/lib/card-parser";
 import { parseBrandConfig } from "@/types/brand";
+import { isCardFirstBrand } from "@/lib/wellness/config";
+import { WellnessCard, loadCardFonts, slideText } from "@/lib/wellness/card-image";
+import { parseCardSlides } from "@/lib/wellness/slides";
 
 const CACHE_CONTROL = "public, s-maxage=31536000, max-age=3600, stale-while-revalidate=86400";
 
@@ -15,12 +18,12 @@ function websiteHost(url: string): string | null {
 }
 
 /** Instagram's publishing API accepts JPEG images only, so carousel slides ask for ?format=jpg. */
-async function toJpeg(png: Response): Promise<Response> {
+async function toJpeg(png: Response, cacheControl = CACHE_CONTROL): Promise<Response> {
   const sharp = (await import("sharp")).default;
   const jpeg = await sharp(Buffer.from(await png.arrayBuffer())).jpeg({ quality: 90 }).toBuffer();
   return new Response(new Uint8Array(jpeg), {
     status: 200,
-    headers: { "Content-Type": "image/jpeg", "Cache-Control": CACHE_CONTROL },
+    headers: { "Content-Type": "image/jpeg", "Cache-Control": cacheControl },
   });
 }
 
@@ -40,6 +43,7 @@ export async function GET(
       select: {
         id: true,
         content: true,
+        cardSlides: true,
         topic: true,
         brand: {
           select: {
@@ -53,6 +57,22 @@ export async function GET(
 
     if (!post) {
       return new Response("Post not found", { status: 404 });
+    }
+
+    // Card-first brands (wellness media) render their own stored slides; every other brand keeps the content parser.
+    const cardSlides = post.brand && isCardFirstBrand(post.brand.brandConfig) ? parseCardSlides(post.cardSlides) : [];
+    if (cardSlides.length > 0) {
+      if (slideIndex >= cardSlides.length) return new Response("Slide not found", { status: 404 });
+      const slide = cardSlides[slideIndex];
+      const brandName = post.brand?.name ?? "";
+      const fonts = await loadCardFonts(slideText(slide, brandName));
+      // A fallback-font render must not stick at the CDN for a year; let the next request retry the fonts.
+      const cacheControl = fonts.length > 0 ? CACHE_CONTROL : "public, s-maxage=60, max-age=60";
+      const card = new ImageResponse(
+        <WellnessCard slide={slide} index={slideIndex} total={cardSlides.length} brandName={brandName} />,
+        { width: 1080, height: 1080, fonts, headers: { "Cache-Control": cacheControl } },
+      );
+      return request.nextUrl.searchParams.get("format") === "jpg" ? await toJpeg(card, cacheControl) : card;
     }
 
     const { hook, sub, items, totalSlides, isCarouselDetail, oracleTag } = parsePostForSlide(post.content, slideIndex);

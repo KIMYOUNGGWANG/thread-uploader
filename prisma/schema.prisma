@@ -54,6 +54,7 @@ model Brand {
   locale      String?
   channelAccounts ChannelAccount[]
   channelUploads  ChannelUpload[]
+  sourceArticles  SourceArticle[]
 
   @@index([groupId])
 }
@@ -115,6 +116,10 @@ model Post {
   instagramPublishedAt  DateTime?
   instagramAttempts     Int       @default(0)
   instagramError        String?
+  // Card-news slide texts (JSON array of {headline, body?, items?}) for card-first brands; Threads text stays in content.
+  cardSlides            String    @default("[]")
+  // Copied into ChannelUpload.caption when the carousel is queued. Unrelated to the legacy instagram* reels fields above.
+  instagramCaption      String?
   publications Publication[]
   channelUploads ChannelUpload[]
 
@@ -469,6 +474,8 @@ model ChannelUpload {
   likes            Int?
   comments         Int?
   shares           Int?
+  saves            Int?
+  reach            Int?
   metricsAt        DateTime?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -477,5 +484,28 @@ model ChannelUpload {
   @@index([status, scheduledAt])
   @@index([brandId, createdAt])
   @@index([videoDraftId])
+  @@index([postId])
+}
+
+// One collected article for a research-driven brand (wellness media). postId is deliberately not a relation:
+// rejecting a draft deletes the Post, and the article must stay "drafted" so it is never drafted again.
+model SourceArticle {
+  id          String    @id @default(cuid())
+  brandId     String
+  brand       Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  url         String
+  urlKey      String    // sha256 of the normalized url
+  title       String
+  summary     String?
+  publishedAt DateTime?
+  score       Int?
+  formatHint  String?   // trend_list | celeb_business | mindset
+  status      String    @default("new") // new | drafting | drafted | failed | skipped
+  postId      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([brandId, urlKey])
+  @@index([brandId, status, score])
   @@index([postId])
 }

@@ -3,9 +3,11 @@ import { parsePostForSlide } from "@/lib/card-parser";
 import { parseBrandConfig } from "@/types/brand";
 import { kstDate } from "@/lib/video-factory/kst";
 import { getUploadAccounts } from "./accounts";
-import { buildCardCaption, buildVideoCaption } from "./captions";
+import { buildCardCaption, buildCardFirstCaption, buildVideoCaption } from "./captions";
 import { parseDistributionConfig } from "./config";
 import { buildXText } from "./x-text";
+import { isCardFirstBrand } from "@/lib/wellness/config";
+import { parseCardSlides, slidesVersion } from "@/lib/wellness/slides";
 
 const HOUR_MS = 60 * 60 * 1000;
 // Drafts whose window closed longer ago than this are not uploaded (e.g. a channel connected later).
@@ -33,8 +35,58 @@ export function appBaseUrl(): string {
 }
 
 export function cardSlideUrls(postId: string, content: string, baseUrl = appBaseUrl()): string[] {
-  const total = Math.min(parsePostForSlide(content, 0).totalSlides ?? 1, CAROUSEL_MAX_SLIDES);
-  return Array.from({ length: total }, (_, i) => `${baseUrl}/api/cards/${postId}?slide=${i}&format=jpg`);
+  return slideUrls(postId, parsePostForSlide(content, 0).totalSlides ?? 1, baseUrl);
+}
+
+function slideUrls(postId: string, count: number, baseUrl = appBaseUrl(), version = ""): string[] {
+  const total = Math.min(count, CAROUSEL_MAX_SLIDES);
+  const v = version ? `&v=${version}` : "";
+  return Array.from({ length: total }, (_, i) => `${baseUrl}/api/cards/${postId}?slide=${i}&format=jpg${v}`);
+}
+
+export function cardFirstSlideUrls(postId: string, rawSlides: string): string[] {
+  return slideUrls(postId, parseCardSlides(rawSlides).length, appBaseUrl(), slidesVersion(rawSlides));
+}
+
+type CardCandidate = { id: string; mediaUrls: string[]; caption: string };
+
+// Card-first brands (wellness media) publish their stored slides as soon as a human approves the draft;
+// other brands turn their best Threads posts of the week into card news.
+async function cardCandidates(brand: BrandRow, now: Date, config: ReturnType<typeof parseDistributionConfig>): Promise<CardCandidate[]> {
+  const suffix = parseBrandConfig(brand.brandConfig).instagram.captionSuffix;
+  const since = new Date(now.getTime() - config.cardNews.lookbackDays * 24 * HOUR_MS);
+  if (isCardFirstBrand(brand.brandConfig)) {
+    const posts = await prisma.post.findMany({
+      where: {
+        brandId: brand.id,
+        status: { in: ["PENDING", "PUBLISHED"] }, // NEEDS_REVIEW never reaches here: approval is the only way to PENDING
+        createdAt: { gte: since },
+        NOT: { cardSlides: "[]" },
+        channelUploads: { none: { kind: "carousel" } },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 20,
+      select: { id: true, cardSlides: true, instagramCaption: true, content: true },
+    });
+    return posts.map((post) => ({
+      id: post.id,
+      mediaUrls: cardFirstSlideUrls(post.id, post.cardSlides),
+      caption: buildCardFirstCaption(post.instagramCaption, post.content, suffix),
+    }));
+  }
+  const posts = await prisma.post.findMany({
+    where: {
+      brandId: brand.id,
+      status: "PUBLISHED",
+      publishedAt: { gte: since },
+      views: { gte: config.cardNews.minViews },
+      channelUploads: { none: { kind: "carousel" } },
+    },
+    orderBy: { views: "desc" },
+    take: 20,
+    select: { id: true, content: true },
+  });
+  return posts.map((post) => ({ id: post.id, mediaUrls: cardSlideUrls(post.id, post.content), caption: buildCardCaption(post.content, suffix) }));
 }
 
 export interface ScheduleReport {
@@ -100,22 +152,9 @@ export async function scheduleCardNews(now: Date, brands: BrandRow[]): Promise<n
     let room = config.cardNews.dailyCap - today;
     if (room <= 0) continue;
 
-    const candidates = await prisma.post.findMany({
-      where: {
-        brandId: brand.id,
-        status: "PUBLISHED",
-        publishedAt: { gte: new Date(now.getTime() - config.cardNews.lookbackDays * 24 * HOUR_MS) },
-        views: { gte: config.cardNews.minViews },
-        channelUploads: { none: { kind: "carousel" } },
-      },
-      orderBy: { views: "desc" },
-      take: 20,
-      select: { id: true, content: true },
-    });
-    const suffix = parseBrandConfig(brand.brandConfig).instagram.captionSuffix;
-    for (const post of candidates) {
+    for (const post of await cardCandidates(brand, now, config)) {
       if (room <= 0) break;
-      const mediaUrls = cardSlideUrls(post.id, post.content);
+      const { mediaUrls } = post;
       if (mediaUrls.length < 2) continue;
       const result = await prisma.channelUpload.createMany({
         data: [{
@@ -124,7 +163,7 @@ export async function scheduleCardNews(now: Date, brands: BrandRow[]): Promise<n
           kind: "carousel",
           sourceKey: `cards:${post.id}`,
           postId: post.id,
-          caption: buildCardCaption(post.content, suffix),
+          caption: post.caption,
           mediaUrls: JSON.stringify(mediaUrls),
           scheduledAt: new Date(now.getTime() + config.cancelWindowHours * HOUR_MS),
         }],
