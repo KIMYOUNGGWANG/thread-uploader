@@ -1,0 +1,28 @@
+name: Wellness Research Drafts
+
+on:
+  schedule:
+    # 매일 KST 05:00: brandConfig.wellness가 있는 브랜드의 RSS를 모아 점수를 매기고,
+    # 상위 글감을 카드뉴스 초안(NEEDS_REVIEW)으로 만든다. 아침 검수 전에 끝나게 한다.
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: wellness
+  cancel-in-progress: false
+
+jobs:
+  wellness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect articles and draft card news
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --show-error --silent --location --max-time 310 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/wellness"
+          echo

@@ -5,6 +5,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     post: { update: vi.fn(async ({ data }) => ({ id: "p1", ...data })), delete: vi.fn(async () => ({ id: "p1" })) },
     reviewDecision: { create: vi.fn(async ({ data }) => ({ id: "d1", ...data })) },
+    channelUpload: { updateMany: vi.fn(async () => ({ count: 1 })) },
     $transaction: vi.fn(async (operations: Promise<unknown>[]) => Promise.all(operations)),
   },
 }));
@@ -76,6 +77,49 @@ describe("PATCH /api/posts/[id]", () => {
     withStatus("PENDING");
     await patch({ status: "PENDING" });
     expect(prisma.reviewDecision.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("PATCH card-first fields", () => {
+  beforeEach(() => vi.clearAllMocks());
+  const slides = (n: number) => Array.from({ length: n }, (_, i) => ({ headline: `카드 ${i + 1}`, body: "본문" }));
+
+  it("saves edited slides and Instagram caption", async () => {
+    const response = await patch({ cardSlides: slides(8), instagramCaption: "💜새 캡션💜" });
+    expect(response.status).toBe(200);
+    const data = vi.mocked(prisma.post.update).mock.calls[0][0].data as Record<string, unknown>;
+    expect(JSON.parse(data.cardSlides as string)).toHaveLength(8);
+    expect(data.instagramCaption).toBe("💜새 캡션💜");
+  });
+
+  it("rejects slide sets outside 7-10 cards or with an empty headline", async () => {
+    expect((await patch({ cardSlides: slides(6) })).status).toBe(400);
+    expect((await patch({ cardSlides: slides(11) })).status).toBe(400);
+    expect((await patch({ cardSlides: [...slides(7), { headline: " " }] })).status).toBe(400);
+    expect((await patch({ cardSlides: "not an array" })).status).toBe(400);
+    expect((await patch({ cardSlides: [...slides(6), { headline: "목록", items: [1, 2] }] })).status).toBe(400);
+    expect((await patch({ cardSlides: [...slides(6), { headline: "목록", items: Array(7).fill("항목") }] })).status).toBe(400);
+    expect(prisma.post.update).not.toHaveBeenCalled();
+  });
+
+  it("re-checks edited card-first text and syncs a still-queued carousel", async () => {
+    vi.mocked(requirePostForCurrentUser).mockResolvedValueOnce({
+      post: {
+        ...reviewedPost, content: "스레드", instagramCaption: "옛 캡션", cardSlides: JSON.stringify(slides(8)),
+        qualityReasons: JSON.stringify(["톤 85점", "금지 표현 의심 · 옛 경고"]),
+        brand: { brandConfig: JSON.stringify({ wellness: { feeds: [] }, instagram: { captionSuffix: "#웰니스" } }) },
+      },
+    } as never);
+    expect((await patch({ instagramCaption: "이 차로 불면증 개선" })).status).toBe(200);
+    const data = vi.mocked(prisma.post.update).mock.calls[0][0].data as Record<string, unknown>;
+    const reasons = JSON.parse(data.qualityReasons as string) as string[];
+    expect(reasons[0]).toBe("톤 85점");
+    expect(reasons).not.toContain("금지 표현 의심 · 옛 경고");
+    expect(reasons.some((reason) => reason.includes("불면증 개선"))).toBe(true);
+    const upload = vi.mocked(prisma.channelUpload.updateMany).mock.calls[0][0];
+    expect(upload.where).toEqual({ postId: "p1", kind: "carousel", status: "QUEUED" });
+    expect(upload.data.caption).toBe("이 차로 불면증 개선\n\n#웰니스");
+    expect(JSON.parse(upload.data.mediaUrls as string)).toHaveLength(8);
   });
 });
 

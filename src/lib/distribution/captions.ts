@@ -41,3 +41,8 @@ export function buildCardCaption(content: string, suffix = ""): string {
     .slice(0, 2);
   return [paragraphs.join("\n\n"), suffix.trim()].filter(Boolean).join("\n\n").slice(0, 2200);
 }
+
+/** Card-first brands write their own Instagram caption; fall back to the Threads text when it is empty. */
+export function buildCardFirstCaption(instagramCaption: string | null, content: string, suffix = ""): string {
+  return [instagramCaption?.trim() || buildCardCaption(content), suffix.trim()].filter(Boolean).join("\n\n").slice(0, 2200);
+}

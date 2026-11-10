@@ -53,8 +53,11 @@ export const instagramAdapter: ChannelAdapter = {
     const out: ChannelMetrics[] = [];
     for (const id of externalIds) {
       try {
-        const values = await getMediaInsights(id, creds.accessToken, ["views", "likes", "comments", "shares"]);
-        out.push({ externalId: id, views: values.views ?? null, likes: values.likes ?? null, comments: values.comments ?? null, shares: values.shares ?? null });
+        const values = await getMediaInsights(id, creds.accessToken, ["views", "likes", "comments", "shares", "saved", "reach"]);
+        out.push({
+          externalId: id, views: values.views ?? null, likes: values.likes ?? null, comments: values.comments ?? null,
+          shares: values.shares ?? null, saves: values.saved ?? null, reach: values.reach ?? null,
+        });
       } catch {
         // One media failing (deleted, metric unsupported) must not drop the rest.
       }

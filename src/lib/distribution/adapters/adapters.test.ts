@@ -122,4 +122,18 @@ describe("Instagram", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ status_code: "ERROR" })));
     await expect(instagramAdapter.poll!(job({ platformData: { containerId: "k1" } }), creds)).rejects.toMatchObject({ retryFromStart: true });
   });
+
+  it("maps Instagram's saved/reach insights to saves/reach", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(json({
+      data: [
+        { name: "likes", values: [{ value: 12 }] },
+        { name: "saved", values: [{ value: 7 }] },
+        { name: "reach", total_value: { value: 300 } },
+      ],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const [metrics] = await instagramAdapter.metrics!(["m1"], creds);
+    expect(metrics).toMatchObject({ externalId: "m1", likes: 12, saves: 7, reach: 300, views: null });
+    expect(decodeURIComponent(String(fetchMock.mock.calls[0][0]))).toContain("saved,reach");
+  });
 });

@@ -23,6 +23,9 @@ export interface ChannelMetrics {
   likes: number | null;
   comments: number | null;
   shares: number | null;
+  /** Instagram only (insights `saved` / `reach`); other channels leave them out. */
+  saves?: number | null;
+  reach?: number | null;
 }
 
 export interface ChannelAdapter {
