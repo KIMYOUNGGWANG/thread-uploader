@@ -205,13 +205,17 @@ describe("video factory complete", () => {
 
   it("completes a RENDERING draft and bumps the clip once", async () => {
     db.draft.updateMany.mockResolvedValueOnce({ count: 1 });
-    db.draft.findUnique.mockResolvedValueOnce({ clipAssetId: "c1" });
+    db.draft.findUnique.mockResolvedValueOnce({ clipAssetId: "c1", brand: { brandConfig: JSON.stringify({ distribution: { cancelWindowHours: 2 } }) } });
+    const before = Date.now();
     const res = await complete(completeRequest(ok));
     expect(await res.json()).toEqual({ ok: true });
     expect(db.draft.updateMany).toHaveBeenCalledWith({
       where: { id: "d1", status: "RENDERING" },
       data: { status: "COMPLETED", videoUrl: ok.videoUrl, coverUrl: ok.coverUrl },
     });
+    const autoPublishAt = (db.draft.update.mock.calls[0]?.[0] as { data: { autoPublishAt: Date } }).data.autoPublishAt;
+    expect(autoPublishAt.getTime() - before).toBeGreaterThanOrEqual(2 * 60 * 60 * 1000);
+    expect(autoPublishAt.getTime() - before).toBeLessThan(2 * 60 * 60 * 1000 + 60_000);
     expect(db.clip.update).toHaveBeenCalledTimes(1);
     expect(db.clip.update).toHaveBeenCalledWith({
       where: { id: "c1" }, data: { usedCount: { increment: 1 }, lastUsedAt: expect.any(Date) },

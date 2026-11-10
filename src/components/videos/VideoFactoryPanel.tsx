@@ -35,6 +35,93 @@ export interface VideoDraftCardData {
   userVerdict: string | null;
   createdAt: Date;
   clipAsset: { license: string } | null;
+  autoPublishAt?: Date | null;
+  canceledAt?: Date | null;
+  uploads?: DraftUpload[];
+}
+
+interface DraftUpload {
+  id: string;
+  status: string;
+  externalUrl: string | null;
+  errorLog: string | null;
+  privacy: string;
+  channelAccount: { platform: string };
+}
+
+const PLATFORM_LABEL: Record<string, string> = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok" };
+const UPLOAD_STATUS: Record<string, string> = {
+  QUEUED: "대기", UPLOADING: "올리는 중", PROCESSING: "처리 중", PUBLISHED: "올라감", FAILED: "실패", CANCELED: "취소됨",
+};
+
+function formatKst(date: Date): string {
+  return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(date));
+}
+
+function Distribution({ draft }: { draft: VideoDraftCardData }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [state, setState] = useState({ canceled: Boolean(draft.canceledAt), autoPublishAt: draft.autoPublishAt ?? null });
+  const uploads = draft.uploads ?? [];
+
+  async function act(action: "cancel" | "resume" | "publish_now") {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/video-drafts/${draft.id}/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const body: unknown = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(isRecord(body) && typeof body.error === "string" ? body.error : `실패 (${res.status})`);
+      setState((s) => ({
+        canceled: action === "cancel",
+        autoPublishAt: action === "publish_now" ? new Date() : s.autoPublishAt,
+      }));
+      setMessage(action === "cancel" ? "취소했어요" : action === "resume" ? "취소를 되돌렸어요" : "다음 업로드 실행 때 올라가요");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "실패했어요");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (uploads.length > 0) {
+    return (
+      <ul className="flex flex-col gap-1 text-base" aria-label="채널별 업로드">
+        {uploads.map((u) => (
+          <li key={u.id} className="flex flex-wrap items-baseline gap-x-2">
+            <span className="font-semibold">{PLATFORM_LABEL[u.channelAccount.platform] ?? u.channelAccount.platform}</span>
+            <span className={u.status === "FAILED" ? "text-red-600 dark:text-red-400" : "text-slate-600 dark:text-slate-300"}>
+              {UPLOAD_STATUS[u.status] ?? u.status}{u.privacy === "private" && u.status === "PUBLISHED" ? " (비공개)" : ""}
+            </span>
+            {u.externalUrl && <a href={u.externalUrl} target="_blank" rel="noreferrer" className={`underline ${FOCUS}`}>보기</a>}
+            {u.status === "FAILED" && u.errorLog && <span className="block w-full text-sm text-red-600 break-words dark:text-red-400">{u.errorLog}</span>}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (!state.autoPublishAt) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-base text-slate-600 dark:text-slate-300">
+        {state.canceled ? "자동 업로드 취소됨" : `${formatKst(state.autoPublishAt)} 자동 업로드 예정`}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {state.canceled ? (
+          <button type="button" disabled={busy} onClick={() => void act("resume")} className={`min-h-11 rounded-lg border px-3 py-2 text-base font-semibold ${VERDICT_IDLE} ${FOCUS}`}>취소 되돌리기</button>
+        ) : (
+          <>
+            <button type="button" disabled={busy} onClick={() => void act("cancel")} className={`min-h-11 rounded-lg border border-rose-600 bg-rose-600 px-3 py-2 text-base font-semibold text-white hover:bg-rose-700 ${FOCUS}`}>업로드 취소</button>
+            <button type="button" disabled={busy} onClick={() => void act("publish_now")} className={`min-h-11 rounded-lg border px-3 py-2 text-base font-semibold ${VERDICT_IDLE} ${FOCUS}`}>지금 올리기</button>
+          </>
+        )}
+      </div>
+      {message && <p className="text-sm text-slate-500 dark:text-slate-400" aria-live="polite">{message}</p>}
+    </div>
+  );
 }
 
 interface VideoFactoryPanelProps {
@@ -231,8 +318,11 @@ function VideoCard({ draft, verdict, pending, error, onVerdict }: VideoCardProps
                 <span className="text-slate-500 dark:text-slate-400">저장 중…</span>
               ) : verdict === null ? (
                 <span className="text-slate-500 dark:text-slate-400">아직 판정 전</span>
+              ) : verdict === "bad" ? (
+                <span className="text-slate-500 dark:text-slate-400">&quot;아님&quot; 판정 영상은 자동으로 올라가지 않아요</span>
               ) : null}
             </p>
+            <Distribution draft={draft} />
           </div>
         )}
       </div>

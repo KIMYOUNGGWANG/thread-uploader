@@ -9,11 +9,13 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+const png = vi.hoisted(() => ({ body: null as Uint8Array | null }));
+
 vi.mock("next/og", () => {
   return {
     ImageResponse: class MockImageResponse {
       constructor(_element: unknown, options: { headers?: HeadersInit } | undefined) {
-        return new Response("fake-image-binary", {
+        return new Response(png.body ? new Uint8Array(png.body) : "fake-image-binary", {
           status: 200,
           headers: options?.headers,
         });
@@ -49,5 +51,23 @@ describe("GET /api/cards/[id]", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toContain("s-maxage=31536000");
     expect(res.headers.get("Cache-Control")).toContain("stale-while-revalidate=86400");
+  });
+
+  it("returns a JPEG for ?format=jpg (Instagram carousel slides)", async () => {
+    const sharp = (await import("sharp")).default;
+    png.body = new Uint8Array(await sharp({ create: { width: 4, height: 4, channels: 3, background: "#000" } }).png().toBuffer());
+    vi.mocked(prisma.post.findUnique).mockResolvedValueOnce({
+      id: "test-id",
+      content: "훅\nA. 하나\nB. 둘",
+      topic: null,
+      brand: { name: "CosmicPath", slug: "cosmicpath", brandConfig: JSON.stringify({ websiteUrl: "https://www.cosmicpath.app" }) },
+    } as never);
+
+    const res = await GET(new NextRequest("http://localhost:3000/api/cards/test-id?slide=0&format=jpg"), { params: Promise.resolve({ id: "test-id" }) });
+    png.body = null;
+
+    expect(res.headers.get("Content-Type")).toBe("image/jpeg");
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect([bytes[0], bytes[1]]).toEqual([0xff, 0xd8]);
   });
 });

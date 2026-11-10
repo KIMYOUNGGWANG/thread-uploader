@@ -18,6 +18,9 @@ vi.mock("@/lib/prisma", () => ({
     brand: {
       findUnique: vi.fn(),
     },
+    channelAccount: {
+      findMany: vi.fn(async () => []),
+    },
   },
 }));
 

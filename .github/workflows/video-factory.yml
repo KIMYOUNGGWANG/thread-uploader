@@ -1,10 +1,10 @@
 name: Video Factory
 
 on:
-  # 일시 중지 (2026-10-31): 궁합 유입 기여 없음. 11/17 글 길이 실험 판정 전까지 발행·채우기·지표 수집 외 자동화 동결. 다시 켜려면 아래 schedule 주석 해제. workflow_dispatch 수동 실행은 그대로 가능.
-  # schedule:
-  #   # KST 06:00 — 오늘의 kinetic-list 영상 1편 렌더
-  #   - cron: '0 21 * * *'
+  # 재개 (2026-11-09): 사용자 결정으로 동결 해제. 완성 영상은 취소 창(기본 3시간) 뒤 distribute.yml이 쇼츠·릴스·틱톡에 올린다.
+  schedule:
+    # KST 06:00 — 오늘의 kinetic-list 영상 1편 렌더
+    - cron: '0 21 * * *'
   workflow_dispatch:
     inputs:
       force:
@@ -54,6 +54,6 @@ jobs:
           APP_URL: ${{ secrets.APP_URL || vars.APP_URL || 'https://thread-uploader.vercel.app' }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-          VIDEO_FACTORY_BRANDS: cosmicpath
+          VIDEO_FACTORY_BRANDS: ${{ vars.VIDEO_FACTORY_BRANDS || 'cosmicpath' }}
           VIDEO_FACTORY_FORCE: ${{ inputs.force && '1' || '' }}
         run: node video/scripts/factory-job.mjs

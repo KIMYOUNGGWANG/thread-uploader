@@ -1,0 +1,28 @@
+name: Distribute Videos, Card News and X
+
+on:
+  schedule:
+    # 30분마다: 취소 창이 닫힌 영상(쇼츠·릴스·틱톡)·카드뉴스(인스타 캐러셀)·X 교차 게시를 큐에 넣고,
+    # 대기·처리 중인 업로드를 진행한다. 늦게 돌아도 다음 실행이 이어받는다.
+    - cron: '11,41 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: distribute
+  cancel-in-progress: false
+
+jobs:
+  distribute:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Queue and run due uploads
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --show-error --silent --location --max-time 310 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/distribute"
+          echo

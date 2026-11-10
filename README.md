@@ -18,6 +18,8 @@ Internal growth workspace for promoting my owned products. The database/API stil
 - Learn winning and weak growth patterns, then feed that memory into future AI generation.
 - Show a weekly scorecard on the dashboard: 7-day buckets of published/measured posts, median views, 10k-view breakout rate, click→conversion→paid funnel, linked vs unlinked views, per-formula rows, and one diagnosed bottleneck (sample → ops → reach → conversion) with a next action.
 - Show a portfolio overview with experiment status, primary/conversion metrics, quality state, and next action.
+- Morning report on `/` (first screen after login): what went up since yesterday per channel, what goes up today with a countdown and a cancel button, and a to-do list (make private TikTok posts public, reconnect expiring tokens, retry failed uploads, review drafts, low clip stock).
+- Multi-channel distribution (`ChannelUpload`): finished factory videos → YouTube Shorts (public), Instagram Reels (public), TikTok (private until the app passes audit); top Threads posts → Instagram carousel card news; published Threads posts → X. Videos and card news wait out a cancel window (default 3h) first.
 
 ## Growth Loop
 
@@ -63,7 +65,7 @@ npm run build
 
 ## Cron Endpoints
 
-> 2026-10-31부터 `video-factory.yml` 스케줄은 꺼져 있고(수동 실행만, `viral.yml`은 2026-11-04 재개), `shorts.yml`은 snapshot만 하루 1회(KST 12:37), `account-intelligence.yml`은 하루 1회(KST 09:00)로 줄였다. 아래 주기 설명은 켜져 있을 때 기준이다.
+> 2026-11-09 사용자 결정으로 11/17 실험 동결을 풀었다. `video-factory.yml`(KST 06:00)·`render-video.yml`(KST 06:10)·`render-promo.yml`(월·목 KST 06:30) 스케줄을 다시 켰고, `account-intelligence.yml`은 2시간마다, `shorts.yml` snapshot은 매시간으로 되돌렸다. 새 `distribute.yml`이 30분마다 업로드를 돈다.
 
 - `GET /api/cron/publish` publishes one pending post per product profile. Optional `?brands=slug1,slug2` limits the run. It is the only publisher: GitHub Actions (`.github/workflows/cron.yml`) calls it hourly with `?slots=` (UTC hours), and the route publishes at most once per slot while the slot's 3-hour window is open, so late GitHub runs still post. Daily trust-tier quotas (newbie 1 / warming 2 / established 5 / authority 8, reset at KST midnight) skip the run with `daily_quota_reached` instead of demoting the post.
 - `GET /api/cron/refresh-token` refreshes Threads tokens when they are within 14 days of expiry.
@@ -77,6 +79,19 @@ npm run build
 - `GET /api/cron/account-intelligence` refreshes 48-hour account insight snapshots, intended for a 2-hour cadence.
 - `GET /api/cron/shorts/discover?brands=slug1,slug2` harvests YouTube Shorts published in the last 48h for each product's `viralDiscovery.youtube` keywords (falls back to the first 3 product topics) and channel handles, keeping videos ≤ `maxDurationSec` (default 180s), and stores them as `ViralExample` rows with `source = youtube_shorts`. Only products whose `youtube_shorts` adapter is enabled run; `?brands=` narrows the set. Costs up to ~820 quota units per product per run (search.list is 100 units; capped at 8 searches). GitHub Actions (`shorts.yml`) runs it every 6 hours at `:07` for `vars.SHORTS_BRAND_SLUGS` (default `cosmicpath`). Shorts never feed Threads learning: `learn`, `viral` analysis and the viral report exclude `source = youtube_shorts`.
 - `GET /api/cron/shorts/snapshot` re-reads statistics for shorts published in the last 72h (one `videos.list` per 50 ids), records an hourly `ViralExampleSnapshot`, recomputes `velocityScore` as views-per-hour over the last 6h window, and deletes shorts older than 7 days (YouTube API caching terms). GitHub Actions (`shorts.yml`) runs it hourly at `:37`. The feed is at `/brands/[slug]/shorts`, sorted by `velocityScore` with 24h/48h and 국내/해외 filters.
+
+- `GET /api/cron/distribute[?brands=slug1,slug2][&schedule=false]` queues uploads, then runs every due one within ~200s. Queuing: `COMPLETED` video drafts whose `autoPublishAt` (render time + `distribution.cancelWindowHours`) passed in the last 48h, are not canceled and not judged "bad" → one row per connected video channel; card news → the most-viewed published Threads post of the last `cardNews.lookbackDays` with 2+ slides, up to `cardNews.dailyCap` per KST day, scheduled after the cancel window; X → Threads posts published in the last 24h, fitted to X's weighted 280 limit, up to `x.dailyCap` per KST day. Running: a row is claimed as `UPLOADING` before any platform call; a transient error requeues with 10m/30m/2h backoff (3 attempts), a 4xx is final; a row still `UPLOADING` after its lock (10 min) is marked `FAILED` for a human to check instead of re-uploading. Instagram and TikTok are polled from `PROCESSING` until live (24h cap). GitHub Actions (`distribute.yml`) runs it at :11 and :41.
+- `GET /api/cron/channel-metrics` reads views/likes/comments/shares for uploads published in the last 14 days (every 6h at most per row). Runs inside `fetch-metrics.yml`. TikTok private posts have no readable stats; TikTok stats also need `video.list` in `TIKTOK_SCOPES`.
+
+### Connecting YouTube, TikTok and X
+
+Settings → 기본 → "영상·카드뉴스·X 배포". Each button goes through `/api/oauth/{youtube|tiktok|x}/start?brandId=`; register `https://<APP_URL>/api/oauth/{platform}/callback` as the redirect URI in each developer console. Tokens are stored encrypted on `ChannelAccount` and refreshed automatically. Instagram keeps using the existing connection on `Brand`.
+
+- YouTube: Google Cloud OAuth client (Web) with the YouTube Data API v3 enabled. While the OAuth consent screen is in "Testing", Google expires refresh tokens after 7 days — publish the consent screen to keep the connection. Uploads (`videos.insert`) take a large share of the default daily quota; check the project's quota page before raising volume.
+- TikTok: an app with Login Kit + Content Posting API (Direct Post). Until TikTok audits the app, posts can only be `SELF_ONLY`; the morning report lists them to switch to public by hand.
+- X: an OAuth 2.0 app (confidential client) with read+write. The free tier allows a small monthly post count; keep `x.dailyCap` low.
+
+Distribution settings live in `brandConfig.distribution` (`cancelWindowHours`, `video.channels`, `cardNews.{enabled,dailyCap,minViews,lookbackDays}`, `x.{enabled,dailyCap}`) and are edited on the same settings card.
 
 Token refresh and account intelligence cadences are registered through `vercel.json` as daily Vercel Cron Jobs.
 The cron publish route refreshes tokens at the publish boundary via `getFreshBrandCredentials`. Vercel Cron only runs the daily feedback job (Hobby allows daily schedules only).
@@ -92,6 +107,11 @@ Copy `.env.example` to `.env` and configure:
 - `ENCRYPTION_KEY` (required: session signing + token encryption, never reuse `CRON_SECRET`)
 - `CONVERSION_WEBHOOK_SECRET` (server-only; required for paid events sent to `/api/webhooks/conversion` via `x-webhook-secret` header. Browser tracker sends click/conversion only)
 - `YOUTUBE_API_KEY` — YouTube Data API v3 key for the shorts radar; optional, adapter is off by default.
+- `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` — Google OAuth client for Shorts uploads.
+- `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` — TikTok app for video uploads. Optional `TIKTOK_SCOPES` (default `user.info.basic,video.publish`; add `video.list` for stats once approved).
+- `X_CLIENT_ID`, `X_CLIENT_SECRET` — X OAuth 2.0 app for cross-posting.
+- `APP_URL` — public base URL; card news slide URLs (`/api/cards/<postId>?slide=N&format=jpg`) are built from it and must be reachable by Instagram.
+- Optional GitHub variable `VIDEO_FACTORY_BRANDS` (default `cosmicpath`) — brands the video factory renders for.
 - Optional `APP_URL` GitHub repository variable for the manual account intelligence workflow fallback. Defaults to `https://thread-uploader.vercel.app`.
 - Use the manual GitHub workflow or another external scheduler for sub-daily account intelligence on Vercel Hobby.
 - Legacy fallback Threads settings if needed
@@ -100,7 +120,7 @@ Copy `.env.example` to `.env` and configure:
 
 - No external team onboarding or customer workspace is part of this cycle.
 - No payment, plan, or seat-management surface is part of this cycle.
-- TikTok and other channels remain manual-upload workflows unless a separate approved integration is implemented.
+- TikTok public posting waits for TikTok's app audit; until then uploads are private and switched to public by hand.
 
 ## Database
 
