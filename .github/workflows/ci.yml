@@ -1,0 +1,39 @@
+name: CI
+
+# The root app's verify gate (CLAUDE.md "Verify"): typecheck + test on every PR and on main.
+# npm on purpose: the root app ships from package-lock.json (Vercel installs with it). video/ is pnpm and not covered here.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # postinstall runs `prisma generate` (the typecheck needs the client) and patch-package.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Runs even when typecheck failed, so one run shows both problems.
+      - name: Test
+        if: ${{ !cancelled() }}
+        run: npm test
