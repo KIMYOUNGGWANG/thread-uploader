@@ -13,6 +13,7 @@ import {
   keepFeedbackFields,
   calculateSearchSignalScore,
   mergeStoredRawMetrics,
+  readReferenceDecision,
 } from "@/lib/viral-analysis";
 import { fetchPublicProfilePosts, searchThreadsByKeyword, type ThreadsPublicPost } from "@/lib/threads-api";
 import { allExternalSourcesFailed, harvestFromThreadsSources } from "@/lib/viral-harvester";
@@ -213,11 +214,13 @@ export async function discoverViralExamples(brandId: string, options: ViralDisco
 }
 
 export async function learnViralPatterns(brandId: string) {
-  const examples = await prisma.viralExample.findMany({
+  const fetched = await prisma.viralExample.findMany({
     where: { brandId, source: { notIn: [SHORTS_SOURCE, MANUAL_X_SOURCE] } },
     orderBy: [{ viralScore: "desc" }, { discoveredAt: "desc" }],
     take: 500,
   });
+  // Posts the operator rejected must not shape the prompt memory either (ponytail: filtered in JS after the 500 cap, so a heavy reject list leaves slightly fewer samples).
+  const examples = fetched.filter((example) => readReferenceDecision(example.rawMetrics) !== "rejected");
 
   const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { viralMemory: true } });
   const builtMemory = buildViralMemory(examples.map((example) => ({

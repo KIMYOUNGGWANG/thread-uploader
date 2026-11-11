@@ -152,8 +152,24 @@ export interface StoredRawMetrics {
   isLlmAnalyzed: boolean;
 }
 
-// Keys that survive a re-harvest: the Claude analysis, the ref_replay cooldown stamp (src/lib/reference-replay.ts) and the first sighting time.
-const PERSISTED_RAW_KEYS = ["llmAnalyzedAt", "whyItWorks", "replayAttemptedAt", "firstSeenAt"] as const;
+// Keys that survive a re-harvest: the Claude analysis, the ref_replay cooldown stamp (src/lib/reference-replay.ts), the first sighting time and the operator's approve/reject choice.
+const PERSISTED_RAW_KEYS = ["llmAnalyzedAt", "whyItWorks", "replayAttemptedAt", "firstSeenAt", "referenceDecision"] as const;
+
+export type ReferenceDecision = "approved" | "rejected";
+
+/** The operator's choice stored in rawMetrics; anything else (missing, broken JSON, unknown value) is undecided. */
+export function readReferenceDecision(raw: string | null | Record<string, unknown>): ReferenceDecision | null {
+  const record = typeof raw === "string" || raw === null ? parseRecord(raw) : raw;
+  return record.referenceDecision === "approved" || record.referenceDecision === "rejected" ? record.referenceDecision : null;
+}
+
+/** First non-empty line is the hook; everything after it is the body. */
+export function splitReferenceContent(content: string): { hook: string; body: string } {
+  const lines = content.split("\n");
+  const index = lines.findIndex((line) => line.trim().length > 0);
+  if (index === -1) return { hook: "", body: "" };
+  return { hook: lines[index].trim(), body: lines.slice(index + 1).join("\n").trim() };
+}
 
 export const RANK_HISTORY_LIMIT = 12;
 
