@@ -555,35 +555,12 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     }
   }, [commandPlan, fetchPosts]);
 
-  // The content is required on purpose: POST /api/posts rejects blank posts (400), so a no-argument call can never succeed.
-  const handleCreatePost = useCallback(async (initialContent: string) => {
-    try {
-      const response = await fetch("/api/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId, posts: [{ content: initialContent, images: [], scheduledAt: null }] }),
-      });
-      const data = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to create post");
-      toast.success("뉴스 기반 포스트 초안이 생성되었습니다");
-      await fetchPosts();
-    } catch (error) {
-      console.error("Failed to create post:", error);
-      toast.error("글 작성 생성 실패");
-    }
-  }, [brandId, fetchPosts]);
-
   const handleManualReferenceCreated = useCallback(async () => {
     await fetchPosts();
     setReviewOnly(true);
     setActiveTab("feed");
     toast.success("레퍼런스 초안 1개, 승인 대기 중");
   }, [fetchPosts]);
-
-  const handleUseNewsForDraft = useCallback(async (prompt: string) => {
-    await handleCreatePost(prompt);
-    setActiveTab("feed");
-  }, [handleCreatePost]);
 
   const handleFileSelect = useCallback(async (file: File) => {
     setIsLoading(true);
@@ -1070,7 +1047,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           <ManualReferenceCard brandId={brandId} brandName={brandName} onCreated={handleManualReferenceCreated} />
         </div>
         {activeTab === "news" && (
-          <NewsTrendingTab brandId={brandId} onUseNewsForDraft={handleUseNewsForDraft} />
+          <NewsTrendingTab brandId={brandId} />
         )}
 
         {activeTab === "reference" && (

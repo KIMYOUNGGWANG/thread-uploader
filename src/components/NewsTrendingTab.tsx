@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Search, ExternalLink, Sparkles, RefreshCw, Newspaper } from "lucide-react";
+import { Search, ExternalLink, RefreshCw, Newspaper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -9,7 +9,6 @@ import type { NewsArticle } from "@/lib/news-rss";
 
 interface NewsTrendingTabProps {
   brandId: string;
-  onUseNewsForDraft: (prompt: string, title: string) => void;
 }
 
 const PRESET_TOPICS = [
@@ -20,7 +19,7 @@ const PRESET_TOPICS = [
   "경제 트렌드",
 ];
 
-export function NewsTrendingTab({ brandId, onUseNewsForDraft }: NewsTrendingTabProps) {
+export function NewsTrendingTab({ brandId }: NewsTrendingTabProps) {
   const [query, setQuery] = useState("인공지능 트렌드");
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,12 +51,6 @@ export function NewsTrendingTab({ brandId, onUseNewsForDraft }: NewsTrendingTabP
     void fetchNews(query.trim());
   };
 
-  const handleCreateDraftFromNews = (article: NewsArticle) => {
-    const draftPrompt = `[실시간 뉴스 기반]\n헤드라인: "${article.cleanTitle}"\n출처: ${article.source}\n원문 링크: ${article.link}\n\n이 뉴스에 대한 실무자의 관점과 인사이트를 3줄로 요약한 스레드 초안을 작성합니다.`;
-    onUseNewsForDraft(draftPrompt, article.cleanTitle);
-    toast.success("뉴스 기반 초안 프롬프트가 적용되었습니다. [스레드 피드] 탭에서 확인하세요!");
-  };
-
   return (
     <div className="space-y-6">
       {/* Search Header */}
@@ -72,7 +65,7 @@ export function NewsTrendingTab({ brandId, onUseNewsForDraft }: NewsTrendingTabP
           </span>
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-          구글/네이버 실시간 뉴스 RSS에서 화제의 헤드라인을 가져와, 나의 인사이트가 담긴 스레드를 즉시 작성합니다.
+          구글/네이버 실시간 뉴스 RSS에서 화제의 헤드라인을 가져와 보여줍니다.
         </p>
 
         <form onSubmit={handleSearch} className="flex gap-2 mb-4">
@@ -145,17 +138,6 @@ export function NewsTrendingTab({ brandId, onUseNewsForDraft }: NewsTrendingTabP
                 <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
                   {article.cleanTitle}
                 </h3>
-              </div>
-
-              <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-end">
-                <Button
-                  size="sm"
-                  onClick={() => handleCreateDraftFromNews(article)}
-                  className="bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-xs gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  이 뉴스로 스레드 생성
-                </Button>
               </div>
             </div>
           ))}

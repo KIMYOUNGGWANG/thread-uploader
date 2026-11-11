@@ -41,6 +41,13 @@ describe("getPublishSafetyBlockReasons", () => {
       "# Threads Post: Dropping the Corporate Mask at 28-32\n\nYour burnout isn't weakness—it's your chart finally rebelling against a decade of borrowed ambition.",
     ],
     ["English char-count label", "Your Saturn return is a reboot, not a crisis. (480 chars)"],
+    // The dashboard's news tab used to save this instruction as the post body (no model ever ran on it), so rows
+    // created by old clicks can still sit in the queue behind a "Threads 업로드" button.
+    [
+      "news-tab instruction saved as the post body",
+      '[실시간 뉴스 기반]\n헤드라인: "AI 규제 법안 통과"\n출처: 연합뉴스\n원문 링크: https://news.example.com/a/1\n\n이 뉴스에 대한 실무자의 관점과 인사이트를 3줄로 요약한 스레드 초안을 작성합니다.',
+    ],
+    ["news prompt builder header", '[실시간 뉴스 기반 Threads 스레드 작성]\n- 뉴스 헤드라인: "AI 규제 법안 통과"'],
   ])("blocks leaked draft framing: %s", (_label, content) => {
     const reasons = getPublishSafetyBlockReasons({ content, firstComment: null });
 
