@@ -32,6 +32,9 @@ const LENGTH_EXPERIMENT_CANDIDATES = 50;
 
 export const maxDuration = 300; // video containers can take minutes to process
 
+// Skip reasons that mean a publish was attempted (or its setup threw) and did not complete.
+const PUBLISH_FAILURE_REASONS = new Set(["publish_failed", "partial_failed"]);
+
 // Shadowban-recovery fallback: link-free, low-risk posts that still give readers a reason to react.
 // 2026-11-04 benchmark: "이 글 보신 분들 … 대운 터지세요" blessing posts drew 1.5k-3k likes on Korean saju Threads,
 // while the old life-advice lines had no reason to be answered. English accounts post the same shape.
@@ -423,5 +426,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ published, skipped });
+  // Every other skip reason is a deliberate no-op. ALERT_WEBHOOK_URL is unset in production, so a non-2xx answer
+  // (red GitHub Actions run + email, see cron.yml) is the alert that reaches someone; the body still lists what published.
+  const failed = skipped.some((entry) => PUBLISH_FAILURE_REASONS.has(entry.reason));
+  return NextResponse.json({ published, skipped }, { status: failed ? 500 : 200 });
 }
