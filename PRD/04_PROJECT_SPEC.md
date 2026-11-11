@@ -21,7 +21,7 @@
 | 원고 생성 | Anthropic SDK (기존) | 기존 원고 생성·품질 게이트를 재사용한다 |
 | 외부 cron | Cloudflare Worker / cron-job.org (기존, `docs/ops/external-scheduler.md`) | 시간에 민감한 업로드 틱에 쓴다 |
 | 인증 | 기존 대시보드 로그인 | 사용자 1명. 새 로그인은 만들지 않는다 |
-| 패키지 매니저 | pnpm | 전역 규칙. HyperFrames CLI는 버전을 고정한 `npx`로 부른다 (기존 README 방식) |
+| 패키지 매니저 | npm | 이 저장소 `CLAUDE.md` 규칙. 루트 앱은 `package-lock.json`(Vercel도 이 lockfile로 설치)이고 `video/`만 pnpm이다. HyperFrames CLI는 버전을 고정한 `npx`로 부른다 (기존 README 방식) |
 
 ---
 
@@ -87,9 +87,9 @@ threads-uploader/
 ## 테스트 방법
 
 ```bash
-pnpm typecheck
-pnpm test
-pnpm build
+npm run typecheck
+npm test
+npm run build
 ```
 
 ```bash

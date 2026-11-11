@@ -72,18 +72,6 @@ Updated: 2026-06-04
 - Cron: `/api/cron/account-intelligence` runs with `CRON_SECRET` every 2 hours.
 - Degraded metrics: if Threads insights fetch fails, use stored metrics and include failed refresh count.
 
-## Related Accounts States
-
-- Empty: no discovered accounts; show keyword discovery action and seed handle input.
-- Discovering: button disabled while keyword search, seed handle upsert, and profile expansion run.
-- Candidate list: show username, category, relevance score, source keyword, reason, and recent pattern summary.
-- Permission fallback: if Meta `keyword_search` returns permission errors, show the source error and let the operator paste `@handle` or `threads.net/@handle` values to create manual candidates.
-- Watch action: moves the account to watched and makes it eligible for recurring analysis.
-- Ignore action: moves the account to ignored and prevents future learning from that account.
-- Watched list: show last scanned time, saved post count, dominant hook/emotion/structure/CTA patterns.
-- Analyzing: collect recent public posts only from watched accounts and refresh account patterns.
-- Error: show source-specific failures without deleting previous candidates.
-
 ## TikTok Video Lab States
 
 - Empty: no TikTok drafts exist; show generate action and the active parent campaign.
