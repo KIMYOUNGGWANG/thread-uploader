@@ -56,6 +56,7 @@ jobs:
   # comments and draft (≤5 per run). Hourly keeps the "answered within 24h" promise even with GitHub's lag.
   # Re-enabled 2026-10-22 after the PR #20 fixes: /me failure skips the scan, no canned fallback is posted,
   # and a row is claimed (PUBLISHING) before the Threads call so an interrupted run cannot double-post.
+  # The claim only matches a DRAFT row, so runs from another scheduler at the same minute cannot post it twice either.
   replies:
     # Hourly only: the 15-minute entry exists for publish slot coverage, not for rescanning comments.
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 * * * *'
