@@ -127,6 +127,7 @@ export async function publishOrResumePost(
           existingPartIds: existingPartIds.length > 0 ? existingPartIds : undefined,
           startFromPartIndex,
           onPartPublished: async (checkpoint) => {
+            const threadComplete = checkpoint.allPartIds.length === totalParts;
             await prisma.post.update({
               where: { id: postId },
               data: {
@@ -134,7 +135,12 @@ export async function publishOrResumePost(
                 threadPartsPosted: checkpoint.allPartIds.length,
                 threadTotalParts: totalParts,
                 threadPartIds: JSON.stringify(checkpoint.allPartIds),
-                status: checkpoint.allPartIds.length === totalParts ? "PUBLISHED" : "PARTIAL_PUBLISHED",
+                status: threadComplete ? "PUBLISHED" : "PARTIAL_PUBLISHED",
+                // PUBLISHED must never be written without threadsId and publishedAt. The first comment (3s delay plus
+                // retries) still follows this checkpoint, and a run that dies there would leave a PUBLISHED post that
+                // the lock refuses to retry and that the slot gate, replies and metrics (all keyed on these two
+                // columns) cannot see. The final update below still sets them, along with the first-comment warning.
+                ...(threadComplete && { threadsId: checkpoint.allPartIds[0], publishedAt: new Date() }),
               },
             });
           },
