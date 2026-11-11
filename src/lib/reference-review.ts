@@ -1,7 +1,10 @@
+import type { Brand } from "@prisma/client";
 import { ResourceNotFoundError } from "@/lib/brand-access";
+import { findTaggedPost, generateReferenceDraft, type ReferenceDraftResult } from "@/lib/manual-reference";
 import { prisma } from "@/lib/prisma";
 import { MANUAL_X_SOURCE } from "@/lib/reference-replay";
 import { readReferenceDecision, splitReferenceContent, type ReferenceDecision } from "@/lib/viral-analysis";
+import type { ReferenceKind } from "@/lib/viral-intent-modes";
 import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 
 // The same outside post is stored once per keyword, so rows are fetched wide and then collapsed by sourceKey.
@@ -120,4 +123,23 @@ export async function setReferenceDecision(brandId: string, exampleId: string, d
     where: { id: row.id },
     data: { rawMetrics: applyDecision(row.rawMetrics, decision) },
   })));
+}
+
+export type CreateDraftFromReferenceResult = ReferenceDraftResult | { status: "duplicate" } | { status: "rejected" };
+
+/**
+ * One draft from a collected reference (the card's button). A rejected post is refused, and a post already drafted under any
+ * keyword row (same sourceKey) is a duplicate. A dropped draft does not stamp the auto-pick cooldown: a click must not change the cron's choice.
+ * ponytail: no server-side lock, so two simultaneous clicks can both pass the duplicate check; the tab allows one run at a time.
+ */
+export async function createDraftFromReference(brand: Brand, exampleId: string, kind: ReferenceKind, now: Date): Promise<CreateDraftFromReferenceResult> {
+  const example = await prisma.viralExample.findUnique({ where: { id: exampleId }, select: { brandId: true, sourceKey: true, content: true, rawMetrics: true } });
+  if (!example || example.brandId !== brand.id) throw new ResourceNotFoundError("Reference not found");
+  if (readReferenceDecision(example.rawMetrics) === "rejected") return { status: "rejected" };
+
+  const siblings = await prisma.viralExample.findMany({ where: { brandId: brand.id, sourceKey: example.sourceKey }, select: { id: true } });
+  const used = await Promise.all(siblings.map((row) => findTaggedPost(brand.id, row.id)));
+  if (used.some(Boolean)) return { status: "duplicate" };
+
+  return generateReferenceDraft(brand, { id: exampleId, content: example.content, kind }, { markAttemptedOnDrop: false }, now);
 }

@@ -78,7 +78,7 @@ export function parseManualReferenceInput(
   return { ok: true, value: { content, kind, linkUrl, sourceUrl } };
 }
 
-function findTaggedPost(brandId: string, exampleId: string, newestFirst = false) {
+export function findTaggedPost(brandId: string, exampleId: string, newestFirst = false) {
   return prisma.post.findFirst({
     where: { brandId, qualityReasons: { contains: `${REFERENCE_REPLAY_SOURCE_PREFIX}${exampleId}` } },
     ...(newestFirst ? { orderBy: { createdAt: "desc" as const } } : {}),
@@ -109,6 +109,22 @@ export async function createManualReferenceDraft(brand: Brand, input: ManualRefe
     select: { id: true },
   });
 
+  return generateReferenceDraft(brand, { id: example.id, content: input.content, kind: input.kind, linkUrl: input.linkUrl }, { markAttemptedOnDrop: true }, now);
+}
+
+export type ReferenceDraftSource = { id: string; content: string; kind: ReferenceKind; linkUrl?: string | null };
+export type ReferenceDraftResult = Exclude<ManualReferenceResult, { status: "duplicate" }>;
+
+/**
+ * One NEEDS_REVIEW draft from a stored example. The draft is tagged manual, so it never uses the cron's daily ref_replay slot.
+ * markAttemptedOnDrop stamps the 7-day auto-pick cooldown on the example when the draft is dropped (right for a pasted post, wrong for a button on a harvested one).
+ */
+export async function generateReferenceDraft(
+  brand: Brand,
+  source: ReferenceDraftSource,
+  options: { markAttemptedOnDrop: boolean },
+  now: Date,
+): Promise<ReferenceDraftResult> {
   const result = await generatePostsForBrand(brand, {
     count: 1,
     insertAtFront: true,
@@ -116,15 +132,15 @@ export async function createManualReferenceDraft(brand: Brand, input: ManualRefe
     approvedCampaignStart: false,
     postCategory: "GROWTH",
     initialStatus: "NEEDS_REVIEW",
-    referenceReplay: { id: example.id, content: input.content, kind: input.kind, ...(input.linkUrl ? { linkUrl: input.linkUrl } : {}), manual: true },
+    referenceReplay: { id: source.id, content: source.content, kind: source.kind, ...(source.linkUrl ? { linkUrl: source.linkUrl } : {}), manual: true },
   });
   if (!result.ok) return { status: "not_ready", error: result.error };
   if (result.summary.count === 0) {
-    await markReferenceAttempted(example.id, now);
+    if (options.markAttemptedOnDrop) await markReferenceAttempted(source.id, now);
     return { status: "dropped", reasons: result.summary.failureReasons };
   }
 
-  const post = await findTaggedPost(brand.id, example.id, true);
+  const post = await findTaggedPost(brand.id, source.id, true);
   if (!post) throw new Error("레퍼런스 초안은 만들어졌는데 저장된 글을 찾지 못했어");
   return { status: "created", postId: post.id };
 }

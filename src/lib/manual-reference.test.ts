@@ -19,7 +19,7 @@ vi.mock("@/lib/reference-replay", () => ({
 }));
 vi.mock("@/lib/generate-posts", () => ({ generatePostsForBrand: mocks.generate }));
 
-import { createManualReferenceDraft, parseManualReferenceInput, parseXStatusUrl, type ManualReferenceInput } from "@/lib/manual-reference";
+import { createManualReferenceDraft, generateReferenceDraft, parseManualReferenceInput, parseXStatusUrl, type ManualReferenceInput } from "@/lib/manual-reference";
 import { hashContent } from "@/lib/viral-harvester";
 
 const content = "이 글은 충분히 길어서 검증을 통과하는 본문입니다 정말로";
@@ -186,5 +186,42 @@ describe("createManualReferenceDraft", () => {
       orderBy: { createdAt: "desc" },
       select: { id: true },
     });
+  });
+});
+
+describe("generateReferenceDraft", () => {
+  const now = new Date("2026-10-29T03:00:00.000Z");
+  const brand = { id: "b1" } as unknown as Brand;
+  const okSummary = (count: number, failureReasons: string[] = []) => ({ ok: true, summary: { count, failedCount: 0, failureReasons } });
+
+  beforeEach(() => {
+    mocks.findPost.mockReset().mockResolvedValue({ id: "p1" });
+    mocks.generate.mockReset().mockResolvedValue(okSummary(1));
+    mocks.markAttempted.mockClear();
+  });
+
+  it("generates one manual-tagged review draft from the given example id", async () => {
+    expect(await generateReferenceDraft(brand, { id: "ex_9", content, kind: "story" }, { markAttemptedOnDrop: false }, now)).toEqual({ status: "created", postId: "p1" });
+    expect(mocks.generate).toHaveBeenCalledWith(brand, expect.objectContaining({
+      count: 1,
+      initialStatus: "NEEDS_REVIEW",
+      referenceReplay: { id: "ex_9", content, kind: "story", manual: true },
+    }));
+  });
+
+  // A button on a harvested post must not start the 7-day auto-pick cooldown behind the operator's back.
+  it("stamps the cooldown on a drop only when asked to", async () => {
+    mocks.generate.mockResolvedValue(okSummary(0, ["유사도 탈락"]));
+
+    expect(await generateReferenceDraft(brand, { id: "ex_9", content, kind: "info" }, { markAttemptedOnDrop: false }, now)).toEqual({ status: "dropped", reasons: ["유사도 탈락"] });
+    expect(mocks.markAttempted).not.toHaveBeenCalled();
+
+    await generateReferenceDraft(brand, { id: "ex_9", content, kind: "info" }, { markAttemptedOnDrop: true }, now);
+    expect(mocks.markAttempted).toHaveBeenCalledWith("ex_9", now);
+  });
+
+  it("passes a link only when one is given", async () => {
+    await generateReferenceDraft(brand, { id: "ex_9", content, kind: "info", linkUrl: "https://a.com/x" }, { markAttemptedOnDrop: false }, now);
+    expect(mocks.generate.mock.calls[0][1].referenceReplay).toEqual({ id: "ex_9", content, kind: "info", linkUrl: "https://a.com/x", manual: true });
   });
 });

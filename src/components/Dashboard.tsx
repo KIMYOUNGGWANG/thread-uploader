@@ -1072,7 +1072,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         )}
 
         {activeTab === "reference" && (
-          <ReferenceTab brandId={brandId} />
+          <ReferenceTab brandId={brandId} onDraftCreated={handleManualReferenceCreated} />
         )}
 
         {activeTab === "interactions" && (
