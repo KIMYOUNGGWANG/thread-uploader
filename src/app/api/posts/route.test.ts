@@ -36,6 +36,18 @@ describe("GET /api/posts", () => {
 });
 
 describe("POST /api/posts", () => {
+  // The dashboard once had a "글 작성" button that posted content "" and failed with this 400 on every click. Approved
+  // posts reach the publish queue, so a blank post must stay rejected here instead of the button being "fixed" by loosening it.
+  it.each(["", "   \n"])("rejects a blank post (%j) before anything is created", async (content) => {
+    mocks.create.mockClear();
+    const { POST } = await import("@/app/api/posts/route");
+
+    const response = await POST({ json: async () => ({ brandId: "b1", posts: [{ content, images: [] }] }) } as never);
+
+    expect(response.status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
   it("schedules unscheduled posts after the near queue, not after drafts booked weeks ahead", async () => {
     const now = new Date("2026-11-09T12:00:00.000Z");
     vi.useFakeTimers({ now, toFake: ["Date"] });
