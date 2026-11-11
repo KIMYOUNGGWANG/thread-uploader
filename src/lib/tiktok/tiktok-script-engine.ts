@@ -274,7 +274,7 @@ function buildExplainerScenes(c: ExplainerCopy): TikTokSceneBeat[] {
 // 음악·내레이션 없음. CTA는 선택형만: 키워드 DM·"댓글 달면 해석" 금지.
 // ---------------------------------------------------------------------------
 export const IG_REELS_CTA = "저장해 두고 A/B/C 중 하나 골라 댓글";
-const FORBIDDEN_CTA_PATTERN = /DM|댓글\s*달면/i;
+const FORBIDDEN_CTA_PATTERN = /\bDM\b|댓글\s*달면/i;
 const IG_DEFAULT_HASHTAGS = ["사주", "운세", "일간"];
 const PICK_CARD_LABELS = ["A", "B", "C"] as const;
 

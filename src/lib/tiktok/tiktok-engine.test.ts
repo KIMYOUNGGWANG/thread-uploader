@@ -1,10 +1,14 @@
 // tiktok-engine.test.ts — Unit tests for TikTok short-form script, alignment, and render worker.
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   generateTikTokScript,
   evaluateExplainerQuality,
   buildIgRankScript,
   buildIgPickCardScript,
+  hasForbiddenCta,
   IG_REELS_CTA,
 } from "./tiktok-script-engine";
 import {
@@ -203,10 +207,24 @@ describe("TikTok Short-form Engine", () => {
   it("executes dry-run rendering successfully without external dependencies", async () => {
     const script = generateTikTokScript({ topic: "사주" });
     const spec = buildTikTokRenderSpec(script);
-    const result = await executeTikTokRender(spec, { dryRun: true });
+    // A temp dir keeps every test run from leaving a new folder under .agents/results/videos.
+    const result = await executeTikTokRender(spec, { dryRun: true, runDir: mkdtempSync(join(tmpdir(), "tiktok-render-")) });
 
     expect(result.success).toBe(true);
     expect(result.outputPath).toContain("tiktok-explainer.mp4");
+  });
+});
+
+describe("hasForbiddenCta", () => {
+  it("flags DM and 댓글 달면 CTAs", () => {
+    expect(hasForbiddenCta("DM 주시면 해석해 드려요")).toBe(true);
+    expect(hasForbiddenCta("키워드 DM으로 받아가세요")).toBe(true);
+    expect(hasForbiddenCta("댓글 달면 해석해 드려요")).toBe(true);
+  });
+
+  it("does not flag English words that merely contain dm", () => {
+    expect(hasForbiddenCta("admin roadmap")).toBe(false);
+    expect(hasForbiddenCta(IG_REELS_CTA)).toBe(false);
   });
 });
 

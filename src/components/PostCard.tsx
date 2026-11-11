@@ -261,7 +261,8 @@ export function PostCard({
                     body: JSON.stringify({
                         content: editedContent,
                         firstComment: editedComment || "",
-                        scheduledAt: editedDate || undefined,
+                        // datetime-local has no timezone; send the browser-local instant as ISO so the server (UTC) doesn't shift it.
+                        scheduledAt: editedDate ? new Date(editedDate).toISOString() : undefined,
                         ...(isCardPost && {
                             cardSlides: editedSlides.map((slide) => ({ ...slide, items: slide.items?.filter((item) => item.trim()) })),
                             instagramCaption: editedCaption,

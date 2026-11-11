@@ -630,6 +630,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     setIsLoadingAnalytics(true);
     try {
       const response = await fetch(`/api/analytics?brandId=${brandId}`);
+      if (!response.ok) throw new Error("analytics request failed");
       setAnalytics(await response.json() as AnalyticsData);
     } catch {
       toast.error("성과 데이터 불러오기 실패");
@@ -856,9 +857,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
       });
       const data = await response.json() as { changes?: { boosted: string[]; reduced: string[] }; message?: string; error?: string };
       if (!response.ok) throw new Error(data.message ?? data.error ?? "최적화 실패");
-      toast.success(`최적화 완료! 상승: ${data.changes?.boosted.join(", ")} / 하락: ${data.changes?.reduced.join(", ")}`);
+      toast.success(`최적화 완료! 상승: ${(data.changes?.boosted ?? []).join(", ")} / 하락: ${(data.changes?.reduced ?? []).join(", ")}`);
       const analyticsRes = await fetch(`/api/analytics?brandId=${brandId}`);
-      setAnalytics(await analyticsRes.json() as AnalyticsData);
+      if (analyticsRes.ok) setAnalytics(await analyticsRes.json() as AnalyticsData);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "최적화 실패");
     } finally {
@@ -1055,7 +1056,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           <ManualReferenceCard brandId={brandId} brandName={brandName} onCreated={handleManualReferenceCreated} />
         </div>
         {activeTab === "news" && (
-          <NewsTrendingTab brandId={brandId} onUseNewsForDraft={handleUseNewsForDraft} />
+          <NewsTrendingTab onUseNewsForDraft={handleUseNewsForDraft} />
         )}
 
         {activeTab === "interactions" && (
@@ -1321,7 +1322,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             <div className="border-t border-slate-100 dark:border-slate-700 p-4">
               {isLoadingAnalytics ? (
                 <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-violet-500" /></div>
-              ) : analytics?.message || !analytics?.byFormula.length ? (
+              ) : analytics?.message || !analytics?.byFormula?.length ? (
                 <div className="text-center py-6 text-sm text-slate-400">
                   <BarChart2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   아직 수집된 성과 데이터가 없어요.<br />

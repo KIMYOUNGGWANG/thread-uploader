@@ -9,7 +9,7 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-const HANGUL_REGEX = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/;
+const HANGUL_REGEX = /[ㄱ-ㅎㅏ-ㅣ가-힣]/;
 const SLOP_PATTERNS = [
   /#\s*📌\s*THREADS\s*POST/i,
   /---\s*\*\*본문\*\*/i,

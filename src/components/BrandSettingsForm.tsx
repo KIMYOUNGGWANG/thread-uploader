@@ -114,7 +114,8 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
           name,
           accessToken,
           threadsUserId,
-          tokenExpiry: new Date(tokenExpiry).toISOString(),
+          // An empty date means "no expiry on file"; new Date("") would throw and block the whole save.
+          ...(tokenExpiry && { tokenExpiry: new Date(tokenExpiry).toISOString() }),
           brandConfig: {
             systemPrompt,
             websiteUrl,

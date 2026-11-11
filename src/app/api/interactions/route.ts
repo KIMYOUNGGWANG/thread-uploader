@@ -94,10 +94,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       credentials
     );
 
+    // Scope to this brand so a reply id from another brand can never be flipped to PUBLISHED here.
     await prisma.threadReply.updateMany({
-      where: { replyThreadsId: replyToThreadsId },
+      where: { brandId: brand.id, replyThreadsId: replyToThreadsId },
       data: { status: "PUBLISHED", replyText: replyText.trim() },
-    }).catch(() => {});
+    }).catch((error) => console.error("POST /api/interactions: failed to mark ThreadReply published:", error));
 
     return NextResponse.json({
       success: true,

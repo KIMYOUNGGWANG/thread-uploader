@@ -423,6 +423,11 @@ describe("checkQuality ecommerce_d2c english hooks", () => {
     expect(checkQuality("Your Saturn return is not a breakdown.\nIn saju, 29 is a handover year, not a crisis.", "ecommerce_d2c").pass).toBe(true);
   });
 
+  it("does not mistake a pipe character in English text for Hangul", () => {
+    const result = checkQuality("Your Saturn return is not a breakdown.\nIn saju | 29 is a handover year, not a crisis.", "ecommerce_d2c");
+    expect(result.reasons.join(" ")).not.toMatch(/Zero Hangul/);
+  });
+
   it("isFlatEnglishHook accepts only short lines without a question mark", () => {
     expect(isFlatEnglishHook("Your birth hour is not the problem.")).toBe(true);
     expect(isFlatEnglishHook("Is your birth hour actually wrong?")).toBe(false);

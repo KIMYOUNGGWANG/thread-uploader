@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import type { NewsArticle } from "@/lib/news-rss";
 
 interface NewsTrendingTabProps {
-  brandId: string;
   onUseNewsForDraft: (prompt: string, title: string) => void;
 }
 
@@ -20,7 +19,7 @@ const PRESET_TOPICS = [
   "경제 트렌드",
 ];
 
-export function NewsTrendingTab({ brandId, onUseNewsForDraft }: NewsTrendingTabProps) {
+export function NewsTrendingTab({ onUseNewsForDraft }: NewsTrendingTabProps) {
   const [query, setQuery] = useState("인공지능 트렌드");
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(false);

@@ -219,20 +219,6 @@ export async function applySeed(prisma) {
   }
 
   await prisma.post.deleteMany({ where: { brandId: QA_IDS.noPostsProduct } });
-  await prisma.accountPattern.deleteMany({
-    where: {
-      brandId: {
-        in: QA_PRODUCTS.map((product) => product.id),
-      },
-    },
-  });
-  await prisma.discoveredAccount.deleteMany({
-    where: {
-      brandId: {
-        in: QA_PRODUCTS.map((product) => product.id),
-      },
-    },
-  });
   await prisma.tikTokVideoDraft.deleteMany({
     where: {
       brandId: {
