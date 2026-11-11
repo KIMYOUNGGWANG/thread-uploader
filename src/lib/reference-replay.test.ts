@@ -156,3 +156,31 @@ describe("markReferenceAttempted", () => {
     expect(prismaMock.viralExample.update.mock.calls[0][0].data.rawMetrics).toBe(JSON.stringify({ replayAttemptedAt: now.toISOString() }));
   });
 });
+
+describe("operator decision", () => {
+  const decided = (id: string, score: number, decision: "approved" | "rejected", sourceKey = `key-${id}`): ReferenceCandidate => ({
+    ...ex(id, score, true, 2, sourceKey),
+    rawMetrics: JSON.stringify({ referenceScore: score, eligibleSource: true, timesSeen: 2, referenceDecision: decision }),
+  });
+
+  it("never picks a rejected post, however high its score", () => {
+    expect(pickReferenceReplaySource([decided("a", 99, "rejected"), ex("b", 10, true)], [], now)?.id).toBe("b");
+  });
+
+  it("a rejected row blocks its sibling rows stored under another keyword", () => {
+    expect(pickReferenceReplaySource([decided("a", 99, "rejected", "same"), ex("a2", 98, true, 2, "same")], [], now)).toBeNull();
+  });
+
+  it("prefers an approved post when scores tie", () => {
+    expect(pickReferenceReplaySource([ex("plain", 70, true), decided("ok", 70, "approved")], [], now)?.id).toBe("ok");
+  });
+
+  it("does not let approval beat a higher score", () => {
+    expect(pickReferenceReplaySource([ex("high", 90, true), decided("ok", 70, "approved")], [], now)?.id).toBe("high");
+  });
+
+  it("keeps the 7-day cooldown for an approved post", () => {
+    const attempted: ReferenceCandidate = { ...decided("ok", 90, "approved"), rawMetrics: JSON.stringify({ referenceScore: 90, eligibleSource: true, timesSeen: 2, referenceDecision: "approved", replayAttemptedAt: daysAgo(1) }) };
+    expect(pickReferenceReplaySource([attempted], [], now)).toBeNull();
+  });
+});

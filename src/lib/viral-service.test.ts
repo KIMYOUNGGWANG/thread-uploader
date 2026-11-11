@@ -63,6 +63,24 @@ describe("viral-service shorts and manual X exclusion", () => {
   });
 });
 
+describe("viral-service rejected references", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // A rejected post must not keep shaping the prompt memory, or the reject button would only hide it from ref_replay.
+  it("learnViralPatterns leaves operator-rejected examples out of the memory", async () => {
+    const row = (id: string, rawMetrics: string) => ({ id, source: "keyword:x", content: `post ${id}`, viralScore: 10, discoveredAt: new Date(), rawMetrics });
+    vi.mocked(prisma.viralExample.findMany).mockResolvedValueOnce([
+      row("keep", "{}"),
+      row("rejected", '{"referenceDecision":"rejected"}'),
+      row("approved", '{"referenceDecision":"approved"}'),
+    ] as never);
+
+    const result = await learnViralPatterns("b1");
+
+    expect(result.learnedExamples).toBe(2);
+  });
+});
+
 describe("viral-service own-post candidates", () => {
   it("excludes New Year posts but keeps NULL formulaId rows", async () => {
     await discoverViralExamples("b1", { includeOwnPosts: true });

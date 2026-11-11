@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { parseReasons } from "@/lib/winner-replay";
 import { MIN_TIMES_SEEN, calculateRisingScore } from "@/lib/reference-radar";
-import { readRankHistory, type RankHistoryEntry } from "@/lib/viral-analysis";
+import { readRankHistory, readReferenceDecision, type RankHistoryEntry } from "@/lib/viral-analysis";
 import { REFERENCE_REPLAY_MODE } from "@/lib/viral-intent-modes";
 import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 
@@ -54,7 +54,8 @@ export function pickReferenceReplaySource(
   for (const candidate of candidates) {
     const metrics = parseMetrics(candidate.rawMetrics);
     const attemptedAt = typeof metrics.replayAttemptedAt === "string" ? Date.parse(metrics.replayAttemptedAt) : NaN;
-    if (used.has(`${REFERENCE_REPLAY_SOURCE_PREFIX}${candidate.id}`) || attemptedAt >= cooldownStart) blockedKeys.add(candidate.sourceKey);
+    // A rejected row blocks its whole sourceKey (the same post stored once per keyword).
+    if (used.has(`${REFERENCE_REPLAY_SOURCE_PREFIX}${candidate.id}`) || attemptedAt >= cooldownStart || readReferenceDecision(metrics) === "rejected") blockedKeys.add(candidate.sourceKey);
     groups.set(candidate.sourceKey, [...(groups.get(candidate.sourceKey) ?? []), { candidate, metrics }]);
   }
 
@@ -79,9 +80,11 @@ export function pickReferenceReplaySource(
       return at && (!latest || at > latest) ? at : latest;
     }, null);
     const score = calculateRisingScore({ referenceScore: best.score, rankHistory, publishedAt, now });
-    return [{ candidate: best.candidate, score }];
+    const approved = rows.some((row) => readReferenceDecision(row.metrics) === "approved");
+    return [{ candidate: best.candidate, score, approved }];
   });
-  scored.sort((a, b) => b.score - a.score || (b.candidate.publishedAt?.getTime() ?? 0) - (a.candidate.publishedAt?.getTime() ?? 0));
+  // Equal scores: an operator-approved post wins, then the newer one.
+  scored.sort((a, b) => b.score - a.score || Number(b.approved) - Number(a.approved) || (b.candidate.publishedAt?.getTime() ?? 0) - (a.candidate.publishedAt?.getTime() ?? 0));
   return scored[0]?.candidate ?? null;
 }
 

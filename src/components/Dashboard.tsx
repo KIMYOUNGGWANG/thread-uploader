@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Video, LayoutList, Newspaper, MessageSquare, FlaskConical, Send, Film } from "lucide-react";
+import { Upload, Sparkles, RotateCcw, CheckCircle2, AlertCircle, RefreshCw, Calendar, Pencil, Wand2, BarChart2, ChevronDown, ChevronUp, Zap, LogOut, ArrowLeft, Settings, BrainCircuit, Target, Flame, Radar, ExternalLink, Activity, Video, LayoutList, Newspaper, MessageSquare, FlaskConical, Send, Film, Microscope } from "lucide-react";
 import { FormulaConversionTable } from "@/components/FormulaConversionTable";
 import { WeeklyScorecardPanel } from "@/components/WeeklyScorecardPanel";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import Link from "next/link";
 import { NewsTrendingTab } from "@/components/NewsTrendingTab";
 import { ManualReferenceCard } from "@/components/ManualReferenceCard";
 import { InteractionsTab } from "@/components/InteractionsTab";
+import { ReferenceTab } from "@/components/ReferenceTab";
 import { AccountHealthBanner } from "@/components/AccountHealthBanner";
 import {
   CampaignExperimentReadiness,
@@ -369,7 +370,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   const [showManualReference, setShowManualReference] = useState(false);
   const [manualReference, setManualReference] = useState<ManualReferenceFormState>(EMPTY_MANUAL_REFERENCE);
   const [isSavingManualReference, setIsSavingManualReference] = useState(false);
-  const [activeTab, setActiveTab] = useState<"feed" | "news" | "interactions">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "news" | "reference" | "interactions">("feed");
   const [showLegacyLabs, setShowLegacyLabs] = useState(false);
   const [commandText, setCommandText] = useState("");
   const [commandPlan, setCommandPlan] = useState<CommandPlanPreview | null>(null);
@@ -1035,6 +1036,18 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("reference")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              activeTab === "reference"
+                ? "bg-amber-600 text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Microscope className="w-4 h-4" />
+            레퍼런스 해부
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("interactions")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               activeTab === "interactions"
@@ -1056,6 +1069,10 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         </div>
         {activeTab === "news" && (
           <NewsTrendingTab brandId={brandId} onUseNewsForDraft={handleUseNewsForDraft} />
+        )}
+
+        {activeTab === "reference" && (
+          <ReferenceTab brandId={brandId} />
         )}
 
         {activeTab === "interactions" && (
