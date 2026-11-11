@@ -31,17 +31,11 @@ export interface FormulaPerformanceObservation {
   paidConversions?: number;
 }
 
-export interface ThompsonSamplingState {
-  formulaPriors: Record<string, BetaPrior>;
-}
-
 export interface ThompsonRouterOptions {
   domainProfile?: string;
   forceTrack?: ContentTrack;
   recentFormulaIds?: string[];
   customPriors?: Record<string, BetaPrior>;
-  viralWeight?: number;     // Weight for engagement (default: 0.4)
-  conversionWeight?: number; // Weight for click/conversion (default: 0.6)
   brandFormulas?: string[];
 }
 
@@ -102,8 +96,8 @@ function standardNormal(): number {
 
 /**
  * Calculate Blended Observation Score from raw metrics
- * Engagement Rate = (replies * 3 + reposts * 2 + likes) / (views + 1)
- * Conversion Rate = (linkClicks + conversions * 10 + paidConversions * 50) / (views + 1)
+ * Engagement Rate = min(1, (replies * 3 + reposts * 2 + likes) / (views * 0.15))
+ * Conversion Rate = min(1, (linkClicks + conversions * 10 + paidConversions * 50) / (views * 0.05))
  * Revenue-first: conversion outweighs engagement so the bandit optimizes money, not reach.
  */
 export function calculateBlendedPerformance(

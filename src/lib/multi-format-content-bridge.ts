@@ -1,5 +1,5 @@
 import type { CarouselSlideData } from "@/lib/carousel-cards/templates";
-import { buildCarouselSlideHtml, buildCarouselSlideSvg } from "@/lib/carousel-cards/renderer";
+import { buildCarouselSlideSvg } from "@/lib/carousel-cards/renderer";
 
 export interface MultiFormatContentBundle {
   readonly postText: string;

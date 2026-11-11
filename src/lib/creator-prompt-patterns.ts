@@ -5,19 +5,11 @@ interface PatternGuidance {
   guidance: string;
 }
 
-interface CreatorFormula {
-  id: string;
-  name: string;
-  weight: number;
-  instruction: string;
-}
-
 const hookGuidance = buildGuidanceMap(patternData.hooks);
 const ctaGuidance = buildGuidanceMap(patternData.ctas);
 
 export const ADVANCED_CREATOR_HOOK_TYPES = patternData.hooks.map((pattern) => pattern.label);
 export const ADVANCED_CREATOR_CTA_TYPES = patternData.ctas.map((pattern) => pattern.label);
-export const ADVANCED_CREATOR_FORMULAS = patternData.formulas satisfies CreatorFormula[];
 
 export function formatCreatorPatternContext(hookType: string, ctaType: string): string {
   const hook = hookGuidance.get(hookType);

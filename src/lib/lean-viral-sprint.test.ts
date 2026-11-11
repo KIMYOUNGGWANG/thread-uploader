@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   LEAN_SPRINT_ALLOCATION,
-  VIRAL_INTENT_MODES,
   formatViralIntentModePrompt,
   normalizeViralIntentModeId,
   resolveViralIntentMode,

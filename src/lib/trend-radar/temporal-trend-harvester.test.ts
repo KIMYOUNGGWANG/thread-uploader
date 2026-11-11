@@ -5,7 +5,6 @@ import {
   DOMAIN_THREADS_KEYWORDS,
   harvestTemporalTrends,
   selectThreadsTrendSamples,
-  type TargetDomainCategory,
 } from "./temporal-trend-harvester";
 
 describe("temporal-trend-harvester", () => {
@@ -115,7 +114,7 @@ describe("temporal-trend-harvester", () => {
   });
 
   it("harvests trends via mock search query function", async () => {
-    const mockQueryFn = async (prompt: string) => `[
+    const mockQueryFn = async () => `[
       {
         "unspokenAnxiety": "연애에서 자존감 갉아먹히는 중",
         "cognitiveDissonance": "사랑해서 참았는데 이용만 당함",

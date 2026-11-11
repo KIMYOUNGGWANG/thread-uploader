@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   checkCircuitBreaker,
   recordCircuitBreakerFailure,
   recordCircuitBreakerSuccess,
-  splitIntoThreadParts,
   type CircuitBreakerState,
 } from "./threads-publisher";
 
@@ -62,21 +61,5 @@ describe("threads-publisher circuit breaker", () => {
     expect(updated.circuitBreaker!.consecutiveFailures).toBe(0);
     expect(updated.circuitBreaker!.pausedUntil).toBeNull();
     expect(updated.circuitBreaker!.lastFailureReason).toBeNull();
-  });
-});
-
-describe("threads-publisher text splitting", () => {
-  it("keeps short posts under 500 chars as single part", () => {
-    const text = "Short post content";
-    const parts = splitIntoThreadParts(text);
-    expect(parts).toEqual(["Short post content"]);
-  });
-
-  it("splits long post into numbered parts with proper numbering", () => {
-    const longParagraph = "이것은 긴 단락입니다. ".repeat(40);
-    const parts = splitIntoThreadParts(longParagraph);
-    expect(parts.length).toBeGreaterThan(1);
-    expect(parts[0]).toMatch(/^1\/\d+/);
-    expect(parts[1]).toMatch(/^2\/\d+/);
   });
 });

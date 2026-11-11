@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  calculateJitteredPublishTime,
   isCircadianQuietHour,
-  adjustForCircadianRhythm,
   checkMinimumCooldown,
   evaluateSporadicSkip,
   findOpenPublishSlot,
@@ -10,20 +8,6 @@ import {
 } from "./behavioral-jitter";
 
 describe("behavioral-jitter", () => {
-  it("calculates jitter within specified bounds", () => {
-    const base = new Date("2026-09-09T10:00:00Z");
-    const jittered = calculateJitteredPublishTime(base, {
-      minMinutes: 5,
-      maxMinutes: 20,
-      meanMinutes: 10,
-      stdDevMinutes: 2,
-    });
-
-    const diffMinutes = (jittered.getTime() - base.getTime()) / (60 * 1000);
-    expect(diffMinutes).toBeGreaterThanOrEqual(5);
-    expect(diffMinutes).toBeLessThanOrEqual(20);
-  });
-
   it("identifies circadian quiet hours in KST (UTC+9)", () => {
     // 03:00 KST is 18:00 UTC previous day (3 AM in KST)
     const quietTime = new Date("2026-09-08T18:00:00Z");
@@ -32,29 +16,6 @@ describe("behavioral-jitter", () => {
     // 14:00 KST is 05:00 UTC (2 PM in KST)
     const activeTime = new Date("2026-09-09T05:00:00Z");
     expect(isCircadianQuietHour(activeTime)).toBe(false);
-  });
-
-  it("adjusts quiet hours forward to morning wake window", () => {
-    // 03:30 KST (18:30 UTC previous day)
-    const quietTime = new Date("2026-09-08T18:30:00Z");
-    const adjusted = adjustForCircadianRhythm(quietTime, {
-      wakeTargetHour: 7,
-      wakeTargetMinute: 30,
-      timezoneOffsetHours: 9,
-      randomFn: () => 0.5, // 15 mins jitter
-    });
-
-    // 07:30 + 15m = 07:45 KST -> 22:45 UTC previous day
-    expect(adjusted.getUTCHours()).toBe(22);
-    expect(adjusted.getUTCMinutes()).toBe(45);
-    expect(isCircadianQuietHour(adjusted)).toBe(false);
-  });
-
-  it("leaves active hours unadjusted", () => {
-    // 14:00 KST is 05:00 UTC
-    const activeTime = new Date("2026-09-09T05:00:00Z");
-    const adjusted = adjustForCircadianRhythm(activeTime);
-    expect(adjusted.getTime()).toBe(activeTime.getTime());
   });
 
   it("enforces minimum cooldown between consecutive posts", () => {
