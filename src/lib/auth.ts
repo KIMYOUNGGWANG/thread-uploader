@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { signSession, verifySession } from "@/lib/crypto";
 
 const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1, dkLen: 64 };
 
@@ -41,8 +42,6 @@ export async function verifyPassword(
   });
   return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(derived, "hex"));
 }
-
-import { signSession, verifySession } from "@/lib/crypto";
 
 export function createSessionToken(userId: string): string {
   return signSession(userId);

@@ -17,6 +17,10 @@ const eslintConfig = defineConfig([
     "scripts/*.mjs",
     // Remotion compositor has its own tsconfig/deps
     "video/**",
+    // Local, untracked work areas. Without these `npm run lint` walks every git worktree under .claude/worktrees
+    // (6,000+ files, ~40k findings) and the real result drowns.
+    ".claude/**",
+    "scratch/**",
   ]),
 ]);
 

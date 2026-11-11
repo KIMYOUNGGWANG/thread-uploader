@@ -51,7 +51,14 @@ function salvageTruncated(text: string): Record<string, unknown> | null {
   const score = text.match(/"score"\s*:\s*(\d{1,3})\b/);
   if (!score) return null;
   const fixesBody = text.split(/"fixes"\s*:\s*\[/)[1] ?? "";
-  const fixes = [...fixesBody.matchAll(/"(?:[^"\\]|\\.)*"(?=\s*[,\]])/g)].map((match) => JSON.parse(match[0]) as string);
+  // The regex lets bad escapes like \x27 through, and JSON.parse would throw out of the fail-open path; skip those fixes.
+  const fixes = [...fixesBody.matchAll(/"(?:[^"\\]|\\.)*"(?=\s*[,\]])/g)].flatMap((match) => {
+    try {
+      return [JSON.parse(match[0]) as string];
+    } catch {
+      return [];
+    }
+  });
   return { score: Number(score[1]), fixes };
 }
 

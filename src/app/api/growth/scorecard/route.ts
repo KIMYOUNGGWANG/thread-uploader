@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       brandId,
-      ...buildWeeklyScorecard(posts, { now, weeks, reviewQueue, pendingQueue }),
+      ...buildWeeklyScorecard(posts, { now, weeks, reviewQueue }),
       queue: { review: reviewQueue, pending: pendingQueue },
     });
   } catch (error) {

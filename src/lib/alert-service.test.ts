@@ -9,7 +9,9 @@ describe("alert-service", () => {
   });
 
   afterEach(() => {
-    process.env.ALERT_WEBHOOK_URL = originalEnv;
+    // process.env 에 undefined 를 대입하면 문자열 "undefined" 가 들어가므로 원래 없던 값은 지운다.
+    if (originalEnv === undefined) delete process.env.ALERT_WEBHOOK_URL;
+    else process.env.ALERT_WEBHOOK_URL = originalEnv;
   });
 
   it("logs structured alerts and returns false when ALERT_WEBHOOK_URL is not set", async () => {
@@ -72,7 +74,7 @@ describe("alert-service", () => {
     const expirySoon = new Date();
     expirySoon.setDate(expirySoon.getDate() + 3); // 3 days remaining
 
-    const alerted = await checkTokenExpiryAlert("CosmicPath", expirySoon, 7);
+    await checkTokenExpiryAlert("CosmicPath", expirySoon, 7);
     expect(logSpy).toHaveBeenCalled();
     logSpy.mockRestore();
   });

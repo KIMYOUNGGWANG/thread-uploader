@@ -14,7 +14,6 @@ import {
   calculateSearchSignalScore,
   mergeStoredRawMetrics,
 } from "@/lib/viral-analysis";
-import { fetchPublicProfilePosts, searchThreadsByKeyword, type ThreadsPublicPost } from "@/lib/threads-api";
 import { allExternalSourcesFailed, harvestFromThreadsSources } from "@/lib/viral-harvester";
 import { calculateReferenceScore, isEligibleSource, normalizeHandle, type EligibilityRules } from "@/lib/reference-radar";
 import { parseBrandConfig } from "@/types/brand";
@@ -351,35 +350,6 @@ function buildManualCandidate(example: ManualViralExample): CandidateExample | n
   };
 }
 
-function buildThreadsCandidate(
-  post: ThreadsPublicPost,
-  adapter: ViralAdapterId,
-  source: string,
-  sourceContext: Record<string, string>
-): CandidateExample {
-  return {
-    adapter,
-    source,
-    sourceKey: post.id,
-    authorUsername: post.username ?? null,
-    permalink: post.permalink ?? null,
-    content: post.text ?? "",
-    publishedAt: parseDate(post.timestamp),
-    views: null,
-    likes: null,
-    replies: null,
-    reposts: null,
-    quotes: null,
-    shares: null,
-    rawMetrics: {
-      ...sourceContext,
-      hasReplies: post.has_replies ?? null,
-      isQuotePost: post.is_quote_post ?? null,
-      topicTag: post.topic_tag ?? null,
-    },
-  };
-}
-
 async function saveCandidate(
   brandId: string,
   candidate: CandidateExample,
@@ -546,8 +516,4 @@ function parseStringArray(raw: string): string[] {
 
 function clampInteger(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value)));
-}
-
-function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown error";
 }

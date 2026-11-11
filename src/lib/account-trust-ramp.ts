@@ -8,15 +8,6 @@
 
 export type AccountTrustTier = "newbie" | "warming" | "established" | "authority";
 
-export interface AccountTrustProfile {
-  tier: AccountTrustTier;
-  ageDays: number;
-  dailyQuota: number;
-  canUseCommentLinks: boolean;
-  canUseAutoPlug: boolean;
-  canUseAggressiveHooks: boolean;
-}
-
 export type TrustGatedFeature =
   | "body_link"
   | "comment_link"
@@ -39,7 +30,7 @@ export interface EligibilityResult {
   currentCount: number;
 }
 
-// established = the 5 daily KR publish slots in .github/workflows/cron.yml; a lower quota demoted real posts.
+// established must stay at or above the daily KR publish slots (3, see publish-slots.ts); a lower quota demoted real posts.
 export const TIER_DAILY_QUOTAS: Record<AccountTrustTier, number> = {
   newbie: 1,
   warming: 2,
@@ -78,28 +69,6 @@ export function resolveAccountTrustTier(
     return "warming";
   }
   return "newbie";
-}
-
-/**
- * Returns full profile details for a given tier.
- */
-export function getAccountTrustProfile(
-  accountCreatedAt: Date,
-  now: Date = new Date(),
-  options?: { trustScore?: number }
-): AccountTrustProfile {
-  const tier = resolveAccountTrustTier(accountCreatedAt, now, options);
-  const diffMs = now.getTime() - accountCreatedAt.getTime();
-  const ageDays = Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
-
-  return {
-    tier,
-    ageDays,
-    dailyQuota: TIER_DAILY_QUOTAS[tier],
-    canUseCommentLinks: tier !== "newbie",
-    canUseAutoPlug: tier === "established" || tier === "authority",
-    canUseAggressiveHooks: tier !== "newbie",
-  };
 }
 
 /**

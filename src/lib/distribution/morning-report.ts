@@ -167,7 +167,7 @@ export async function buildMorningReport(ownerId: string | null, now = new Date(
       brandName: nameOf(post.brandId),
       channel: "threads",
       kind: "text",
-      status: post.status === "PUBLISHED" ? "PUBLISHED" : post.status === "FAILED" ? "FAILED" : post.status,
+      status: post.status,
       title: firstLine(post.content),
       externalUrl: null,
       errorLog: post.status === "FAILED" ? post.errorLog : null,

@@ -56,7 +56,6 @@ export function generateOptimizedProfileBio(
   options: ProfileBioOptions = {}
 ): OptimizedProfileBioResult {
   const qualityProfile = campaign?.qualityProfile ?? config.qualityProfile ?? "saju_viral";
-  const brandName = options.brandName ?? config.productProfile?.productName ?? "CosmicPath";
   const target = options.targetAudience ?? config.targets?.[0] ?? "인생 분기점에 선 사람";
   const promise = options.offerPromise ?? config.productProfile?.offerPromise ?? "실수 없는 선택 타이밍 판정";
   const proof = options.credibilityProof ?? "5대 엔진 교차 분석";

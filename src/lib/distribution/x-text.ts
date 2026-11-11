@@ -23,11 +23,12 @@ export function xWeightedLength(text: string): number {
 
 function truncateToWeight(text: string, max: number): string {
   const ellipsis = "…";
+  const limit = max - charWeight(ellipsis.codePointAt(0) ?? 0);
   let weight = 0;
   let out = "";
   for (const char of text) {
     const w = charWeight(char.codePointAt(0) ?? 0);
-    if (weight + w > max - 1) return `${out.trimEnd()}${ellipsis}`;
+    if (weight + w > limit) return `${out.trimEnd()}${ellipsis}`;
     weight += w;
     out += char;
   }

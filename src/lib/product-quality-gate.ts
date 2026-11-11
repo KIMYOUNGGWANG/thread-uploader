@@ -16,7 +16,7 @@ export interface ProductQualityContext {
   allowChartFirstLine?: boolean;
 }
 
-const GENERIC_SELF_HELP_PATTERNS = [
+export const GENERIC_SELF_HELP_PATTERNS = [
   /좋은 일이 올 거예요/,
   /좋은 일이 올 거야/,
   /스스로를 믿으세요/,

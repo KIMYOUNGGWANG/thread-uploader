@@ -14,7 +14,7 @@ import {
   type RecentPostSummary,
 } from "@/lib/anti-repeat-memory";
 import { THREADS_CONTENT_MAX_LENGTH, THREADS_CONTENT_TARGET_LENGTH, THREADS_MULTI_PART_MAX_LENGTH } from "@/lib/threads-limits";
-import { buildAdmissionFirstComment, buildConversationIgniterComment } from "@/lib/charlie-viral-skills";
+import { buildAdmissionFirstComment } from "@/lib/charlie-viral-skills";
 import { buildShortRedirectUrl, buildTrackedUrl } from "@/lib/tracking-url";
 import { selectLearnedFormula } from "@/lib/thompson-sampling-router";
 import { isLeanSprintRun, selectCampaignFormulaForViralMode, selectLeanViralMode } from "@/lib/lean-mode-selector";
@@ -59,7 +59,7 @@ import { remediatePostAlgorithmic } from "@/lib/remediation-engine";
 import { reconcileRemediation } from "@/lib/remediation-regate";
 import { findRepeatedFirstComment, findSaturatedTopics, formatSaturationReason, isSituationSaturated, SATURATION_WINDOW } from "@/lib/topic-saturation-guard";
 import { coupleCtaToLink, shouldLinkAt } from "@/lib/link-cadence";
-import { parseStructuredPostOutput, generateCardUrlsForPost } from "@/lib/structured-generator";
+import { parseStructuredPostOutput } from "@/lib/structured-generator";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { judgeEnglishNaturalness } from "@/lib/english-naturalness";
 import { judgeReadability } from "@/lib/readability-judge";
@@ -191,7 +191,7 @@ function enforceGeneratedSurfaceSafety<T extends QualityResult>(
 ): T {
   const reasons = [...qualityResult.reasons];
   const surface = [result.post, result.firstComment].join("\n");
-  if (isEnglish && /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(surface) && !reasons.includes("영문 프로필에 한글 문자 포함 (Zero Hangul 위반)")) {
+  if (isEnglish && /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(surface) && !reasons.includes("영문 프로필에 한글 문자 포함 (Zero Hangul 위반)")) {
     reasons.unshift("영문 프로필에 한글 문자 포함 (Zero Hangul 위반)");
   }
   if (result.post.length > THREADS_MULTI_PART_MAX_LENGTH && !reasons.some((r) => r.includes("2400자") || r.includes("제한 초과"))) {
@@ -305,7 +305,6 @@ async function generateWithQuality(
 ): Promise<{
   post: string;
   firstComment: string;
-  conversationIgniter?: string;
   formulaId: string;
   topic: string;
   targetAudience: string;
@@ -488,17 +487,9 @@ async function generateWithQuality(
     throw new Error(`Quality gate failed after retries (${qualityResult.profile}, score ${qualityResult.score}): ${qualityResult.reasons.join(", ")}`);
   }
 
-  const conversationIgniter = buildConversationIgniterComment(lastResult.post, {
-    topic: experiment.topic,
-    formulaId: experiment.formula.id,
-    voiceProfile: config.voiceProfile,
-    hookType: experiment.hookType,
-  });
-
   return {
     post: lastResult.post,
     firstComment: lastResult.firstComment,
-    conversationIgniter,
     formulaId: experiment.formula.id,
     topic: experiment.topic,
     targetAudience: experiment.targetAudience,
@@ -706,8 +697,8 @@ function buildGenerationPrompt(
     : recentPostContext;
 
   function sanitizeEnglishField(text: string, fallback: string): string {
-    const stripped = text.replace(/\([^)]*[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]+[^)]*\)/g, "").trim();
-    if (/^[ㄱ-ㅎ|ㅏ-ㅣ|가-힣\s\d.,!?'"#-]+$/.test(stripped) || /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(stripped)) {
+    const stripped = text.replace(/\([^)]*[ㄱ-ㅎㅏ-ㅣ가-힣]+[^)]*\)/g, "").trim();
+    if (/^[ㄱ-ㅎㅏ-ㅣ가-힣\s\d.,!?'"#-]+$/.test(stripped) || /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(stripped)) {
       return fallback;
     }
     return stripped || fallback;
@@ -962,10 +953,6 @@ function formatQualityFeedback(qualityFeedback: string[], isEnglish = false): st
   ];
 }
 
-function buildLegacyFormula(formula: { id: string; name: string; weight: number; instruction: string }): GenerationFormula {
-  return formula;
-}
-
 function validateGenerationReadiness(
   config: BrandConfig,
   activeCampaign: CampaignConfig | null,
@@ -979,9 +966,7 @@ function validateGenerationReadiness(
     return "제품에 시스템 프롬프트가 설정되지 않았습니다.";
   }
 
-  const sourceFormulas = activeCampaign
-    ? activeCampaign.formulas
-    : config.formulas.map(buildLegacyFormula);
+  const sourceFormulas = activeCampaign ? activeCampaign.formulas : config.formulas;
   const formulaPool = buildFormulaPool(sourceFormulas, dbWeights);
   if (formulaPool.length === 0) {
     return "공식 가중치가 모두 0입니다. 제품 설정을 확인하세요.";
@@ -1017,7 +1002,7 @@ function validateProductGrowthCampaignReadiness(
 }
 
 function buildCampaignUtmLink(websiteUrl: string, campaign: CampaignConfig, postId: string): { url: string; utmContent: string } | null {
-  const utmContent = campaign.utmContentTemplate === "{{postId}}" ? postId : postId;
+  const utmContent = postId;
   const landingUrl = campaign.landingUrl.trim();
   if (!landingUrl) return null;
   const params = new URLSearchParams({
@@ -1080,10 +1065,6 @@ function describeFailure(reason: unknown): string {
 
 export type GeneratePostsResult = { ok: false; error: string } | { ok: true; summary: GeneratePostsSummary };
 
-/**
- * Generates, scores and queues posts for one brand. Callers own authorization:
- * the dashboard route checks the session owner, the refill cron checks CRON_SECRET.
- */
 const NUMBERED_CHOICE_PROBE = "1. a\n2. b";
 const REVERSAL_PROBE = "a가 아니라 b";
 const REVERSAL_CAPPED_PROMPT_KO =
@@ -1161,6 +1142,10 @@ export function firstCommentBridgeHeader(brandSlug: string, config: BrandConfig,
     : "📌 내 사주로 직접 확인 (무료, 생년월일만):";
 }
 
+/**
+ * Generates, scores and queues posts for one brand. Callers own authorization:
+ * the dashboard route checks the session owner, the refill cron checks CRON_SECRET.
+ */
 export async function generatePostsForBrand(brand: Brand, input: GeneratePostsInput): Promise<GeneratePostsResult> {
   const { insertAtFront, requestedCampaignId, approvedCampaignStart, postCategory, referenceReplay } = input;
   const count = referenceReplay ? 1 : input.count;
@@ -1180,9 +1165,7 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
     ...domainPreset.trackFormulas.track_c,
   ];
 
-  const baseFormulas = activeCampaign
-    ? activeCampaign.formulas
-    : config.formulas.map(buildLegacyFormula);
+  const baseFormulas = activeCampaign ? activeCampaign.formulas : config.formulas;
   const existingFormulaIds = new Set(baseFormulas.map((f) => f.id));
   const mergedTrackFormulas = domainTrackFormulas.filter((f) => !existingFormulaIds.has(f.id));
   const sourceFormulas: GenerationFormula[] = [...baseFormulas, ...mergedTrackFormulas];
@@ -1447,9 +1430,6 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
   let linkedCount = 0;
   const createdPosts = [];
   for (const result of results) {
-    // Text only. 2026-10-22 metrics: Korean posts with auto card carousels had a median of 73 views
-    // against 131 for text posts; re-enable only behind an A/B, not by default.
-    const carouselDataUrls: string[] = [];
     const jitterMs = (Math.floor(Math.random() * 31) - 15) * 60 * 1000;
     // Slots follow saved posts, so a dropped draft leaves no gap in the schedule.
     const scheduledTime = Math.max(now + 5 * 60 * 1000, baseTime + createdPosts.length * POST_INTERVAL_MS + jitterMs);
@@ -1488,11 +1468,6 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
       continue;
     }
 
-    if (result.qualityPass === false) {
-      failureReasons.push(`quality gate failed (${result.formulaId})`);
-      continue;
-    }
-
     const postContent = withSignatureOpener(reconciled.content, config.signatureOpener);
     const initialComment = referenceReplay?.linkUrl
       ? appendFirstCommentLink(reconciled.firstComment ?? "", referenceReplay.linkUrl)
@@ -1513,7 +1488,9 @@ export async function generatePostsForBrand(brand: Brand, input: GeneratePostsIn
         brandId,
         content: postContent,
         firstComment: initialComment,
-        imageUrls: JSON.stringify(carouselDataUrls),
+        // Text only. 2026-10-22 metrics: Korean posts with auto card carousels had a median of 73 views
+        // against 131 for text posts; re-enable only behind an A/B, not by default.
+        imageUrls: "[]",
         scheduledAt: new Date(scheduledTime),
         status: postStatus,
         formulaId: result.formulaId,

@@ -74,6 +74,13 @@ describe("parseToneVerdict", () => {
     expect(parseToneVerdict('{"score": 74, "fi')).toEqual({ score: 74, fixes: [] });
   });
 
+  it("skips a fix with a bad JSON escape instead of throwing", () => {
+    expect(parseToneVerdict('{"score": 70, "fixes": ["it\\x27s off → fix this", "ok → fine"]')).toEqual({
+      score: 70,
+      fixes: ["ok → fine"],
+    });
+  });
+
   it("fails open on unparseable or out-of-range scores", () => {
     expect(parseToneVerdict("좋아요").score).toBeNull();
     expect(parseToneVerdict('{"score": "80"}').score).toBeNull();

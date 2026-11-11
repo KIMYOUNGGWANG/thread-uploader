@@ -47,6 +47,16 @@ interface TikTokStudioClientProps {
   suggestedTopics: string[]; // product engine only
 }
 
+// sceneBeats is JSON text from the DB; a broken value must not crash the whole page render.
+function parseScenes(raw: string | null | undefined): TikTokScenePreview[] {
+  try {
+    const parsed: unknown = JSON.parse(raw || "[]");
+    return Array.isArray(parsed) ? (parsed as TikTokScenePreview[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 const DAY_MASTERS = [
   "갑목 (甲木)",
   "을목 (乙木)",
@@ -190,9 +200,7 @@ export function TikTokStudioClient({
     }
   };
 
-  const scenes: TikTokScenePreview[] = currentDraft
-    ? (JSON.parse(currentDraft.sceneBeats || "[]") as TikTokScenePreview[])
-    : [];
+  const scenes: TikTokScenePreview[] = currentDraft ? parseScenes(currentDraft.sceneBeats) : [];
 
   return (
     <div className="min-h-screen bg-[#090b10] text-slate-100 p-6">

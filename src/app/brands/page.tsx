@@ -231,7 +231,7 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           slug: form.slug,
           accessToken: form.accessToken,
           threadsUserId: form.threadsUserId,
-          tokenExpiry: new Date(form.tokenExpiry).toISOString(),
+          ...(form.tokenExpiry && { tokenExpiry: new Date(form.tokenExpiry).toISOString() }),
           brandConfig: setupDraft?.config ?? buildFallbackProductConfig(form),
         }),
       });
