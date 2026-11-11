@@ -555,7 +555,8 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     }
   }, [commandPlan, fetchPosts]);
 
-  const handleCreatePost = useCallback(async (initialContent = "") => {
+  // The content is required on purpose: POST /api/posts rejects blank posts (400), so a no-argument call can never succeed.
+  const handleCreatePost = useCallback(async (initialContent: string) => {
     try {
       const response = await fetch("/api/posts", {
         method: "POST",
@@ -564,9 +565,10 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error ?? "Failed to create post");
-      toast.success(initialContent ? "뉴스 기반 포스트 초안이 생성되었습니다" : "새 글 작성 칸이 생성되었습니다");
+      toast.success("뉴스 기반 포스트 초안이 생성되었습니다");
       await fetchPosts();
-    } catch {
+    } catch (error) {
+      console.error("Failed to create post:", error);
       toast.error("글 작성 생성 실패");
     }
   }, [brandId, fetchPosts]);
@@ -1535,9 +1537,6 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   >
                     {isReviewPipelineRunning ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1.5" />}
                     {isReviewPipelineRunning ? "초안 쓰는 중..." : "검토용 3개"}
-                  </Button>
-                  <Button variant="default" size="sm" onClick={() => void handleCreatePost()} className="bg-slate-600 hover:bg-slate-700 text-white flex-1 sm:flex-none">
-                    <Pencil className="w-4 h-4 mr-1.5" />글 작성
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()} className="flex-1 sm:flex-none">
                     <Upload className="w-4 h-4 mr-1.5" />파일 추가
