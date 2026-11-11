@@ -19,6 +19,7 @@ vi.mock("@/lib/brand-access", async (importOriginal) => {
 
 import { prisma } from "@/lib/prisma";
 import { requirePostForCurrentUser } from "@/lib/brand-access";
+import { REQUEUEABLE_POST_STATUSES } from "@/lib/post-status";
 import { DELETE, PATCH } from "./route";
 
 function withStatus(status: string) {
@@ -77,6 +78,55 @@ describe("PATCH /api/posts/[id]", () => {
     withStatus("PENDING");
     await patch({ status: "PENDING" });
     expect(prisma.reviewDecision.create).not.toHaveBeenCalled();
+  });
+});
+
+// The publish cron claims PENDING posts, so moving a post that is in flight, published or archived back to PENDING
+// (with qualityPass forced true) used to publish it a second time.
+describe("PATCH status guard", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each(["PUBLISHED", "PUBLISHING", "PARTIAL_PUBLISHED", "PARTIAL_FAILED", "PROCESSING", "ARCHIVED"])(
+    "refuses to move a %s post back to the queue and records nothing",
+    async (status) => {
+      withStatus(status);
+      const res = await patch({ status: "PENDING" });
+
+      expect(res.status).toBe(409);
+      expect(prisma.post.update).not.toHaveBeenCalled();
+      expect(prisma.reviewDecision.create).not.toHaveBeenCalled();
+    }
+  );
+
+  it("still lets a FAILED post be approved back to the queue", async () => {
+    withStatus("FAILED");
+    const res = await patch({ status: "PENDING" });
+
+    expect(res.status).toBe(200);
+    expect(prisma.post.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "PENDING" }),
+    }));
+  });
+
+  // The snapshot read at the start of the request can be stale: the cron may claim the post before the write.
+  it("makes the write itself conditional on the current status, and answers 409 when the post moved on", async () => {
+    vi.mocked(prisma.post.update).mockRejectedValueOnce(Object.assign(new Error("Record not found"), { code: "P2025" }));
+    const res = await patch({ status: "PENDING" });
+
+    expect(res.status).toBe(409);
+    expect(prisma.post.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "p1", status: { in: REQUEUEABLE_POST_STATUSES } },
+    }));
+  });
+
+  // Card-first brands edit slides and caption of a post that is already PUBLISHED on Threads, to update the
+  // carousel still waiting out its cancel window. Only status changes are guarded, not edits.
+  it("does not guard edits that leave the status alone", async () => {
+    withStatus("PUBLISHED");
+    const res = await patch({ instagramCaption: "새 캡션" });
+
+    expect(res.status).toBe(200);
+    expect(prisma.post.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "p1" } }));
   });
 });
 
