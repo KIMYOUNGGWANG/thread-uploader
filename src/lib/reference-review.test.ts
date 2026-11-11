@@ -5,9 +5,12 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(async (ops: unknown[]) => ops),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
+const draftMocks = vi.hoisted(() => ({ findTaggedPost: vi.fn(), generateReferenceDraft: vi.fn() }));
+vi.mock("@/lib/manual-reference", () => draftMocks);
 
 import { ResourceNotFoundError } from "@/lib/brand-access";
-import { applyDecision, dedupeBySourceKey, listReferencesForReview, setReferenceDecision, toReviewItem } from "@/lib/reference-review";
+import type { Brand } from "@prisma/client";
+import { applyDecision, createDraftFromReference, dedupeBySourceKey, listReferencesForReview, setReferenceDecision, toReviewItem } from "@/lib/reference-review";
 import { mergeStoredRawMetrics, readReferenceDecision, splitReferenceContent } from "@/lib/viral-analysis";
 
 const row = (over: Partial<Parameters<typeof toReviewItem>[0]> = {}) => ({
@@ -108,5 +111,45 @@ describe("listReferencesForReview", () => {
 
     expect(prismaMock.viralExample.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { brandId: "b1", source: { notIn: ["youtube_shorts", "manual_x"] } } }));
     expect(items.map((item) => item.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("createDraftFromReference", () => {
+  const brand = { id: "b1" } as unknown as Brand;
+  const now = new Date("2026-11-11T00:00:00Z");
+  const example = (over: Record<string, unknown> = {}) => ({ brandId: "b1", sourceKey: "k1", content: "원문 내용", rawMetrics: "{}", ...over });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.viralExample.findUnique.mockResolvedValue(example());
+    prismaMock.viralExample.findMany.mockResolvedValue([{ id: "e1" }, { id: "e2" }]);
+    draftMocks.findTaggedPost.mockResolvedValue(null);
+    draftMocks.generateReferenceDraft.mockResolvedValue({ status: "created", postId: "p1" });
+  });
+
+  it("refuses an unknown id and another brand's example", async () => {
+    prismaMock.viralExample.findUnique.mockResolvedValueOnce(null);
+    await expect(createDraftFromReference(brand, "nope", "story", now)).rejects.toBeInstanceOf(ResourceNotFoundError);
+    prismaMock.viralExample.findUnique.mockResolvedValueOnce(example({ brandId: "other" }));
+    await expect(createDraftFromReference(brand, "e1", "story", now)).rejects.toBeInstanceOf(ResourceNotFoundError);
+    expect(draftMocks.generateReferenceDraft).not.toHaveBeenCalled();
+  });
+
+  it("does not generate from a rejected reference", async () => {
+    prismaMock.viralExample.findUnique.mockResolvedValue(example({ rawMetrics: '{"referenceDecision":"rejected"}' }));
+    expect(await createDraftFromReference(brand, "e1", "story", now)).toEqual({ status: "rejected" });
+    expect(draftMocks.generateReferenceDraft).not.toHaveBeenCalled();
+  });
+
+  it("is a duplicate when any keyword row of the same post already has a draft", async () => {
+    draftMocks.findTaggedPost.mockImplementation(async (_brandId: string, id: string) => (id === "e2" ? { id: "p0" } : null));
+    expect(await createDraftFromReference(brand, "e1", "story", now)).toEqual({ status: "duplicate" });
+    expect(prismaMock.viralExample.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { brandId: "b1", sourceKey: "k1" } }));
+    expect(draftMocks.generateReferenceDraft).not.toHaveBeenCalled();
+  });
+
+  it("generates from the clicked row without stamping the auto-pick cooldown", async () => {
+    expect(await createDraftFromReference(brand, "e1", "info", now)).toEqual({ status: "created", postId: "p1" });
+    expect(draftMocks.generateReferenceDraft).toHaveBeenCalledWith(brand, { id: "e1", content: "원문 내용", kind: "info" }, { markAttemptedOnDrop: false }, now);
   });
 });

@@ -116,7 +116,9 @@ describe("loadReferenceReplaySource", () => {
     const where = prismaMock.viralExample.findMany.mock.calls[0][0].where;
     expect(where).toMatchObject({ brandId: "brand", source: { notIn: ["youtube_shorts", "manual_x"] } });
     expect(where.publishedAt.gte).toEqual(new Date(daysAgo(7)));
-    expect(prismaMock.post.findMany.mock.calls[0][0].where).toMatchObject({ brandId: "brand", formulaId: "ref_replay" });
+    // By tag rather than formulaId, so an info-kind draft (formulaId ref_replay_info) still counts as used.
+    expect(prismaMock.post.findMany.mock.calls[0][0].where).toMatchObject({ brandId: "brand", qualityReasons: { contains: "ref_replay_source:" } });
+    expect(prismaMock.post.findMany.mock.calls[0][0].where).not.toHaveProperty("formulaId");
   });
 
   it("also blocks another keyword's row of a used post, even when the used row fell out of the 7-day window", async () => {

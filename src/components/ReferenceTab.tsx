@@ -1,15 +1,29 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ExternalLink, RefreshCw, RotateCcw, Sparkles, X } from "lucide-react";
+import { Check, ExternalLink, Loader2, PenLine, RefreshCw, RotateCcw, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { ReferenceReviewItem } from "@/lib/reference-review";
 import type { ReferenceDecision } from "@/lib/viral-analysis";
+import type { ReferenceKind } from "@/lib/viral-intent-modes";
 
 interface ReferenceTabProps {
   brandId: string;
+  /** Called after a draft was created so the dashboard can show the review queue. */
+  onDraftCreated?: () => void | Promise<void>;
 }
+
+type DraftOutcome =
+  | { status: "created" }
+  | { status: "dropped"; reasons: string[] }
+  | { status: "duplicate" }
+  | { status: "error"; message: string };
+
+const KIND_OPTIONS: Array<{ id: ReferenceKind; label: string }> = [
+  { id: "story", label: "사연형" },
+  { id: "info", label: "정보형" },
+];
 
 type Filter = "all" | "pending" | "approved" | "rejected";
 
@@ -31,12 +45,14 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" });
 }
 
-export function ReferenceTab({ brandId }: ReferenceTabProps) {
+export function ReferenceTab({ brandId, onDraftCreated }: ReferenceTabProps) {
   const [items, setItems] = useState<ReferenceReviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [savingId, setSavingId] = useState<string | null>(null);
+  // One generation at a time: each one is a paid AI call and the server has no lock.
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   const fetchReferences = useCallback(async () => {
     setIsLoading(true);
@@ -80,6 +96,33 @@ export function ReferenceTab({ brandId }: ReferenceTabProps) {
       toast.error("저장하지 못했습니다. 다시 시도해 주세요.");
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const makeDraft = async (id: string, kind: ReferenceKind): Promise<DraftOutcome> => {
+    setGeneratingId(id);
+    try {
+      const res = await fetch(`/api/viral/references/${encodeURIComponent(id)}/draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId, kind }),
+      });
+      const data: unknown = await res.json().catch(() => null);
+      const record = typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
+      if (!res.ok) return { status: "error", message: typeof record.error === "string" ? record.error : "초안을 만들지 못했어요." };
+      if (record.status === "dropped" && Array.isArray(record.reasons)) {
+        return { status: "dropped", reasons: record.reasons.filter((reason): reason is string => typeof reason === "string") };
+      }
+      if (record.status === "duplicate") return { status: "duplicate" };
+      if (record.status === "created") {
+        await onDraftCreated?.();
+        return { status: "created" };
+      }
+      return { status: "error", message: "예상하지 못한 응답이에요." };
+    } catch {
+      return { status: "error", message: "초안 생성 중 오류가 발생했어요." };
+    } finally {
+      setGeneratingId(null);
     }
   };
 
@@ -148,15 +191,26 @@ export function ReferenceTab({ brandId }: ReferenceTabProps) {
 
       <ul className="space-y-4">
         {visible.map((item) => (
-          <ReferenceCard key={item.id} item={item} saving={savingId === item.id} onDecide={decide} />
+          <ReferenceCard key={item.id} item={item} saving={savingId === item.id} generating={generatingId === item.id} busy={generatingId !== null} onDecide={decide} onMakeDraft={makeDraft} />
         ))}
       </ul>
     </section>
   );
 }
 
-function ReferenceCard({ item, saving, onDecide }: { item: ReferenceReviewItem; saving: boolean; onDecide: (id: string, decision: ReferenceDecision | null) => void }) {
+interface ReferenceCardProps {
+  item: ReferenceReviewItem;
+  saving: boolean;
+  generating: boolean;
+  busy: boolean;
+  onDecide: (id: string, decision: ReferenceDecision | null) => void;
+  onMakeDraft: (id: string, kind: ReferenceKind) => Promise<DraftOutcome>;
+}
+
+function ReferenceCard({ item, saving, generating, busy, onDecide, onMakeDraft }: ReferenceCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [kind, setKind] = useState<ReferenceKind>("story");
+  const [outcome, setOutcome] = useState<DraftOutcome | null>(null);
   const labels = [
     { name: "훅", value: item.hookType },
     { name: "감정", value: item.emotionalDriver },
@@ -219,7 +273,7 @@ function ReferenceCard({ item, saving, onDecide }: { item: ReferenceReviewItem; 
         </p>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {item.decision === null ? (
           <>
             <Button type="button" size="sm" disabled={saving} onClick={() => onDecide(item.id, "approved")}>
@@ -234,7 +288,65 @@ function ReferenceCard({ item, saving, onDecide }: { item: ReferenceReviewItem; 
             <RotateCcw className="w-4 h-4 mr-1" /> 되돌리기
           </Button>
         )}
+
+        {item.decision !== "rejected" && (
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+            <div role="radiogroup" aria-label="글 유형" className="inline-flex rounded-md bg-slate-100 dark:bg-slate-700 p-0.5 text-xs">
+              {KIND_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={kind === option.id}
+                  disabled={busy}
+                  onClick={() => setKind(option.id)}
+                  className={`rounded px-2.5 py-1 font-medium transition-colors disabled:opacity-50 ${
+                    kind === option.id ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-300"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={async () => {
+                setOutcome(null);
+                setOutcome(await onMakeDraft(item.id, kind));
+              }}
+            >
+              {generating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <PenLine className="w-4 h-4 mr-1" />}
+              {generating ? "만드는 중…" : "초안 만들기"}
+            </Button>
+          </div>
+        )}
       </div>
+
+      {generating && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400" role="status">최대 1~2분 걸려요. 다른 카드는 끝날 때까지 잠깐 잠겨요.</p>}
+      {!generating && item.decision !== "rejected" && !outcome && <p className="mt-2 text-[11px] text-slate-400">초안 만들기는 AI를 호출해요 (비용이 들어요).</p>}
+
+      {outcome?.status === "created" && (
+        <p role="status" className="mt-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">초안 1개를 만들었어요. 피드의 승인 대기에서 확인하세요.</p>
+      )}
+      {outcome?.status === "duplicate" && (
+        <p role="status" className="mt-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">이 레퍼런스로는 이미 초안을 만들었어요.</p>
+      )}
+      {outcome?.status === "error" && (
+        <p role="alert" className="mt-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{outcome.message}</p>
+      )}
+      {outcome?.status === "dropped" && (
+        <div role="alert" className="mt-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+          <p className="font-medium">품질 검사에서 탈락했어요. 다시 눌러 다른 유형으로 시도해 볼 수 있어요.</p>
+          {outcome.reasons.length > 0 && (
+            <ul className="mt-1 list-disc pl-5 text-xs">
+              {outcome.reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
     </li>
   );
 }

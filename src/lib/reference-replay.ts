@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { parseReasons } from "@/lib/winner-replay";
 import { MIN_TIMES_SEEN, calculateRisingScore } from "@/lib/reference-radar";
 import { readRankHistory, readReferenceDecision, type RankHistoryEntry } from "@/lib/viral-analysis";
-import { REFERENCE_REPLAY_MODE } from "@/lib/viral-intent-modes";
 import { SHORTS_SOURCE } from "@/lib/youtube/shorts-service";
 
 // Stored in a ref_replay draft's qualityReasons so the same outside post is not rewritten twice.
@@ -95,7 +94,8 @@ export async function loadReferenceReplaySource(brandId: string, now: Date): Pro
       select: { id: true, sourceKey: true, content: true, authorUsername: true, publishedAt: true, rawMetrics: true },
     }),
     prisma.post.findMany({
-      where: { brandId, formulaId: REFERENCE_REPLAY_MODE.id, createdAt: { gte: new Date(now.getTime() - USED_TAG_WINDOW_DAYS * DAY_MS) } },
+      // By tag, not formulaId: an info-kind draft is saved as ref_replay_info and must still count as "used".
+      where: { brandId, qualityReasons: { contains: REFERENCE_REPLAY_SOURCE_PREFIX }, createdAt: { gte: new Date(now.getTime() - USED_TAG_WINDOW_DAYS * DAY_MS) } },
       select: { qualityReasons: true },
     }),
   ]);
