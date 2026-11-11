@@ -23,6 +23,7 @@ vi.mock("@/lib/prisma", () => ({
       count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
@@ -55,6 +56,7 @@ describe("reply-mention-engine", () => {
     vi.clearAllMocks();
     llm.fails = false;
     vi.mocked(prisma.threadReply.count).mockResolvedValue(0);
+    vi.mocked(prisma.threadReply.updateMany).mockResolvedValue({ count: 1 });
   });
 
   const meOk = { ok: true, json: async () => ({ username: "cosmicpath.kr" }) };
@@ -219,6 +221,21 @@ describe("reply-mention-engine", () => {
         })
       );
     });
+
+    it("does not publish a draft another run already claimed, and leaves its status alone", async () => {
+      vi.mocked(prisma.threadReply.findUnique).mockResolvedValue({
+        id: "reply_record_1",
+        replyThreadsId: "th_comment_1",
+        replyText: "Approved reply content",
+      } as unknown as ThreadReply);
+      vi.mocked(prisma.threadReply.updateMany).mockResolvedValue({ count: 0 });
+
+      const result = await publishApprovedReply("reply_record_1", credentials);
+
+      expect(result).toEqual({ success: false, alreadyClaimed: true });
+      expect(threadsApi.publishReplyWithRetryForBrand).not.toHaveBeenCalled();
+      expect(prisma.threadReply.update).not.toHaveBeenCalled();
+    });
   });
   describe("isReaderReplyEligible", () => {
     const reply = (text: string, username = "reader") => ({ id: "r", text, username });
@@ -308,9 +325,49 @@ describe("reply-mention-engine", () => {
           take: 3,
         })
       );
-      expect(result).toEqual({ brandId: "brand_1", published: 1, failed: 1, stuck: 0, errors: ["d2: rate limited"] });
+      expect(result).toEqual({ brandId: "brand_1", published: 1, failed: 1, skipped: 0, stuck: 0, errors: ["d2: rate limited"] });
       expect(prisma.threadReply.update).toHaveBeenCalledWith({ where: { id: "d1" }, data: { status: "PUBLISHED" } });
       expect(prisma.threadReply.update).toHaveBeenCalledWith({ where: { id: "d2" }, data: { status: "FAILED" } });
+    });
+
+    // /api/cron/replies is called by GitHub Actions, the Cloudflare worker and cron-job.org at the same minute.
+    // Both runs read the same DRAFT rows, so the claim has to be decided in the database, not by what each run read.
+    it("posts each draft once when two runs overlap, and never marks the other run's draft FAILED", async () => {
+      const rows = new Map([
+        ["d1", { id: "d1", replyThreadsId: "c1", replyText: "답1", status: "DRAFT", createdAt: new Date() }],
+        ["d2", { id: "d2", replyThreadsId: "c2", replyText: "답2", status: "DRAFT", createdAt: new Date() }],
+      ]);
+      const snapshot = () => [...rows.values()].map((row) => ({ ...row }));
+      vi.mocked(prisma.threadReply.findMany).mockImplementation((async () => snapshot()) as unknown as typeof prisma.threadReply.findMany);
+      vi.mocked(prisma.threadReply.findUnique).mockImplementation((async ({ where }: { where: { id: string } }) =>
+        ({ ...rows.get(where.id) })) as unknown as typeof prisma.threadReply.findUnique);
+      // Same semantics as Postgres: the status filter is evaluated at write time.
+      vi.mocked(prisma.threadReply.updateMany).mockImplementation((async ({ where, data }: { where: { id: string; status: string }; data: { status: string } }) => {
+        const row = rows.get(where.id);
+        if (!row || row.status !== where.status) return { count: 0 };
+        row.status = data.status;
+        return { count: 1 };
+      }) as unknown as typeof prisma.threadReply.updateMany);
+      vi.mocked(prisma.threadReply.update).mockImplementation((async ({ where, data }: { where: { id: string }; data: { status: string } }) => {
+        const row = rows.get(where.id);
+        if (row) row.status = data.status;
+        return {};
+      }) as unknown as typeof prisma.threadReply.update);
+      vi.mocked(threadsApi.publishReplyWithRetryForBrand).mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        return "pub";
+      });
+
+      const [first, second] = await Promise.all([
+        publishDueDraftReplies("brand_1", credentials),
+        publishDueDraftReplies("brand_1", credentials),
+      ]);
+
+      expect(threadsApi.publishReplyWithRetryForBrand).toHaveBeenCalledTimes(2);
+      expect(first.published + second.published).toBe(2);
+      expect(first.skipped + second.skipped).toBe(2);
+      expect(first.failed + second.failed).toBe(0);
+      expect([...rows.values()].map((row) => row.status)).toEqual(["PUBLISHED", "PUBLISHED"]);
     });
   });
 
@@ -377,11 +434,13 @@ describe("reply-mention-engine", () => {
 
       await publishApprovedReply("d1", credentials);
 
+      const claim = vi.mocked(prisma.threadReply.updateMany);
       const update = vi.mocked(prisma.threadReply.update);
       const publish = vi.mocked(threadsApi.publishReplyWithRetryForBrand);
-      expect(update.mock.calls[0][0]).toEqual({ where: { id: "d1" }, data: { status: "PUBLISHING" } });
-      expect(update.mock.invocationCallOrder[0]).toBeLessThan(publish.mock.invocationCallOrder[0]);
-      expect(update.mock.calls[1][0]).toEqual({ where: { id: "d1" }, data: { status: "PUBLISHED" } });
+      // The claim only succeeds while the row is still DRAFT, so exactly one overlapping run gets it.
+      expect(claim.mock.calls[0][0]).toEqual({ where: { id: "d1", status: "DRAFT" }, data: { status: "PUBLISHING" } });
+      expect(claim.mock.invocationCallOrder[0]).toBeLessThan(publish.mock.invocationCallOrder[0]);
+      expect(update.mock.calls[0][0]).toEqual({ where: { id: "d1" }, data: { status: "PUBLISHED" } });
     });
 
     it("reports rows stuck in PUBLISHING instead of retrying them", async () => {
