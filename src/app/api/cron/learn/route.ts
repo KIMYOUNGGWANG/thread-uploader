@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
         weeklyLift: result.weeklyLift,
       });
     } catch (error) {
+      console.error(`[cron/learn] ${brand.slug}: learning failed`, error);
       results.push({
         slug: brand.slug,
         success: false,
@@ -32,5 +33,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ success: true, brands: results });
+  // ALERT_WEBHOOK_URL is unset in production, so a non-2xx answer (red fetch-metrics.yml run + email) is the alert
+  // that reaches someone. The other brands were still learned above.
+  const failed = results.some((result) => !result.success);
+  return NextResponse.json({ success: !failed, brands: results }, { status: failed ? 500 : 200 });
 }
