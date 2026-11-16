@@ -14,11 +14,12 @@
       "url": "https://mcp.context7.com/mcp"
     },
     "serena": {
-      "command": "oma",
+      "command": "serena",
       "args": [
-        "bridge",
+        "start-mcp-server",
         "--context",
-        "oma"
+        "claude-code",
+        "--project-from-cwd"
       ],
       "env": {
         "SERENA_LOG_LEVEL": "info"
