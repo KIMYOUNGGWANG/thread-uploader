@@ -60,6 +60,14 @@ export function decryptToken(stored: string): string {
 }
 
 /**
+ * Fixed-length keyed hash for values that must be compared but never stored in clear (rate-limit keys).
+ * The prefix keeps these HMACs apart from session signatures made with the same master key.
+ */
+export function keyedHash(value: string): string {
+  return crypto.createHmac("sha256", getMasterKey()).update(`rate-limit\0${value}`).digest("hex");
+}
+
+/**
  * Sign session data with HMAC-SHA256
  * Format: payload.timestamp.signature
  */
