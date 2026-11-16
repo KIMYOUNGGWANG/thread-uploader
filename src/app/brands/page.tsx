@@ -161,7 +161,7 @@ interface CreateProductForm {
 }
 
 function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [form, setForm] = useState<CreateProductForm>({
+  const [form, setForm] = useState<CreateProductForm>(() => ({
     name: "",
     slug: "",
     oneLineDescription: "",
@@ -171,7 +171,7 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     accessToken: "",
     threadsUserId: "",
     tokenExpiry: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-  });
+  }));
   const [setupDraft, setSetupDraft] = useState<ProductAutoSetupDraft | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
