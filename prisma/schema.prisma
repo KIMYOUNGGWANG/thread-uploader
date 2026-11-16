@@ -509,3 +509,12 @@ model SourceArticle {
   @@index([brandId, status, score])
   @@index([postId])
 }
+
+// Fixed-window counters for login attempts. Keys are HMACs, never a raw email or IP.
+model RateLimitBucket {
+  key         String   @id
+  count       Int
+  windowStart DateTime @db.Timestamptz(3)
+
+  @@index([windowStart])
+}

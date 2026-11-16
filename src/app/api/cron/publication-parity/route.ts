@@ -47,6 +47,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ checked, mismatches });
   } catch (error: unknown) {
     console.error("[publication-parity]", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+    return NextResponse.json({ error: "Publication parity check failed" }, { status: 500 });
   }
 }

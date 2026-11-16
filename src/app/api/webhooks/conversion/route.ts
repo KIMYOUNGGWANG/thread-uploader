@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { safeEqual } from "@/lib/cron-auth";
 import { calculatePerformanceScore, getPerformanceTier } from "@/lib/growth-learning";
 import { learnBrandGrowth } from "@/lib/growth-service";
-import { INSTAGRAM_BIO_ANCHOR_STATUS } from "@/lib/instagram-bio-anchor";
 
 type NormalizedEvent = "click" | "conversion" | "paid_conversion";
 
@@ -39,20 +38,28 @@ function normalizeEvent(eventType: unknown): NormalizedEvent | null {
 
 // Browser events (click/conversion) are public. Paid events must come from a server
 // holding CONVERSION_WEBHOOK_SECRET, sent in a header — never from landing-page JS.
-function isPaidEventAuthorized(request: NextRequest): boolean {
-  const webhookSecret = process.env.CONVERSION_WEBHOOK_SECRET;
-  if (!webhookSecret) return false;
+// CONVERSION_WEBHOOK_REQUIRE_SECRET=true closes the public path once every sender relays with the secret.
+function checkWebhookSecret(request: NextRequest): "valid" | "invalid" | "absent" {
   const provided =
     request.headers.get("x-webhook-secret") ??
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
     "";
-  return safeEqual(provided, webhookSecret);
+  if (!provided) return "absent";
+  const webhookSecret = process.env.CONVERSION_WEBHOOK_SECRET;
+  return webhookSecret && safeEqual(provided, webhookSecret) ? "valid" : "invalid";
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { postId, pid, eventType, amount = 0, sessionId, idempotencyKey } = body;
+
+    const secret = checkWebhookSecret(request);
+    // A sender with a rotated or mistyped secret still counts public events, so log it or it never shows up.
+    if (secret === "invalid") console.error("[conversion-webhook] Wrong webhook secret header", { eventType: String(eventType) });
+    if (secret !== "valid" && process.env.CONVERSION_WEBHOOK_REQUIRE_SECRET === "true") {
+      return NextResponse.json({ error: "Unauthorized webhook secret" }, { status: 401 });
+    }
 
     const targetPostId = postId || pid;
     if (!targetPostId || typeof targetPostId !== "string") {
@@ -65,7 +72,7 @@ export async function POST(request: NextRequest) {
       console.warn(`[conversion-webhook] Ignored unknown eventType "${String(eventType)}"`, { postId: targetPostId });
       return NextResponse.json({ success: true, ignored: true, eventType });
     }
-    if (normalizedEvent === "paid_conversion" && !isPaidEventAuthorized(request)) {
+    if (normalizedEvent === "paid_conversion" && secret !== "valid") {
       return NextResponse.json({ error: "Unauthorized webhook secret" }, { status: 401 });
     }
 
@@ -94,7 +101,8 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    if (brandId && normalizedEvent !== "click") {
+    // Only a relay holding the secret may start a learning run (300 posts); anonymous events wait for the learn cron.
+    if (brandId && normalizedEvent !== "click" && secret === "valid") {
       void learnBrandGrowth(brandId).catch((err) =>
         console.error("[conversion-webhook] Background learning failed:", err)
       );
@@ -102,10 +110,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, deduped: false, eventType: normalizedEvent, amount, post: updatedPost });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal error" },
-      { status: 500 }
-    );
+    console.error("[conversion-webhook] Failed:", error);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
 
@@ -144,8 +150,7 @@ async function recordEvent(input: RecordEventInput) {
       UPDATE "Post" SET
         "clicks" = COALESCE("clicks", 0) + ${click},
         "conversions" = COALESCE("conversions", 0) + ${conversion},
-        "manualPaidConversions" = COALESCE("manualPaidConversions", 0) + ${paid},
-        "metricsAt" = CASE WHEN "status" = ${INSTAGRAM_BIO_ANCHOR_STATUS} THEN "metricsAt" ELSE NOW() END
+        "manualPaidConversions" = COALESCE("manualPaidConversions", 0) + ${paid}
       WHERE "id" = ${input.postId}`;
 
     const counted = await tx.post.findUniqueOrThrow({ where: { id: input.postId } });

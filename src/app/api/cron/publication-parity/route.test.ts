@@ -55,6 +55,7 @@ describe("GET /api/cron/publication-parity", () => {
     vi.mocked(prisma.post.findMany).mockRejectedValueOnce(new Error("boom"));
     const res = await GET(authed());
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: "boom" });
+    // The workflow prints this body into public Actions logs; the detail stays in the server log.
+    expect(await res.json()).toEqual({ error: "Publication parity check failed" });
   });
 });
