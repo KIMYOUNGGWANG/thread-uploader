@@ -5,6 +5,7 @@ import { evaluate72hFeedbackLoop, type MaturePostMetric } from "@/lib/campaign-f
 import { mergeNegativePhrasesIntoBrandConfig } from "@/lib/trend-radar/negative-pattern-learner";
 import { calculateLearningScore, resolveOptimizationGoal } from "@/lib/optimization-goal";
 import { parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 import { isNewYearModeId } from "@/lib/new-year/new-year-season";
 
 export const maxDuration = 60;
@@ -106,11 +107,10 @@ export async function GET(request: NextRequest) {
 
       await prisma.brand.update({
         where: { id: brand.id },
-        data: {
-          viralMemory: JSON.stringify(updatedViralMemory),
-          brandConfig: JSON.stringify(updatedBrandConfig),
-        },
+        data: { viralMemory: JSON.stringify(updatedViralMemory) },
       });
+      // Brands were read before the loop; save only the learned phrases into the config stored now.
+      await patchBrandConfig(brand.id, brand.brandConfig, { fidelity: updatedBrandConfig.fidelity });
 
       applied = true;
     }

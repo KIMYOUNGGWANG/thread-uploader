@@ -4,7 +4,8 @@ import { requireAuth } from "@/lib/auth";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { interpretCommand, parseCommandPlan } from "@/lib/command-plan";
 import { generatePostsForBrand } from "@/lib/generate-posts";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 
 export const maxDuration = 300;
 
@@ -31,14 +32,10 @@ export async function POST(request: NextRequest) {
     let { brand } = await requireBrandForCurrentUser(plan.brandId);
     if (plan.hypothesis) {
       const config = parseBrandConfig(brand.brandConfig);
-      brand = await prisma.brand.update({
-        where: { id: brand.id },
-        data: {
-          brandConfig: serializeBrandConfigUpdate(brand.brandConfig, {
-            activeExperiment: { ...config.activeExperiment, hypothesis: plan.hypothesis },
-          }),
-        },
+      const saved = await patchBrandConfig(brand.id, brand.brandConfig, {
+        activeExperiment: { ...config.activeExperiment, hypothesis: plan.hypothesis },
       });
+      if (saved) brand = { ...brand, brandConfig: saved };
     }
 
     const result = await generatePostsForBrand(brand, {

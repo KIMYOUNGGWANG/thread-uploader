@@ -23,19 +23,18 @@ export function changedBrandConfigKeys(before: object, after: object): Record<st
  * writer actually changed (`readRaw` -> `after`) onto the config stored now, and only if it is still what was just
  * read; otherwise it re-reads and tries again.
  * `after` must come from `parseBrandConfig(readRaw)` (or a patch of a few keys), so unchanged keys compare equal.
+ * Returns the brandConfig it stored, or undefined when nothing changed or the brand is gone.
  */
-export async function patchBrandConfig(brandId: string, readRaw: string | null | undefined, after: object): Promise<void> {
+export async function patchBrandConfig(brandId: string, readRaw: string | null | undefined, after: object): Promise<string | undefined> {
   const patch = changedBrandConfigKeys(parseBrandConfig(readRaw || "{}"), after);
-  if (Object.keys(patch).length === 0) return;
+  if (Object.keys(patch).length === 0) return undefined;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const current = await prisma.brand.findUnique({ where: { id: brandId }, select: { brandConfig: true } });
-    if (!current) return;
-    const { count } = await prisma.brand.updateMany({
-      where: { id: brandId, brandConfig: current.brandConfig },
-      data: { brandConfig: serializeBrandConfigUpdate(current.brandConfig, patch) },
-    });
-    if (count === 1) return;
+    if (!current) return undefined;
+    const brandConfig = serializeBrandConfigUpdate(current.brandConfig, patch);
+    const { count } = await prisma.brand.updateMany({ where: { id: brandId, brandConfig: current.brandConfig }, data: { brandConfig } });
+    if (count === 1) return brandConfig;
   }
   throw new Error(`brandConfig of ${brandId} changed concurrently; gave up after ${MAX_ATTEMPTS} attempts`);
 }

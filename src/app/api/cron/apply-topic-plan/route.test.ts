@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { COSMICPATH_TOPICS } from "@/lib/topic-plans";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), findBrand: vi.fn(), updateBrand: vi.fn(async () => ({})) }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), findBrand: vi.fn(), updateBrand: vi.fn(async () => ({ count: 1 })) }));
 vi.mock("@/lib/cron-auth", () => ({ verifyCronSecret: mocks.verify }));
-vi.mock("@/lib/prisma", () => ({ prisma: { brand: { findUnique: mocks.findBrand, update: mocks.updateBrand } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { brand: { findUnique: mocks.findBrand, updateMany: mocks.updateBrand } } }));
 
 const call = async (query: string) => {
   const { GET } = await import("@/app/api/cron/apply-topic-plan/route");

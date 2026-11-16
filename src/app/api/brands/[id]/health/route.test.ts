@@ -2,7 +2,9 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireBrandForCurrentUser: vi.fn(),
-  updateBrand: vi.fn(async ({ data }) => ({ id: "brand_1", ...data })),
+  // brandConfig is saved through patchBrandConfig: re-read the brand, then a compare-and-set updateMany
+  findBrandNow: vi.fn(),
+  updateBrandConfig: vi.fn<(args: { where: object; data: { brandConfig: string } }) => Promise<{ count: number }>>(async () => ({ count: 1 })),
   evaluateShadowbanHealth: vi.fn(),
   findManyPosts: vi.fn(),
 }));
@@ -15,7 +17,8 @@ vi.mock("@/lib/brand-access", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     brand: {
-      update: mocks.updateBrand,
+      findUnique: mocks.findBrandNow,
+      updateMany: mocks.updateBrandConfig,
     },
     post: {
       findMany: mocks.findManyPosts,
@@ -35,6 +38,33 @@ vi.mock("@/lib/shadowban-health-probe", async () => {
 describe("/api/brands/[id]/health routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.findBrandNow.mockImplementation(async () => ({
+      brandConfig: (await mocks.requireBrandForCurrentUser.mock.results.at(-1)?.value)?.brand.brandConfig ?? "{}",
+    }));
+  });
+
+  // The handlers read the brand at the start of the request. A settings save that landed before the write used to be
+  // reverted because the whole parsed config was merged into the raw string read at the start.
+  it.each(["PATCH", "POST"] as const)("%s saves health on top of the config stored now, not the one read at the start", async (method) => {
+    mocks.requireBrandForCurrentUser.mockResolvedValue({
+      brand: { id: "brand_1", slug: "test-brand", brandConfig: JSON.stringify({ topics: ["topic at start"] }) },
+    });
+    mocks.findBrandNow.mockResolvedValue({ brandConfig: JSON.stringify({ topics: ["topic saved meanwhile"] }) });
+    mocks.findManyPosts.mockResolvedValue([]);
+    mocks.evaluateShadowbanHealth.mockReturnValue({
+      status: "HEALTHY", reasons: [], recentAverageViews: 0, baselineAverageViews: 0, dropPercentage: 0, consecutiveDepressedCount: 0,
+    });
+    const route = await import("@/app/api/brands/[id]/health/route");
+    const init = method === "PATCH"
+      ? { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "WARNING" }) }
+      : { method };
+
+    const response = await route[method](new Request("http://localhost/api/brands/brand_1/health?force=true", init) as never, { params: Promise.resolve({ id: "brand_1" }) });
+
+    expect(response.status).toBe(200);
+    const saved = JSON.parse(mocks.updateBrandConfig.mock.calls[0]?.[0].data.brandConfig ?? "{}");
+    expect(saved.topics).toEqual(["topic saved meanwhile"]);
+    expect(saved.accountHealth.status).toBe(method === "PATCH" ? "WARNING" : "HEALTHY");
   });
 
   describe("GET /api/brands/[id]/health", () => {
@@ -94,9 +124,9 @@ describe("/api/brands/[id]/health routes", () => {
       expect(body.accountHealth.healingDirective.maxDailyPosts).toBe(1);
       expect(body.accountHealth.healingDirective.freezePolarizingFormulas).toBe(true);
 
-      expect(mocks.updateBrand).toHaveBeenCalledWith(
+      expect(mocks.updateBrandConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "brand_1" },
+          where: expect.objectContaining({ id: "brand_1" }),
         })
       );
     });
@@ -171,9 +201,9 @@ describe("/api/brands/[id]/health routes", () => {
       expect(body.accountHealth.status).toBe("SHADOWBAN_SUSPECTED");
       expect(body.accountHealth.healingDirective.mode).toBe("WARMUP_ONLY");
 
-      expect(mocks.updateBrand).toHaveBeenCalledWith(
+      expect(mocks.updateBrandConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "brand_1" },
+          where: expect.objectContaining({ id: "brand_1" }),
         })
       );
     });

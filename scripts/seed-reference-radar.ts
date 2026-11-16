@@ -2,7 +2,8 @@ process.loadEnvFile(".env");
 
 import { prisma } from "../src/lib/prisma";
 import { lookupThreadsUsername, planRadarSeed } from "../src/lib/reference-radar-seed";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "../src/types/brand";
+import { parseBrandConfig } from "../src/types/brand";
+import { patchBrandConfig } from "../src/lib/brand-config-patch";
 
 // One-off seed: fills cosmicpath's empty viralDiscovery.keywords / ownHandle. Never overwrites existing values.
 // Usage: npx tsx scripts/seed-reference-radar.ts [--dry-run] [--own-handle=<name>]
@@ -40,10 +41,7 @@ async function main(): Promise<void> {
   if (changed.length === 0) return console.log("변경할 값 없음");
   if (dryRun) return console.log(`--dry-run: brandConfig는 쓰지 않음 (바뀔 필드: ${changed.join(", ")})`);
 
-  await prisma.brand.update({
-    where: { id: brand.id },
-    data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, { viralDiscovery: { ...current, ...changes } }) },
-  });
+  await patchBrandConfig(brand.id, brand.brandConfig, { viralDiscovery: { ...current, ...changes } });
   console.log(`저장 완료 (바뀐 필드: ${changed.join(", ")})`);
 }
 

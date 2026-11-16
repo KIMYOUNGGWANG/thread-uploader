@@ -10,7 +10,14 @@ vi.mock("@/lib/auth", async (importOriginal) => {
   return { ...actual, requireAuth: vi.fn(async () => ({ id: "u1", email: "o@example.com", name: null })) };
 });
 vi.mock("@/lib/prisma", () => ({
-  prisma: { brand: { findUnique: vi.fn(async () => stored), update: vi.fn(async (args?: { data?: Record<string, unknown> }) => ({ ...stored, ...args?.data })) } },
+  prisma: {
+    brand: {
+      findUnique: vi.fn(async () => stored),
+      update: vi.fn(async (args?: { data?: Record<string, unknown> }) => ({ ...stored, ...args?.data })),
+      // brandConfig is saved through patchBrandConfig: re-read the brand (findUnique), then a compare-and-set updateMany
+      updateMany: vi.fn<(args: { where: object; data: { brandConfig: string } }) => Promise<{ count: number }>>(async () => ({ count: 1 })),
+    },
+  },
 }));
 
 import { prisma } from "@/lib/prisma";
@@ -41,8 +48,12 @@ describe("PATCH /api/brands/[id] access token", () => {
   });
 });
 
+function savedConfig() {
+  return JSON.parse(String(vi.mocked(prisma.brand.updateMany).mock.calls[0][0].data.brandConfig));
+}
+
 describe("PATCH /api/brands/[id] instagram config", () => {
-  beforeEach(() => vi.mocked(prisma.brand.update).mockClear());
+  beforeEach(() => vi.mocked(prisma.brand.updateMany).mockClear());
   afterEach(() => { stored.brandConfig = "{}"; });
 
   it("keeps the stored bioAnchorPostId when a stale form sends instagram without it", async () => {
@@ -50,8 +61,26 @@ describe("PATCH /api/brands/[id] instagram config", () => {
 
     await patch({ brandConfig: { instagram: { captionSuffix: "new" } } });
 
-    const { data } = vi.mocked(prisma.brand.update).mock.calls[0][0];
-    const saved = JSON.parse(String(data.brandConfig));
+    const saved = savedConfig();
     expect(saved.instagram).toMatchObject({ captionSuffix: "new", bioAnchorPostId: "anchor1" });
+  });
+});
+
+describe("PATCH /api/brands/[id] concurrent writers", () => {
+  beforeEach(() => vi.mocked(prisma.brand.updateMany).mockClear());
+
+  // The request reads the brand first. Priors the learn cron saved before this write used to be reverted because the
+  // whole parsed config was merged into the raw string read at the start.
+  it("saves the form's changes on top of the config stored now, not the one read at the start", async () => {
+    const meanwhile = JSON.stringify({ topics: ["old topic"], thompsonPriors: { winner: { alpha: 5, beta: 2 } } });
+    vi.mocked(prisma.brand.findUnique)
+      .mockResolvedValueOnce({ ...stored, brandConfig: JSON.stringify({ topics: ["old topic"] }) } as never)
+      .mockResolvedValueOnce({ brandConfig: meanwhile } as never);
+
+    await patch({ brandConfig: { topics: ["new topic"] } });
+
+    const saved = savedConfig();
+    expect(saved.topics).toEqual(["new topic"]);
+    expect(saved.thompsonPriors).toEqual({ winner: { alpha: 5, beta: 2 } });
   });
 });
