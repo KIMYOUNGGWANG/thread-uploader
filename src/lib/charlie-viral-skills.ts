@@ -4,53 +4,12 @@ import { buildTrackedUrl, type TrackingParams } from "@/lib/tracking-url";
 /**
  * Charlie Hills 바이럴 스킬 모듈 (charlie-viral-skills.ts)
  *
- * 1. 2-Line Contrast Hook (hook-generator):
- *    - 40자 이내의 단언형 오프닝 + 40자 이내의 반전 대립각(Contrast) 라인
- *
- * 2. 4-Line Admission First Comment (pinned-comment):
+ * 4-Line Admission First Comment (pinned-comment):
  *    - 1행: 사실처럼 보고하는 솔직한 고백 (One quiet admission)
  *    - 2행: 화자의 지위를 낮추는 유머러스한 인정 (Lower-status flip)
  *    - 3행: 최소한의 유효한 성과/체크리스트 안내 (Smallest possible win / sad flex)
  *    - 4행: 체념적 수용과 자연스러운 소프트 링크 (Resigned acceptance & link)
  */
-
-export interface TwoLineContrastHook {
-  opening: string;
-  contrast: string;
-  combined: string;
-}
-
-export function buildTwoLineContrastHook(
-  topic: string,
-  keyArgument: string
-): TwoLineContrastHook {
-  const cleanTopic = topic.trim();
-  const cleanArg = keyArgument.trim();
-
-  let opening = `${cleanTopic}에 목매는 사람이 너무 많다.`;
-  let contrast = `근데 진짜 성과는 정반대에서 나온다.`;
-
-  if (cleanTopic.includes("이직") || cleanTopic.includes("퇴사")) {
-    opening = `이직 타이밍은 느낌으로 정하는 게 아니다.`;
-    contrast = `결정은 감정이 아니라 반복된 신호가 한다.`;
-  } else if (cleanTopic.includes("사주") || cleanTopic.includes("도화살")) {
-    opening = `도화살 있다고 다 인기 많은 게 아니다.`;
-    contrast = `오히려 감정 기복 때문에 스스로 지친다.`;
-  } else if (cleanArg.length > 0) {
-    opening = cleanArg.slice(0, 38);
-    contrast = `하지만 남들은 이걸 정반대로 알고 있다.`;
-  }
-
-  // 40자 길이 제약 보장
-  if (opening.length > 40) opening = opening.slice(0, 37) + "...";
-  if (contrast.length > 40) contrast = contrast.slice(0, 37) + "...";
-
-  return {
-    opening,
-    contrast,
-    combined: `${opening}\n${contrast}`,
-  };
-}
 
 export interface AdmissionCommentContext {
   topic?: string;

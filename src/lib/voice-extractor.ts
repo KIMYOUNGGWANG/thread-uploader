@@ -31,12 +31,10 @@ export function extractVoiceProfile(samples: string[]): VoiceProfile {
 
   // 1. 문장 길이 분석
   const allSentences: string[] = [];
-  let totalParagraphLines = 0;
   let singleLineBreaks = 0;
 
   for (const sample of cleanSamples) {
     const lines = sample.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
-    totalParagraphLines += lines.length;
     for (const line of lines) {
       allSentences.push(line);
       // Threads 특유의 1줄 띄기 분석

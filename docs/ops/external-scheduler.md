@@ -81,7 +81,7 @@ node --env-file=.env --env-file=.env.local scripts/register-cronjobs.mjs --apply
 | threads replies | `/api/cron/replies` | 매시 17분 | 답글 게시 ≤3 → 댓글 스캔 ≤5 |
 | threads account-intelligence | `/api/cron/account-intelligence` | 2시간마다 정각 | 팔로워 수 기록 |
 
-refill(하루 3회)과 refresh-token·fetch-metrics·learn(하루 1회)은 GitHub Actions에 그대로 둔다. 몇 시간 밀려도 문제없고, refill은 생성에 수 분이 걸려 무료 플랜의 30초 요청 제한에 맞지 않는다.
+refill(하루 1회)과 refresh-token·fetch-metrics·learn(하루 1회)은 GitHub Actions에 그대로 둔다. 몇 시간 밀려도 문제없고, refill은 생성에 수 분이 걸려 무료 플랜의 30초 요청 제한에 맞지 않는다.
 
 ## 전환 뒤
 

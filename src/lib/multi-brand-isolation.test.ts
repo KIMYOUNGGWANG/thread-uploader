@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getDomainPreset, DOMAIN_PRESETS } from "./domain-registry";
-import { selectFormulaWithQuota } from "./quota-bandit-router";
+import { getDomainPreset } from "./domain-registry";
 import { buildTrackedUrl } from "./tracking-url";
 import { buildGrowthMemory } from "./growth-learning";
 

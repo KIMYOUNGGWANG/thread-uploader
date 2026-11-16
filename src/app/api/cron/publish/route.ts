@@ -224,8 +224,8 @@ export async function GET(request: NextRequest) {
           brandConfig.shadowbanStatus === "SHADOWBAN_SUSPECTED";
 
         if (isShadowbanSuspected) {
-          const startOfDay = new Date(now);
-          startOfDay.setHours(0, 0, 0, 0);
+          // KST midnight like the daily quota below; setHours(0) would use the server's (UTC) midnight.
+          const startOfDay = startOfPublishDay(now);
           const publishedTodayCount = await prisma.post.count({
             where: { brandId: brand.id, status: "PUBLISHED", publishedAt: { gte: startOfDay } },
           });
