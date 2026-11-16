@@ -237,8 +237,10 @@ export function findEnglishDatesOutsideCalendar(post: string, now: Date): string
     known.add(monthDayKey(dayIndex - 1));
   }
   const outside: string[] = [];
-  for (const match of post.matchAll(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/gi)) {
-    const month = MONTH_INDEX[match[1].toLowerCase()];
+  // Full or abbreviated month names only: "Mars 7th" or "decan 2" are not dates.
+  const datePattern = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/gi;
+  for (const match of post.matchAll(datePattern)) {
+    const month = MONTH_INDEX[match[1].slice(0, 3).toLowerCase()];
     if (!known.has(`${month}-${Number(match[2])}`)) outside.push(match[0]);
   }
   return [...new Set(outside)];
