@@ -39,7 +39,7 @@ describe("GET /api/cron/feedback", () => {
         content: "테스트 포스트 본문 훅\n상세 내용",
         campaignFormulaId: "imagination_dilemma",
         publishedAt: oldDate,
-        metricsAt: oldDate,
+        metricsAt: new Date(),
         views: 2000,
         replies: 10,
         reposts: 2,
@@ -76,7 +76,7 @@ describe("GET /api/cron/feedback", () => {
         content: "테스트 포스트 본문 훅\n상세 내용",
         campaignFormulaId: "imagination_dilemma",
         publishedAt: oldDate,
-        metricsAt: oldDate,
+        metricsAt: new Date(),
         views: 2000,
         replies: 10,
         reposts: 2,
@@ -103,7 +103,7 @@ describe("GET /api/cron/feedback", () => {
       { id: "b1", slug: "cosmicpath", name: "CosmicPath", viralMemory: "{}", brandConfig: "{}" } as never,
     ]);
     const oldDate = new Date(Date.now() - 80 * 60 * 60 * 1000);
-    const base = { publishedAt: oldDate, metricsAt: oldDate, replies: 10, reposts: 2, conversions: 1, campaignFormulaId: null };
+    const base = { publishedAt: oldDate, metricsAt: new Date(), replies: 10, reposts: 2, conversions: 1, campaignFormulaId: null };
     vi.mocked(prisma.post.findMany).mockResolvedValueOnce([
       { ...base, id: "p_ny", content: "2027년 일간별로 바쁜 데가 달라\n갑목·을목: 할 말이 많아지는 해", formulaId: "ny_ranking", views: 90000 },
       { ...base, id: "p_normal", content: "평범한 훅\n상세 내용", formulaId: "concept_hierarchy", views: 2000 },
