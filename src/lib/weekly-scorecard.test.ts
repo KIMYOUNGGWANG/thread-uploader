@@ -52,7 +52,7 @@ describe("buildWeeklyScorecard", () => {
   it("buckets posts into 7-day windows ending now, newest first", () => {
     const card = buildWeeklyScorecard(
       [post({ daysAgo: 1 }), post({ daysAgo: 8 }), post({ daysAgo: 20 })],
-      { now, weeks: 3, reviewQueue: 0, pendingQueue: 0 }
+      { now, weeks: 3, reviewQueue: 0 }
     );
 
     expect(card.weeks).toHaveLength(3);
@@ -66,7 +66,7 @@ describe("buildWeeklyScorecard", () => {
     const noMetrics = post({ daysAgo: 5, metricsAt: null, views: null });
     const mature = post({ daysAgo: 5 });
 
-    const card = buildWeeklyScorecard([immature, noMetrics, mature], { now, weeks: 1, reviewQueue: 0, pendingQueue: 0 });
+    const card = buildWeeklyScorecard([immature, noMetrics, mature], { now, weeks: 1, reviewQueue: 0 });
 
     expect(card.weeks[0].published).toBe(3);
     expect(card.weeks[0].measured).toBe(1);
@@ -80,7 +80,7 @@ describe("buildWeeklyScorecard", () => {
         post({ daysAgo: 6, views: 100 }),
         post({ daysAgo: 6.5, views: 50 }),
       ],
-      { now, weeks: 1, reviewQueue: 0, pendingQueue: 0 }
+      { now, weeks: 1, reviewQueue: 0 }
     );
     const week = card.weeks[0];
 
@@ -104,7 +104,7 @@ describe("buildWeeklyScorecard", () => {
         post({ daysAgo: 6, formulaId: "solo", views: 99999 }),
         post({ daysAgo: 6, formulaId: null, views: 99999 }),
       ],
-      { now, weeks: 1, reviewQueue: 0, pendingQueue: 0 }
+      { now, weeks: 1, reviewQueue: 0 }
     );
 
     expect(card.formulas.map((row) => row.formulaId)).toEqual(["b", "a"]);
@@ -114,7 +114,7 @@ describe("buildWeeklyScorecard", () => {
   it("ignores posts that are not published or fall outside the window", () => {
     const card = buildWeeklyScorecard(
       [post({ daysAgo: 1, status: "PENDING" }), post({ daysAgo: 40 }), post({ daysAgo: 1, publishedAt: null })],
-      { now, weeks: 2, reviewQueue: 0, pendingQueue: 0 }
+      { now, weeks: 2, reviewQueue: 0 }
     );
 
     expect(card.weeks.every((week) => week.published === 0)).toBe(true);

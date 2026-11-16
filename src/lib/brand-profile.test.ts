@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveBrandProfile, type BrandProfile } from "./brand-profile";
+import { resolveBrandProfile } from "./brand-profile";
 
 describe("brand-profile resolution", () => {
   it("resolves default CosmicPath KR profile with Korean saju markers", () => {

@@ -146,7 +146,12 @@ export function PostCard({
             if (!response.ok) {
                 throw new Error(data.error || "교정에 실패했습니다.");
             }
-            toast.success(`5D 자동 교정 완료! (${data.beforeScore ?? 0}점 → ${data.afterScore ?? 0}점)`);
+            const blockers: string[] = data.remediation?.gateReasons ?? [];
+            if (data.remediation?.pass) {
+                toast.success(`5D 자동 교정 완료! (${data.beforeScore ?? 0}점 → ${data.afterScore ?? 0}점)`);
+            } else {
+                toast.warning(`교정했지만 아직 막힘 (${data.afterScore ?? 0}점)${blockers.length ? `: ${blockers.join(", ")}` : ""}`);
+            }
             onUpdate(index, {
                 ...post,
                 content: data.post.content,
@@ -261,7 +266,8 @@ export function PostCard({
                     body: JSON.stringify({
                         content: editedContent,
                         firstComment: editedComment || "",
-                        scheduledAt: editedDate || undefined,
+                        // datetime-local has no timezone; send the browser-local instant as ISO so the server (UTC) doesn't shift it.
+                        scheduledAt: editedDate ? new Date(editedDate).toISOString() : undefined,
                         ...(isCardPost && {
                             cardSlides: editedSlides.map((slide) => ({ ...slide, items: slide.items?.filter((item) => item.trim()) })),
                             instagramCaption: editedCaption,

@@ -1,6 +1,7 @@
 import type { CareerDecisionType, QualityProfileId } from "@/types/brand";
 import {
   checkProductGrowthQuality,
+  GENERIC_SELF_HELP_PATTERNS,
   type ProductQualityContext,
 } from "@/lib/product-quality-gate";
 import { getThreadsContentLimitError } from "@/lib/threads-limits";
@@ -208,18 +209,6 @@ const CAREER_COMMENT_PATTERNS = [
   /anchor|exodus|reposition/i,
 ];
 
-const GENERIC_SELF_HELP_PATTERNS = [
-  /좋은 일이 올 거예요/,
-  /좋은 일이 올 거야/,
-  /스스로를 믿으세요/,
-  /스스로를 믿어/,
-  /작은 변화가 큰 기적/,
-  /포기하지 마세요/,
-  /포기하지 마/,
-  /당신은 할 수 있어/,
-  /언젠가 다 잘될/,
-];
-
 const CAREER_DECISION_PATTERNS: Array<{
   type: CareerDecisionType;
   patterns: RegExp[];
@@ -338,7 +327,7 @@ function checkEcommerceD2CQuality(post: string): QualityResult {
   let score = 0;
 
   // Zero Hangul check
-  if (/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(post)) {
+  if (/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(post)) {
     reasons.push("영문 D2C 콘텐츠에 한글 문자 포함 (Zero Hangul 위반)");
     return { pass: false, score: 0, profile: "ecommerce_d2c", reasons };
   }
@@ -405,7 +394,7 @@ function enforceThreadsContentLimit(post: string, result: QualityResult): Qualit
 
 function enforceSafetyRules(post: string, result: QualityResult, isEnglish = false, ignoreFoldLength = false): QualityResult {
   const reasons = [...result.reasons];
-  if (isEnglish && /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(post)) {
+  if (isEnglish && /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(post)) {
     reasons.unshift("영문 프로필에 한글 문자 포함 (Zero Hangul 위반)");
   }
   if (hasReplyBurdenPromise(post)) reasons.unshift("reply-burden CTA 포함");

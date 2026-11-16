@@ -361,6 +361,8 @@ export interface AutoReplyResult {
   brandId: string;
   published: number;
   failed: number;
+  /** Drafts another overlapping run claimed first; left alone, since that run owns their outcome. */
+  skipped: number;
   /** Rows left in PUBLISHING by an interrupted run; never auto-retried, check them by hand. */
   stuck: number;
   errors: string[];
@@ -388,9 +390,15 @@ export async function publishDueDraftReplies(
   });
 
   const stuck = await prisma.threadReply.count({ where: { brandId, status: "PUBLISHING" } });
-  const result: AutoReplyResult = { brandId, published: 0, failed: 0, stuck, errors: [] };
+  const result: AutoReplyResult = { brandId, published: 0, failed: 0, skipped: 0, stuck, errors: [] };
   for (const draft of due) {
     const outcome = await publishApprovedReply(draft.id, credentials);
+    if (outcome.alreadyClaimed) {
+      // Not a failure: the run that won the claim posts it and records the result. Marking it FAILED here would
+      // overwrite that run's PUBLISHING/PUBLISHED status.
+      result.skipped++;
+      continue;
+    }
     if (outcome.success) {
       result.published++;
     } else {
@@ -404,11 +412,12 @@ export async function publishDueDraftReplies(
 
 /**
  * Publishes an approved DRAFT reply to Threads via reply_to_id.
+ * `alreadyClaimed` means another run took the draft first: nothing was posted and the row was not touched.
  */
 export async function publishApprovedReply(
   replyId: string,
   credentials: ThreadsCredentials
-): Promise<{ success: boolean; publishedThreadsId?: string; error?: string }> {
+): Promise<{ success: boolean; publishedThreadsId?: string; error?: string; alreadyClaimed?: boolean }> {
   const record = await prisma.threadReply.findUnique({
     where: { id: replyId },
   });
@@ -423,8 +432,11 @@ export async function publishApprovedReply(
 
   try {
     // Claim the row first: if the route is killed between the Threads call and the final update, the row
-    // stays PUBLISHING and the next run cannot post the same reply twice.
-    await prisma.threadReply.update({ where: { id: replyId }, data: { status: "PUBLISHING" } });
+    // stays PUBLISHING and the next run cannot post the same reply twice. The DRAFT filter makes the claim atomic:
+    // GitHub, the Cloudflare worker and cron-job.org can run this route at the same minute, and each of them
+    // read the same DRAFT rows, so only the run whose write matches (count 1) may post.
+    const claim = await prisma.threadReply.updateMany({ where: { id: replyId, status: "DRAFT" }, data: { status: "PUBLISHING" } });
+    if (claim.count === 0) return { success: false, alreadyClaimed: true };
 
     const publishedThreadsId = await publishReplyWithRetryForBrand(
       record.replyText,

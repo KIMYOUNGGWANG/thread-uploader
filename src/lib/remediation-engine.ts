@@ -242,7 +242,10 @@ export async function remediatePostAlgorithmic(
   content: string,
   firstComment: string | null = null,
   context?: RemediationContext,
-  threshold = 80
+  threshold = 80,
+  // Content-gate reasons that block publishing (empty = clear). 2026-11-16: a post at score 80 that asked for
+  // comments ("댓글 남겨주세요") was returned untouched as INITIAL_PASS, so the button never fixed what blocked it.
+  gate: (content: string) => string[] = () => []
 ): Promise<RemediationResult> {
   // Step 1: 0-Token Heuristic Patch (Strip body links, meta artifacts, format spacing)
   const heuristicResult = applyHeuristicFixes(content, firstComment);
@@ -250,9 +253,10 @@ export async function remediatePostAlgorithmic(
     heuristicResult.content,
     heuristicResult.firstComment
   );
+  const heuristicGate = gate(heuristicResult.content);
 
   // If score passes after heuristic cleanup
-  if (heuristicScore.totalScore >= threshold) {
+  if (heuristicScore.totalScore >= threshold && heuristicGate.length === 0) {
     return {
       content: heuristicResult.content,
       firstComment: heuristicResult.firstComment,
@@ -265,13 +269,18 @@ export async function remediatePostAlgorithmic(
   }
 
   // Step 2: targeted rewrites, keeping the best-scoring draft
-  let best = { ...heuristicResult, score: heuristicScore };
+  let best = { ...heuristicResult, score: heuristicScore, gateReasons: heuristicGate };
   let rewriteCount = 0;
-  while (best.score.totalScore < threshold && rewriteCount < MAX_REWRITES) {
-    const candidate = await rewriteOnce(best.content, best.firstComment, best.score, context);
+  type Draft = { score: AlgorithmicPredictionResult; gateReasons: string[] };
+  const passes = (draft: Draft) => draft.score.totalScore >= threshold && draft.gateReasons.length === 0;
+  // Clearing the gate outranks any score gain: a gated post cannot publish at any score.
+  const rank = (draft: Draft) => (draft.gateReasons.length === 0 ? 1000 : 0) + draft.score.totalScore;
+  while (!passes(best) && rewriteCount < MAX_REWRITES) {
+    const rewritten = await rewriteOnce(best.content, best.firstComment, best.score, context, best.gateReasons);
+    const candidate = { ...rewritten, gateReasons: gate(rewritten.content) };
     rewriteCount++;
     if (
-      candidate.score.totalScore > best.score.totalScore &&
+      rank(candidate) > rank(best) &&
       !introducesFormalTone(best.content, candidate.content) &&
       !breaksFormulaShape(context?.formulaId ?? "", best.content, candidate.content)
     ) {
@@ -279,7 +288,7 @@ export async function remediatePostAlgorithmic(
     }
   }
 
-  const isPass = best.score.totalScore >= threshold;
+  const isPass = passes(best);
   return {
     content: best.content,
     firstComment: best.firstComment,
@@ -311,18 +320,25 @@ async function rewriteOnce(
   content: string,
   firstComment: string | null,
   score: AlgorithmicPredictionResult,
-  context?: RemediationContext
+  context?: RemediationContext,
+  gateReasons: string[] = []
 ) {
   const weakest = Object.values(score.dimensions).reduce((prev, curr) => (
     curr.maxScore - curr.score > prev.maxScore - prev.score ? curr : prev
   ));
   const isEnglish = !/[가-힣]/.test(content);
+  // A gate failure is fixed before any score dimension; the reason labels alone are internal names, so spell out the fix.
+  const gateFix = gateReasons.length === 0
+    ? ""
+    : isEnglish
+      ? `Publishing gate blocked: ${gateReasons.join(", ")}. Remove any line asking readers to comment, DM or share their story, any guaranteed-outcome claim and any meta note; end on a statement or a question they answer in their head. `
+      : `발행 게이트 차단: ${gateReasons.join(", ")}. 댓글·DM·사연을 남겨달라는 요청 문장, 결과를 보장하는 표현, 메타 문구를 지우고, 단정문이나 속으로 답하는 질문으로 끝내십시오. `;
   // English: the checklist is already rule 2 of the English prompt; the scorer's fix hints are Korean.
-  const actionableFix = isEnglish
+  const actionableFix = gateFix + (isEnglish
     ? `Raise the ${weakest.name} score without breaking the rules below.`
     : score.actionableFixes.length
       ? score.actionableFixes.join(" / ")
-      : `${weakest.name} 차원의 점수가 부족하므로 해당 요소를 보강하십시오.`;
+      : `${weakest.name} 차원의 점수가 부족하므로 해당 요소를 보강하십시오.`);
   const rewritten = await executeTargetedRewrite(content, firstComment, { ...weakest, actionableFix }, context, isEnglish);
   // Re-run heuristic patch on rewritten content (in case LLM added URLs or artifacts)
   const clean = applyHeuristicFixes(rewritten.content, rewritten.firstComment);

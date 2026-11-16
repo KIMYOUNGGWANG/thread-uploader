@@ -17,9 +17,6 @@ This is an internal operator workspace for promoting owned products. The API and
   → Product Profile 입력
   → Active Experiment 설정 (7-day evidence sprint)
   → product_growth 또는 제품별 quality profile 설정
-  → AI Account Discovery로 관련 공개 계정 후보 발견
-  → 후보 계정 watch/ignore 승인
-  → watched 계정 공개 글 구조 학습
   → 캠페인 콘텐츠 생성 (product context + experiment hypothesis + link cadence)
   → PENDING 큐 확인
   → [Cron] 각 제품 FIFO 자동 발행
@@ -269,133 +266,6 @@ interface InstagramConfig {            // brandConfig.instagram (항상 존재, 
 ```
 
 - 설정 화면(`/brands/[slug]/settings` 기본 정보 탭)이 연결 버튼, `@username`·토큰 만료일, 만료 시 "재연결 필요", 캡션 꼬리말 편집, 바이오 링크(`buildInstagramBioLink`: `/start?pid=<anchorId>&utm_source=instagram&utm_campaign=instagram_bio…`) 복사, "인스타 합계: 클릭 N · 전환 N"(기준 글의 `clicks`/`conversions`, 없으면 0)을 보여준다. 액세스 토큰은 클라이언트로 내려가지 않는다.
-
----
-
-## AI Account Discovery API
-
-The account discovery engine finds related public Threads accounts, scores them against the current product profile, and only learns from accounts that the Portfolio Operator explicitly watches.
-
-### Data Contracts
-
-```typescript
-type DiscoveredAccountStatus = "candidate" | "watched" | "ignored";
-type DiscoveredAccountCategory = "career" | "saju" | "creator" | "competitor" | "adjacent" | "unknown";
-
-interface DiscoveredAccountResponse {
-  id: string;
-  brandId: string;
-  username: string;
-  displayName: string | null;
-  bio: string | null;
-  profileUrl: string | null;
-  status: DiscoveredAccountStatus;
-  category: DiscoveredAccountCategory;
-  relevanceScore: number;
-  reason: string;
-  source: "keyword_search" | "manual" | "profile_expand";
-  sourceKeyword: string | null;
-  lastDiscoveredAt: string;
-  lastScannedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface DiscoveredAccountPostResponse {
-  id: string;
-  accountId: string;
-  sourceKey: string;
-  permalink: string | null;
-  content: string;
-  publishedAt: string | null;
-  hookType: string | null;
-  topic: string | null;
-  emotionalDriver: string | null;
-  structureType: string | null;
-  ctaType: string | null;
-  patternSummary: string | null;
-  relevanceScore: number;
-  createdAt: string;
-}
-
-interface AccountPatternResponse {
-  id: string;
-  brandId: string;
-  accountId: string | null;
-  dimension: "hook" | "topic" | "emotion" | "structure" | "cta";
-  value: string;
-  sourceCount: number;
-  confidence: number;
-  recommendation: string;
-}
-```
-
-### Endpoints
-
-| Method | Path | Description |
-|:-------|:-----|:------------|
-| `GET` | `/api/accounts?brandId=xxx&status=candidate` | 계정 후보/watchlist 조회 |
-| `POST` | `/api/accounts/discover` | seed keywords로 관련 계정 후보 발견 |
-| `PATCH` | `/api/accounts/[id]` | `watch` 또는 `ignore` 상태 변경 |
-| `POST` | `/api/accounts/analyze` | watched 계정 공개 글 수집 및 패턴 학습 |
-
-```typescript
-interface DiscoverAccountsRequest {
-  brandId: string;
-  keywords?: string[];
-  handles?: string[];       // @handle or threads.net/@handle seed fallback
-  limit?: number;          // default 20, max 50
-  minScore?: number;       // default 60
-}
-
-interface DiscoverAccountsResponse {
-  success: true;
-  discovered: number;
-  saved: number;
-  candidates: DiscoveredAccountResponse[];
-  errors: ViralSourceError[];
-}
-
-interface UpdateDiscoveredAccountRequest {
-  status: "watched" | "ignored" | "candidate";
-}
-
-interface AnalyzeAccountsRequest {
-  brandId: string;
-  accountIds?: string[];   // default all watched accounts
-  limit?: number;          // default 10, max 50 posts per account
-}
-
-interface AnalyzeAccountsResponse {
-  success: true;
-  scannedAccounts: number;
-  savedPosts: number;
-  learnedPatterns: number;
-  recommendations: string[];
-  errors: ViralSourceError[];
-}
-```
-
-If Threads `keyword_search` is blocked by Meta app permissions, discovery returns source errors and may find zero keyword candidates. Operators can pass `handles` or configure `viralDiscovery.competitorHandles`; these seed handles are saved as manual candidates so the Brand Owner can choose `watch` or `ignore` before any learning occurs.
-
-### Scoring
-
-Initial MVP scoring is deterministic and explainable:
-
-- target/topic overlap: 30
-- product/topic overlap: 25
-- domain-specific language from the product profile: 15
-- comment/share CTA structure: 15
-- brand safety / excluded term check: 15
-
-AI classification may later refine category and reason, but the first implementation should keep the score auditable.
-
-### Guardrails
-
-- Only `watched` accounts can feed recurring account learning.
-- `ignored` accounts are excluded from future learning even if rediscovered.
-- The system stores public post structure, not private or unauthorized account insights.
-- Generation receives account-level patterns as guidance only; it must not copy exact wording from discovered accounts.
 
 ---
 
@@ -1153,12 +1023,12 @@ interface ViralAdapterResult {
 
 | Method | Path | Description |
 |:-------|:-----|:------------|
-| `GET` | `/api/cron/publish` | 모든 active 제품 순회 → 각 1개 FIFO 발행. `?brands=slug1,slug2`로 제품 제한. `?slots=0,12`(UTC 시, 0-23)를 주면 열린 슬롯(시작 후 3시간)마다 1회만 발행하고, 슬롯 밖이면 `outside_publish_slot`, 이미 발행했으면 `slot_already_served`로 건너뜀. 형식 오류는 400 |
+| `GET` | `/api/cron/publish` | 모든 active 제품 순회 → 각 1개 FIFO 발행. `?brands=slug1,slug2`로 제품 제한. `?slots=0,12`(UTC 시, 0-23)를 주면 열린 슬롯(시작 후 3시간)마다 1회만 발행하고, 슬롯 밖이면 `outside_publish_slot`, 이미 발행했으면 `slot_already_served`로 건너뜀. 형식 오류는 400. 발행을 시도했는데 끝내지 못한 제품(`skipped`의 `publish_failed`·`partial_failed`)이 하나라도 있으면 응답 본문은 그대로 두고 상태 코드만 500이다(알림 웹훅이 프로덕션에 없어서, 스케줄러 워크플로가 붉게 변하는 게 유일한 알림). 나머지 건너뜀 사유는 정상이라 200 |
 | `GET` | `/api/cron/refresh-token` | 모든 제품의 Threads 토큰 상태 확인 및 갱신. Instagram 연결 제품은 같은 방식으로 갱신하고 결과를 응답 `instagramRefreshResults: Array<{ slug, success, message?, newExpiry?, instagramNeedsReconnect?, error? }>`로 함께 반환(만료돼 재연결이 필요한 건 `instagramNeedsReconnect: true`이며 500 사유가 아님) |
 | `GET` | `/api/cron/instagram-publish?brands=slug1,slug2` | Instagram 연결된 제품(`instagramConnectedAt != null`, `brands`로 제한 가능)마다 Threads 영상 글을 릴스로 교차 발행. 한 번 호출에 ①`PROCESSING` 릴스 상태 확인·발행 ②Threads 발행 3일 지난 미처리 글 `SKIPPED` ③진행 중·방금 발행한 릴스가 없으면 다음 1개 업로드 시작. 릴스는 제품당 KST 하루 1개, 연결 시각 이전에 발행된 글은 올리지 않음, 재시도 최대 3회(3회째 실패 시 `FAILED` + 시스템 알림). 응답 `{ results: Array<{ slug } & ({ skipped: "not_connected" \| "token_expired" } \| { error: string } \| { advanced, published: string[], started: string \| null, skippedStale, failed: string[] })> }`. `token_expired`는 저장 토큰 만료(재연결 필요), `not_connected`는 토큰/계정 ID 없음. Cron 시크릿 없으면 401. Cloudflare Worker가 15분마다 호출(GitHub Actions `cron.yml`에는 없음) |
 | `GET` | `/api/cron/replies` | 모든 제품 순회. 먼저 48시간 이내 독자 댓글 초안을 오래된 순으로 최대 3개 자동 게시(게시 전 `PUBLISHING`으로 선점 → 성공 `PUBLISHED`, 실패 `FAILED`; 중단돼 `PUBLISHING`에 남은 행은 자동 재시도하지 않고 `stuck`으로 보고). 이어서 최근 7일 발행 글(최대 25개)의 새 댓글을 수집해 Claude 초안을 `ThreadReply(DRAFT)`로 저장(런당 최대 5개; 브랜드 자기 댓글·링크·맞팔 유도·2자 미만 제외; `/me` 사용자명 조회 실패 시 그 회차 댓글 스캔 생략; Claude 실패 시 고정 문구 없이 행을 만들지 않고 다음 회차 재시도 → `draftsSkipped`). 언어는 `voiceProfile.language`/`ecommerce_d2c`면 en. 멘션 초안은 수동 승인용. `AUTO_REPLY_PUBLISH=false`면 게시 생략. 응답 brand마다 `{ ...scan, autoReply: { published, failed, stuck, errors } \| null }`. GitHub Actions `cron.yml` `replies` 잡이 매시간 호출 |
 | `GET` | `/api/cron/auto-plug` | 반응이 온 글에 링크 답글을 1회 단다. 대상 브랜드는 라우트 상수 `AUTO_PLUG_BRANDS`(현재 `cosmicpath`만). 토큰이 없거나 만료된 브랜드는 `skipped: "token_expired"`. 후보는 `PUBLISHED`·`threadsId` 있음·`linkUrl = null`(발행 시 링크를 단 글과 이미 링크를 단 글 제외)·발행 45분~48시간 글, 최신순 최대 10개. 글마다 Threads 인사이트를 조회해 조회 300 이상 또는 댓글 10 이상이면 `linkUrl`이 null일 때만 `linkUrl = <브랜드 랜딩>&utm_content=<postId>`·`utmContent = postId`로 선점한 뒤, 본문에 `/r/<postId>` 짧은 링크를 넣은 답글을 게시한다. 게시가 실패하면 `errorLog`에 `Auto-plug failed:`를 덧붙이고 선점은 유지한다(중복 게시 방지를 위해 자동 재시도 없음). `?dryRun=1`이면 선점·게시 없이 대상만 보고한다. 응답 `{ results: Array<{ slug, checked, plugged: Array<{ postId, views, replies }>, errors: Array<{ postId, error }>, dryRun? } \| { slug, skipped } \| { slug, error }> }`. Cron 시크릿 없으면 401. GitHub Actions `cron.yml` `auto-plug` 잡이 워크플로 실행마다(15분 일정·매시간 일정·수동 실행) 호출 |
-| `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자). formulaWeights와 thompsonPriors 모두 저장값에 누적하지 않고 최근 300개 창에서 기본값부터 재계산 |
+| `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자). formulaWeights와 thompsonPriors 모두 저장값에 누적하지 않고 최근 300개 창에서 기본값부터 재계산. 응답 `{ success, brands: Array<{ slug, success, ... }> }`. 학습이 실패한 제품이 하나라도 있으면 `success: false`와 상태 코드 500(나머지 제품은 그대로 학습됨) |
 | `GET` | `/api/cron/shadowban-check` | 제품마다 섀도밴 프로브(`evaluateShadowbanHealth`, 수동 재평가 버튼과 같은 `evaluateBrandShadowban`)를 돌려 **감지만** 한다. 상태(`accountHealth`/`shadowbanStatus`)는 쓰지 않는다. 이미 `SHADOWBAN_SUSPECTED`인 제품은 `skipped: "already_in_shadowban_mode"`. `SHADOWBAN_SUSPECTED`가 나온 제품이 있거나 검사가 예외를 던진 제품이 있으면 `sendSystemAlert` + 상태 코드 500(`success: false`, 알림 웹훅이 프로덕션에 없어서 붉은 GitHub 실행이 유일한 알림). `WARNING`은 본문에만 싣고 200. 적용(하루 1개 웜업 글, 링크 금지)은 계정 건강 배너의 "웜업 모드 강제 전환"(`PATCH /api/brands/[id]/health`)으로 사람이 한다. 응답 `{ success, brands: Array<{ slug, success, status, dropPercentage, recentAverageViews, baselineAverageViews, reasons } \| { slug, skipped } \| { slug, success: false, error }> }`. GitHub Actions `fetch-metrics.yml`이 지표 수집 뒤 하루 1회 호출 |
 | `GET` | `/api/cron/feedback?apply=true` | 72h 성숙 글 기준 viralMemory topPerformers + 금지 표현 학습 (formulaWeights는 쓰지 않음) |
 | `GET` | `/api/cron/viral` | 모든 제품 viral discovery → 미분석 상위 10개 Claude 분석(`rawMetrics.llmAnalyzedAt`, `whyItWorks`) → viralMemory 재학습. `topPerformers`/`nextHookCandidates`는 feedback cron 소유라 보존. 외부 글 점수에 TOP 검색 순위·키워드 중복·반복 노출(`rawMetrics.searchRank`/`keywordHits`/`timesSeen`) 가산 |
@@ -1576,98 +1446,3 @@ Cron recommendation:
 
 > [!IMPORTANT]
 > 코드와 계약이 어긋나면 ship 게이트에서 먼저 문서를 갱신하거나 구현을 되돌려야 한다.
-
----
-
-## Demo Asset Generator API
-
-모바일 웹 캡처 및 AI 기반 크리에이티브 광고 기획, Remotion 렌더러 연동으로 9:16 비디오 및 썸네일을 자동 생성하는 기능의 API 계약 규격입니다.
-
-### Data Contracts
-
-```typescript
-type DemoAssetJobStatus =
-  | "QUEUED"
-  | "CAPTURING"
-  | "PLANNING"
-  | "RENDERING"
-  | "READY"
-  | "FAILED_CAPTURE"
-  | "FAILED_PLAN"
-  | "FAILED_RENDER"
-  | "FAILED_QUALITY";
-
-type DemoAssetStyle =
-  | "clean-product-demo"
-  | "problem-solution-demo"
-  | "feature-walkthrough"
-  | "social-proof-teaser";
-
-interface DemoCaptureArtifactResponse {
-  id: string;
-  jobId: string;
-  type: "SCREENSHOT_INITIAL" | "SCREENSHOT_FULL" | "SCREENSHOT_ELEMENT" | "TEXT_BLOCKS" | "METADATA";
-  filePath: string;
-  metaData: string | null; // JSON String for data
-  createdAt: string;
-}
-
-interface DemoRenderedAssetResponse {
-  id: string;
-  jobId: string;
-  type: "VIDEO" | "IMAGE";
-  style: DemoAssetStyle;
-  filePath: string;
-  mimeType: string;
-  fileSize: number;
-  sha256: string;
-  metaData: string | null;
-  downloadUrl?: string; // 임시 다운로드 토큰이 포함된 URL
-  createdAt: string;
-}
-
-interface DemoAssetJobResponse {
-  id: string;
-  brandId: string;
-  status: DemoAssetJobStatus;
-  productUrl: string;
-  productContext: string | null;
-  style: DemoAssetStyle;
-  videoCount: number;
-  imageCount: number;
-  lockedBy: string | null;
-  lockedAt: string | null;
-  heartbeatAt: string | null;
-  attemptCount: number;
-  errorReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-  captureArtifacts?: DemoCaptureArtifactResponse[];
-  renderedAssets?: DemoRenderedAssetResponse[];
-}
-```
-
-### Endpoints
-
-| Method | Path | Description | Auth |
-|:-------|:-----|:------------|:-----|
-| `POST` | `/api/demo-assets/jobs` | 새로운 데모 생성 작업 추가 | Required + Brand Owner |
-| `GET` | `/api/demo-assets/jobs?brandId=xxx` | 특정 브랜드의 데모 생성 작업 내역 조회 | Required + Brand Owner |
-| `GET` | `/api/demo-assets/jobs/[id]` | 특정 데모 작업 상세 조회 및 결과 반환 | Required + Job Owner |
-| `POST` | `/api/demo-assets/jobs/[id]/regenerate` | 실패하거나 완료된 작업을 대기 상태로 되돌려 재작업 요청 | Required + Job Owner |
-| `GET` | `/api/demo-assets/downloads?token=xxx` | 검증된 토큰을 받아 렌더링된 비디오/이미지 스트리밍 또는 다운로드 | Public (with token validation) |
-
-```typescript
-// POST /api/demo-assets/jobs
-interface CreateDemoAssetJobRequest {
-  brandId: string;
-  productUrl: string;
-  style: DemoAssetStyle;
-  videoCount?: number; // 1-5, default 1
-  imageCount?: number; // 1-12, default 3
-  productContext?: string; // 추가설명 및 소구 포인트 (선택)
-}
-
-// GET /api/demo-assets/downloads?token=xxx&download=true
-// Response: binary file data (video/mp4 or image/png)
-```
