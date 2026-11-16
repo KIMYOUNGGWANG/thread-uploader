@@ -16,7 +16,13 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    brand: { findMany: mocks.findBrands, update: vi.fn(async () => ({})) },
+    brand: {
+      findMany: mocks.findBrands,
+      update: vi.fn(async () => ({})),
+      // brandConfig writes go through patchBrandConfig: re-read, then a compare-and-set update
+      findUnique: vi.fn(async () => ({ brandConfig: "{}" })),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+    },
     post: {
       findFirst: vi.fn(async ({ where }: { where: Where }) => (where.status === "PENDING" ? state.normalPick : null)),
       findMany: vi.fn(async ({ where, take }: { where: Where; take?: number }) => {

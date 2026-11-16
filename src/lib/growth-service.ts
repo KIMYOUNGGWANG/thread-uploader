@@ -13,7 +13,8 @@ import {
   computeAdaptiveContextWeights,
   type ContextWeightAdjustmentResult,
 } from "@/lib/growth-feedback-loop";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 import { DOMAIN_MATRICES } from "@/lib/context-matrix-engine";
 import { getDomainPreset } from "@/lib/domain-registry";
 import { QUOTA_TRACKS } from "@/lib/quota-bandit-router";
@@ -145,9 +146,10 @@ export async function learnBrandGrowth(brandId: string) {
     data: {
       growthMemory: JSON.stringify(memory),
       ...(updatedWeights && { formulaWeights: JSON.stringify(updatedWeights) }),
-      ...(updatedBrandConfig && { brandConfig: serializeBrandConfigUpdate(brand?.brandConfig, updatedBrandConfig) }),
     },
   });
+  // The run reads the brand first and computes over up to 300 posts; save only what it changed into the config stored now.
+  if (updatedBrandConfig) await patchBrandConfig(brandId, brand?.brandConfig, updatedBrandConfig);
 
   const now = new Date();
   let scoredPosts = 0;

@@ -4,12 +4,14 @@ const mocks = vi.hoisted(() => ({
   findBrand: vi.fn(),
   findPosts: vi.fn(),
   updateBrand: vi.fn(async () => ({})),
+  // brandConfig is saved through patchBrandConfig: re-read the brand (findBrand), then a compare-and-set updateMany
+  updateBrandConfig: vi.fn(async () => ({ count: 1 })),
   updatePost: vi.fn(async () => ({})),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    brand: { findUnique: mocks.findBrand, update: mocks.updateBrand },
+    brand: { findUnique: mocks.findBrand, update: mocks.updateBrand, updateMany: mocks.updateBrandConfig },
     post: { findMany: mocks.findPosts, update: mocks.updatePost },
   },
 }));
@@ -119,7 +121,7 @@ describe("learnBrandGrowth", () => {
 
     await learnBrandGrowth("brand_1");
 
-    const saved = mocks.updateBrand.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
+    const saved = mocks.updateBrandConfig.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
     const priors = (JSON.parse(saved[0].data.brandConfig) as { thompsonPriors: Record<string, unknown> }).thompsonPriors;
     expect(Object.keys(priors)).toEqual(["mature"]);
   });
@@ -158,15 +160,32 @@ describe("learnBrandGrowth", () => {
     expect(result.contextWeights?.personaWeights?.[bottom]).toBe(2);
   });
 
+  // The run reads the brand first and then computes over up to 300 posts. A settings save in between used to be
+  // reverted because the whole learned config was merged into the raw string read at the start.
+  it("saves the learned config on top of the config stored now, not the one read at the start", async () => {
+    mocks.findBrand
+      .mockResolvedValueOnce({ id: "brand_1", formulaWeights: "{}", brandConfig: JSON.stringify({ topics: ["topic at start"] }) })
+      .mockResolvedValueOnce({ brandConfig: JSON.stringify({ topics: ["topic saved meanwhile"] }) });
+
+    await learnBrandGrowth("brand_1");
+
+    const saved = mocks.updateBrandConfig.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
+    const config = JSON.parse(saved[0].data.brandConfig) as { topics: string[]; thompsonPriors: Record<string, unknown> };
+    expect(config.topics).toEqual(["topic saved meanwhile"]);
+    expect(Object.keys(config.thompsonPriors).length).toBeGreaterThan(0);
+  });
+
   it("keeps New Year posts out of every learner", async () => {
     const savedConfig = async (fixture: ReturnType<typeof post>[]) => {
       mocks.updateBrand.mockClear();
+      mocks.updateBrandConfig.mockClear();
       mocks.findPosts.mockResolvedValue(fixture);
       await learnBrandGrowth("brand_1");
-      const saved = mocks.updateBrand.mock.calls[0] as unknown as [{ data: { brandConfig: string; formulaWeights: string; growthMemory: string } }];
+      const saved = mocks.updateBrand.mock.calls[0] as unknown as [{ data: { formulaWeights: string; growthMemory: string } }];
+      const savedConfig = mocks.updateBrandConfig.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
       const { data } = saved[0];
       return {
-        priors: (JSON.parse(data.brandConfig) as { thompsonPriors: Record<string, unknown> }).thompsonPriors,
+        priors: (JSON.parse(savedConfig[0].data.brandConfig) as { thompsonPriors: Record<string, unknown> }).thompsonPriors,
         weights: JSON.parse(data.formulaWeights) as Record<string, number>,
         memory: { ...(JSON.parse(data.growthMemory) as Record<string, unknown>), updatedAt: undefined },
       };

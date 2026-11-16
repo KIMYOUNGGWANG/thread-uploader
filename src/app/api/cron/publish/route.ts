@@ -12,7 +12,8 @@ import {
   parseSlotHours,
 } from "@/lib/behavioral-jitter";
 import { resolveAccountTrustTier, startOfPublishDay, TIER_DAILY_QUOTAS } from "@/lib/account-trust-ramp";
-import { getActiveCampaign, parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 import { sendSystemAlert } from "@/lib/alert-service";
 import { isMetricsCollectionStale } from "@/lib/metrics-selection";
 import { loadLengthExperimentState, pickPublishCandidate } from "@/lib/length-experiment";
@@ -210,10 +211,7 @@ export async function GET(request: NextRequest) {
           const sporadic = evaluateSporadicSkip(Boolean(brandConfig.lastTickSkipped));
           if (sporadic.shouldSkip) {
             brandConfig.lastTickSkipped = true;
-            await prisma.brand.update({
-              where: { id: brand.id },
-              data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, brandConfig) },
-            });
+            await patchBrandConfig(brand.id, brand.brandConfig, brandConfig);
             skipped.push({ brandId: brand.id, brandName: brand.name, reason: "sporadic_skip" });
             continue;
           }
@@ -352,10 +350,7 @@ export async function GET(request: NextRequest) {
           if (brandConfig.lastTickSkipped) {
             updatedBreaker.lastTickSkipped = false;
           }
-          await prisma.brand.update({
-            where: { id: brand.id },
-            data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedBreaker) },
-          });
+          await patchBrandConfig(brand.id, brand.brandConfig, updatedBreaker);
 
           published.push({
             brandId: brand.id,
@@ -375,10 +370,7 @@ export async function GET(request: NextRequest) {
             60 * 60 * 1000,
             now
           );
-          await prisma.brand.update({
-            where: { id: brand.id },
-            data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedBreaker) },
-          });
+          await patchBrandConfig(brand.id, brand.brandConfig, updatedBreaker);
           skipped.push({
             brandId: brand.id,
             brandName: brand.name,
@@ -404,10 +396,7 @@ export async function GET(request: NextRequest) {
           60 * 60 * 1000,
           now
         );
-        await prisma.brand.update({
-          where: { id: brand.id },
-          data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedBreaker) },
-        });
+        await patchBrandConfig(brand.id, brand.brandConfig, updatedBreaker);
         skipped.push({ brandId: brand.id, brandName: brand.name, reason: "publish_failed" });
         await sendSystemAlert({
           level: "error",
