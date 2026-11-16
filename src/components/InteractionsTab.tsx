@@ -27,7 +27,7 @@ export function InteractionsTab({ brandId }: InteractionsTabProps) {
     setIsLoading(true);
     try {
       const res = await fetch(`/api/interactions?brandId=${encodeURIComponent(brandId)}`);
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (data.success && Array.isArray(data.posts)) {
         setPostGroups(data.posts);
         // Pre-populate editable drafts
@@ -72,7 +72,7 @@ export function InteractionsTab({ brandId }: InteractionsTabProps) {
           replyText: text,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
         throw new Error(data.error || "답글 발행 실패");
       }

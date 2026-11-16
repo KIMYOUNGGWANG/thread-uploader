@@ -21,7 +21,7 @@ export default function BrandsPage() {
     try {
       const res = await fetch("/api/brands");
       if (res.status === 401) { router.push("/login"); return; }
-      const data = await res.json() as BrandResponse[] | { error: string };
+      const data = await res.json().catch(() => ({})) as BrandResponse[] | { error: string };
       if (!res.ok) throw new Error((data as { error: string }).error ?? "제품 불러오기 실패");
       setBrands(data as BrandResponse[]);
     } catch (err) {
@@ -204,7 +204,7 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildPreviewPayload(form)),
       });
-      const data: unknown = await response.json();
+      const data: unknown = await response.json().catch(() => ({}));
       if (!response.ok) {
         const message = isRecord(data) && typeof data.error === "string" ? data.error : "자동 세팅 실패";
         throw new Error(message);
@@ -235,7 +235,7 @@ function CreateBrandModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           brandConfig: setupDraft?.config ?? buildFallbackProductConfig(form),
         }),
       });
-      const data = await res.json() as { error?: string };
+      const data = await res.json().catch(() => ({})) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "제품 생성 실패");
       toast.success("제품이 생성되었습니다!");
       onSuccess();

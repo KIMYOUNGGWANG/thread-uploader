@@ -29,7 +29,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json() as { error?: string };
+      const data = await response.json().catch(() => ({})) as { error?: string };
 
       if (response.ok) {
         toast.success("로그인 성공!");
