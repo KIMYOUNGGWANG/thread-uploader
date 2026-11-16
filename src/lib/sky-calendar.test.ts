@@ -65,4 +65,15 @@ describe("findEnglishDatesOutsideCalendar", () => {
     expect(findEnglishDatesOutsideCalendar("full moon on Nov 24", NOW)).toEqual([]);
     expect(findEnglishDatesOutsideCalendar("Mercury goes direct on Nov 13", NOW)).toEqual(["Nov 13"]);
   });
+
+  // Any word starting with a month abbreviation used to read as a date and hard-block the English post.
+  it("does not read words that only start like a month as dates", async () => {
+    const { findEnglishDatesOutsideCalendar } = await import("@/lib/sky-calendar");
+    expect(findEnglishDatesOutsideCalendar("Mars 7th house, decan 2, market 5 times, Junior 3, Octagon 8", NOW)).toEqual([]);
+  });
+
+  it("still reads full, abbreviated and dotted month names", async () => {
+    const { findEnglishDatesOutsideCalendar } = await import("@/lib/sky-calendar");
+    expect(findEnglishDatesOutsideCalendar("March 3, Sept. 9, Sep 10, December 25th, june 2", NOW)).toEqual(["March 3", "Sept. 9", "Sep 10", "December 25th", "june 2"]);
+  });
 });
