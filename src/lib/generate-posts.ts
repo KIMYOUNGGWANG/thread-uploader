@@ -463,6 +463,9 @@ async function generateWithQuality(
   const draftThroughGate = async (feedback: string[]) => {
     let result = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, feedback);
     let gate = await gateWithJudges(result.post, result.firstComment);
+    // Every reason seen so far goes back on each retry. Passing only the latest ones let a retry that fixed the
+    // calendar date bring back the 자격증 saturation it had fixed one attempt earlier (2026-11-16 logs).
+    const seenReasons: string[] = [];
     for (let attempt = 1; attempt <= maxRetries && !gate.pass; attempt++) {
       // Feeding "too close to the source" back would only paraphrase to just under the threshold; drop the draft instead.
       if (experiment.referenceReplay && gate.reasons.some((reason) => reason.startsWith(REFERENCE_COPY_REASON))) break;
@@ -472,7 +475,8 @@ async function generateWithQuality(
       const shortenDraft = gate.reasons.some((reason) => reason.startsWith(TOO_LONG_PREFIX))
         ? [`Previous draft, too long. Keep its hook and strongest lines and cut it down; do not write a new post:\n${result.post}`]
         : [];
-      result = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, [...feedback, ...gate.reasons, ...shortenDraft]);
+      for (const reason of gate.reasons) if (!seenReasons.includes(reason)) seenReasons.push(reason);
+      result = await generateOne(experiment, config, growthContext, viralContext, recentPostContext, [...feedback, ...seenReasons, ...shortenDraft]);
       gate = await gateWithJudges(result.post, result.firstComment);
     }
     return { result, gate };
