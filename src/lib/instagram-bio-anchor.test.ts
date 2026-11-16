@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
-  brand: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
+  // brandConfig is saved through patchBrandConfig: re-read the brand (findUnique), then a compare-and-set updateMany
+  brand: { findUniqueOrThrow: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn<(args: { where: object; data: { brandConfig: string } }) => Promise<{ count: number }>>(async () => ({ count: 1 })) },
   post: { findFirst: vi.fn(), create: vi.fn() },
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
@@ -13,7 +14,10 @@ import {
   tryBuildInstagramBioLink,
 } from "@/lib/instagram-bio-anchor";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  prismaMock.brand.findUnique.mockImplementation(async () => prismaMock.brand.findUniqueOrThrow.mock.results.at(-1)?.value);
+});
 
 describe("ensureInstagramBioAnchor", () => {
   it("creates an ANCHOR post once and stores its id in brandConfig", async () => {
@@ -30,7 +34,7 @@ describe("ensureInstagramBioAnchor", () => {
       postCategory: "INSTAGRAM_BIO",
       content: "[instagram bio anchor]",
     });
-    const saved = JSON.parse(prismaMock.brand.update.mock.calls[0]?.[0].data.brandConfig);
+    const saved = JSON.parse(prismaMock.brand.updateMany.mock.calls[0]?.[0].data.brandConfig ?? "{}");
     expect(saved.instagram.bioAnchorPostId).toBe("anchor1");
     expect(saved.fidelity).toBe(1);
   });
@@ -45,7 +49,7 @@ describe("ensureInstagramBioAnchor", () => {
     expect(await ensureInstagramBioAnchor("b1")).toBe("anchor1");
     expect(prismaMock.post.findFirst.mock.calls[0]?.[0].where).toEqual({ id: "anchor1", brandId: "b1", status: "ANCHOR" });
     expect(prismaMock.post.create).not.toHaveBeenCalled();
-    expect(prismaMock.brand.update).not.toHaveBeenCalled();
+    expect(prismaMock.brand.updateMany).not.toHaveBeenCalled();
   });
 
   it("recreates the anchor when the stored post is gone", async () => {

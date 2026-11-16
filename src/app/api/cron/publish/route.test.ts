@@ -3,19 +3,25 @@ import { describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   findBrands: vi.fn(),
   updateBrand: vi.fn(),
+  findBrandNow: vi.fn(),
+  updateBrandConfig: vi.fn(async () => ({ count: 1 })),
   findPost: vi.fn(),
   updatePost: vi.fn(async ({ data }) => ({ id: "post_1", ...data })),
   publishPostWithCredentials: vi.fn(),
   sendSystemAlert: vi.fn(async () => false),
+  acquireLease: vi.fn(async () => true),
 }));
 
 vi.mock("@/lib/alert-service", () => ({ sendSystemAlert: mocks.sendSystemAlert }));
+vi.mock("@/lib/publish-lease", () => ({ acquirePublishLease: mocks.acquireLease }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     brand: {
       findMany: mocks.findBrands,
       update: mocks.updateBrand,
+      findUnique: mocks.findBrandNow,
+      updateMany: mocks.updateBrandConfig,
     },
     post: {
       findFirst: mocks.findPost,
@@ -75,15 +81,9 @@ describe("GET /api/cron/publish", () => {
   });
 
   it("skips scheduled tick when sporadic mode is active and marks lastTickSkipped", async () => {
-    mocks.updateBrand.mockResolvedValue({});
-
-    mocks.findBrands.mockResolvedValue([
-      {
-        id: "brand_sporadic",
-        name: "CosmicPath",
-        brandConfig: JSON.stringify({ sporadicEnabled: true, lastTickSkipped: false }),
-      },
-    ]);
+    const stored = JSON.stringify({ sporadicEnabled: true, lastTickSkipped: false });
+    mocks.findBrands.mockResolvedValue([{ id: "brand_sporadic", name: "CosmicPath", brandConfig: stored }]);
+    mocks.findBrandNow.mockResolvedValue({ brandConfig: stored });
     mocks.findPost.mockResolvedValue(null);
 
     // Mock sporadic skip to trigger
@@ -104,14 +104,31 @@ describe("GET /api/cron/publish", () => {
     expect(body.skipped).toEqual([
       { brandId: "brand_sporadic", brandName: "CosmicPath", reason: "sporadic_skip" },
     ]);
-    expect(mocks.updateBrand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "brand_sporadic" },
-        data: expect.objectContaining({
-          brandConfig: expect.stringContaining('"lastTickSkipped":true'),
-        }),
-      })
-    );
+    expect(mocks.updateBrandConfig).toHaveBeenCalledWith({
+      where: { id: "brand_sporadic", brandConfig: stored },
+      data: { brandConfig: expect.stringContaining('"lastTickSkipped":true') },
+    });
+
+    spy.mockRestore();
+  });
+
+  // The cron reads every brand up front and publishes for seconds; a settings save in between used to be reverted
+  // because the whole config was merged back into the raw string read at the start.
+  it("does not revert a brandConfig key saved while the cron was running", async () => {
+    const readAtStart = JSON.stringify({ sporadicEnabled: true, lastTickSkipped: false, topics: ["topic at start"] });
+    const storedNow = JSON.stringify({ sporadicEnabled: true, lastTickSkipped: false, topics: ["topic saved meanwhile"] });
+    mocks.findBrands.mockResolvedValue([{ id: "brand_sporadic", name: "CosmicPath", brandConfig: readAtStart }]);
+    mocks.findBrandNow.mockResolvedValue({ brandConfig: storedNow });
+    mocks.findPost.mockResolvedValue(null);
+    const behavioralJitter = await import("@/lib/behavioral-jitter");
+    const spy = vi.spyOn(behavioralJitter, "evaluateSporadicSkip").mockReturnValue({ shouldSkip: true, reason: "sporadic_skip", skipProbability: 0.18 });
+    mocks.updateBrandConfig.mockClear();
+
+    const { GET } = await import("@/app/api/cron/publish/route");
+    await GET({ headers: new Headers(), nextUrl: new URL("http://localhost/api/cron/publish") } as never);
+
+    const [{ data }] = mocks.updateBrandConfig.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
+    expect(JSON.parse(data.brandConfig)).toMatchObject({ topics: ["topic saved meanwhile"], lastTickSkipped: true });
 
     spy.mockRestore();
   });
@@ -386,6 +403,78 @@ describe("GET /api/cron/publish", () => {
       mocks.findBrands.mockResolvedValue([{ id: "brand_slot", name: "CosmicPath" }]);
       const response = await callWithSlots("25");
       expect(response.status).toBe(400);
+    });
+  });
+
+  // GitHub Actions, the Cloudflare worker and cron-job.org all call this route. Slot, cooldown and quota only count
+  // PUBLISHED rows, which appear after the publish finishes, so overlapping runs used to publish two posts into one slot.
+  describe("overlapping runs on the same brand", () => {
+    const callPublish = async (query = "") => {
+      const { GET } = await import("@/app/api/cron/publish/route");
+      return GET({ headers: new Headers(), nextUrl: new URL(`http://localhost/api/cron/publish${query}`) } as never);
+    };
+    const pendingPost = {
+      id: "post_2", brandId: "brand_overlap", status: "PENDING", qualityPass: true, content: "오늘 하루 수고했어요.",
+      firstComment: null, imageUrls: "[]", threadPartIds: "[]", threadPartsPosted: 0, threadTotalParts: 1,
+    };
+
+    it("skips with publish_in_flight and claims nothing while another run holds the publish lease", async () => {
+      const { prisma } = await import("@/lib/prisma");
+      vi.mocked(prisma.post.updateMany).mockClear();
+      mocks.acquireLease.mockResolvedValueOnce(false);
+      mocks.findBrands.mockResolvedValue([{ id: "brand_overlap", name: "Overlap", slug: "overlap" }]);
+      mocks.findPost.mockReset();
+      mocks.findPost.mockImplementation(async ({ where }) =>
+        where?.status === "PARTIAL_FAILED" || where?.status === "PUBLISHED" ? null : pendingPost);
+
+      const body = await (await callPublish()).json();
+
+      expect(body.skipped).toEqual([{ brandId: "brand_overlap", brandName: "Overlap", reason: "publish_in_flight" }]);
+      expect(body.published).toEqual([]);
+      expect(prisma.post.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("publishes when the lease is free", async () => {
+      const { prisma } = await import("@/lib/prisma");
+      vi.mocked(prisma.post.updateMany).mockClear();
+      mocks.findBrands.mockResolvedValue([{ id: "brand_overlap", name: "Overlap", slug: "overlap" }]);
+      mocks.findPost.mockReset();
+      mocks.findPost.mockImplementation(async ({ where }) =>
+        where?.status === "PARTIAL_FAILED" || where?.status === "PUBLISHED" ? null : pendingPost);
+
+      const body = await (await callPublish()).json();
+
+      expect(body.published).toEqual([expect.objectContaining({ postId: "post_2" })]);
+      expect(prisma.post.updateMany).toHaveBeenCalled();
+    });
+
+    it("re-checks the slot after taking the lease, so a run that finished in between is not followed by a second post", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-12T13:40:00Z")); // the 12:00 slot is open until 15:00
+      try {
+        const { prisma } = await import("@/lib/prisma");
+        vi.mocked(prisma.post.updateMany).mockClear();
+        mocks.findBrands.mockResolvedValue([{ id: "brand_overlap", name: "Overlap", slug: "overlap" }]);
+        let lastPublishedLookups = 0;
+        mocks.findPost.mockReset();
+        mocks.findPost.mockImplementation(async ({ where }) => {
+          if (where?.status === "PARTIAL_FAILED") return null;
+          if (where?.status === "PUBLISHED") {
+            lastPublishedLookups += 1;
+            // First look: the last post went out before this slot. By the second look another run has published inside it.
+            return { status: "PUBLISHED", publishedAt: new Date(lastPublishedLookups === 1 ? "2026-10-12T10:00:00Z" : "2026-10-12T13:35:00Z") };
+          }
+          return pendingPost;
+        });
+
+        const body = await (await callPublish("?slots=0,12")).json();
+
+        expect(body.skipped).toEqual([{ brandId: "brand_overlap", brandName: "Overlap", reason: "slot_already_served" }]);
+        expect(lastPublishedLookups).toBe(2);
+        expect(prisma.post.updateMany).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

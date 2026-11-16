@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 import type { AccountHealthState } from "@/types/brand";
-import {
-  evaluateShadowbanHealth,
-  getSelfHealingAction,
-  type PostReachRecord,
-} from "@/lib/shadowban-health-probe";
+import { getSelfHealingAction } from "@/lib/shadowban-health-probe";
+import { evaluateBrandShadowban } from "@/lib/shadowban-check";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -100,12 +98,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     config.accountHealth = updatedHealth;
     config.shadowbanStatus = body.status === "RECOVERY" ? "WARNING" : body.status;
 
-    await prisma.brand.update({
-      where: { id: brand.id },
-      data: {
-        brandConfig: serializeBrandConfigUpdate(brand.brandConfig, config),
-      },
-    });
+    await patchBrandConfig(brand.id, brand.brandConfig, config);
 
     return NextResponse.json({
       success: true,
@@ -156,38 +149,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Fetch published posts with reach metrics
-    const posts = await prisma.post.findMany({
-      where: {
-        brandId: brand.id,
-        status: "PUBLISHED",
-        publishedAt: { not: null },
-      },
-      orderBy: { publishedAt: "desc" },
-      take: 25,
-      select: {
-        id: true,
-        views: true,
-        likes: true,
-        replies: true,
-        publishedAt: true,
-      },
-    });
-
-    const history: PostReachRecord[] = posts
-      .filter((p) => p.publishedAt !== null)
-      .map((p) => ({
-        postId: p.id,
-        views: p.views,
-        likes: p.likes ?? 0,
-        replies: p.replies ?? 0,
-        publishedAt: p.publishedAt as Date,
-      }));
-
-    const report = evaluateShadowbanHealth(history, {
-      minHoursSincePublished: 6,
-      minTotalPostsForColdStart: 5,
-    });
+    const report = await evaluateBrandShadowban(brand.id);
 
     const directive = getSelfHealingAction(report);
 
@@ -210,12 +172,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     config.accountHealth = updatedHealth;
     config.shadowbanStatus = report.status;
 
-    await prisma.brand.update({
-      where: { id: brand.id },
-      data: {
-        brandConfig: serializeBrandConfigUpdate(brand.brandConfig, config),
-      },
-    });
+    await patchBrandConfig(brand.id, brand.brandConfig, config);
 
     return NextResponse.json({
       success: true,

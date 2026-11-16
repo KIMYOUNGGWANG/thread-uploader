@@ -15,7 +15,13 @@ function matches(status: unknown, where: unknown): boolean {
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    brand: { findMany: vi.fn(async () => [{ id: "brand_1", name: "CosmicPath", slug: "cosmicpath" }]), update: vi.fn() },
+    brand: {
+      findMany: vi.fn(async () => [{ id: "brand_1", name: "CosmicPath", slug: "cosmicpath" }]),
+      update: vi.fn(),
+      // brandConfig writes go through patchBrandConfig: re-read, then a compare-and-set update
+      findUnique: vi.fn(async () => ({ brandConfig: "{}" })),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+    },
     post: {
       findMany: vi.fn(async () => []),
       findFirst: vi.fn(async ({ where }: { where: { status?: unknown; qualityPass?: unknown } }) =>
@@ -40,6 +46,7 @@ vi.mock("@/lib/threads-api", () => ({
 }));
 
 vi.mock("@/lib/alert-service", () => ({ sendSystemAlert: vi.fn() }));
+vi.mock("@/lib/publish-lease", () => ({ acquirePublishLease: vi.fn(async () => true) }));
 
 describe("cron publish claim", () => {
   it("publishes a PENDING post instead of failing its own lock", async () => {

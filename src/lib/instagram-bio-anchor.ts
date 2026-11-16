@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { buildTrackedUrl } from "@/lib/tracking-url";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 
 export const INSTAGRAM_BIO_ANCHOR_STATUS = "ANCHOR";
 export const INSTAGRAM_BIO_CATEGORY = "INSTAGRAM_BIO";
@@ -29,14 +30,7 @@ export async function ensureInstagramBioAnchor(brandId: string): Promise<string>
       postCategory: INSTAGRAM_BIO_CATEGORY,
     },
   });
-  await prisma.brand.update({
-    where: { id: brandId },
-    data: {
-      brandConfig: serializeBrandConfigUpdate(brand.brandConfig, {
-        instagram: { ...config.instagram, bioAnchorPostId: anchor.id },
-      }),
-    },
-  });
+  await patchBrandConfig(brandId, brand.brandConfig, { instagram: { ...config.instagram, bioAnchorPostId: anchor.id } });
   return anchor.id;
 }
 

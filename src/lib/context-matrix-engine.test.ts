@@ -64,6 +64,17 @@ describe("context-matrix-engine", () => {
     expect(DOMAIN_MATRICES.saju_viral.personas).toContain(fallbackContext.persona);
   });
 
+  // saas_b2b is a valid QualityProfileId and domain-registry gives it its own preset, but the id contains neither
+  // "product", "career", "etsy" nor "commerce", so it fell through to the saju matrix: saju personas and scenes
+  // became the target audience and situation in a B2B brand's prompt.
+  it("serves saas_b2b brands the product matrix instead of the saju fallback", () => {
+    for (let index = 0; index < 8; index++) {
+      const context = resolveDynamicContext({ domainId: "saas_b2b", index });
+      expect(DOMAIN_MATRICES.product_growth.personas).toContain(context.persona);
+      expect(DOMAIN_MATRICES.saju_viral.personas).not.toContain(context.persona);
+    }
+  });
+
   it("enriches baseTopic and custom user targets while preserving intent", () => {
     const context = resolveDynamicContext({
       domainId: "career_decision",

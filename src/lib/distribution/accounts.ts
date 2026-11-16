@@ -49,13 +49,20 @@ async function refreshAccount(account: ChannelAccount, platform: OAuthPlatform, 
   const app = readAppCredentials(platform);
   if (!app) throw new ChannelApiError(`${OAUTH_PROVIDERS[platform].label}: app credentials are not configured`, null, true);
   if (!account.refreshToken) throw new ChannelApiError(`${OAUTH_PROVIDERS[platform].label}: reconnect needed (no refresh token)`, null, true);
+  const refreshToken = decryptToken(account.refreshToken);
   let tokens: TokenSet;
   try {
-    tokens = await OAUTH_PROVIDERS[platform].refresh(app, decryptToken(account.refreshToken), now);
+    tokens = await OAUTH_PROVIDERS[platform].refresh(app, refreshToken, now);
   } catch (error) {
-    // invalid_grant = revoked or expired refresh token; only a reconnect fixes it.
+    const label = OAUTH_PROVIDERS[platform].label;
+    // invalid_grant = revoked or expired refresh token (requestJson marks HTTP 400/403/404 permanent); only a reconnect fixes it.
+    if (error instanceof ChannelApiError && error.permanent) {
+      throw new ChannelApiError(`${label}: reconnect needed (${error.message})`, error.status, true);
+    }
+    // A timeout, network error, 429 or 5xx says nothing about the grant: let the upload retry on its normal backoff
+    // instead of failing it for good with a misleading "reconnect needed".
     const message = error instanceof Error ? error.message : String(error);
-    throw new ChannelApiError(`${OAUTH_PROVIDERS[platform].label}: reconnect needed (${message})`, null, true);
+    throw new ChannelApiError(`${label}: token refresh failed, will retry (${message})`, error instanceof ChannelApiError ? error.status : null, false);
   }
   await prisma.channelAccount.update({
     where: { id: account.id },
@@ -75,10 +82,13 @@ export async function getChannelCredentials(account: ChannelAccount, now = new D
     return { accessToken: creds.accessToken, externalUserId: creds.userId, handle: account.handle };
   }
   if (!isOAuthPlatform(account.platform)) throw new ChannelApiError(`Unsupported platform: ${account.platform}`, null, true);
-  const accessToken = account.accessToken && isTokenFresh(account.tokenExpiry, now)
-    ? decryptToken(account.accessToken)
-    : await refreshAccount(account, account.platform, now);
-  return { accessToken, externalUserId: account.externalUserId, handle: account.handle };
+  // Re-read the row: uploads queued together each hold their own snapshot of this account, so a later one would
+  // refresh again with a refresh token an earlier upload has already rotated.
+  const current = (await prisma.channelAccount.findUnique({ where: { id: account.id } })) ?? account;
+  const accessToken = current.accessToken && isTokenFresh(current.tokenExpiry, now)
+    ? decryptToken(current.accessToken)
+    : await refreshAccount(current, account.platform, now);
+  return { accessToken, externalUserId: current.externalUserId, handle: current.handle };
 }
 
 /** Enabled accounts per platform for a brand. Instagram rides on Brand tokens through its legacy account row. */

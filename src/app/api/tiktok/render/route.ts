@@ -2,8 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
-import { buildTikTokRenderSpec, executeTikTokRender } from "@/lib/tiktok/tiktok-render-worker";
-import type { TikTokSceneBeat } from "@/lib/tiktok/tiktok-script-engine";
+import { buildTikTokRenderSpec } from "@/lib/tiktok/tiktok-render-worker";
+import { draftToScriptResult } from "@/lib/tiktok/tiktok-draft-service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,66 +23,10 @@ export async function POST(request: NextRequest) {
     }
     await requireBrandForCurrentUser(draft.brandId);
 
-    const scenes: TikTokSceneBeat[] = JSON.parse(draft.sceneBeats || "[]");
-    const hashtags: string[] = JSON.parse(draft.hashtags || "[]");
-
-    const scriptResult = {
-      title: draft.title,
-      spokenHook: draft.spokenHook,
-      fullScript: draft.script,
-      totalDurationSeconds: draft.durationSeconds,
-      scenes,
-      cta: draft.cta,
-      hashtags,
-      qualityScore: draft.qualityScore,
-      qualityPass: draft.qualityPass,
-    };
-
-    const renderSpec = buildTikTokRenderSpec(scriptResult);
-
+    // Dry run = spec check only: same spec the worker renders, no draft update, no disk write.
     if (dryRun) {
-      await prisma.tikTokVideoDraft.update({
-        where: { id: draftId },
-        data: { status: "RENDERING" },
-      });
-
-      const renderResult = await executeTikTokRender(renderSpec, {
-        dryRun: true,
-        outputFileName: `${draft.id}.mp4`,
-      });
-
-      if (renderResult.success) {
-        const updatedDraft = await prisma.tikTokVideoDraft.update({
-          where: { id: draftId },
-          data: {
-            status: "COMPLETED",
-            utmContent: renderResult.outputPath,
-          },
-        });
-
-        return NextResponse.json({
-          success: true,
-          draft: updatedDraft,
-          renderResult,
-        });
-      } else {
-        const failedDraft = await prisma.tikTokVideoDraft.update({
-          where: { id: draftId },
-          data: {
-            status: "FAILED",
-            qualityReasons: JSON.stringify([renderResult.error || "Rendering failed"]),
-          },
-        });
-
-        return NextResponse.json(
-          {
-            success: false,
-            draft: failedDraft,
-            error: renderResult.error,
-          },
-          { status: 500 }
-        );
-      }
+      const renderSpec = buildTikTokRenderSpec(draftToScriptResult(draft));
+      return NextResponse.json({ success: true, dryRun: true, renderSpec });
     }
 
     // Serverless-safe decoupled execution: queue for local/standalone worker

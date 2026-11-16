@@ -12,7 +12,6 @@ Internal growth workspace for promoting my owned products. The database/API stil
 - Collect Threads metrics and calculate a weighted performance score.
 - Run 2-hour account intelligence snapshots for reply, format, link-ratio, and quality actions.
 - Discover viral reference posts from product topics, public Threads profiles, manual imports, and owned post history.
-- Discover related public Threads accounts, approve watch/ignore status, and learn patterns from watched accounts.
 - Manage viral sources per product: keyword searches, competitor handles, excluded terms, source adapters, and run limits.
 - Extract viral hook, emotion, structure, topic, and CTA patterns.
 - Learn winning and weak growth patterns, then feed that memory into future AI generation.
@@ -67,7 +66,7 @@ npm run build
 
 > 2026-11-09 사용자 결정으로 11/17 실험 동결을 풀었다. `video-factory.yml`(KST 06:00)·`render-video.yml`(KST 06:10)·`render-promo.yml`(월·목 KST 06:30) 스케줄을 다시 켰고, `account-intelligence.yml`은 2시간마다, `shorts.yml` snapshot은 매시간으로 되돌렸다. 새 `distribute.yml`이 30분마다 업로드를 돈다.
 
-- `GET /api/cron/publish` publishes one pending post per product profile. Optional `?brands=slug1,slug2` limits the run. It is the only publisher: GitHub Actions (`.github/workflows/cron.yml`) calls it hourly with `?slots=` (UTC hours), and the route publishes at most once per slot while the slot's 3-hour window is open, so late GitHub runs still post. Daily trust-tier quotas (newbie 1 / warming 2 / established 5 / authority 8, reset at KST midnight) skip the run with `daily_quota_reached` instead of demoting the post.
+- `GET /api/cron/publish` publishes one pending post per product profile. Optional `?brands=slug1,slug2` limits the run. It is the only publisher: GitHub Actions (`.github/workflows/cron.yml`) calls it every 15 minutes with `?slots=` (UTC hours), and the route publishes at most once per slot while the slot's 3-hour window is open, so late GitHub runs still post. The Cloudflare Worker in `cloudflare/scheduler/` calls the same route on the same cadence (see `docs/ops/external-scheduler.md`). Daily trust-tier quotas (newbie 1 / warming 2 / established 5 / authority 8, reset at KST midnight) skip the run with `daily_quota_reached` instead of demoting the post.
 - `GET /api/cron/refresh-token` refreshes Threads tokens when they are within 14 days of expiry.
 - `GET /api/cron/fetch-metrics` collects Threads insights (6h–14d posts, uncollected and 72h-mature first) and rescoring keeps click/conversion weight. A post Threads reports as deleted (400 "does not exist") is set to `ARCHIVED` with an `errorLog` instead of failing every run.
 - `GET /api/cron/learn` refreshes product growth memory from collected metrics. Ranking follows `brandConfig.optimizationGoal` (settings → 캠페인 탭 → 학습 목표): `reach` (default) promotes, auto-queues and samples formulas by views; `conversion` uses the revenue-weighted score. Formula weights and Thompson priors are rebuilt from the recent window each run (never stacked on stored values). `growthMemory.formulaWinners` (formula-level, 2+ posts at or above the brand average) is what lets generated drafts skip review. GitHub Actions (`fetch-metrics.yml`) runs both daily at UTC 12:00.
@@ -93,9 +92,9 @@ Settings → 기본 → "영상·카드뉴스·X 배포". Each button goes throu
 
 Distribution settings live in `brandConfig.distribution` (`cancelWindowHours`, `video.channels`, `cardNews.{enabled,dailyCap,minViews,lookbackDays}`, `x.{enabled,dailyCap}`) and are edited on the same settings card.
 
-Token refresh and account intelligence cadences are registered through `vercel.json` as daily Vercel Cron Jobs.
-The cron publish route refreshes tokens at the publish boundary via `getFreshBrandCredentials`. Vercel Cron only runs the daily feedback job (Hobby allows daily schedules only).
-Set `CRON_SECRET` to require `Authorization: Bearer <CRON_SECRET>` for cron calls (query-string secrets are rejected).
+Vercel Cron only runs the daily feedback job (`/api/cron/feedback` in `vercel.json`; Hobby allows daily schedules only). Every other cron is called by GitHub Actions, and the time-sensitive ones also by the Cloudflare Worker.
+The cron publish route refreshes tokens at the publish boundary via `getFreshBrandCredentials`.
+`CRON_SECRET` is required in production: cron calls must send `Authorization: Bearer <CRON_SECRET>` (query-string secrets are rejected), and with no secret set every cron call is refused.
 
 ## Environment
 

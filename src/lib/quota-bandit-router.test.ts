@@ -81,4 +81,21 @@ describe("4:4:2 Quota & MAB Router", () => {
 
     expect(result.formulaId).not.toBe("solar_distortion_truth");
   });
+
+  // Moved here from the deleted src/app/api/generate/route.test.ts (the rest of that file only tested the dead generation-engine copy).
+  it("routes to the high-performing domain formula under adaptive weights", () => {
+    // When sal_hierarchy_ego has high adaptive weight (promoted by 120k views feedback loop)
+    const customWeights = {
+      sal_hierarchy_ego: 10,
+      lotto_zero_friction: 1,
+      self_classification: 1,
+    };
+    const selection = selectFormulaWithQuota(0, {
+      domainProfile: "saju_viral",
+      customWeights,
+      epsilon: 0, // Deterministic exploitation
+    });
+    expect(selection.formulaId).toBe("sal_hierarchy_ego");
+    expect(selection.track).toBe("track_a");
+  });
 });

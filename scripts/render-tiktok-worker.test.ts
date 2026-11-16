@@ -1,6 +1,6 @@
 // scripts/render-tiktok-worker.test.ts — Unit tests for TikTok CLI render worker.
 import fs from "fs";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   buildTikTokRenderSpec,
   cleanStaleJobs,

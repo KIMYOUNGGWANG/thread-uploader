@@ -232,7 +232,7 @@ function pickWeighted(items: string[], weights: Record<string, number>, seed: nu
 export function resolveDynamicContext(options: ResolveDynamicContextOptions): DynamicContextResult {
   const domainKey = options.domainId && DOMAIN_MATRICES[options.domainId]
     ? options.domainId
-    : options.domainId?.includes("product")
+    : options.domainId?.includes("product") || options.domainId?.includes("saas")
     ? "product_growth"
     : options.domainId?.includes("career")
     ? "career_decision"

@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   verify: vi.fn(),
   findBrand: vi.fn(),
-  updateBrand: vi.fn(async () => ({})),
+  updateBrand: vi.fn(async () => ({ count: 1 })),
   lookup: vi.fn(async () => "cosmicpath.app" as string | undefined),
 }));
 
 vi.mock("@/lib/cron-auth", () => ({ verifyCronSecret: mocks.verify }));
-vi.mock("@/lib/prisma", () => ({ prisma: { brand: { findUnique: mocks.findBrand, update: mocks.updateBrand } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { brand: { findUnique: mocks.findBrand, updateMany: mocks.updateBrand } } }));
 vi.mock("@/lib/reference-radar-seed", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/reference-radar-seed")>()),
   lookupThreadsUsername: mocks.lookup,

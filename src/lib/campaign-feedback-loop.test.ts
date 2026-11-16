@@ -15,7 +15,8 @@ function mockPost(id: string, formulaId: string, hoursAgo: number, views: number
     content: `Post ${id} content: hook here\nDetail\n1. Choice A\n2. Choice B\n3. Choice C`,
     campaignFormulaId: formulaId,
     publishedAt: new Date(NOW.getTime() - hoursAgo * HOUR),
-    metricsAt: new Date(NOW.getTime() - (hoursAgo - 2) * HOUR),
+    // Views read an hour before NOW. (It used to be 2h after publishing, which for a "mature" post is a 2h number.)
+    metricsAt: new Date(NOW.getTime() - HOUR),
     views,
     replies,
     reposts: 0,
@@ -36,6 +37,17 @@ describe("campaign-feedback-loop", () => {
     expect(report.maturePostCount).toBe(2);
     expect(report.modePerformance["imagination_dilemma"]).toBeDefined();
     expect(report.modePerformance["concept_hierarchy"]).toBeDefined();
+  });
+
+  // An old post whose views were read 2h after publishing is a 2h number, not a 72h one: it would rank as a flop.
+  it("excludes old posts whose views were last read before the 72h mark", () => {
+    const earlyRead = { ...mockPost("early", "imagination_dilemma", 80, 30), metricsAt: new Date(NOW.getTime() - 78 * HOUR) };
+    const posts: MaturePostMetric[] = [earlyRead, mockPost("ok", "concept_hierarchy", 80, 1500)];
+
+    const report = evaluate72hFeedbackLoop(posts, { now: NOW, brandId: "b1" });
+
+    expect(report.maturePostCount).toBe(1);
+    expect(report.modePerformance["imagination_dilemma"]).toBeUndefined();
   });
 
   it("calculates MAB / Thompson sampling recommended weights favoring higher median engagement", () => {
@@ -72,7 +84,7 @@ describe("campaign-feedback-loop", () => {
 describe("evaluate72hFeedbackLoop scorePost option", () => {
   it("ranks top performers with the supplied score", () => {
     const old = new Date(Date.now() - 100 * 60 * 60 * 1000);
-    const base = { content: "훅\n본문", campaignFormulaId: "m", publishedAt: old, metricsAt: old, replies: 0, reposts: 0, conversions: 0 };
+    const base = { content: "훅\n본문", campaignFormulaId: "m", publishedAt: old, metricsAt: new Date(), replies: 0, reposts: 0, conversions: 0 };
     const posts: MaturePostMetric[] = [
       { ...base, id: "views", views: 9000 },
       { ...base, id: "paid", views: 100, manualPaidConversions: 2 },

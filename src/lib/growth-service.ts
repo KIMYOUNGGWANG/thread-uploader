@@ -13,7 +13,8 @@ import {
   computeAdaptiveContextWeights,
   type ContextWeightAdjustmentResult,
 } from "@/lib/growth-feedback-loop";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 import { DOMAIN_MATRICES } from "@/lib/context-matrix-engine";
 import { getDomainPreset } from "@/lib/domain-registry";
 import { QUOTA_TRACKS } from "@/lib/quota-bandit-router";
@@ -23,12 +24,13 @@ import {
 } from "@/lib/thompson-sampling-router";
 import { isNewYearModeId } from "@/lib/new-year/new-year-season";
 import { MATURITY_HOURS } from "@/lib/weekly-scorecard";
+import { hasMatureSnapshot } from "@/lib/metrics-selection";
 import { calculateGoalReward, calculateLearningScore, medianViews, resolveOptimizationGoal } from "@/lib/optimization-goal";
 
 export async function learnBrandGrowth(brandId: string) {
   const brand = await prisma.brand.findUnique({
     where: { id: brandId },
-    select: { id: brandId ? true : undefined, formulaWeights: true, brandConfig: true },
+    select: { id: true, formulaWeights: true, brandConfig: true },
   });
 
   const fetchedPosts = await prisma.post.findMany({
@@ -57,7 +59,12 @@ export async function learnBrandGrowth(brandId: string) {
   const inputDiff = diffLearningInputs(fetchedPosts);
 
   // Score with current metrics before learning, so weights never use last run's stale scores
-  const allScoredPosts = fetchedPosts.map(withThreadsMetrics).map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
+  // viewsReadAt: when the views were read. The Threads publication copies Post.metricsAt when it is mirrored, mostly
+  // right after fetch-metrics/account-intelligence read views (also on publish and backfill), while Post.metricsAt
+  // itself is also bumped by click/conversion events and manual metrics without re-reading views.
+  const allScoredPosts = fetchedPosts
+    .map((fetched) => ({ ...withThreadsMetrics(fetched), viewsReadAt: fetched.publications?.[0]?.metricsAt ?? fetched.metricsAt }))
+    .map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
   // New Year posts are seasonally inflated, so no learner sees them (their score is still written back).
   const posts = allScoredPosts.filter((post) => !isNewYearModeId(post.formulaId));
   const config = parseBrandConfig(brand?.brandConfig ?? "{}");
@@ -73,6 +80,9 @@ export async function learnBrandGrowth(brandId: string) {
   // Learning ranks by the brand's goal (reach = views); the stored performanceScore stays revenue-based for display.
   const learningPosts = (organicPosts.length > 0 ? organicPosts : posts)
     .filter((post) => post.publishedAt != null && post.publishedAt.getTime() <= matureBefore)
+    // The reach goal scores `views ?? 0`, so views read before the 72h mark (or never) would be learned as a flop.
+    // fetch-metrics re-reads such posts first, so they join the next run.
+    .filter((post) => goal !== "reach" || (post.views != null && hasMatureSnapshot(post.publishedAt, post.viewsReadAt)))
     .map((post) => ({ ...post, performanceScore: calculateLearningScore(goal, post) }));
   const memory = buildGrowthMemory(learningPosts);
 
@@ -145,9 +155,10 @@ export async function learnBrandGrowth(brandId: string) {
     data: {
       growthMemory: JSON.stringify(memory),
       ...(updatedWeights && { formulaWeights: JSON.stringify(updatedWeights) }),
-      ...(updatedBrandConfig && { brandConfig: serializeBrandConfigUpdate(brand?.brandConfig, updatedBrandConfig) }),
     },
   });
+  // The run reads the brand first and computes over up to 300 posts; save only what it changed into the config stored now.
+  if (updatedBrandConfig) await patchBrandConfig(brandId, brand?.brandConfig, updatedBrandConfig);
 
   const now = new Date();
   let scoredPosts = 0;

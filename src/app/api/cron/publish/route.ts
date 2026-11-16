@@ -12,7 +12,8 @@ import {
   parseSlotHours,
 } from "@/lib/behavioral-jitter";
 import { resolveAccountTrustTier, startOfPublishDay, TIER_DAILY_QUOTAS } from "@/lib/account-trust-ramp";
-import { getActiveCampaign, parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { getActiveCampaign, parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 import { sendSystemAlert } from "@/lib/alert-service";
 import { isMetricsCollectionStale } from "@/lib/metrics-selection";
 import { loadLengthExperimentState, pickPublishCandidate } from "@/lib/length-experiment";
@@ -22,15 +23,19 @@ import {
   recordCircuitBreakerSuccess,
 } from "@/lib/threads-publisher";
 import { BRAND_PUBLISH_SLOTS_UTC, resolvePublishSlots } from "@/lib/publish-slots";
+import { acquirePublishLease } from "@/lib/publish-lease";
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-// GitHub schedules run hours late, so the scheduler calls hourly and a slot stays open this long.
+// GitHub schedules run hours late, so the scheduler calls every 15 minutes and a slot stays open this long.
 const SLOT_WINDOW_HOURS = 3;
 // ponytail: scans the oldest 50 due drafts for the slot's arm; raise if the queue grows past that
 const LENGTH_EXPERIMENT_CANDIDATES = 50;
 
 export const maxDuration = 300; // video containers can take minutes to process
+
+// Skip reasons that mean a publish was attempted (or its setup threw) and did not complete.
+const PUBLISH_FAILURE_REASONS = new Set(["publish_failed", "partial_failed"]);
 
 // Shadowban-recovery fallback: link-free, low-risk posts that still give readers a reason to react.
 // 2026-11-04 benchmark: "이 글 보신 분들 … 대운 터지세요" blessing posts drew 1.5k-3k likes on Korean saju Threads,
@@ -70,6 +75,35 @@ function emptyQueueReason(queue: UnpublishableQueue): string {
   if (queue.awaitingReview > 0) return "awaiting_review";
   if (queue.scheduledLater > 0) return "scheduled_later";
   return "no_pending";
+}
+
+type PublishTimingBlock = "outside_publish_slot" | "slot_already_served" | "cooldown_active";
+
+// Slot and cooldown only see PUBLISHED rows. It runs once up front and again after the publish lease is taken:
+// a run that finished in between moves "last published", and this run must not follow it with a second post.
+async function publishTimingBlock(
+  brand: { id: string; slug: string },
+  slotHours: number[] | null,
+  now: Date
+): Promise<PublishTimingBlock | null> {
+  // publishedAt not null: Postgres sorts NULLs first on DESC, so one legacy PUBLISHED row without a date
+  // became "last published" and disabled both the slot gate and the cooldown (2026-10-23: 3 KR posts
+  // in the 09:00 slot within 36 min once the scheduler ran every 15 min).
+  const lastPublished = await prisma.post.findFirst({
+    where: { brandId: brand.id, status: "PUBLISHED", publishedAt: { not: null } },
+    orderBy: { publishedAt: "desc" },
+  });
+  const brandSlots = resolvePublishSlots(brand.slug, slotHours);
+  if (brandSlots) {
+    const openSlot = findOpenPublishSlot(now, brandSlots, SLOT_WINDOW_HOURS);
+    const slotServed = Boolean(openSlot && lastPublished?.publishedAt && lastPublished.publishedAt >= openSlot);
+    if (!openSlot || slotServed) return openSlot ? "slot_already_served" : "outside_publish_slot";
+  }
+  if (lastPublished && lastPublished.status === "PUBLISHED" && lastPublished.publishedAt) {
+    // 90 min fits the 2h gap between the 12:00 and 14:00 UTC scheduler slots
+    if (!checkMinimumCooldown(lastPublished.publishedAt, now, 90).allowed) return "cooldown_active";
+  }
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -180,29 +214,10 @@ export async function GET(request: NextRequest) {
 
       // 3. Minimum Inter-Post Cooldown Check (only for new posts, not resuming)
       if (!isResuming) {
-        // publishedAt not null: Postgres sorts NULLs first on DESC, so one legacy PUBLISHED row without a date
-        // became "last published" and disabled both the slot gate and the cooldown (2026-10-23: 3 KR posts
-        // in the 09:00 slot within 36 min once the scheduler ran every 15 min).
-        const lastPublished = await prisma.post.findFirst({
-          where: { brandId: brand.id, status: "PUBLISHED", publishedAt: { not: null } },
-          orderBy: { publishedAt: "desc" },
-        });
-        const brandSlots = resolvePublishSlots(brand.slug, slotHours);
-        if (brandSlots) {
-          const openSlot = findOpenPublishSlot(now, brandSlots, SLOT_WINDOW_HOURS);
-          const slotServed = Boolean(openSlot && lastPublished?.publishedAt && lastPublished.publishedAt >= openSlot);
-          if (!openSlot || slotServed) {
-            skipped.push({ brandId: brand.id, brandName: brand.name, reason: openSlot ? "slot_already_served" : "outside_publish_slot" });
-            continue;
-          }
-        }
-        if (lastPublished && lastPublished.status === "PUBLISHED" && lastPublished.publishedAt) {
-          // 90 min fits the 2h gap between the 12:00 and 14:00 UTC scheduler slots
-          const cooldown = checkMinimumCooldown(lastPublished.publishedAt, now, 90);
-          if (!cooldown.allowed) {
-            skipped.push({ brandId: brand.id, brandName: brand.name, reason: "cooldown_active" });
-            continue;
-          }
+        const timingBlock = await publishTimingBlock(brand, slotHours, now);
+        if (timingBlock) {
+          skipped.push({ brandId: brand.id, brandName: brand.name, reason: timingBlock });
+          continue;
         }
 
         // 4. Anti-Bot Sporadic Mode (~18% skip, guaranteed no back-to-back skips)
@@ -210,10 +225,7 @@ export async function GET(request: NextRequest) {
           const sporadic = evaluateSporadicSkip(Boolean(brandConfig.lastTickSkipped));
           if (sporadic.shouldSkip) {
             brandConfig.lastTickSkipped = true;
-            await prisma.brand.update({
-              where: { id: brand.id },
-              data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, brandConfig) },
-            });
+            await patchBrandConfig(brand.id, brand.brandConfig, brandConfig);
             skipped.push({ brandId: brand.id, brandName: brand.name, reason: "sporadic_skip" });
             continue;
           }
@@ -224,8 +236,8 @@ export async function GET(request: NextRequest) {
           brandConfig.shadowbanStatus === "SHADOWBAN_SUSPECTED";
 
         if (isShadowbanSuspected) {
-          const startOfDay = new Date(now);
-          startOfDay.setHours(0, 0, 0, 0);
+          // KST midnight like the daily quota below; setHours(0) would use the server's (UTC) midnight.
+          const startOfDay = startOfPublishDay(now);
           const publishedTodayCount = await prisma.post.count({
             where: { brandId: brand.id, status: "PUBLISHED", publishedAt: { gte: startOfDay } },
           });
@@ -342,6 +354,22 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
+      // GitHub Actions, the Cloudflare worker and cron-job.org all call this route, and a publish takes 30-300s.
+      // Without a lease, a second run starting meanwhile sees an unserved slot (only PUBLISHED rows count) and
+      // publishes the next PENDING post into it. The lease expires on its own, so a dead run cannot block the brand.
+      if (!(await acquirePublishLease(brand.id))) {
+        skipped.push({ brandId: brand.id, brandName: brand.name, reason: "publish_in_flight" });
+        continue;
+      }
+      // A run that finished between our gates and the lease moved "last published"; look again before posting.
+      if (!isResuming) {
+        const lateBlock = await publishTimingBlock(brand, slotHours, now);
+        if (lateBlock) {
+          skipped.push({ brandId: brand.id, brandName: brand.name, reason: lateBlock });
+          continue;
+        }
+      }
+
       const credentials = await getFreshBrandCredentials(brand.id);
 
       try {
@@ -352,10 +380,7 @@ export async function GET(request: NextRequest) {
           if (brandConfig.lastTickSkipped) {
             updatedBreaker.lastTickSkipped = false;
           }
-          await prisma.brand.update({
-            where: { id: brand.id },
-            data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedBreaker) },
-          });
+          await patchBrandConfig(brand.id, brand.brandConfig, updatedBreaker);
 
           published.push({
             brandId: brand.id,
@@ -375,10 +400,7 @@ export async function GET(request: NextRequest) {
             60 * 60 * 1000,
             now
           );
-          await prisma.brand.update({
-            where: { id: brand.id },
-            data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedBreaker) },
-          });
+          await patchBrandConfig(brand.id, brand.brandConfig, updatedBreaker);
           skipped.push({
             brandId: brand.id,
             brandName: brand.name,
@@ -404,10 +426,7 @@ export async function GET(request: NextRequest) {
           60 * 60 * 1000,
           now
         );
-        await prisma.brand.update({
-          where: { id: brand.id },
-          data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedBreaker) },
-        });
+        await patchBrandConfig(brand.id, brand.brandConfig, updatedBreaker);
         skipped.push({ brandId: brand.id, brandName: brand.name, reason: "publish_failed" });
         await sendSystemAlert({
           level: "error",
@@ -423,5 +442,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ published, skipped });
+  // Every other skip reason is a deliberate no-op. ALERT_WEBHOOK_URL is unset in production, so a non-2xx answer
+  // (red GitHub Actions run + email, see cron.yml) is the alert that reaches someone; the body still lists what published.
+  const failed = skipped.some((entry) => PUBLISH_FAILURE_REASONS.has(entry.reason));
+  return NextResponse.json({ published, skipped }, { status: failed ? 500 : 200 });
 }

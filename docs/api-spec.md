@@ -17,9 +17,6 @@ This is an internal operator workspace for promoting owned products. The API and
   → Product Profile 입력
   → Active Experiment 설정 (7-day evidence sprint)
   → product_growth 또는 제품별 quality profile 설정
-  → AI Account Discovery로 관련 공개 계정 후보 발견
-  → 후보 계정 watch/ignore 승인
-  → watched 계정 공개 글 구조 학습
   → 캠페인 콘텐츠 생성 (product context + experiment hypothesis + link cadence)
   → PENDING 큐 확인
   → [Cron] 각 제품 FIFO 자동 발행
@@ -272,133 +269,6 @@ interface InstagramConfig {            // brandConfig.instagram (항상 존재, 
 
 ---
 
-## AI Account Discovery API
-
-The account discovery engine finds related public Threads accounts, scores them against the current product profile, and only learns from accounts that the Portfolio Operator explicitly watches.
-
-### Data Contracts
-
-```typescript
-type DiscoveredAccountStatus = "candidate" | "watched" | "ignored";
-type DiscoveredAccountCategory = "career" | "saju" | "creator" | "competitor" | "adjacent" | "unknown";
-
-interface DiscoveredAccountResponse {
-  id: string;
-  brandId: string;
-  username: string;
-  displayName: string | null;
-  bio: string | null;
-  profileUrl: string | null;
-  status: DiscoveredAccountStatus;
-  category: DiscoveredAccountCategory;
-  relevanceScore: number;
-  reason: string;
-  source: "keyword_search" | "manual" | "profile_expand";
-  sourceKeyword: string | null;
-  lastDiscoveredAt: string;
-  lastScannedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface DiscoveredAccountPostResponse {
-  id: string;
-  accountId: string;
-  sourceKey: string;
-  permalink: string | null;
-  content: string;
-  publishedAt: string | null;
-  hookType: string | null;
-  topic: string | null;
-  emotionalDriver: string | null;
-  structureType: string | null;
-  ctaType: string | null;
-  patternSummary: string | null;
-  relevanceScore: number;
-  createdAt: string;
-}
-
-interface AccountPatternResponse {
-  id: string;
-  brandId: string;
-  accountId: string | null;
-  dimension: "hook" | "topic" | "emotion" | "structure" | "cta";
-  value: string;
-  sourceCount: number;
-  confidence: number;
-  recommendation: string;
-}
-```
-
-### Endpoints
-
-| Method | Path | Description |
-|:-------|:-----|:------------|
-| `GET` | `/api/accounts?brandId=xxx&status=candidate` | 계정 후보/watchlist 조회 |
-| `POST` | `/api/accounts/discover` | seed keywords로 관련 계정 후보 발견 |
-| `PATCH` | `/api/accounts/[id]` | `watch` 또는 `ignore` 상태 변경 |
-| `POST` | `/api/accounts/analyze` | watched 계정 공개 글 수집 및 패턴 학습 |
-
-```typescript
-interface DiscoverAccountsRequest {
-  brandId: string;
-  keywords?: string[];
-  handles?: string[];       // @handle or threads.net/@handle seed fallback
-  limit?: number;          // default 20, max 50
-  minScore?: number;       // default 60
-}
-
-interface DiscoverAccountsResponse {
-  success: true;
-  discovered: number;
-  saved: number;
-  candidates: DiscoveredAccountResponse[];
-  errors: ViralSourceError[];
-}
-
-interface UpdateDiscoveredAccountRequest {
-  status: "watched" | "ignored" | "candidate";
-}
-
-interface AnalyzeAccountsRequest {
-  brandId: string;
-  accountIds?: string[];   // default all watched accounts
-  limit?: number;          // default 10, max 50 posts per account
-}
-
-interface AnalyzeAccountsResponse {
-  success: true;
-  scannedAccounts: number;
-  savedPosts: number;
-  learnedPatterns: number;
-  recommendations: string[];
-  errors: ViralSourceError[];
-}
-```
-
-If Threads `keyword_search` is blocked by Meta app permissions, discovery returns source errors and may find zero keyword candidates. Operators can pass `handles` or configure `viralDiscovery.competitorHandles`; these seed handles are saved as manual candidates so the Brand Owner can choose `watch` or `ignore` before any learning occurs.
-
-### Scoring
-
-Initial MVP scoring is deterministic and explainable:
-
-- target/topic overlap: 30
-- product/topic overlap: 25
-- domain-specific language from the product profile: 15
-- comment/share CTA structure: 15
-- brand safety / excluded term check: 15
-
-AI classification may later refine category and reason, but the first implementation should keep the score auditable.
-
-### Guardrails
-
-- Only `watched` accounts can feed recurring account learning.
-- `ignored` accounts are excluded from future learning even if rediscovered.
-- The system stores public post structure, not private or unauthorized account insights.
-- Generation receives account-level patterns as guidance only; it must not copy exact wording from discovered accounts.
-
----
-
 ## Posts API (Per-brand)
 
 모든 포스트 엔드포인트는 `brandId` 쿼리 파라미터 또는 body 필드 필요.
@@ -504,6 +374,80 @@ interface OptimizeResponse {
   appliedAt: string;
 }
 ```
+
+---
+
+## Additional Endpoints (코드 기준 보충)
+
+위 섹션에 없던 라우트를 `src/app/api/**/route.ts`에서 뽑아 정리했다. 설명은 해당 라우트 코드에서 확인한 동작만 적었다.
+
+**Auth 열**
+- 프록시(`src/proxy.ts`)는 `PUBLIC_PATHS`(`/api/cron`, `/api/oauth`, `/api/cards`, `/api/webhooks`, `/api/products/auto-setup` 등) 밖의 `/api/*`에 `auth_session` 쿠키를 요구한다.
+- `Required` = 로그인 세션. `+ Brand Owner` / `+ Post Owner` = 소유자만(슈퍼 관리자 예외, 아니면 `403`/`404`).
+- `Cron Secret` = `Authorization: Bearer <CRON_SECRET>`. 프로덕션에서 `CRON_SECRET`이 없으면 전부 `401`이다.
+- `Public` = 인증 없음.
+
+### Brand / Channel
+
+| Method | Path | Description | Auth |
+|:-------|:-----|:------------|:-----|
+| `GET` | `/api/brands/[id]/health` | 저장된 계정 건강 상태(`accountHealth`) 조회 | Required + Brand Owner |
+| `PATCH` | `/api/brands/[id]/health` | 운영자가 건강 상태를 직접 지정 `{ status: HEALTHY \| WARNING \| SHADOWBAN_SUSPECTED \| RECOVERY, reason? }`. `SHADOWBAN_SUSPECTED`는 발행을 `WARMUP_ONLY` 모드로 바꾼다 | Required + Brand Owner |
+| `POST` | `/api/brands/[id]/health` | 최근 발행 글의 조회수로 섀도밴 여부를 재평가해 저장. 직전 평가 후 1분 안이면 이전 결과를 돌려준다(`?force=true` 또는 `{ force: true }`로 건너뜀) | Required + Brand Owner |
+| `POST` | `/api/brands/[id]/voice` | `{ samples?, useTopPosts? }`로 브랜드 말투(voice) 추출. `useTopPosts`는 과거 고성과 글 5개를 쓴다 | Required + Brand Owner |
+| `PUT` | `/api/brands/[id]/distribution` | `brandConfig.distribution`을 통째로 교체(다른 키는 그대로) | Required + Brand Owner |
+| `PATCH` | `/api/channel-accounts/[id]` | `{ enabled: boolean }` 해당 채널로의 업로드 일시중지/재개 | Required + Brand Owner |
+| `DELETE` | `/api/channel-accounts/[id]` | 채널 토큰(YouTube/TikTok/X) 삭제. 업로드 이력은 남는다 | Required + Brand Owner |
+| `POST` | `/api/channel-uploads/[id]` | `{ action: "cancel" \| "retry" \| "ack_public" }` | Required + Brand Owner |
+| `POST` | `/api/video-drafts/[id]/schedule` | `{ action: "cancel" \| "resume" \| "publish_now" }` | Required + Brand Owner |
+| `PATCH` | `/api/video-drafts/[id]/verdict` | `{ verdict: "good" \| "bad" }`. `COMPLETED` 영상만 가능(아니면 `409`), 소유자가 아니면 `404` | Required + Brand Owner |
+| `GET` | `/api/oauth/threads/start?brandId=xxx` | Threads OAuth 시작 | Brand Owner (라우트가 직접 검사) |
+| `GET` | `/api/oauth/threads/callback?state=&code=` | `code`를 토큰으로 교환해 브랜드에 저장 | Brand Owner (라우트가 직접 검사) |
+| `GET` | `/api/oauth/[platform]/start?brandId=xxx` | `platform`은 `youtube`, `tiktok`, `x`. 플랫폼 동의 화면으로 보낸다 | Brand Owner (라우트가 직접 검사) |
+| `GET` | `/api/oauth/[platform]/callback` | 같은 세 플랫폼. 암호화한 토큰을 브랜드의 `ChannelAccount`에 저장 | Brand Owner (라우트가 직접 검사) |
+
+### Content
+
+| Method | Path | Description | Auth |
+|:-------|:-----|:------------|:-----|
+| `POST` | `/api/command` | 한 줄 명령 → 계획 → 초안. `{ text }`만 보내면 계획만 돌려주고 부작용이 없다. `{ plan, approved: true }`면 가설을 활성 실험에 기록하고 초안을 큐에 넣는다 | Required + Brand Owner |
+| `POST` | `/api/generate/review-pipeline` | `{ brandId, count?: 1-5 (기본 3) }`. 트렌드 수집 → 글마다 초안 3개 → 톤 채점으로 1개 선택 → `NEEDS_REVIEW`로 저장. 글 길이 실험이 진행 중이면 `409` | Required + Brand Owner |
+| `POST` | `/api/posts/[id]/remediate` | 5D 알고리즘 점수나 게이트에 걸린 글을 자동 교정. 점수와 콘텐츠 게이트(영문은 자연스러움 판정 포함)를 모두 통과해야 통과 처리한다 | Required + Post Owner |
+| `GET` | `/api/interactions?brandId=xxx` | 최근 발행 글 5개의 댓글을 불러와 답글 초안을 만든다 | Required + Brand Owner |
+| `POST` | `/api/interactions` | `{ brandId, replyToThreadsId, replyText }` 답글 게시(재시도 포함) 후 해당 `ThreadReply`를 `PUBLISHED`로 표시 | Required + Brand Owner |
+| `GET` | `/api/news/rss?query=&limit=` | 뉴스 RSS 헤드라인 조회 | Required |
+| `GET` | `/api/cards/[id]?slide=&format=` | 카드뉴스 슬라이드 이미지 렌더. `format=jpg`면 JPEG(인스타 게시용). 카드 우선 브랜드는 저장된 슬라이드, 그 외는 본문 파서를 쓴다 | Public |
+| `POST` | `/api/products/auto-setup` | 입력으로 제품 자동 세팅 초안을 만들어 돌려준다(저장 없음) | Public |
+
+### Viral References
+
+| Method | Path | Description | Auth |
+|:-------|:-----|:------------|:-----|
+| `GET` | `/api/viral/references?brandId=xxx` | 검토용 레퍼런스 목록 `{ references }` | Required + Brand Owner |
+| `PATCH` | `/api/viral/references/[id]` | `{ brandId, decision: "approved" \| "rejected" \| null }`. 생성 소스 승인/제외, `null`이면 되돌리기 | Required + Brand Owner |
+| `POST` | `/api/viral/references/manual` | `{ brandId, content, kind: "story" \| "info", linkUrl?, sourceUrl? }`. 결과 `status`는 `created`(`postId`) / `dropped`(`reasons`) / `duplicate`. 입력 오류는 `400`/`422` | Required + Brand Owner |
+| `POST` | `/api/viral/references/[id]/draft` | 레퍼런스에서 바로 초안 생성. 상태 충돌 `409`, 품질 미달 `422` | Required + Brand Owner |
+
+### Cron (표에 없던 것)
+
+모두 `Cron Secret`이고 별도 표기가 없으면 `GET`이다. `apply` 파라미터가 있는 것은 기본이 미리보기(또는 dry-run)이고 `apply`를 줘야 쓴다.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/cron/apply-topic-plan?brand=slug&apply=true` | 코드 검토를 거친 주제 목록(`src/lib/topic-plans.ts`)을 `brandConfig.topics`에 쓴다. `apply=true`일 때만 쓰고, 이전 목록은 `previousTopics`에 남겨 되돌릴 수 있다 |
+| `GET` | `/api/cron/channel-metrics` | 최근 14일 안에 올라간 채널 업로드의 조회·좋아요·댓글 수집 |
+| `GET` | `/api/cron/distribute?brands=slug,slug&schedule=false` | 취소 유예가 끝난 업로드를 큐에 넣고(영상 → YouTube/Instagram/TikTok, 카드뉴스 → Instagram, 발행된 Threads 글 → X), 시간 한도 안에서 기한이 된 업로드를 전부 실행 |
+| `GET` | `/api/cron/fetch-metrics` | Threads 글 지표 수집. 한 번도 측정 안 된 글은 최대 60일치까지 채우고, 호출당 고정 배치만 처리한다 |
+| `GET` | `/api/cron/post-metrics-report?brand=slug&days=N&full=` | 최근 발행 글과 저장된 지표의 읽기 전용 리포트. 저장소가 공개라서 워크플로가 출력을 암호화한다 |
+| `GET` | `/api/cron/regate-pending?brand=slug&status=NEEDS_REVIEW&apply=true` | 대기 글(`status`를 주면 `NEEDS_REVIEW`)을 가독성 규칙으로 다시 검사. `apply=true`일 때만 탈락한 글을 보관(삭제 아님) |
+| `GET` | `/api/cron/seed-reference-radar?brand=slug&apply=true` | 비어 있는 `keywords`/`ownHandle`만 채운다(덮어쓰지 않음). `apply=true`일 때만 쓴다 |
+| `GET` | `/api/cron/wellness` | `brandConfig.wellness`가 있는 브랜드마다 매일 리서치 → 초안. `NEEDS_REVIEW`로 저장 |
+| `GET` | `/api/cron/video-jobs/next?brands=slug` | CI 렌더러에게 draft 1개를 넘긴다: 가장 오래된 `QUEUED`, 없으면 오늘 새로 생성. 렌더 중 죽어서 `RENDERING`으로 남은 draft는 다시 내준다 |
+| `POST` | `/api/cron/video-jobs/complete` | `{ draftId, videoUrl }` 또는 `{ draftId, error }`. 렌더된 영상은 `NEEDS_REVIEW` Threads 글이 된다 |
+| `GET` | `/api/cron/video-factory/next?brands=slug&force=1` | CI 렌더러에게 오늘의 kinetic-list 작업을 넘기며 `RENDERING`으로 선점. 없으면 `{ job: null }` |
+| `POST` | `/api/cron/video-factory/complete` | `{ draftId, videoUrl, coverUrl }` 또는 `{ draftId, errors }`. `RENDERING` draft의 렌더 결과 기록 |
+| `GET` | `/api/cron/backfill-channel-structure?apply=1` | 1회성 채널 구조 백필. 기본 dry-run, 여러 번 돌려도 같은 결과. 코드 주석상 레거시 컬럼 정리 단계에서 삭제 예정 |
+| `GET` | `/api/cron/publication-parity` | 1회성 점검(읽기 전용): 최근 30일 발행 글의 `Post` 값과 저장된 `Publication` 값을 비교. 같은 이유로 삭제 예정 |
 
 ---
 
@@ -782,48 +726,42 @@ Template groups:
 
 ## TikTok Video Experiment Engine Contract
 
-This existing module generates, scores, and browser-renders TikTok-ready video drafts for a product profile. CosmicPath career timing remains the current preset. It does **not** upload, publish, comment, DM, scrape private data, or control a browser session.
+This module generates TikTok-ready video drafts (script and scene beats) for a product profile and renders them with Remotion, either inline or queued for a standalone worker. CosmicPath career timing remains the current preset. It does **not** publish, comment, DM, scrape private data, or control a browser session. Uploading to TikTok is a separate flow: channel OAuth (`/api/oauth/[platform]/*`) plus the `/api/cron/distribute` cron.
+
+> 2026-09-06(`32980d9`)에 `/api/tiktok/videos*`와 `/api/tiktok/summary`가 삭제됐다. 현재 라우트는 아래 세 개뿐이다. `TikTokVideoMetric` 표는 남아 있지만 쓰는 코드가 없다.
 
 ### Data Contracts
 
 ```typescript
-type TikTokVideoDraftStatus = "DRAFT" | "APPROVED" | "UPLOADED_MANUAL" | "ARCHIVED";
+// The statuses the code writes. "APPROVED" / "UPLOADED_MANUAL" / "ARCHIVED" from the old contract are no longer used.
+type TikTokVideoDraftStatus = "DRAFT" | "QUEUED" | "RENDERING" | "COMPLETED" | "FAILED";
 type TikTokQualityProfileId = "tiktok_career_timing";
 
+// The API returns the Prisma row as is: the list-like fields are JSON-encoded strings, not arrays.
 interface TikTokVideoDraftResponse {
   id: string;
   brandId: string;
   campaignId: string;
-  formatId: TikTokVideoFormatId;
+  formatId: string;
   status: TikTokVideoDraftStatus;
   title: string;
   spokenHook: string;             // intended 0-2s hook
   script: string;                 // 15-35s spoken script
-  sceneBeats: Array<{
-    startSecond: number;
-    endSecond: number;
-    visualDirection: string;
-    narration: string;
-  }>;
-  captionOverlays: string[];
-  onScreenText: string[];
-  hashtags: string[];
+  sceneBeats: string;             // JSON: Array<{ startSecond, endSecond, visualDirection, narration }>
+  captionOverlays: string;        // JSON: string[]
+  onScreenText: string;           // JSON: string[]
+  hashtags: string;               // JSON: string[]
   cta: string;
   landingUrl: string | null;
-  utmContent: string | null;
+  utmContent: string | null;      // /api/tiktok/render also stores the render output path here
   qualityProfile: TikTokQualityProfileId;
   qualityPass: boolean;
   qualityScore: number;
-  qualityReasons: string[];
+  qualityReasons: string;         // JSON: string[] (a failed render stores its error here)
   durationSeconds: number;
-  renderTarget: {
-    format: "webm";
-    width: 1080;
-    height: 1920;
-    fps: 30;
-  };
   createdAt: string;
   updatedAt: string;
+  metrics?: TikTokVideoMetricResponse[];   // GET /api/tiktok/drafts only: the latest one
 }
 
 interface TikTokVideoMetricResponse {
@@ -845,73 +783,43 @@ interface TikTokVideoMetricResponse {
 
 | Method | Path | Description |
 |:-------|:-----|:------------|
-| `GET` | `/api/tiktok/videos?brandId=xxx&status=DRAFT` | TikTok draft 목록 조회 |
-| `POST` | `/api/tiktok/videos/generate` | AI로 TikTok 영상 draft/spec 생성 |
-| `PATCH` | `/api/tiktok/videos/[id]` | draft 상태, title, script/spec 편집 |
-| `PATCH` | `/api/tiktok/videos/[id]/metrics` | 수동 TikTok 성과 입력 |
-| `GET` | `/api/tiktok/summary?brandId=xxx&campaignId=yyy` | TikTok Video Lab summary |
+| `GET` | `/api/tiktok/drafts?brandId=xxx` | 브랜드의 TikTok draft 목록(최신순). draft마다 가장 최근 `metrics` 1건 포함 |
+| `POST` | `/api/tiktok/generate` | 스크립트 1개를 생성해 `DRAFT`로 저장 |
+| `POST` | `/api/tiktok/render` | draft 렌더. `dryRun`(기본 `true`)이면 즉시 처리, `false`면 `QUEUED`로 바꿔 워커에 맡김 |
 
 ```typescript
-interface GenerateTikTokVideosRequest {
-  brandId: string;
-  campaignId?: string;            // default active campaign
-  count?: number;                 // default 7, max 30
-  formatIds?: TikTokVideoFormatId[];
-}
-
-interface GenerateTikTokVideosResponse {
+// GET /api/tiktok/drafts?brandId=xxx
+interface ListTikTokDraftsResponse {
   success: true;
-  count: number;
   drafts: TikTokVideoDraftResponse[];
-  quality: {
-    passed: number;
-    failed: number;
-  };
 }
 
-interface UpdateTikTokVideoDraftRequest {
-  status?: TikTokVideoDraftStatus;
-  title?: string;
-  spokenHook?: string;
-  script?: string;
-  sceneBeats?: TikTokVideoDraftResponse["sceneBeats"];
-  captionOverlays?: string[];
-  onScreenText?: string[];
-  hashtags?: string[];
-  cta?: string;
+// POST /api/tiktok/generate
+interface GenerateTikTokDraftRequest {
+  brandId: string;                // required, else 400
+  topic?: string;                 // default: the first default topic of the brand's preset, else the brand name
+  dayMaster?: string;
+  tone?: string;                  // one of PRODUCT_TONES, otherwise "mysterious"
 }
 
-interface UpdateTikTokVideoMetricsRequest {
-  views?: number;
-  likes?: number;
-  comments?: number;
-  shares?: number;
-  saves?: number;
-  profileClicks?: number;
-  landingClicks?: number;
-  conversions?: number;
-  measuredAt?: string;
+interface GenerateTikTokDraftResponse {
+  success: true;
+  draft: TikTokVideoDraftResponse; // saved with status "DRAFT"
+  scriptResult: object;            // the generation engine's output, as is
 }
 
-interface TikTokSummaryResponse {
-  brandId: string;
-  campaignId: string;
-  totals: {
-    drafts: number;
-    approved: number;
-    manualUploads: number;
-    qualityPassed: number;
-    qualityFailed: number;
-  };
-  topFormats: Array<{
-    formatId: TikTokVideoFormatId;
-    count: number;
-    avgPerformanceScore: number;
-  }>;
-  recommendations: string[];
-  recentDrafts: TikTokVideoDraftResponse[];
+// POST /api/tiktok/render
+interface RenderTikTokDraftRequest {
+  draftId: string;                // required, else 400 (404 when it does not exist)
+  dryRun?: boolean;               // default true
 }
+
+// dryRun=true  -> 200 { success: true, draft, renderResult }   draft.status = "COMPLETED", draft.utmContent = output path
+//                 500 { success: false, draft, error }          draft.status = "FAILED"
+// dryRun=false -> 202 { success: true, queued: true, draft, message }   draft.status = "QUEUED" (picked up by `worker:tiktok`)
 ```
+
+`dryRun=true`(기본값)는 영상을 만들지 않는다. `.agents/results/videos/tiktok-<timestamp>/`에 `render-spec.json`만 쓰고, 존재하지 않는 `<draftId>.mp4` 경로를 성공으로 돌려주며, draft는 `COMPLETED`가 되어 그 경로가 `utmContent`에 저장된다. 실제 렌더는 `dryRun: false`로 큐에 넣은 뒤 로컬 워커가 한다.
 
 ### Quality Gate
 
@@ -925,37 +833,19 @@ interface TikTokSummaryResponse {
 - Generic self-help phrases fail.
 - Medical, legal, financial certainty and guaranteed fortune claims fail.
 
-`qualityPass=false` drafts may be edited or archived, but cannot move to `APPROVED`.
-
-### Performance Score
-
-Initial TikTok score is manual-metrics based:
-
-- comments: 35%
-- shares: 20%
-- saves: 20%
-- views: 15%
-- profileClicks + landingClicks + conversions: 10%
-
-The score stays separate from Threads `performanceScore` until cross-channel learning is explicitly planned.
-
 ### Auth, Error, Empty-State Behavior
 
-- All `/api/tiktok/*` endpoints require `auth_session` and brand ownership.
-- Generate returns partial success if some drafts fail quality but others pass.
-- Empty state returns `drafts: 0` and recommendations to generate a first batch.
-- Status update to `APPROVED` fails with `400` when `qualityPass=false`.
-- Metrics update accepts missing fields as zero and recomputes score.
-- No TikTok OAuth or external API token is required in this MVP.
-- Browser-side render creates a 9:16 WebM file from the approved/draft spec without server FFmpeg.
+- All `/api/tiktok/*` endpoints require `auth_session` and ownership of the brand (the draft's brand for `render`).
+- A missing `brandId` (`drafts`, `generate`) or `draftId` (`render`) returns `400`; an unknown `draftId` returns `404`.
+- `generate` creates one draft per call; there is no batch generation or quality-based partial success any more.
+- Nothing in this module writes `TikTokVideoMetric` (the old manual-metrics endpoint was removed), so `metrics` is empty for every draft.
 
 ### Non-Goals
 
-- No TikTok upload, draft upload, or Direct Post integration in this cycle.
+- This module does not upload to TikTok. Upload goes through the channel OAuth flow and `/api/cron/distribute`.
 - No Selenium/Playwright cookie uploader.
 - No TikTok comments, DMs, likes, follows, or engagement automation.
 - No TikTok private analytics or scraping.
-- No server-side MP4/Remotion/FFmpeg render pipeline in this cycle.
 
 ---
 
@@ -1153,12 +1043,13 @@ interface ViralAdapterResult {
 
 | Method | Path | Description |
 |:-------|:-----|:------------|
-| `GET` | `/api/cron/publish` | 모든 active 제품 순회 → 각 1개 FIFO 발행. `?brands=slug1,slug2`로 제품 제한. `?slots=0,12`(UTC 시, 0-23)를 주면 열린 슬롯(시작 후 3시간)마다 1회만 발행하고, 슬롯 밖이면 `outside_publish_slot`, 이미 발행했으면 `slot_already_served`로 건너뜀. 형식 오류는 400 |
+| `GET` | `/api/cron/publish` | 모든 active 제품 순회 → 각 1개 FIFO 발행. `?brands=slug1,slug2`로 제품 제한. `?slots=0,12`(UTC 시, 0-23)를 주면 열린 슬롯(시작 후 3시간)마다 1회만 발행하고, 슬롯 밖이면 `outside_publish_slot`, 이미 발행했으면 `slot_already_served`로 건너뜀. 형식 오류는 400. 발행을 시도했는데 끝내지 못한 제품(`skipped`의 `publish_failed`·`partial_failed`)이 하나라도 있으면 응답 본문은 그대로 두고 상태 코드만 500이다(알림 웹훅이 프로덕션에 없어서, 스케줄러 워크플로가 붉게 변하는 게 유일한 알림). 나머지 건너뜀 사유는 정상이라 200 |
 | `GET` | `/api/cron/refresh-token` | 모든 제품의 Threads 토큰 상태 확인 및 갱신. Instagram 연결 제품은 같은 방식으로 갱신하고 결과를 응답 `instagramRefreshResults: Array<{ slug, success, message?, newExpiry?, instagramNeedsReconnect?, error? }>`로 함께 반환(만료돼 재연결이 필요한 건 `instagramNeedsReconnect: true`이며 500 사유가 아님) |
 | `GET` | `/api/cron/instagram-publish?brands=slug1,slug2` | Instagram 연결된 제품(`instagramConnectedAt != null`, `brands`로 제한 가능)마다 Threads 영상 글을 릴스로 교차 발행. 한 번 호출에 ①`PROCESSING` 릴스 상태 확인·발행 ②Threads 발행 3일 지난 미처리 글 `SKIPPED` ③진행 중·방금 발행한 릴스가 없으면 다음 1개 업로드 시작. 릴스는 제품당 KST 하루 1개, 연결 시각 이전에 발행된 글은 올리지 않음, 재시도 최대 3회(3회째 실패 시 `FAILED` + 시스템 알림). 응답 `{ results: Array<{ slug } & ({ skipped: "not_connected" \| "token_expired" } \| { error: string } \| { advanced, published: string[], started: string \| null, skippedStale, failed: string[] })> }`. `token_expired`는 저장 토큰 만료(재연결 필요), `not_connected`는 토큰/계정 ID 없음. Cron 시크릿 없으면 401. Cloudflare Worker가 15분마다 호출(GitHub Actions `cron.yml`에는 없음) |
 | `GET` | `/api/cron/replies` | 모든 제품 순회. 먼저 48시간 이내 독자 댓글 초안을 오래된 순으로 최대 3개 자동 게시(게시 전 `PUBLISHING`으로 선점 → 성공 `PUBLISHED`, 실패 `FAILED`; 중단돼 `PUBLISHING`에 남은 행은 자동 재시도하지 않고 `stuck`으로 보고). 이어서 최근 7일 발행 글(최대 25개)의 새 댓글을 수집해 Claude 초안을 `ThreadReply(DRAFT)`로 저장(런당 최대 5개; 브랜드 자기 댓글·링크·맞팔 유도·2자 미만 제외; `/me` 사용자명 조회 실패 시 그 회차 댓글 스캔 생략; Claude 실패 시 고정 문구 없이 행을 만들지 않고 다음 회차 재시도 → `draftsSkipped`). 언어는 `voiceProfile.language`/`ecommerce_d2c`면 en. 멘션 초안은 수동 승인용. `AUTO_REPLY_PUBLISH=false`면 게시 생략. 응답 brand마다 `{ ...scan, autoReply: { published, failed, stuck, errors } \| null }`. GitHub Actions `cron.yml` `replies` 잡이 매시간 호출 |
 | `GET` | `/api/cron/auto-plug` | 반응이 온 글에 링크 답글을 1회 단다. 대상 브랜드는 라우트 상수 `AUTO_PLUG_BRANDS`(현재 `cosmicpath`만). 토큰이 없거나 만료된 브랜드는 `skipped: "token_expired"`. 후보는 `PUBLISHED`·`threadsId` 있음·`linkUrl = null`(발행 시 링크를 단 글과 이미 링크를 단 글 제외)·발행 45분~48시간 글, 최신순 최대 10개. 글마다 Threads 인사이트를 조회해 조회 300 이상 또는 댓글 10 이상이면 `linkUrl`이 null일 때만 `linkUrl = <브랜드 랜딩>&utm_content=<postId>`·`utmContent = postId`로 선점한 뒤, 본문에 `/r/<postId>` 짧은 링크를 넣은 답글을 게시한다. 게시가 실패하면 `errorLog`에 `Auto-plug failed:`를 덧붙이고 선점은 유지한다(중복 게시 방지를 위해 자동 재시도 없음). `?dryRun=1`이면 선점·게시 없이 대상만 보고한다. 응답 `{ results: Array<{ slug, checked, plugged: Array<{ postId, views, replies }>, errors: Array<{ postId, error }>, dryRun? } \| { slug, skipped } \| { slug, error }> }`. Cron 시크릿 없으면 401. GitHub Actions `cron.yml` `auto-plug` 잡이 워크플로 실행마다(15분 일정·매시간 일정·수동 실행) 호출 |
-| `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자). formulaWeights와 thompsonPriors 모두 저장값에 누적하지 않고 최근 300개 창에서 기본값부터 재계산 |
+| `GET` | `/api/cron/learn` | 모든 제품 growthMemory · formulaWeights · thompsonPriors 재학습 (formulaWeights 단독 소유자). formulaWeights와 thompsonPriors 모두 저장값에 누적하지 않고 최근 300개 창에서 기본값부터 재계산. 응답 `{ success, brands: Array<{ slug, success, ... }> }`. 학습이 실패한 제품이 하나라도 있으면 `success: false`와 상태 코드 500(나머지 제품은 그대로 학습됨) |
+| `GET` | `/api/cron/shadowban-check` | 제품마다 섀도밴 프로브(`evaluateShadowbanHealth`, 수동 재평가 버튼과 같은 `evaluateBrandShadowban`)를 돌려 **감지만** 한다. 상태(`accountHealth`/`shadowbanStatus`)는 쓰지 않는다. 이미 `SHADOWBAN_SUSPECTED`인 제품은 `skipped: "already_in_shadowban_mode"`. `SHADOWBAN_SUSPECTED`가 나온 제품이 있거나 검사가 예외를 던진 제품이 있으면 `sendSystemAlert` + 상태 코드 500(`success: false`, 알림 웹훅이 프로덕션에 없어서 붉은 GitHub 실행이 유일한 알림). `WARNING`은 본문에만 싣고 200. 적용(하루 1개 웜업 글, 링크 금지)은 계정 건강 배너의 "웜업 모드 강제 전환"(`PATCH /api/brands/[id]/health`)으로 사람이 한다. 응답 `{ success, brands: Array<{ slug, success, status, dropPercentage, recentAverageViews, baselineAverageViews, reasons } \| { slug, skipped } \| { slug, success: false, error }> }`. GitHub Actions `fetch-metrics.yml`이 지표 수집 뒤 하루 1회 호출 |
 | `GET` | `/api/cron/feedback?apply=true` | 72h 성숙 글 기준 viralMemory topPerformers + 금지 표현 학습 (formulaWeights는 쓰지 않음) |
 | `GET` | `/api/cron/viral` | 모든 제품 viral discovery → 미분석 상위 10개 Claude 분석(`rawMetrics.llmAnalyzedAt`, `whyItWorks`) → viralMemory 재학습. `topPerformers`/`nextHookCandidates`는 feedback cron 소유라 보존. 외부 글 점수에 TOP 검색 순위·키워드 중복·반복 노출(`rawMetrics.searchRank`/`keywordHits`/`timesSeen`) 가산 |
 | `GET` | `/api/cron/shorts/discover?brands=slug,slug` | 6h. `youtube_shorts` 어댑터가 켜진 브랜드만 키워드·채널에서 48h 내 쇼츠 수집. `brands`는 대상을 좁히기만 함(꺼진 브랜드는 `brands`에 있어도 건너뜀) |
@@ -1575,98 +1466,3 @@ Cron recommendation:
 
 > [!IMPORTANT]
 > 코드와 계약이 어긋나면 ship 게이트에서 먼저 문서를 갱신하거나 구현을 되돌려야 한다.
-
----
-
-## Demo Asset Generator API
-
-모바일 웹 캡처 및 AI 기반 크리에이티브 광고 기획, Remotion 렌더러 연동으로 9:16 비디오 및 썸네일을 자동 생성하는 기능의 API 계약 규격입니다.
-
-### Data Contracts
-
-```typescript
-type DemoAssetJobStatus =
-  | "QUEUED"
-  | "CAPTURING"
-  | "PLANNING"
-  | "RENDERING"
-  | "READY"
-  | "FAILED_CAPTURE"
-  | "FAILED_PLAN"
-  | "FAILED_RENDER"
-  | "FAILED_QUALITY";
-
-type DemoAssetStyle =
-  | "clean-product-demo"
-  | "problem-solution-demo"
-  | "feature-walkthrough"
-  | "social-proof-teaser";
-
-interface DemoCaptureArtifactResponse {
-  id: string;
-  jobId: string;
-  type: "SCREENSHOT_INITIAL" | "SCREENSHOT_FULL" | "SCREENSHOT_ELEMENT" | "TEXT_BLOCKS" | "METADATA";
-  filePath: string;
-  metaData: string | null; // JSON String for data
-  createdAt: string;
-}
-
-interface DemoRenderedAssetResponse {
-  id: string;
-  jobId: string;
-  type: "VIDEO" | "IMAGE";
-  style: DemoAssetStyle;
-  filePath: string;
-  mimeType: string;
-  fileSize: number;
-  sha256: string;
-  metaData: string | null;
-  downloadUrl?: string; // 임시 다운로드 토큰이 포함된 URL
-  createdAt: string;
-}
-
-interface DemoAssetJobResponse {
-  id: string;
-  brandId: string;
-  status: DemoAssetJobStatus;
-  productUrl: string;
-  productContext: string | null;
-  style: DemoAssetStyle;
-  videoCount: number;
-  imageCount: number;
-  lockedBy: string | null;
-  lockedAt: string | null;
-  heartbeatAt: string | null;
-  attemptCount: number;
-  errorReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-  captureArtifacts?: DemoCaptureArtifactResponse[];
-  renderedAssets?: DemoRenderedAssetResponse[];
-}
-```
-
-### Endpoints
-
-| Method | Path | Description | Auth |
-|:-------|:-----|:------------|:-----|
-| `POST` | `/api/demo-assets/jobs` | 새로운 데모 생성 작업 추가 | Required + Brand Owner |
-| `GET` | `/api/demo-assets/jobs?brandId=xxx` | 특정 브랜드의 데모 생성 작업 내역 조회 | Required + Brand Owner |
-| `GET` | `/api/demo-assets/jobs/[id]` | 특정 데모 작업 상세 조회 및 결과 반환 | Required + Job Owner |
-| `POST` | `/api/demo-assets/jobs/[id]/regenerate` | 실패하거나 완료된 작업을 대기 상태로 되돌려 재작업 요청 | Required + Job Owner |
-| `GET` | `/api/demo-assets/downloads?token=xxx` | 검증된 토큰을 받아 렌더링된 비디오/이미지 스트리밍 또는 다운로드 | Public (with token validation) |
-
-```typescript
-// POST /api/demo-assets/jobs
-interface CreateDemoAssetJobRequest {
-  brandId: string;
-  productUrl: string;
-  style: DemoAssetStyle;
-  videoCount?: number; // 1-5, default 1
-  imageCount?: number; // 1-12, default 3
-  productContext?: string; // 추가설명 및 소구 포인트 (선택)
-}
-
-// GET /api/demo-assets/downloads?token=xxx&download=true
-// Response: binary file data (video/mp4 or image/png)
-```

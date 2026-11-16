@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { lookupThreadsUsername, planRadarSeed } from "@/lib/reference-radar-seed";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 
 // Server-side twin of scripts/seed-reference-radar.ts for operators without a local .env.
 // Preview by default; apply=true writes. Fills empty keywords / ownHandle only, never overwrites.
@@ -27,10 +28,8 @@ export async function GET(request: NextRequest) {
   const changed = Object.keys(changes);
 
   if (apply && changed.length > 0) {
-    await prisma.brand.update({
-      where: { id: brand.id },
-      data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, { viralDiscovery: { ...current, ...changes } }) },
-    });
+    // The handle lookup calls the Threads API between the read and this write.
+    await patchBrandConfig(brand.id, brand.brandConfig, { viralDiscovery: { ...current, ...changes } });
   }
   return NextResponse.json({
     brand: slug,

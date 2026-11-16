@@ -4,12 +4,14 @@ const mocks = vi.hoisted(() => ({
   findBrand: vi.fn(),
   findPosts: vi.fn(),
   updateBrand: vi.fn(async () => ({})),
+  // brandConfig is saved through patchBrandConfig: re-read the brand (findBrand), then a compare-and-set updateMany
+  updateBrandConfig: vi.fn(async () => ({ count: 1 })),
   updatePost: vi.fn(async () => ({})),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    brand: { findUnique: mocks.findBrand, update: mocks.updateBrand },
+    brand: { findUnique: mocks.findBrand, update: mocks.updateBrand, updateMany: mocks.updateBrandConfig },
     post: { findMany: mocks.findPosts, update: mocks.updatePost },
   },
 }));
@@ -113,15 +115,52 @@ describe("learnBrandGrowth", () => {
     const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000);
     mocks.findPosts.mockResolvedValue([
       { ...post("f", "fresh", 50), publishedAt: hoursAgo(24) },
-      { ...post("m", "mature", 50), publishedAt: hoursAgo(100) },
+      { ...post("m", "mature", 50), publishedAt: hoursAgo(100), metricsAt: new Date() },
       { ...post("n", "unpublished", 50), publishedAt: null },
     ]);
 
     await learnBrandGrowth("brand_1");
 
-    const saved = mocks.updateBrand.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
+    const saved = mocks.updateBrandConfig.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
     const priors = (JSON.parse(saved[0].data.brandConfig) as { thompsonPriors: Record<string, unknown> }).thompsonPriors;
     expect(Object.keys(priors)).toEqual(["mature"]);
+  });
+
+  // Reach learning scores `views ?? 0`, so a post that is old enough but whose views were last read early
+  // (or never) would be taught as a flop. fetch-metrics already re-reads such posts first, so waiting is cheap.
+  it("under the reach goal, keeps posts whose views were last read before the 72h mark out of learning", async () => {
+    mocks.findPosts.mockResolvedValue([
+      ...posts("w", "winner", HIGH_VIEWS),
+      ...posts("l", "loser", LOW_VIEWS),
+      // published 2026-10-01, views read 6 hours later
+      ...posts("e", "early", [10, 10, 10, 10, 10]).map((earlyPost) => ({ ...earlyPost, metricsAt: new Date("2026-10-01T06:00:00Z") })),
+    ]);
+
+    const result = await learnBrandGrowth("brand_1");
+
+    expect(result.demotedFormulas).not.toContain("early");
+    expect(result.updatedWeights?.early).toBe(3);
+    expect(JSON.stringify(result.memory)).not.toContain("early");
+  });
+
+  it("reads when the views were taken from the Threads publication, since clicks and manual metrics also bump Post.metricsAt", async () => {
+    const earlyPublication = { views: 10, likes: 0, replies: 0, reposts: 0, metricsAt: new Date("2026-10-01T06:00:00Z") };
+    mocks.findPosts.mockResolvedValue([
+      ...posts("w", "winner", HIGH_VIEWS),
+      ...posts("l", "loser", LOW_VIEWS),
+      // the post row looks freshly measured (a click arrived on 10-20), but its views are the 6h publication snapshot
+      ...posts("c", "clicked", [10, 10, 10, 10, 10]).map((clickedPost) => ({
+        ...clickedPost,
+        metricsAt: new Date("2026-10-20T00:00:00Z"),
+        publications: [earlyPublication],
+      })),
+    ]);
+
+    const result = await learnBrandGrowth("brand_1");
+
+    expect(result.demotedFormulas).not.toContain("clicked");
+    expect(result.updatedWeights?.clicked).toBe(3);
+    expect(JSON.stringify(result.memory)).not.toContain("clicked");
   });
 
   it("keeps posts younger than 72 hours out of formula weights and growth memory", async () => {
@@ -158,15 +197,32 @@ describe("learnBrandGrowth", () => {
     expect(result.contextWeights?.personaWeights?.[bottom]).toBe(2);
   });
 
+  // The run reads the brand first and then computes over up to 300 posts. A settings save in between used to be
+  // reverted because the whole learned config was merged into the raw string read at the start.
+  it("saves the learned config on top of the config stored now, not the one read at the start", async () => {
+    mocks.findBrand
+      .mockResolvedValueOnce({ id: "brand_1", formulaWeights: "{}", brandConfig: JSON.stringify({ topics: ["topic at start"] }) })
+      .mockResolvedValueOnce({ brandConfig: JSON.stringify({ topics: ["topic saved meanwhile"] }) });
+
+    await learnBrandGrowth("brand_1");
+
+    const saved = mocks.updateBrandConfig.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
+    const config = JSON.parse(saved[0].data.brandConfig) as { topics: string[]; thompsonPriors: Record<string, unknown> };
+    expect(config.topics).toEqual(["topic saved meanwhile"]);
+    expect(Object.keys(config.thompsonPriors).length).toBeGreaterThan(0);
+  });
+
   it("keeps New Year posts out of every learner", async () => {
     const savedConfig = async (fixture: ReturnType<typeof post>[]) => {
       mocks.updateBrand.mockClear();
+      mocks.updateBrandConfig.mockClear();
       mocks.findPosts.mockResolvedValue(fixture);
       await learnBrandGrowth("brand_1");
-      const saved = mocks.updateBrand.mock.calls[0] as unknown as [{ data: { brandConfig: string; formulaWeights: string; growthMemory: string } }];
+      const saved = mocks.updateBrand.mock.calls[0] as unknown as [{ data: { formulaWeights: string; growthMemory: string } }];
+      const savedConfig = mocks.updateBrandConfig.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
       const { data } = saved[0];
       return {
-        priors: (JSON.parse(data.brandConfig) as { thompsonPriors: Record<string, unknown> }).thompsonPriors,
+        priors: (JSON.parse(savedConfig[0].data.brandConfig) as { thompsonPriors: Record<string, unknown> }).thompsonPriors,
         weights: JSON.parse(data.formulaWeights) as Record<string, number>,
         memory: { ...(JSON.parse(data.growthMemory) as Record<string, unknown>), updatedAt: undefined },
       };

@@ -16,7 +16,13 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    brand: { findMany: mocks.findBrands, update: vi.fn(async () => ({})) },
+    brand: {
+      findMany: mocks.findBrands,
+      update: vi.fn(async () => ({})),
+      // brandConfig writes go through patchBrandConfig: re-read, then a compare-and-set update
+      findUnique: vi.fn(async () => ({ brandConfig: "{}" })),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+    },
     post: {
       findFirst: vi.fn(async ({ where }: { where: Where }) => (where.status === "PENDING" ? state.normalPick : null)),
       findMany: vi.fn(async ({ where, take }: { where: Where; take?: number }) => {
@@ -33,6 +39,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/threads-api", () => ({ getFreshBrandCredentials: vi.fn(async () => ({ accessToken: "token", userId: "user" })) }));
 vi.mock("@/lib/threads/thread-resume-engine", () => ({ publishOrResumePost: mocks.publishOrResumePost }));
 vi.mock("@/lib/alert-service", () => ({ sendSystemAlert: vi.fn(async () => undefined) }));
+vi.mock("@/lib/publish-lease", () => ({ acquirePublishLease: vi.fn(async () => true) }));
 vi.mock("@/lib/behavioral-jitter", async () => {
   const actual = await vi.importActual<typeof import("@/lib/behavioral-jitter")>("@/lib/behavioral-jitter");
   return {
