@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { isRecord } from "@/types/config-normalizers";
-import { kstDate } from "@/lib/video-factory/kst";
+import { kstDate } from "@/lib/kst";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TOKEN_WARN_MS = 7 * DAY_MS;

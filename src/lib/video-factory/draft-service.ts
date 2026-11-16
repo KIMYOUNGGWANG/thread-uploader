@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseBrandConfig } from "@/types/brand";
-import { kstDate } from "./kst";
+import { kstDate } from "@/lib/kst";
 import { pickClip } from "./clip-picker";
 import { generateKineticListScript } from "./generate-kinetic-list";
 import { checkKineticListScript, type KineticListScript, type ScriptCheck } from "./kinetic-list-script";
