@@ -151,7 +151,7 @@ export function BrandSettingsForm({ brandId, brandName, brandSlug, initialData }
           } satisfies BrandConfig,
         }),
       });
-      const data = await response.json() as { error?: string };
+      const data = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(data.error ?? "저장 실패");
       toast.success("설정이 저장되었습니다 ✅");
       router.refresh();

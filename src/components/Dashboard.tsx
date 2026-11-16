@@ -382,7 +382,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     setFetchError(null);
     try {
       const response = await fetch(`/api/posts?brandId=${brandId}`);
-      const data = await response.json() as { posts?: DBPost[]; error?: string };
+      const data = await response.json().catch(() => ({})) as { posts?: DBPost[]; error?: string };
       if (!response.ok) throw new Error(data.error ?? "포스트 불러오기 실패");
       if (!Array.isArray(data.posts)) throw new Error("포스트 응답 형식이 올바르지 않습니다");
       setPosts(data.posts);
@@ -403,7 +403,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     setIsLoadingAccountIntelligence(true);
     try {
       const response = await fetch(`/api/account-intelligence?brandId=${brandId}`);
-      const data = await response.json() as AccountIntelligenceData | { error?: string };
+      const data = await response.json().catch(() => ({})) as AccountIntelligenceData | { error?: string };
       if (!response.ok) throw new Error((data as { error?: string }).error ?? "계정 분석 불러오기 실패");
       setAccountIntelligence(data as AccountIntelligenceData);
     } catch (error) {
@@ -430,7 +430,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandId, fetchMetrics: true, windowHours: 48 }),
       });
-      const data = await response.json() as { insight?: AccountInsightSnapshot; error?: string };
+      const data = await response.json().catch(() => ({})) as { insight?: AccountInsightSnapshot; error?: string };
       if (!response.ok || !data.insight) throw new Error(data.error ?? "계정 분석 실행 실패");
       setAccountIntelligence((current) => ({
         latest: data.insight ?? null,
@@ -449,7 +449,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     setIsLoadingCampaign(true);
     try {
       const response = await fetch(`/api/campaigns/summary?brandId=${brandId}&scope=campaign`);
-      const data = await response.json() as CampaignSummaryData | { error?: string };
+      const data = await response.json().catch(() => ({})) as CampaignSummaryData | { error?: string };
       if (!response.ok) throw new Error((data as { error?: string }).error ?? "캠페인 데이터 불러오기 실패");
       const summary = data as CampaignSummaryData;
       setCampaignSummary(summary);
@@ -510,7 +510,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandId, count: 3 }),
       });
-      const data = await response.json() as { error?: string; count?: number; failedCount?: number };
+      const data = await response.json().catch(() => ({})) as { error?: string; count?: number; failedCount?: number };
       if (!response.ok) throw new Error(data.error || "검토 파이프라인 실패");
       toast.success(`승인 대기 ${data.count ?? 0}개${data.failedCount ? ` · 실패 ${data.failedCount}개` : ""} — 확인하고 승인하면 업로드돼요`, { id: "review-pipeline" });
       setReviewOnly(true);
@@ -578,7 +578,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandId, posts: validPosts, insertAtFront }),
       });
-      const data = await response.json() as { count?: number; error?: string };
+      const data = await response.json().catch(() => ({})) as { count?: number; error?: string };
       if (!response.ok) throw new Error(data.error ?? "Failed to save posts");
       toast.success(`${data.count}개 포스트가 예약되었습니다! 🎉`);
       await fetchPosts();
@@ -625,7 +625,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     setIsLoadingGrowth(true);
     try {
       const response = await fetch(`/api/growth?brandId=${brandId}`);
-      const data = await response.json() as GrowthData | { error?: string };
+      const data = await response.json().catch(() => ({})) as GrowthData | { error?: string };
       if (!response.ok) throw new Error((data as { error?: string }).error ?? "학습 데이터 불러오기 실패");
       setGrowth(data as GrowthData);
     } catch (error) {
@@ -643,7 +643,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandId }),
       });
-      const data = await response.json() as GrowthData | { error?: string };
+      const data = await response.json().catch(() => ({})) as GrowthData | { error?: string };
       if (!response.ok) throw new Error((data as { error?: string }).error ?? "학습 실패");
       setGrowth(data as GrowthData);
       toast.success("성과 패턴 학습 완료");
@@ -688,7 +688,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           manualPaidConversions: optionalMetric(draft.manualPaidConversions) ?? 0,
         }),
       });
-      const data = await response.json() as { error?: string };
+      const data = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(data.error ?? "캠페인 메트릭 저장 실패");
       toast.success("캠페인 메트릭 저장 완료");
       await Promise.all([loadCampaignSummary(), fetchPosts()]);
@@ -705,7 +705,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     setIsLoadingViral(true);
     try {
       const response = await fetch(`/api/viral?brandId=${brandId}`);
-      const data = await response.json() as ViralData | { error?: string };
+      const data = await response.json().catch(() => ({})) as ViralData | { error?: string };
       if (!response.ok) throw new Error((data as { error?: string }).error ?? "바이럴 데이터 불러오기 실패");
       setViral(data as ViralData);
     } catch (error) {
@@ -723,7 +723,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandId, useSavedSources: true }),
       });
-      const discoverData = await discoverResponse.json() as ViralData | { error?: string };
+      const discoverData = await discoverResponse.json().catch(() => ({})) as ViralData | { error?: string };
       if (!discoverResponse.ok) throw new Error((discoverData as { error?: string }).error ?? "바이럴 발견 실패");
 
       const learnResponse = await fetch("/api/viral/learn", {
@@ -731,7 +731,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandId }),
       });
-      const learnData = await learnResponse.json() as ViralData | { error?: string };
+      const learnData = await learnResponse.json().catch(() => ({})) as ViralData | { error?: string };
       if (!learnResponse.ok) throw new Error((learnData as { error?: string }).error ?? "바이럴 학습 실패");
 
       setViral({
@@ -781,7 +781,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           }],
         }),
       });
-      const discoverData = await discoverResponse.json() as ViralData | { error?: string };
+      const discoverData = await discoverResponse.json().catch(() => ({})) as ViralData | { error?: string };
       if (!discoverResponse.ok) throw new Error((discoverData as { error?: string }).error ?? "수동 레퍼런스 저장 실패");
 
       const learnResponse = await fetch("/api/viral/learn", {
@@ -789,7 +789,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandId }),
       });
-      const learnData = await learnResponse.json() as ViralData | { error?: string };
+      const learnData = await learnResponse.json().catch(() => ({})) as ViralData | { error?: string };
       if (!learnResponse.ok) throw new Error((learnData as { error?: string }).error ?? "바이럴 학습 실패");
 
       setViral({
@@ -815,7 +815,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandId }),
       });
-      const data = await response.json() as ViralData | { error?: string };
+      const data = await response.json().catch(() => ({})) as ViralData | { error?: string };
       if (!response.ok) throw new Error((data as { error?: string }).error ?? "바이럴 학습 실패");
       setViral(data as ViralData);
       toast.success("바이럴 패턴 학습 완료");
@@ -835,7 +835,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandId }),
       });
-      const data = await response.json() as { changes?: { boosted: string[]; reduced: string[] }; message?: string; error?: string };
+      const data = await response.json().catch(() => ({})) as { changes?: { boosted: string[]; reduced: string[] }; message?: string; error?: string };
       if (!response.ok) throw new Error(data.message ?? data.error ?? "최적화 실패");
       toast.success(`최적화 완료! 상승: ${(data.changes?.boosted ?? []).join(", ")} / 하락: ${(data.changes?.reduced ?? []).join(", ")}`);
       const analyticsRes = await fetch(`/api/analytics?brandId=${brandId}`);
@@ -851,7 +851,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     if (!confirm("모든 PENDING 포스트를 삭제하시겠습니까?")) return;
     try {
       const response = await fetch(`/api/posts/reset?brandId=${brandId}`, { method: "DELETE" });
-      const data = await response.json() as { count?: number; error?: string };
+      const data = await response.json().catch(() => ({})) as { count?: number; error?: string };
       if (!response.ok) throw new Error(data.error ?? "Reset failed");
       await fetchPosts();
       toast.info(`${data.count}개 대기 중인 포스트 삭제됨`);

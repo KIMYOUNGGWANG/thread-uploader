@@ -142,7 +142,7 @@ export function PostCard({
             const response = await fetch(`/api/posts/${dbPostId}/remediate`, {
                 method: "POST",
             });
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
             if (!response.ok) {
                 throw new Error(data.error || "교정에 실패했습니다.");
             }
@@ -177,7 +177,7 @@ export function PostCard({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: "PENDING", reason: reviewReason }),
             });
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
             if (!response.ok) {
                 throw new Error(data.error || "승인에 실패했습니다.");
             }
@@ -219,7 +219,7 @@ export function PostCard({
                 method: "POST",
             });
 
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
 
             if (!response.ok) {
                 throw new Error(data.error || "Upload failed");

@@ -82,7 +82,7 @@ export function AccountHealthBanner({
       const res = await fetch(`/api/brands/${brandId}/health`, {
         method: "POST",
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "헬스 평가 실패");
 
       if (data.accountHealth) {
@@ -116,7 +116,7 @@ export function AccountHealthBanner({
           reason: `운영자 수동 모드 전환 (${targetStatus})`,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "상태 변경 실패");
 
       if (data.accountHealth) {

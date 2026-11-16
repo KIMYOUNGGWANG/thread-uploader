@@ -93,7 +93,7 @@ export function TikTokStudioClient({
   const fetchDrafts = useCallback(async () => {
     try {
       const res = await fetch(`/api/tiktok/drafts?brandId=${brandId}`);
-      const data = await res.json() as { success: boolean; drafts?: TikTokDraft[] };
+      const data = await res.json().catch(() => ({})) as { success: boolean; drafts?: TikTokDraft[] };
       if (data.success && data.drafts) {
         setDraftsList(data.drafts);
       }
@@ -122,7 +122,7 @@ export function TikTokStudioClient({
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (data.success) {
         setCurrentDraft(data.draft);
         toast.success("9:16 숏폼 대본과 스토리보드가 생성되었습니다!");
@@ -179,7 +179,7 @@ export function TikTokStudioClient({
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (data.success && dryRun) {
         // Dry run only builds the spec; the draft itself is unchanged.
         const spec: RenderSpec = data.renderSpec;

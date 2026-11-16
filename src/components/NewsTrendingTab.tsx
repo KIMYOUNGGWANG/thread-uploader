@@ -24,7 +24,7 @@ export function NewsTrendingTab() {
     setIsLoading(true);
     try {
       const res = await fetch(`/api/news/rss?query=${encodeURIComponent(searchQuery)}&limit=6`);
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (data.success && Array.isArray(data.articles)) {
         setArticles(data.articles);
       } else {

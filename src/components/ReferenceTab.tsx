@@ -59,7 +59,7 @@ export function ReferenceTab({ brandId, onDraftCreated }: ReferenceTabProps) {
     setLoadError(null);
     try {
       const res = await fetch(`/api/viral/references?brandId=${encodeURIComponent(brandId)}`);
-      const data: unknown = await res.json();
+      const data: unknown = await res.json().catch(() => ({}));
       const list = typeof data === "object" && data !== null ? (data as { references?: unknown }).references : undefined;
       if (res.ok && Array.isArray(list)) {
         setItems(list as ReferenceReviewItem[]);

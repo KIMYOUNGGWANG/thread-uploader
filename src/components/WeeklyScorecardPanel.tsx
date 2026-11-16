@@ -36,7 +36,7 @@ export function WeeklyScorecardPanel({ brandId }: { brandId: string }) {
     setError(null);
     try {
       const response = await fetch(`/api/growth/scorecard?brandId=${brandId}&weeks=4`);
-      const body = (await response.json()) as ScorecardResponse | { error?: string };
+      const body = (await response.json().catch(() => ({}))) as ScorecardResponse | { error?: string };
       if (!response.ok) throw new Error((body as { error?: string }).error ?? "스코어카드 불러오기 실패");
       setData(body as ScorecardResponse);
     } catch (loadError) {
