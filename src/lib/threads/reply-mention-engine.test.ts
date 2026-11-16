@@ -368,6 +368,49 @@ describe("reply-mention-engine", () => {
       expect(prisma.threadReply.create).toHaveBeenCalledTimes(5);
     });
 
+    // Every LLM call costs route time, including the ones that fail; the cap used to count only created drafts,
+    // so an overloaded API spent one call per comment, and mentions had no cap at all.
+    describe("per-run LLM call cap", () => {
+      const burst = Array.from({ length: 9 }, (_, index) => ({ id: `r${index}`, text: `댓글 ${index} 진짜 공감`, username: `u${index}` }));
+      const fetchReplies = vi.fn();
+      const burstFetch = (path: "/replies" | "/mentions") => vi.fn(async (url: string | URL | Request) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/me?")) return meOk;
+        if (urlStr.includes(path)) {
+          fetchReplies(urlStr);
+          return { ok: true, json: async () => ({ data: burst }) };
+        }
+        return { ok: true, json: async () => ({ data: [] }) };
+      }) as unknown as typeof fetch;
+
+      beforeEach(() => {
+        fetchReplies.mockClear();
+        vi.mocked(prisma.threadReply.findUnique).mockResolvedValue(null);
+        vi.mocked(prisma.threadReply.create).mockResolvedValue({ id: "d" } as unknown as ThreadReply);
+      });
+
+      it("counts failed LLM calls toward the cap and stops fetching more posts", async () => {
+        llm.fails = true;
+        vi.mocked(prisma.post.findMany).mockResolvedValue([
+          { id: "post_1", threadsId: "th_post_1", content: "원문", publishedAt: new Date() },
+          { id: "post_2", threadsId: "th_post_2", content: "원문", publishedAt: new Date() },
+        ] as unknown as Post[]);
+
+        const result = await scanAndDraftRepliesForBrand("brand_1", credentials, { fetchFn: burstFetch("/replies") });
+
+        expect(result.draftsSkipped).toBe(5);
+        expect(fetchReplies).toHaveBeenCalledTimes(1);
+      });
+
+      it("caps mention drafts with the same budget", async () => {
+        vi.mocked(prisma.post.findMany).mockResolvedValue([]);
+
+        const result = await scanAndDraftRepliesForBrand("brand_1", credentials, { fetchFn: burstFetch("/mentions") });
+
+        expect(result.draftsCreated).toBe(5);
+      });
+    });
+
     it("claims the row as PUBLISHING before calling Threads, so an interrupted run cannot double-post", async () => {
       vi.mocked(prisma.threadReply.findUnique).mockResolvedValue({
         id: "d1", replyThreadsId: "c1", replyText: "답1",
