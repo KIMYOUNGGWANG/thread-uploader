@@ -1,0 +1,62 @@
+name: Prisma migration drift
+
+# Fails when prisma/schema.prisma and prisma/migrations disagree: a schema change without a migration
+# (or a hand-written migration that differs from the schema). Replaying the migrations into an empty
+# Postgres must produce exactly the schema, or a fresh `migrate deploy` builds a database the app breaks on.
+# Touches no real database: the only connection is the throwaway service container below.
+on:
+  pull_request:
+    paths:
+      - 'prisma/**'
+      - '.github/workflows/prisma-drift.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'prisma/**'
+
+concurrency:
+  group: prisma-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Only the shadow database is used; schema.prisma still needs DATABASE_URL to resolve.
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # postinstall also downloads the Prisma engines `migrate diff` needs.
+      - name: Install
+        run: npm ci
+
+      - name: Migrations match the schema
+        run: >-
+          npx prisma migrate diff
+          --from-migrations prisma/migrations
+          --to-schema-datamodel prisma/schema.prisma
+          --shadow-database-url "$SHADOW_DATABASE_URL"
+          --exit-code
