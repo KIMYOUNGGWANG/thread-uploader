@@ -54,13 +54,14 @@ describe("POST /api/webhooks/conversion", () => {
     expect(learnBrandGrowth).toHaveBeenCalledWith("brand_1");
   });
 
-  it("keeps metricsAt unchanged for the instagram bio anchor while still counting", async () => {
+  // metricsAt means "when the views were read". A click used to bump it, which hid a stalled metrics collection from
+  // the publish cron's alert and made fetch-metrics treat a never-re-read post as freshly measured.
+  it("counts the event without touching metricsAt", async () => {
     await webhook({ postId: "post_1", eventType: "first_result_view", sessionId: "s1" });
-    const [strings, ...values] = tx.$executeRaw.mock.calls[0] as unknown as [string[], ...unknown[]];
+    const [strings] = tx.$executeRaw.mock.calls[0] as unknown as [string[], ...unknown[]];
     const sql = strings.join("?");
-    expect(sql).toContain(`"metricsAt" = CASE WHEN "status" = ? THEN "metricsAt" ELSE NOW() END`);
     expect(sql).toContain(`"clicks" = COALESCE("clicks", 0) +`);
-    expect(values).toContain("ANCHOR");
+    expect(sql).not.toContain("metricsAt");
   });
 
   it("counts the CosmicPath canonical question-submit event as a conversion", async () => {
