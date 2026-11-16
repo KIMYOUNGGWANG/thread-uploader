@@ -4,7 +4,7 @@ import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-acc
 import { getFreshBrandCredentials, publishReplyWithRetryForBrand } from "@/lib/threads-api";
 import { fetchRepliesForPost, generateDraftReply, type ThreadsReplyItem } from "@/lib/threads-replies";
 
-export const maxDuration = 15;
+export const maxDuration = 60; // 5 posts in parallel, up to 5 sequential Claude drafts each
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
@@ -34,34 +34,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       },
     });
 
-    const results: Array<{
-      postId: string;
-      postContent: string;
-      threadsId: string;
-      replies: ThreadsReplyItem[];
-    }> = [];
-
-    for (const post of publishedPosts) {
-      if (!post.threadsId) continue;
-      const rawReplies = await fetchRepliesForPost(post.threadsId, credentials.accessToken);
-
-      // Generate AI draft for each reply
-      const repliesWithDrafts: ThreadsReplyItem[] = [];
-      for (const reply of rawReplies.slice(0, 5)) {
-        const draft = await generateDraftReply(post.content, reply.text, brand.name);
-        repliesWithDrafts.push({
-          ...reply,
-          draftReply: draft,
-        });
-      }
-
-      results.push({
-        postId: post.id,
-        postContent: post.content,
-        threadsId: post.threadsId,
-        replies: repliesWithDrafts,
-      });
-    }
+    // Posts run in parallel (at most 5 Claude calls at once); each post's replies stay sequential.
+    const results = await Promise.all(
+      publishedPosts.flatMap((post) => {
+        const threadsId = post.threadsId;
+        if (!threadsId) return [];
+        return [(async () => {
+          const rawReplies = await fetchRepliesForPost(threadsId, credentials.accessToken);
+          const replies: ThreadsReplyItem[] = [];
+          for (const reply of rawReplies.slice(0, 5)) {
+            replies.push({ ...reply, draftReply: await generateDraftReply(post.content, reply.text, brand.name) });
+          }
+          return { postId: post.id, postContent: post.content, threadsId, replies };
+        })()];
+      })
+    );
 
     return NextResponse.json({ success: true, posts: results });
   } catch (error) {

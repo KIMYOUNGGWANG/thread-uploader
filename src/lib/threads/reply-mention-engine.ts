@@ -243,8 +243,11 @@ export async function scanAndDraftRepliesForBrand(
   if (!ownUsername) result.errors.push("Own username unavailable (/me failed): post replies skipped this run");
 
   result.scannedPosts = posts.length;
+  // The cap bounds LLM calls (each one costs route time), so failed drafts count too, and mentions share it.
+  const capReached = () => result.draftsCreated + result.draftsSkipped >= maxDrafts;
 
   for (const post of posts) {
+    if (capReached()) break;
     if (!post.threadsId) continue;
 
     try {
@@ -266,7 +269,7 @@ export async function scanAndDraftRepliesForBrand(
       }
 
       for (const reply of replies) {
-        if (result.draftsCreated >= maxDrafts) break;
+        if (capReached()) break;
         if (!isReaderReplyEligible(reply, ownUsername)) continue;
         // Check if reply already exists in DB
         const existing = await prisma.threadReply.findUnique({
@@ -315,6 +318,7 @@ export async function scanAndDraftRepliesForBrand(
     result.errors.push(`Mentions: ${mentionsResult.error}`);
   } else {
     for (const mention of mentionsResult.mentions) {
+      if (capReached()) break;
       const existing = await prisma.threadReply.findUnique({
         where: { replyThreadsId: mention.id },
       });
