@@ -1,7 +1,8 @@
 # 외부 스케줄러 이전
 
 > 2026-10-22. GitHub Actions `schedule`은 몇 시간씩 밀리거나 빠진다(하루 2~3회만 돈 날이 있었고, 15분 간격으로 늘려도 똑같았다). Vercel Cron은 Hobby라 일 1회만 되고, DB는 Prisma Postgres라 pg_cron이 없다.
-> 모든 라우트가 멱등(발행은 슬롯당 1회, 답글은 DB로 중복 방지)이라 스케줄러가 겹쳐 돌아도 안전하다.
+> 발행(`/api/cron/publish`)은 브랜드별 리스(`brandConfig.publishLeaseUntil`, 6분, 실행이 죽으면 스스로 풀림)로 한 번에 한 실행만 발행한다. 실행이 겹치면 늦은 쪽이 `publish_in_flight`로 건너뛰고, 리스를 잡은 뒤 슬롯·쿨다운을 한 번 더 확인하니 스케줄러가 몇 개 겹쳐 돌아도 같은 슬롯에 두 번째 글이 나가지 않는다.
+> 다만 2026-11-11 점검에서 답글(`/api/cron/replies`)은 같은 글을 두 번 올릴 수 있고 `/api/cron/account-intelligence`는 겹치면 스냅샷이 두 배로 쌓이는 걸 확인했다. 이 둘은 아직 겹침을 막지 않으니 스케줄러를 하나만 두는 쪽이 안전하다.
 >
 > **선택지 A: Cloudflare Workers Cron (권장)** — 무료, 분 단위, 코드로 관리. 아래 "A" 절.
 > **선택지 B: cron-job.org** — 배포 없이 API로 등록. 가입이 봇 검증에 막히는 경우가 있다. 아래 "B" 절.
