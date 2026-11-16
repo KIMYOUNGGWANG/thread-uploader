@@ -51,7 +51,45 @@ describe("POST /api/webhooks/conversion", () => {
     expect((await res.json()).post.conversions).toBe(3);
     expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
     expect(tx.conversionEvent.create).toHaveBeenCalledTimes(1);
+    // An anonymous request must not be able to start a 300-post learning run; the daily learn cron covers it.
+    expect(learnBrandGrowth).not.toHaveBeenCalled();
+  });
+
+  it("still learns right away when a server relay sends the secret", async () => {
+    const res = await webhook({ postId: "post_1", eventType: "first_result_view", sessionId: "s1" }, { "x-webhook-secret": "server_secret" });
+    expect(res.status).toBe(200);
     expect(learnBrandGrowth).toHaveBeenCalledWith("brand_1");
+  });
+
+  it("logs a wrong secret header but still counts a public event", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await webhook({ postId: "post_1", eventType: "first_result_view", sessionId: "s1" }, { "x-webhook-secret": "stale_secret" });
+    expect(res.status).toBe(200);
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(learnBrandGrowth).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("secret"), expect.anything());
+    error.mockRestore();
+  });
+
+  it("rejects every event without the secret when CONVERSION_WEBHOOK_REQUIRE_SECRET=true", async () => {
+    vi.stubEnv("CONVERSION_WEBHOOK_REQUIRE_SECRET", "true");
+    try {
+      expect((await webhook({ postId: "post_1", eventType: "click", sessionId: "s1" })).status).toBe(401);
+      expect(tx.$executeRaw).not.toHaveBeenCalled();
+      expect((await webhook({ postId: "post_1", eventType: "click", sessionId: "s1" }, { "x-webhook-secret": "server_secret" })).status).toBe(200);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("answers 500 without leaking the internal error message", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(prisma.post.findUnique).mockRejectedValueOnce(new Error("connect ECONNREFUSED db.internal:5432"));
+    const res = await webhook({ postId: "post_1", eventType: "click", sessionId: "s1" });
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toContain("ECONNREFUSED");
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
   });
 
   it("keeps metricsAt unchanged for the instagram bio anchor while still counting", async () => {

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const run = await runDueUploads(now);
     return NextResponse.json({ ok: true, scheduled, run });
   } catch (error) {
-    console.error("[distribute] failed:", error instanceof Error ? error.message : error);
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
+    console.error("[distribute] failed:", error);
+    return NextResponse.json({ ok: false, error: "Distribution run failed" }, { status: 500 });
   }
 }

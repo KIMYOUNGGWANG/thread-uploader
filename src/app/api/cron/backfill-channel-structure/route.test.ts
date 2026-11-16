@@ -38,6 +38,7 @@ describe("GET /api/cron/backfill-channel-structure", () => {
       headers: { authorization: "Bearer s3cret" },
     }));
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: "boom" });
+    // The workflow prints this body into public Actions logs; the detail stays in the server log.
+    expect(await res.json()).toEqual({ error: "Channel backfill failed" });
   });
 });
