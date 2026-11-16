@@ -5,12 +5,12 @@ export function FormulaConversionTable({ posts }: { posts: FormulaConversionInpu
   if (rows.length === 0) return null;
 
   return (
-    <section aria-label="Formula별 클릭·전환" className="p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Formula별 클릭 · 전환</h3>
+    <section aria-label="Formula별 클릭·전환" className="p-4 bg-white rounded-xl shadow-sm border border-slate-200">
+      <h3 className="text-sm font-semibold text-slate-700 mb-3">Formula별 클릭 · 전환</h3>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-slate-500 dark:text-slate-400">
+            <tr className="text-left text-slate-500">
               <th scope="col" className="py-1 pr-4 font-medium">Formula</th>
               <th scope="col" className="py-1 pr-4 font-medium text-right">발행</th>
               <th scope="col" className="py-1 pr-4 font-medium text-right">클릭</th>
@@ -20,7 +20,7 @@ export function FormulaConversionTable({ posts }: { posts: FormulaConversionInpu
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.formulaId} className="border-t border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-200">
+              <tr key={row.formulaId} className="border-t border-slate-100 text-slate-700">
                 <td className="py-1.5 pr-4 font-mono text-xs">{row.formulaId}</td>
                 <td className="py-1.5 pr-4 text-right tabular-nums">{row.published}</td>
                 <td className="py-1.5 pr-4 text-right tabular-nums">{row.clicks}</td>

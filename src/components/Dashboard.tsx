@@ -885,22 +885,22 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50 dark:from-slate-950 dark:via-slate-900 dark:to-violet-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50">
       <Toaster position="top-center" richColors />
 
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/70 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
+      <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/70 border-b border-slate-200">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap sm:justify-between sm:py-4">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Link href="/brands" className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+            <Link href="/brands" className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
               <ArrowLeft className="w-4 h-4 text-slate-500" />
             </Link>
             <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl shadow-lg shadow-violet-500/30">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold text-slate-800 dark:text-white sm:text-xl">{brandName}</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">제품 성장 실험 대시보드</p>
+              <h1 className="truncate text-lg font-bold text-slate-800 sm:text-xl">{brandName}</h1>
+              <p className="text-xs text-slate-500">제품 성장 실험 대시보드</p>
             </div>
           </div>
 
@@ -912,23 +912,23 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                     type="button"
                     onClick={() => setReviewOnly((value) => !value)}
                     aria-pressed={reviewOnly}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 text-orange-700 rounded-full text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                   >
                     <AlertCircle className="w-4 h-4" />{reviewCount} 검토 필요
                   </button>
                 )}
                 {pendingCount > 0 && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
                     <Calendar className="w-4 h-4" />{pendingCount} 예약
                   </div>
                 )}
                 {publishedCount > 0 && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-medium">
                     <CheckCircle2 className="w-4 h-4" />{publishedCount} 완료
                   </div>
                 )}
                 {failedCount > 0 && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-sm font-medium">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-700 rounded-full text-sm font-medium">
                     <AlertCircle className="w-4 h-4" />{failedCount} 실패
                   </div>
                 )}
@@ -946,26 +946,26 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                 </>
               )}
               <Link href={`/brands/${brandSlug}/tiktok`}>
-                <Button variant="outline" size="sm" className="text-pink-600 dark:text-pink-400 border-pink-500/30 hover:text-pink-700 hover:bg-pink-50 dark:hover:bg-pink-950/20">
+                <Button variant="outline" size="sm" className="text-pink-600 border-pink-500/30 hover:text-pink-700 hover:bg-pink-50">
                   <Video className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">TikTok 숏폼</span>
                 </Button>
               </Link>
               <Link href={`/brands/${brandSlug}/shorts`}>
-                <Button variant="outline" size="sm" className="text-red-600 dark:text-red-400 border-red-500/30 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20">
+                <Button variant="outline" size="sm" className="text-red-600 border-red-500/30 hover:text-red-700 hover:bg-red-50">
                   <Radar className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">쇼츠 레이더</span>
                 </Button>
               </Link>
               <Link href={`/brands/${brandSlug}/videos`}>
-                <Button variant="outline" size="sm" className="text-amber-600 dark:text-amber-400 border-amber-500/30 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20">
+                <Button variant="outline" size="sm" className="text-amber-600 border-amber-500/30 hover:text-amber-700 hover:bg-amber-50">
                   <Film className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">영상 공장</span>
                 </Button>
               </Link>
               <Link href={`/brands/${brandSlug}/settings`}>
-                <Button variant="ghost" size="sm" className="text-slate-500 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/10">
+                <Button variant="ghost" size="sm" className="text-slate-500 hover:text-violet-600 hover:bg-violet-50">
                   <Settings className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">설정</span>
                 </Button>
               </Link>
-              <Button variant="ghost" size="sm" onClick={handleLogout} className="text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10">
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="text-slate-500 hover:text-red-500 hover:bg-red-50">
                 <LogOut className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">로그아웃</span>
               </Button>
             </div>
@@ -984,20 +984,20 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         />
 
         {/* Modern 3-Tab Bar */}
-        <div className="flex items-center gap-2 mb-8 border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div className="flex items-center gap-2 mb-8 border-b border-slate-200 pb-3">
           <button
             type="button"
             onClick={() => setActiveTab("feed")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               activeTab === "feed"
                 ? "bg-violet-600 text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                : "text-slate-600 hover:bg-slate-100"
             }`}
           >
             <LayoutList className="w-4 h-4" />
             스레드 피드 & 발행
             {posts.length > 0 && (
-              <span className={`text-xs px-2 py-0.5 rounded-full font-normal ${activeTab === "feed" ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500"}`}>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-normal ${activeTab === "feed" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>
                 {posts.length}
               </span>
             )}
@@ -1008,7 +1008,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               activeTab === "news"
                 ? "bg-indigo-600 text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                : "text-slate-600 hover:bg-slate-100"
             }`}
           >
             <Newspaper className="w-4 h-4" />
@@ -1020,7 +1020,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               activeTab === "reference"
                 ? "bg-amber-600 text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                : "text-slate-600 hover:bg-slate-100"
             }`}
           >
             <Microscope className="w-4 h-4" />
@@ -1032,12 +1032,12 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               activeTab === "interactions"
                 ? "bg-emerald-600 text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                : "text-slate-600 hover:bg-slate-100"
             }`}
           >
             <MessageSquare className="w-4 h-4" />
             독자 댓글 & 소통
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 font-semibold">
               AI 루프
             </span>
           </button>
@@ -1062,9 +1062,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         {activeTab === "feed" && (
           <>
             {showLegacyLabs && (
-              <div className="space-y-6 mb-8 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🧪 고급 실험실 도구 (Labs)</span>
+              <div className="space-y-6 mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <span className="text-sm font-semibold text-slate-700">🧪 고급 실험실 도구 (Labs)</span>
                   <Button variant="ghost" size="sm" onClick={() => setShowLegacyLabs(false)} className="text-xs text-slate-400 hover:text-slate-600">접기</Button>
                 </div>
                 {campaignSummary && (
@@ -1072,9 +1072,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                 )}
                 <div className="space-y-6 mb-6">
         {/* Account Intelligence Panel */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-          <button onClick={handleToggleAccountIntelligence} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <button onClick={handleToggleAccountIntelligence} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <Activity className="w-4 h-4 text-emerald-500" />
               Account Intelligence
               {accountIntelligence?.latest && (
@@ -1098,9 +1098,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         </div>
 
         {/* Campaign Experiment Panel */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-          <button onClick={handleToggleCampaign} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <button onClick={handleToggleCampaign} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <Target className="w-4 h-4 text-cyan-500" />
               Product Campaign Engine
               {campaignSummary && <span className="text-xs text-slate-400 font-normal">({campaignSummary.campaign.id})</span>}
@@ -1124,9 +1124,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
 
 
         {/* Viral Discovery Panel */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-          <button onClick={handleToggleViral} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <button onClick={handleToggleViral} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <Flame className="w-4 h-4 text-rose-500" />
               Viral Discovery Loop
               {viral && viral.sampleSize > 0 && <span className="text-xs text-slate-400 font-normal">({viral.sampleSize}개 레퍼런스)</span>}
@@ -1135,7 +1135,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           </button>
 
           {showViral && (
-            <div className="border-t border-slate-100 dark:border-slate-700 p-4">
+            <div className="border-t border-slate-100 p-4">
               {isLoadingViral ? (
                 <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-rose-500" /></div>
               ) : !viral || viral.sampleSize === 0 ? (
@@ -1165,26 +1165,26 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
               ) : (
                 <div className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900 p-3">
-                      <p className="text-xs text-rose-500 dark:text-rose-300">레퍼런스</p>
-                      <p className="text-xl font-bold text-slate-800 dark:text-white">{viral.sampleSize.toLocaleString()}</p>
+                    <div className="rounded-lg bg-rose-50 border border-rose-100 p-3">
+                      <p className="text-xs text-rose-500">레퍼런스</p>
+                      <p className="text-xl font-bold text-slate-800">{viral.sampleSize.toLocaleString()}</p>
                     </div>
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
-                      <p className="text-xs text-slate-500 dark:text-slate-400">평균 바이럴 점수</p>
-                      <p className="text-xl font-bold text-slate-800 dark:text-white">{viral.memory.avgViralScore.toLocaleString()}</p>
+                    <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                      <p className="text-xs text-slate-500">평균 바이럴 점수</p>
+                      <p className="text-xl font-bold text-slate-800">{viral.memory.avgViralScore.toLocaleString()}</p>
                     </div>
-                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 p-3">
-                      <p className="text-xs text-amber-600 dark:text-amber-300">학습 패턴</p>
-                      <p className="text-xl font-bold text-slate-800 dark:text-white">{viral.topPatterns.length.toLocaleString()}</p>
+                    <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
+                      <p className="text-xs text-amber-600">학습 패턴</p>
+                      <p className="text-xl font-bold text-slate-800">{viral.topPatterns.length.toLocaleString()}</p>
                     </div>
                   </div>
 
                   {viral.memory.recommendations.length > 0 && (
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
-                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">바이럴 생성 지침</p>
+                    <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                      <p className="text-xs font-semibold text-slate-500 mb-2">바이럴 생성 지침</p>
                       <div className="space-y-1">
                         {viral.memory.recommendations.map((recommendation) => (
-                          <p key={recommendation} className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</p>
+                          <p key={recommendation} className="text-sm text-slate-700">{recommendation}</p>
                         ))}
                       </div>
                     </div>
@@ -1205,9 +1205,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   )}
 
                   {viral.errors && viral.errors.length > 0 && (
-                    <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/20 p-3">
-                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">외부 소스 일부 실패</p>
-                      <p className="text-xs text-amber-700 dark:text-amber-300">{viral.errors.slice(0, 2).map(formatViralSourceError).join(" / ")}</p>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-xs font-semibold text-amber-700 mb-1">외부 소스 일부 실패</p>
+                      <p className="text-xs text-amber-700">{viral.errors.slice(0, 2).map(formatViralSourceError).join(" / ")}</p>
                     </div>
                   )}
 
@@ -1232,9 +1232,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         </div>
 
         {/* Growth Learning Panel */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-          <button onClick={handleToggleGrowth} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <button onClick={handleToggleGrowth} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <BrainCircuit className="w-4 h-4 text-violet-500" />
               Growth Learning Loop
               {growth && growth.sampleSize > 0 && <span className="text-xs text-slate-400 font-normal">({growth.sampleSize}개 학습)</span>}
@@ -1243,7 +1243,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           </button>
 
           {showGrowth && (
-            <div className="border-t border-slate-100 dark:border-slate-700 p-4">
+            <div className="border-t border-slate-100 p-4">
               {isLoadingGrowth ? (
                 <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-violet-500" /></div>
               ) : !growth || growth.sampleSize === 0 ? (
@@ -1261,26 +1261,26 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
               ) : (
                 <div className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900 p-3">
-                      <p className="text-xs text-violet-500 dark:text-violet-300">학습 표본</p>
-                      <p className="text-xl font-bold text-slate-800 dark:text-white">{growth.sampleSize.toLocaleString()}</p>
+                    <div className="rounded-lg bg-violet-50 border border-violet-100 p-3">
+                      <p className="text-xs text-violet-500">학습 표본</p>
+                      <p className="text-xl font-bold text-slate-800">{growth.sampleSize.toLocaleString()}</p>
                     </div>
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
-                      <p className="text-xs text-slate-500 dark:text-slate-400">평균 점수</p>
-                      <p className="text-xl font-bold text-slate-800 dark:text-white">{growth.memory.avgScore.toLocaleString()}</p>
+                    <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                      <p className="text-xs text-slate-500">평균 점수</p>
+                      <p className="text-xl font-bold text-slate-800">{growth.memory.avgScore.toLocaleString()}</p>
                     </div>
-                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 p-3">
-                      <p className="text-xs text-emerald-600 dark:text-emerald-300">승자 패턴</p>
-                      <p className="text-xl font-bold text-slate-800 dark:text-white">{growth.memory.winners.length.toLocaleString()}</p>
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
+                      <p className="text-xs text-emerald-600">승자 패턴</p>
+                      <p className="text-xl font-bold text-slate-800">{growth.memory.winners.length.toLocaleString()}</p>
                     </div>
                   </div>
 
                   {growth.memory.recommendations.length > 0 && (
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
-                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">다음 배치 지침</p>
+                    <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                      <p className="text-xs font-semibold text-slate-500 mb-2">다음 배치 지침</p>
                       <div className="space-y-1">
                         {growth.memory.recommendations.map((recommendation) => (
-                          <p key={recommendation} className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</p>
+                          <p key={recommendation} className="text-sm text-slate-700">{recommendation}</p>
                         ))}
                       </div>
                     </div>
@@ -1304,9 +1304,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         </div>
 
         {/* Analytics Panel */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-          <button onClick={handleToggleAnalytics} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <button onClick={handleToggleAnalytics} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <BarChart2 className="w-4 h-4 text-violet-500" />
               공식별 성과 분석
               {analytics && analytics.total > 0 && <span className="text-xs text-slate-400 font-normal">({analytics.total}개 게시물 기준)</span>}
@@ -1315,7 +1315,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           </button>
 
           {showAnalytics && (
-            <div className="border-t border-slate-100 dark:border-slate-700 p-4">
+            <div className="border-t border-slate-100 p-4">
               {isLoadingAnalytics ? (
                 <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-violet-500" /></div>
               ) : analytics?.message || !analytics?.byFormula?.length ? (
@@ -1329,7 +1329,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-xs text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                        <tr className="text-xs text-slate-400 border-b border-slate-100">
                           <th className="text-left pb-2 font-medium">공식</th>
                           <th className="text-right pb-2 font-medium">횟수</th>
                           <th className="text-right pb-2 font-medium">평균 조회</th>
@@ -1337,17 +1337,17 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                           <th className="text-right pb-2 font-medium">종합점수</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                      <tbody className="divide-y divide-slate-50">
                         {analytics.byFormula.map((f, i) => (
-                          <tr key={f.formulaId} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                            <td className="py-2 font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                          <tr key={f.formulaId} className="hover:bg-slate-50">
+                            <td className="py-2 font-medium text-slate-700 flex items-center gap-1.5">
                               {i === 0 ? <span className="text-xs">🥇</span> : i === analytics.byFormula.length - 1 && analytics.byFormula.length > 1 ? <span className="text-xs">🔻</span> : <span className="w-4" />}
                               {f.formulaId}
                             </td>
                             <td className="py-2 text-right text-slate-500">{f.count}</td>
-                            <td className="py-2 text-right text-slate-600 dark:text-slate-300">{f.avgViews.toLocaleString()}</td>
-                            <td className="py-2 text-right text-slate-600 dark:text-slate-300">{f.avgLikes.toLocaleString()}</td>
-                            <td className="py-2 text-right font-semibold text-violet-600 dark:text-violet-400">{f.engagementScore.toLocaleString()}</td>
+                            <td className="py-2 text-right text-slate-600">{f.avgViews.toLocaleString()}</td>
+                            <td className="py-2 text-right text-slate-600">{f.avgLikes.toLocaleString()}</td>
+                            <td className="py-2 text-right font-semibold text-violet-600">{f.engagementScore.toLocaleString()}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1371,12 +1371,12 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         {/* Command line: one sentence → plan → approve */}
         <form
           onSubmit={(e) => { e.preventDefault(); void handlePlanCommand(); }}
-          className="mb-6 flex flex-col gap-4 p-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm"
+          className="mb-6 flex flex-col gap-4 p-5 bg-white rounded-xl border border-slate-200 shadow-sm"
         >
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <Send className="w-4 h-4 text-violet-500 shrink-0" />
-            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">명령 한 줄</h2>
-            <span className="basis-full sm:basis-auto text-xs text-slate-400 dark:text-slate-500">계획만 먼저 보여드려요. 승인 전에는 아무것도 바뀌지 않아요.</span>
+            <h2 className="text-sm font-semibold text-slate-800 whitespace-nowrap">명령 한 줄</h2>
+            <span className="basis-full sm:basis-auto text-xs text-slate-400">계획만 먼저 보여드려요. 승인 전에는 아무것도 바뀌지 않아요.</span>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
@@ -1392,23 +1392,23 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             </Button>
           </div>
           {commandError && (
-            <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
+            <div className="flex items-start gap-2 p-3 bg-red-50 rounded-lg border border-red-200">
               <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-600 dark:text-red-400">{commandError}</p>
+              <p className="text-sm text-red-600">{commandError}</p>
             </div>
           )}
           {commandPlan && (
-            <div className="flex flex-col gap-3 p-4 bg-violet-50 dark:bg-violet-950/20 rounded-lg border border-violet-200 dark:border-violet-800">
+            <div className="flex flex-col gap-3 p-4 bg-violet-50 rounded-lg border border-violet-200">
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-                <dt className="text-slate-500 dark:text-slate-400">브랜드</dt>
-                <dd className="font-medium text-slate-800 dark:text-slate-100">{commandPlan.brandSlug ?? commandPlan.plan.brandId}</dd>
-                <dt className="text-slate-500 dark:text-slate-400">초안 수</dt>
-                <dd className="font-medium text-slate-800 dark:text-slate-100">{commandPlan.plan.count}개</dd>
-                <dt className="text-slate-500 dark:text-slate-400">가설</dt>
-                <dd className="text-slate-800 dark:text-slate-100 break-words">{commandPlan.plan.hypothesis || <span className="text-slate-400">현재 실험 가설 유지</span>}</dd>
+                <dt className="text-slate-500">브랜드</dt>
+                <dd className="font-medium text-slate-800">{commandPlan.brandSlug ?? commandPlan.plan.brandId}</dd>
+                <dt className="text-slate-500">초안 수</dt>
+                <dd className="font-medium text-slate-800">{commandPlan.plan.count}개</dd>
+                <dt className="text-slate-500">가설</dt>
+                <dd className="text-slate-800 break-words">{commandPlan.plan.hypothesis || <span className="text-slate-400">현재 실험 가설 유지</span>}</dd>
               </dl>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
-                <p className="text-xs text-slate-500 dark:text-slate-400">승인하면 가설이 저장되고 초안이 검토 대기열에 쌓여요.</p>
+                <p className="text-xs text-slate-500">승인하면 가설이 저장되고 초안이 검토 대기열에 쌓여요.</p>
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" size="sm" onClick={() => setCommandPlan(null)} disabled={isApprovingCommand}>취소</Button>
                   <Button type="button" size="sm" onClick={handleApproveCommand} disabled={isApprovingCommand} className="bg-violet-600 hover:bg-violet-700 text-white">
@@ -1426,14 +1426,14 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             <RefreshCw className="w-8 h-8 animate-spin text-violet-500" />
           </div>
         ) : fetchError && posts.length === 0 ? (
-          <div className="flex flex-col gap-4 p-6 bg-white dark:bg-slate-800 rounded-2xl border border-red-200 dark:border-red-900 shadow-sm">
+          <div className="flex flex-col gap-4 p-6 bg-white rounded-2xl border border-red-200 shadow-sm">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 shrink-0 rounded-full bg-red-100 dark:bg-red-950/50 p-2">
-                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <div className="mt-0.5 shrink-0 rounded-full bg-red-100 p-2">
+                <AlertCircle className="w-5 h-5 text-red-600" />
               </div>
               <div className="space-y-1">
-                <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">포스트를 불러오지 못했습니다</h2>
-                <p className="text-sm text-red-600 dark:text-red-400">{fetchError}</p>
+                <h2 className="text-base font-semibold text-slate-800">포스트를 불러오지 못했습니다</h2>
+                <p className="text-sm text-red-600">{fetchError}</p>
               </div>
             </div>
             <div className="flex justify-end">
@@ -1445,14 +1445,14 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         ) : posts.length === 0 ? (
           <div className="space-y-4">
             <FileDropzone onFileSelect={handleFileSelect} isLoading={isLoading} />
-            <div className="flex items-center gap-3 p-5 bg-white dark:bg-slate-800 rounded-xl border border-violet-200 dark:border-violet-800 shadow-sm">
+            <div className="flex items-center gap-3 p-5 bg-white rounded-xl border border-violet-200 shadow-sm">
               <Wand2 className="w-5 h-5 text-violet-500 shrink-0" />
-              <span className="text-sm text-slate-600 dark:text-slate-300 flex-1">파일 없이 AI로 바로 생성</span>
+              <span className="text-sm text-slate-600 flex-1">파일 없이 AI로 바로 생성</span>
               <input
                 type="number" min={7} max={300} step={7}
                 value={generateCount}
                 onChange={(e) => setGenerateCount(Number(e.target.value))}
-                className="w-20 px-2 py-1 text-sm border border-slate-200 dark:border-slate-600 rounded-lg text-center bg-transparent"
+                className="w-20 px-2 py-1 text-sm border border-slate-200 rounded-lg text-center bg-transparent"
               />
               <span className="text-xs text-slate-400">개</span>
               <Button onClick={handleGenerate} disabled={isGenerating} className="bg-violet-600 hover:bg-violet-700 text-white">
@@ -1464,9 +1464,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         ) : (
           <div className="space-y-6">
             {fetchError && (
-              <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-900">
+              <div className="flex items-start gap-3 p-4 bg-red-50 rounded-xl border border-red-200">
                 <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-red-600 dark:text-red-400">{fetchError}</p>
+                <p className="text-sm text-red-600">{fetchError}</p>
               </div>
             )}
 
@@ -1475,29 +1475,29 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             <FormulaConversionTable posts={posts} />
 
             {/* Summary Bar */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-slate-200">
               <div className="flex items-center gap-4">
                 <div className="text-sm">
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">{visiblePosts.length}</span>
-                  <span className="text-slate-500 dark:text-slate-400">개 포스트{!showPublished && publishedCount > 0 && ` (+완료 ${publishedCount}개 숨김)`}</span>
+                  <span className="font-semibold text-slate-700">{visiblePosts.length}</span>
+                  <span className="text-slate-500">개 포스트{!showPublished && publishedCount > 0 && ` (+완료 ${publishedCount}개 숨김)`}</span>
                 </div>
-                <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
-                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                <div className="h-4 w-px bg-slate-200" />
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
                   <input type="checkbox" checked={showPublished} onChange={(e) => setShowPublished(e.target.checked)} className="rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
                   완료된 글 보기
                 </label>
-                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
                   <input type="checkbox" checked={reviewOnly} onChange={(e) => setReviewOnly(e.target.checked)} className="rounded border-slate-300 text-orange-600 focus:ring-orange-500" />
                   검토 필요만 ({reviewCount})
                 </label>
               </div>
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
-                <label className="flex items-center justify-between sm:justify-start gap-2 px-3 py-2 sm:p-0 bg-slate-50 dark:bg-slate-900 sm:bg-transparent rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                <label className="flex items-center justify-between sm:justify-start gap-2 px-3 py-2 sm:p-0 bg-slate-50 sm:bg-transparent rounded-lg text-sm font-medium text-slate-700 cursor-pointer select-none">
                   <span>맨 앞으로 추가</span>
                   <div className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" checked={insertAtFront} onChange={(e) => setInsertAtFront(e.target.checked)} className="sr-only peer" />
-                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-violet-600" />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600" />
                   </div>
                 </label>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1511,7 +1511,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                     onClick={() => void handleReviewPipeline()}
                     disabled={isReviewPipelineRunning}
                     title="트렌드 확인 → 글마다 초안 3개 체이닝 → 브랜드 톤 채점 → 승인 대기"
-                    className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/30 flex-1 sm:flex-none"
+                    className="border-orange-300 text-orange-700 hover:bg-orange-50 flex-1 sm:flex-none"
                   >
                     {isReviewPipelineRunning ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1.5" />}
                     {isReviewPipelineRunning ? "초안 쓰는 중..." : "검토용 3개"}
@@ -1577,12 +1577,12 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
         )}
 
         {/* Labs Toggle Button at bottom of feed */}
-          <div className="mt-16 pt-8 border-t border-slate-200 dark:border-slate-800 text-center">
+          <div className="mt-16 pt-8 border-t border-slate-200 text-center">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowLegacyLabs((v) => !v)}
-              className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 gap-1.5"
+              className="text-xs text-slate-500 hover:text-slate-700 gap-1.5"
             >
               <FlaskConical className="w-3.5 h-3.5" />
               {showLegacyLabs ? "고급 실험실 도구 (Labs) 숨기기" : "고급 실험실 도구 (Labs) 보기"}
@@ -1612,7 +1612,7 @@ function AccountIntelligencePanel({
 
   if (isLoading) {
     return (
-      <div className="border-t border-slate-100 dark:border-slate-700 p-6 flex justify-center">
+      <div className="border-t border-slate-100 p-6 flex justify-center">
         <RefreshCw className="w-5 h-5 animate-spin text-emerald-500" />
       </div>
     );
@@ -1620,7 +1620,7 @@ function AccountIntelligencePanel({
 
   if (!latest) {
     return (
-      <div className="border-t border-slate-100 dark:border-slate-700 p-6 text-center text-sm text-slate-400">
+      <div className="border-t border-slate-100 p-6 text-center text-sm text-slate-400">
         아직 계정 분석 스냅샷이 없습니다.
         <div className="mt-3">
           <Button size="sm" onClick={onRun} disabled={isRunning} className="bg-emerald-600 hover:bg-emerald-700 text-white">
@@ -1634,11 +1634,11 @@ function AccountIntelligencePanel({
 
   const metrics = latest.metrics;
   return (
-    <div className="border-t border-slate-100 dark:border-slate-700 p-4 space-y-4">
+    <div className="border-t border-slate-100 p-4 space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-semibold text-slate-800 dark:text-white">{latest.summary}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-semibold text-slate-800">{latest.summary}</p>
+          <p className="text-xs text-slate-500">
             {formatDateTime(latest.generatedAt)} · {metrics.metricsRefresh.updated}/{metrics.metricsRefresh.attempted} metrics updated
           </p>
         </div>
@@ -1661,21 +1661,21 @@ function AccountIntelligencePanel({
       </div>
 
       {latest.actions.length === 0 ? (
-        <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3 text-sm text-slate-400">
+        <div className="rounded-lg border border-slate-100 p-3 text-sm text-slate-400">
           지금 당장 처리할 액션은 없습니다.
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
           {latest.actions.map((action) => (
-            <div key={action.id} className="rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-3">
+            <div key={action.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${priorityClass(action.priority)}`}>
                   {priorityLabel(action.priority)}
                 </span>
                 <span className="text-xs text-slate-400">{actionTypeLabel(action.type)}</span>
               </div>
-              <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-white">{action.title}</p>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{action.detail}</p>
+              <p className="mt-2 text-sm font-semibold text-slate-800">{action.title}</p>
+              <p className="mt-1 text-sm text-slate-600">{action.detail}</p>
               {(action.formulaId || action.postId) && (
                 <p className="mt-2 text-xs text-slate-400">
                   {action.formulaId && `포맷 ${action.formulaId}`}
@@ -1719,7 +1719,7 @@ function CampaignSummaryPanel({
 
   if (isLoading) {
     return (
-      <div className="border-t border-slate-100 dark:border-slate-700 p-6 flex justify-center">
+      <div className="border-t border-slate-100 p-6 flex justify-center">
         <RefreshCw className="w-5 h-5 animate-spin text-cyan-500" />
       </div>
     );
@@ -1727,7 +1727,7 @@ function CampaignSummaryPanel({
 
   if (!summary) {
     return (
-      <div className="border-t border-slate-100 dark:border-slate-700 p-6 text-center text-sm text-slate-400">
+      <div className="border-t border-slate-100 p-6 text-center text-sm text-slate-400">
         캠페인 데이터를 불러오지 못했습니다.
         <div className="mt-3">
           <Button size="sm" variant="outline" onClick={onRefresh}>
@@ -1746,11 +1746,11 @@ function CampaignSummaryPanel({
   ];
 
   return (
-    <div className="border-t border-slate-100 dark:border-slate-700 p-4 space-y-4">
+    <div className="border-t border-slate-100 p-4 space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-semibold text-slate-800 dark:text-white">{summary.campaign.name}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-semibold text-slate-800">{summary.campaign.name}</p>
+          <p className="text-xs text-slate-500">
             랜딩 {summary.campaign.landingUrl} · 하루 {summary.campaign.dailyPostTarget}개 · {summary.campaign.linkCadenceEvery}개 중 1개 링크
           </p>
         </div>
@@ -1773,8 +1773,8 @@ function CampaignSummaryPanel({
       />
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">캠페인 포스트</p>
+        <div className="rounded-lg border border-slate-100 p-3">
+          <p className="text-xs font-semibold text-slate-500 mb-2">캠페인 포스트</p>
           {summary.todayScheduled.length === 0 ? (
             <p className="text-sm text-slate-400">캠페인에 생성/발행된 포스트가 없습니다.</p>
           ) : (
@@ -1786,22 +1786,22 @@ function CampaignSummaryPanel({
                   manualPaidConversions: String(post.manualPaidConversions),
                 };
                 return (
-                  <div key={post.id} className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
+                  <div key={post.id} className="rounded-lg bg-slate-50 border border-slate-100 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">#{index + 1} · {post.status} · {post.campaignFormulaId ?? "formula"}</p>
+                      <p className="text-xs font-semibold text-slate-500">#{index + 1} · {post.status} · {post.campaignFormulaId ?? "formula"}</p>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                         post.qualityPass
-                          ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
-                          : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
                       }`}>
                         {post.qualityPass ? "PASS" : "FAIL"}
                       </span>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-sm text-slate-700 dark:text-slate-200">{post.content}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-slate-700">{post.content}</p>
                     <p className="mt-1 text-xs text-slate-400">
                       {post.linkUrl ? "링크 포함" : "링크 없음"} · 댓글 {post.replies} · 리포스트 {post.reposts} · {careerDecisionLabel(post.careerDecisionType ?? "")}
                     </p>
-                    {post.linkUrl && <p className="mt-1 break-all text-xs text-cyan-600 dark:text-cyan-300">{post.linkUrl}</p>}
+                    {post.linkUrl && <p className="mt-1 break-all text-xs text-cyan-600">{post.linkUrl}</p>}
                     {post.qualityReasons.length > 0 && <p className="mt-1 text-xs text-red-500">{post.qualityReasons.join(" / ")}</p>}
                     <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
                       <input
@@ -1809,7 +1809,7 @@ function CampaignSummaryPanel({
                         min={0}
                         value={draft.clicks}
                         onChange={(event) => onDraftChange(post.id, "clicks", event.target.value)}
-                        className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs text-slate-800 dark:text-slate-100"
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800"
                         placeholder="클릭"
                       />
                       <input
@@ -1817,7 +1817,7 @@ function CampaignSummaryPanel({
                         min={0}
                         value={draft.conversions}
                         onChange={(event) => onDraftChange(post.id, "conversions", event.target.value)}
-                        className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs text-slate-800 dark:text-slate-100"
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800"
                         placeholder="전환"
                       />
                       <input
@@ -1825,7 +1825,7 @@ function CampaignSummaryPanel({
                         min={0}
                         value={draft.manualPaidConversions}
                         onChange={(event) => onDraftChange(post.id, "manualPaidConversions", event.target.value)}
-                        className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs text-slate-800 dark:text-slate-100"
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800"
                         placeholder="유료전환"
                       />
                       <Button size="sm" variant="outline" onClick={() => onSaveMetrics(post.id)} disabled={savingPostId === post.id} className="text-xs">
@@ -1840,17 +1840,17 @@ function CampaignSummaryPanel({
           )}
         </div>
 
-        <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Reply Playbook</p>
+        <div className="rounded-lg border border-slate-100 p-3">
+          <p className="text-xs font-semibold text-slate-500 mb-2">Reply Playbook</p>
           <div className="space-y-2">
             {playbookEntries.map((entry) => (
               <button
                 key={entry.key}
                 onClick={() => copyPlaybook(summary.replyPlaybook[entry.key])}
-                className="w-full rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-3 text-left hover:border-cyan-300 dark:hover:border-cyan-700"
+                className="w-full rounded-lg border border-slate-100 bg-slate-50 p-3 text-left hover:border-cyan-300"
               >
-                <span className="block text-xs font-semibold text-cyan-600 dark:text-cyan-300">{entry.label}</span>
-                <span className="mt-1 block text-sm text-slate-700 dark:text-slate-200">{summary.replyPlaybook[entry.key]}</span>
+                <span className="block text-xs font-semibold text-cyan-600">{entry.label}</span>
+                <span className="mt-1 block text-sm text-slate-700">{summary.replyPlaybook[entry.key]}</span>
               </button>
             ))}
           </div>
@@ -1860,7 +1860,7 @@ function CampaignSummaryPanel({
         </div>
       </div>
 
-      <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3 text-xs text-slate-500 dark:text-slate-400">
+      <div className="rounded-lg bg-slate-50 border border-slate-100 p-3 text-xs text-slate-500">
         성과 점수 (건당): 조회 {summary.scoreWeights.views} · 댓글 {summary.scoreWeights.replies} · 리포스트 {summary.scoreWeights.reposts} · 클릭 {summary.scoreWeights.clicks} · 전환 {summary.scoreWeights.conversions} · 유료 {summary.scoreWeights.manualPaidConversions}
       </div>
     </div>
@@ -1869,14 +1869,14 @@ function CampaignSummaryPanel({
 
 function PortfolioOverview({ summary }: { summary: CampaignSummaryData }) {
   return (
-    <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+    <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase text-violet-600 dark:text-violet-400">Portfolio Growth OS</p>
-          <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">{summary.productProfile.productName}</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{summary.productProfile.targetCustomer || "타깃 고객 미설정"}</p>
+          <p className="text-xs font-semibold uppercase text-violet-600">Portfolio Growth OS</p>
+          <h2 className="mt-1 text-lg font-bold text-slate-900">{summary.productProfile.productName}</h2>
+          <p className="mt-1 text-sm text-slate-500">{summary.productProfile.targetCustomer || "타깃 고객 미설정"}</p>
         </div>
-        <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+        <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
           {summary.nextAction}
         </div>
       </div>
@@ -1892,10 +1892,10 @@ function PortfolioOverview({ summary }: { summary: CampaignSummaryData }) {
 
 function MetricTile({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-lg bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-100 dark:border-cyan-900 p-3">
-      <p className="text-xs text-cyan-600 dark:text-cyan-300">{label}</p>
-      <p className="text-xl font-bold text-slate-800 dark:text-white">{value}</p>
-      <p className="text-xs text-slate-500 dark:text-slate-400">{sub}</p>
+    <div className="rounded-lg bg-cyan-50 border border-cyan-100 p-3">
+      <p className="text-xs text-cyan-600">{label}</p>
+      <p className="text-xl font-bold text-slate-800">{value}</p>
+      <p className="text-xs text-slate-500">{sub}</p>
     </div>
   );
 }
@@ -1911,21 +1911,21 @@ function PatternList({
 }) {
   if (patterns.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
-        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">{title}</p>
+      <div className="rounded-lg border border-slate-100 p-3">
+        <p className="text-xs font-semibold text-slate-500 mb-2">{title}</p>
         <p className="text-sm text-slate-400">표본이 더 필요합니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
-      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">{title}</p>
+    <div className="rounded-lg border border-slate-100 p-3">
+      <p className="text-xs font-semibold text-slate-500 mb-2">{title}</p>
       <div className="space-y-2">
         {patterns.map((pattern) => (
           <div key={`${pattern.dimension}-${pattern.value}`} className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+              <p className="truncate text-sm font-medium text-slate-700">
                 {dimensionLabel(pattern.dimension)} · {pattern.value}
               </p>
               <p className="text-xs text-slate-400">
@@ -1934,8 +1934,8 @@ function PatternList({
             </div>
             <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${
               muted
-                ? "bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-400"
-                : "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+                ? "bg-slate-100 text-slate-500"
+                : "bg-violet-100 text-violet-700"
             }`}>
               {pattern.avgScore.toLocaleString()}
             </span>
@@ -1962,34 +1962,34 @@ function ManualReferenceForm({
   };
 
   return (
-    <div className="w-full rounded-lg border border-rose-100 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/10 p-3 text-left">
+    <div className="w-full rounded-lg border border-rose-100 bg-rose-50/60 p-3 text-left">
       <div className="grid gap-3 md:grid-cols-[1fr_220px]">
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">레퍼런스 본문</label>
+          <label className="text-xs font-semibold text-slate-600">레퍼런스 본문</label>
           <textarea
             rows={5}
             value={value.content}
             onChange={(event) => update("content", event.target.value)}
-            className="w-full resize-y rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500"
             placeholder="바이럴된 글의 본문을 붙여넣기"
           />
           <div className="grid gap-2 sm:grid-cols-2">
             <input
               value={value.permalink}
               onChange={(event) => update("permalink", event.target.value)}
-              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400"
               placeholder="링크 선택"
             />
             <input
               value={value.authorUsername}
               onChange={(event) => update("authorUsername", event.target.value)}
-              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400"
               placeholder="작성자 선택"
             />
           </div>
         </div>
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">선택 메트릭</p>
+          <p className="text-xs font-semibold text-slate-600">선택 메트릭</p>
           <div className="grid grid-cols-2 gap-2">
             {MANUAL_METRIC_FIELDS.map((field) => (
               <input
@@ -1998,7 +1998,7 @@ function ManualReferenceForm({
                 min={0}
                 value={value[field.key]}
                 onChange={(event) => update(field.key, event.target.value)}
-                className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-800 placeholder:text-slate-400"
                 placeholder={field.label}
               />
             ))}
@@ -2016,28 +2016,28 @@ function ManualReferenceForm({
 function ViralPatternList({ patterns }: { patterns: ViralPatternData[] }) {
   if (patterns.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
-        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">바이럴 패턴</p>
+      <div className="rounded-lg border border-slate-100 p-3">
+        <p className="text-xs font-semibold text-slate-500 mb-2">바이럴 패턴</p>
         <p className="text-sm text-slate-400">표본이 더 필요합니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
-      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">바이럴 패턴</p>
+    <div className="rounded-lg border border-slate-100 p-3">
+      <p className="text-xs font-semibold text-slate-500 mb-2">바이럴 패턴</p>
       <div className="space-y-2">
         {patterns.map((pattern) => (
           <div key={pattern.id} className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+              <p className="truncate text-sm font-medium text-slate-700">
                 {viralDimensionLabel(pattern.dimension)} · {pattern.value}
               </p>
               <p className="text-xs text-slate-400">
                 {pattern.sourceCount}개 · 신뢰도 {pattern.confidence} · 평균 {pattern.avgViralScore.toLocaleString()}
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 px-2 py-1 text-xs font-semibold">
+            <span className="shrink-0 rounded-full bg-rose-100 text-rose-700 px-2 py-1 text-xs font-semibold">
               {pattern.avgViralScore.toLocaleString()}
             </span>
           </div>
@@ -2050,28 +2050,28 @@ function ViralPatternList({ patterns }: { patterns: ViralPatternData[] }) {
 function ViralExampleList({ examples }: { examples: ViralExampleData[] }) {
   if (examples.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
-        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">상위 레퍼런스</p>
+      <div className="rounded-lg border border-slate-100 p-3">
+        <p className="text-xs font-semibold text-slate-500 mb-2">상위 레퍼런스</p>
         <p className="text-sm text-slate-400">아직 저장된 레퍼런스가 없습니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
-      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">상위 레퍼런스</p>
+    <div className="rounded-lg border border-slate-100 p-3">
+      <p className="text-xs font-semibold text-slate-500 mb-2">상위 레퍼런스</p>
       <div className="space-y-3">
         {examples.map((example) => (
-          <div key={example.id} className="space-y-1 border-b border-slate-50 dark:border-slate-700/50 last:border-0 last:pb-0 pb-2">
+          <div key={example.id} className="space-y-1 border-b border-slate-50 last:border-0 last:pb-0 pb-2">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-slate-400">
                 {sourceLabel(example.source)} · {example.hookType ?? "훅 미분류"}
               </p>
-              <span className="rounded-full bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300 px-2 py-0.5 text-xs font-semibold">
+              <span className="rounded-full bg-slate-100 text-slate-600 px-2 py-0.5 text-xs font-semibold">
                 {example.viralScore.toLocaleString()}
               </span>
             </div>
-            <p className="line-clamp-2 text-sm text-slate-700 dark:text-slate-200">{example.content}</p>
+            <p className="line-clamp-2 text-sm text-slate-700">{example.content}</p>
             <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
               <span>{example.patternSummary ?? "패턴 분석 대기"}</span>
               <span>참고 {example.referenceScore} · TOP {example.timesSeen}회</span>
@@ -2141,9 +2141,9 @@ function formatDateTime(value: string): string {
 
 function priorityClass(priority: string): string {
   const classes: Record<string, string> = {
-    high: "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300",
-    medium: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-    low: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+    high: "bg-red-100 text-red-700",
+    medium: "bg-amber-100 text-amber-700",
+    low: "bg-slate-100 text-slate-600",
   };
   return classes[priority] ?? classes.low;
 }

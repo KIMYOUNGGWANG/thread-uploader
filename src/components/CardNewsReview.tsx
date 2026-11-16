@@ -20,12 +20,12 @@ export function CardNewsPreview({ postId, slides, rawSlides, instagramCaption, i
   return (
     <div className="mt-3 space-y-3">
       {issues.length > 0 && (
-        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-2.5 dark:border-red-900 dark:bg-red-950/40">
-          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-red-700 dark:text-red-300">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-2.5">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-red-700">
             <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
             승인 전에 고쳐야 할 표현 {issues.length}개
           </p>
-          <ul className="space-y-0.5 text-xs text-red-600 dark:text-red-400">
+          <ul className="space-y-0.5 text-xs text-red-600">
             {issues.map((issue) => (
               <li key={issue}>{issue.replace(`${COMPLIANCE_PREFIX} · `, "")}</li>
             ))}
@@ -53,7 +53,7 @@ export function CardNewsPreview({ postId, slides, rawSlides, instagramCaption, i
                 src={`/api/cards/${postId}?slide=${i}&v=${version}`}
                 alt=""
                 loading="lazy"
-                className="h-28 w-28 rounded-md border border-slate-200 bg-[#F6F1EA] object-cover dark:border-slate-700"
+                className="h-28 w-28 rounded-md border border-slate-200 bg-[#F6F1EA] object-cover"
               />
             </a>
           ))}
@@ -61,13 +61,13 @@ export function CardNewsPreview({ postId, slides, rawSlides, instagramCaption, i
       </div>
 
       {instagramCaption && (
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-900/50">
+        <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">인스타 캡션</p>
-          <p className={`whitespace-pre-wrap text-xs text-slate-600 dark:text-slate-300 ${captionOpen ? "" : "line-clamp-3"}`}>{instagramCaption}</p>
+          <p className={`whitespace-pre-wrap text-xs text-slate-600 ${captionOpen ? "" : "line-clamp-3"}`}>{instagramCaption}</p>
           <button
             type="button"
             onClick={() => setCaptionOpen((open) => !open)}
-            className="mt-1 text-[11px] font-medium text-violet-600 hover:underline dark:text-violet-400"
+            className="mt-1 text-[11px] font-medium text-violet-600 hover:underline"
           >
             {captionOpen ? "접기" : "전체 보기"}
           </button>
@@ -85,7 +85,7 @@ interface EditorProps {
 }
 
 const fieldClass =
-  "w-full rounded-lg border p-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-violet-500 dark:border-slate-600 dark:bg-slate-800";
+  "w-full rounded-lg border p-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-violet-500";
 
 export function CardNewsEditor({ slides, caption, onSlidesChange, onCaptionChange }: EditorProps) {
   const update = (index: number, patch: Partial<CardSlide>) =>
@@ -108,7 +108,7 @@ export function CardNewsEditor({ slides, caption, onSlidesChange, onCaptionChang
       <fieldset className="space-y-3">
         <legend className="text-[10px] font-bold uppercase tracking-wider text-slate-400">카드 문구 ({slides.length}장)</legend>
         {slides.map((slide, i) => (
-          <div key={i} className="space-y-1.5 rounded-lg border border-slate-100 p-2.5 dark:border-slate-800">
+          <div key={i} className="space-y-1.5 rounded-lg border border-slate-100 p-2.5">
             <Input
               value={slide.headline}
               onChange={(event) => update(i, { headline: event.target.value })}

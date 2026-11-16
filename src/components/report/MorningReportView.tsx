@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { MorningReport, ReportChannel } from "@/lib/distribution/morning-report";
 
-const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900";
-const CARD = "rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900";
+const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2";
+const CARD = "rounded-xl border border-slate-200 bg-white p-4";
 const BUTTON = `min-h-11 rounded-lg border px-3 py-2 text-base font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${FOCUS}`;
-const BUTTON_IDLE = "border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800";
+const BUTTON_IDLE = "border-slate-300 text-slate-700 hover:bg-slate-100";
 const BUTTON_DANGER = "border-rose-600 bg-rose-600 text-white hover:bg-rose-700";
 
 const CHANNEL_LABEL: Record<ReportChannel, string> = {
@@ -69,24 +69,24 @@ export function MorningReportView({ report }: { report: MorningReport }) {
   const { pending, error, run } = useAction();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4">
           <div>
             <h1 className="text-lg font-bold">아침 보고</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{formatKst(report.since)} 이후 · {formatKst(report.generatedAt)} 기준</p>
+            <p className="text-sm text-slate-500">{formatKst(report.since)} 이후 · {formatKst(report.generatedAt)} 기준</p>
           </div>
-          <Link href="/brands" className={`rounded-md text-base text-slate-600 hover:underline dark:text-slate-300 ${FOCUS}`}>제품 대시보드 →</Link>
+          <Link href="/brands" className={`rounded-md text-base text-slate-600 hover:underline ${FOCUS}`}>제품 대시보드 →</Link>
         </div>
       </header>
 
       <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6">
-        {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-base text-red-800 dark:bg-red-950/30 dark:text-red-200">{error}</p>}
+        {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-base text-red-800">{error}</p>}
 
         <section aria-labelledby="todo-heading" className="flex flex-col gap-3">
           <h2 id="todo-heading" className="text-base font-bold">내 할 일 {report.todos.length > 0 && <span className="text-slate-500">({report.todos.length})</span>}</h2>
           {report.todos.length === 0 ? (
-            <p className={`${CARD} text-base text-slate-500 dark:text-slate-400`}>오늘은 할 일이 없어요.</p>
+            <p className={`${CARD} text-base text-slate-500`}>오늘은 할 일이 없어요.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {report.todos.map((todo) => (
@@ -116,7 +116,7 @@ export function MorningReportView({ report }: { report: MorningReport }) {
         <section aria-labelledby="pending-heading" className="flex flex-col gap-3">
           <h2 id="pending-heading" className="text-base font-bold">오늘 올라갈 것</h2>
           {report.pendingVideos.length === 0 && report.pendingUploads.length === 0 ? (
-            <p className={`${CARD} text-base text-slate-500 dark:text-slate-400`}>취소 창이 열린 영상·카드뉴스가 없어요.</p>
+            <p className={`${CARD} text-base text-slate-500`}>취소 창이 열린 영상·카드뉴스가 없어요.</p>
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {report.pendingVideos.map((video) => (
@@ -126,7 +126,7 @@ export function MorningReportView({ report }: { report: MorningReport }) {
                     <img src={video.coverUrl} alt="" className="aspect-[9/16] w-20 shrink-0 rounded-lg object-cover" />
                   )}
                   <div className="flex min-w-0 flex-col gap-2">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">{video.brandName} · 영상 → 연결된 영상 채널</p>
+                    <p className="text-sm text-slate-500">{video.brandName} · 영상 → 연결된 영상 채널</p>
                     <p className="text-base font-semibold break-words">{video.title || "제목 없음"}</p>
                     <p className="text-base">{video.canceled ? "취소됨" : `${formatKst(video.autoPublishAt)} 자동 업로드 · ${remaining(video.autoPublishAt, now)}`}</p>
                     <div className="flex flex-wrap gap-2">
@@ -148,7 +148,7 @@ export function MorningReportView({ report }: { report: MorningReport }) {
               ))}
               {report.pendingUploads.map((upload) => (
                 <article key={upload.id} className={`${CARD} flex flex-col gap-2`}>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{upload.brandName} · {KIND_LABEL[upload.kind] ?? upload.kind} → {CHANNEL_LABEL[upload.channel]}</p>
+                  <p className="text-sm text-slate-500">{upload.brandName} · {KIND_LABEL[upload.kind] ?? upload.kind} → {CHANNEL_LABEL[upload.channel]}</p>
                   <p className="text-base font-semibold break-words">{upload.title || "제목 없음"}</p>
                   <p className="text-base">{formatKst(upload.scheduledAt)} 자동 업로드 · {remaining(upload.scheduledAt, now)}</p>
                   <div>
@@ -160,7 +160,7 @@ export function MorningReportView({ report }: { report: MorningReport }) {
             </div>
           )}
           {report.threadsBacklog.some((b) => b.pending + b.review > 0) && (
-            <p className="text-base text-slate-600 dark:text-slate-400">
+            <p className="text-base text-slate-600">
               Threads 대기 글: {report.threadsBacklog.filter((b) => b.pending + b.review > 0).map((b) => `${b.brandName} 발행 대기 ${b.pending} · 검토 ${b.review}`).join(" / ")}
             </p>
           )}
@@ -172,10 +172,10 @@ export function MorningReportView({ report }: { report: MorningReport }) {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               {report.summary.map((s) => (
                 <div key={s.channel} className={CARD}>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{CHANNEL_LABEL[s.channel]}</p>
+                  <p className="text-sm text-slate-500">{CHANNEL_LABEL[s.channel]}</p>
                   <p className="text-xl font-bold tabular-nums">{s.published}건</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {s.failed > 0 ? <span className="text-red-600 dark:text-red-400">실패 {s.failed}</span> : "실패 없음"}
+                  <p className="text-sm text-slate-500">
+                    {s.failed > 0 ? <span className="text-red-600">실패 {s.failed}</span> : "실패 없음"}
                     {s.views !== null ? ` · 조회 ${s.views.toLocaleString("ko-KR")}` : ""}
                   </p>
                 </div>
@@ -183,19 +183,19 @@ export function MorningReportView({ report }: { report: MorningReport }) {
             </div>
           )}
           {report.recent.length === 0 ? (
-            <p className={`${CARD} text-base text-slate-500 dark:text-slate-400`}>어제부터 올라간 것이 없어요.</p>
+            <p className={`${CARD} text-base text-slate-500`}>어제부터 올라간 것이 없어요.</p>
           ) : (
-            <ul className={`${CARD} flex flex-col divide-y divide-slate-200 p-0 dark:divide-slate-800`}>
+            <ul className={`${CARD} flex flex-col divide-y divide-slate-200 p-0`}>
               {report.recent.map((item) => (
                 <li key={`${item.channel}-${item.id}`} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">
                   <span className="min-w-0 text-base break-words">
                     <span className="font-semibold">{CHANNEL_LABEL[item.channel]}</span>
-                    <span className="text-slate-500 dark:text-slate-400"> · {item.brandName} · {KIND_LABEL[item.kind] ?? item.kind}{item.privacy === "private" ? " · 비공개" : ""}</span>
+                    <span className="text-slate-500"> · {item.brandName} · {KIND_LABEL[item.kind] ?? item.kind}{item.privacy === "private" ? " · 비공개" : ""}</span>
                     <span className="block">{item.title || "제목 없음"}</span>
-                    {item.status === "FAILED" && item.errorLog && <span className="block text-sm text-red-600 dark:text-red-400">{item.errorLog}</span>}
+                    {item.status === "FAILED" && item.errorLog && <span className="block text-sm text-red-600">{item.errorLog}</span>}
                   </span>
-                  <span className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                    {item.status === "FAILED" ? <span className="font-semibold text-red-600 dark:text-red-400">실패</span> : formatKst(item.at)}
+                  <span className="flex items-center gap-2 text-sm text-slate-500">
+                    {item.status === "FAILED" ? <span className="font-semibold text-red-600">실패</span> : formatKst(item.at)}
                     {item.externalUrl && <a href={item.externalUrl} target="_blank" rel="noreferrer" className={`underline ${FOCUS}`}>보기</a>}
                   </span>
                 </li>

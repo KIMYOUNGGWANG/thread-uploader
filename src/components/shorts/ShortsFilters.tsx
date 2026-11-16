@@ -20,7 +20,7 @@ const CHIP =
   "rounded-full border px-3 py-1.5 text-base outline-none focus-visible:ring-2 focus-visible:ring-violet-500";
 const ACTIVE = "border-violet-600 bg-violet-600 text-white";
 const INACTIVE =
-  "border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800";
+  "border-slate-300 text-slate-700 hover:bg-slate-100";
 
 interface ShortsFiltersProps {
   window: ShortsWindow;

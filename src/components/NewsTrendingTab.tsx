@@ -50,17 +50,17 @@ export function NewsTrendingTab() {
   return (
     <div className="space-y-6">
       {/* Search Header */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <Newspaper className="w-5 h-5 text-indigo-500" />
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+          <h2 className="text-base font-semibold text-slate-800">
             실시간 트렌드 뉴스 큐레이션
           </h2>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-medium">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium">
             autoTHREADS 엔진
           </span>
         </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-500 mb-4">
           구글/네이버 실시간 뉴스 RSS에서 화제의 헤드라인을 가져와 보여줍니다.
         </p>
 
@@ -71,7 +71,7 @@ export function NewsTrendingTab() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="관심 키워드 검색 (예: 챗GPT, 스타트업 투자, 직장인 연봉)"
-              className="pl-9 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+              className="pl-9 bg-slate-50 border-slate-200"
             />
           </div>
           <Button type="submit" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white">
@@ -91,8 +91,8 @@ export function NewsTrendingTab() {
               }}
               className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                 query === topic
-                  ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 font-medium"
-                  : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100"
+                  ? "bg-indigo-50 border-indigo-200 text-indigo-600 font-medium"
+                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
               }`}
             >
               {topic}
@@ -107,7 +107,7 @@ export function NewsTrendingTab() {
           <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
         </div>
       ) : articles.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-400 text-sm">
+        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 text-slate-400 text-sm">
           검색된 최근 뉴스가 없습니다. 다른 키워드로 검색해 보세요.
         </div>
       ) : (
@@ -115,11 +115,11 @@ export function NewsTrendingTab() {
           {articles.map((article) => (
             <div
               key={article.id}
-              className="flex flex-col justify-between bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:border-indigo-200 dark:hover:border-indigo-800 transition-all group"
+              className="flex flex-col justify-between bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:border-indigo-200 transition-all group"
             >
               <div>
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                     {article.source}
                   </span>
                   <a
@@ -131,7 +131,7 @@ export function NewsTrendingTab() {
                     원문 보기 <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
-                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                <h3 className="text-sm font-semibold text-slate-800 leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
                   {article.cleanTitle}
                 </h3>
               </div>

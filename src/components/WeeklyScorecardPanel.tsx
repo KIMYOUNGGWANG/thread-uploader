@@ -15,11 +15,11 @@ const BOTTLENECK_LABEL: Record<Bottleneck, string> = {
 };
 
 const BOTTLENECK_CLASS: Record<Bottleneck, string> = {
-  sample: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
-  reach: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
-  conversion: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
-  ops: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200",
-  none: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
+  sample: "bg-slate-100 text-slate-700",
+  reach: "bg-amber-100 text-amber-800",
+  conversion: "bg-orange-100 text-orange-800",
+  ops: "bg-violet-100 text-violet-800",
+  none: "bg-emerald-100 text-emerald-800",
 };
 
 function formatNullable(value: number | null, suffix = ""): string {
@@ -53,14 +53,14 @@ export function WeeklyScorecardPanel({ brandId }: { brandId: string }) {
   const totalPublished = data?.weeks.reduce((total, week) => total + week.published, 0) ?? 0;
 
   return (
-    <section aria-label="주간 스코어카드" className="p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-4">
+    <section aria-label="주간 스코어카드" className="p-4 bg-white rounded-xl shadow-sm border border-slate-200 space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">주간 스코어카드 (최근 4주)</h3>
+        <h3 className="text-sm font-semibold text-slate-700">주간 스코어카드 (최근 4주)</h3>
         <button
           type="button"
           onClick={() => void load()}
           disabled={isLoading}
-          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 disabled:opacity-50"
+          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
           새로고침
@@ -68,26 +68,26 @@ export function WeeklyScorecardPanel({ brandId }: { brandId: string }) {
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900 text-sm text-red-600 dark:text-red-400">
+        <div className="flex items-start gap-2 p-3 bg-red-50 rounded-lg border border-red-200 text-sm text-red-600">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
 
-      {isLoading && !data && <p className="text-sm text-slate-500 dark:text-slate-400">불러오는 중…</p>}
+      {isLoading && !data && <p className="text-sm text-slate-500">불러오는 중…</p>}
 
       {data && totalPublished === 0 && !error && (
-        <p className="text-sm text-slate-500 dark:text-slate-400">최근 4주에 발행된 글이 없어요. 발행이 시작되면 주차별 성과가 여기에 쌓여요.</p>
+        <p className="text-sm text-slate-500">최근 4주에 발행된 글이 없어요. 발행이 시작되면 주차별 성과가 여기에 쌓여요.</p>
       )}
 
       {data && totalPublished > 0 && (
         <>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg bg-slate-50 border border-slate-100 p-3">
             <span className={`inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${BOTTLENECK_CLASS[data.bottleneck]}`}>
               {BOTTLENECK_LABEL[data.bottleneck]}
             </span>
-            <p className="text-sm text-slate-700 dark:text-slate-200">{data.nextAction}</p>
-            <span className="sm:ml-auto text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+            <p className="text-sm text-slate-700">{data.nextAction}</p>
+            <span className="sm:ml-auto text-xs text-slate-500 tabular-nums">
               리뷰 대기 {data.queue.review} · 발행 대기 {data.queue.pending}
             </span>
           </div>
@@ -95,7 +95,7 @@ export function WeeklyScorecardPanel({ brandId }: { brandId: string }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-slate-500 dark:text-slate-400">
+                <tr className="text-left text-slate-500">
                   <th scope="col" className="py-1 pr-3 font-medium">주차</th>
                   <th scope="col" className="py-1 pr-3 font-medium text-right">발행</th>
                   <th scope="col" className="py-1 pr-3 font-medium text-right">측정</th>
@@ -109,7 +109,7 @@ export function WeeklyScorecardPanel({ brandId }: { brandId: string }) {
               </thead>
               <tbody>
                 {data.weeks.map((week) => (
-                  <tr key={week.startsAt} className="border-t border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-200">
+                  <tr key={week.startsAt} className="border-t border-slate-100 text-slate-700">
                     <td className="py-1.5 pr-3 whitespace-nowrap">{week.label}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{week.published}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{week.measured}</td>
@@ -129,10 +129,10 @@ export function WeeklyScorecardPanel({ brandId }: { brandId: string }) {
 
           {data.formulas.length > 0 && (
             <div className="overflow-x-auto">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">공식별 (측정 2개 이상, 중앙값 뷰 순)</p>
+              <p className="text-xs font-medium text-slate-500 mb-1">공식별 (측정 2개 이상, 중앙값 뷰 순)</p>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-slate-500 dark:text-slate-400">
+                  <tr className="text-left text-slate-500">
                     <th scope="col" className="py-1 pr-3 font-medium">Formula</th>
                     <th scope="col" className="py-1 pr-3 font-medium text-right">글</th>
                     <th scope="col" className="py-1 pr-3 font-medium text-right">중앙값 뷰</th>
@@ -144,7 +144,7 @@ export function WeeklyScorecardPanel({ brandId }: { brandId: string }) {
                 </thead>
                 <tbody>
                   {data.formulas.map((row) => (
-                    <tr key={row.formulaId} className="border-t border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-200">
+                    <tr key={row.formulaId} className="border-t border-slate-100 text-slate-700">
                       <td className="py-1.5 pr-3 font-mono text-xs">{row.formulaId}</td>
                       <td className="py-1.5 pr-3 text-right tabular-nums">{row.posts}</td>
                       <td className="py-1.5 pr-3 text-right tabular-nums">{formatNullable(row.medianViews)}</td>

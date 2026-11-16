@@ -97,18 +97,18 @@ export function InteractionsTab({ brandId }: InteractionsTabProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+      <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <MessageSquare className="w-5 h-5 text-violet-500" />
-            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+            <h2 className="text-base font-semibold text-slate-800">
               독자 댓글 & AI 답글 인게이지먼트
             </h2>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 font-medium">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 font-medium">
               Human-in-the-loop
             </span>
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-slate-500">
             내 글에 달린 독자의 댓글을 감지하고, 친절한 맞춤형 AI 답글 초안을 원클릭으로 승인 발행합니다.
           </p>
         </div>
@@ -130,9 +130,9 @@ export function InteractionsTab({ brandId }: InteractionsTabProps) {
           <RefreshCw className="w-6 h-6 animate-spin text-violet-500" />
         </div>
       ) : totalReplies === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 text-center p-6">
+        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-slate-200 text-center p-6">
           <CheckCircle2 className="w-10 h-10 text-emerald-500 mb-3 opacity-80" />
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">
             현재 미답변 댓글이 없습니다!
           </h3>
           <p className="text-xs text-slate-400 max-w-sm">
@@ -146,11 +146,11 @@ export function InteractionsTab({ brandId }: InteractionsTabProps) {
             return (
               <div
                 key={group.postId}
-                className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-4"
+                className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4"
               >
                 {/* Parent Post Context */}
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300 mr-2">📌 원문 포스트:</span>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-600">
+                  <span className="font-semibold text-slate-700 mr-2">📌 원문 포스트:</span>
                   <span className="line-clamp-2">{group.postContent}</span>
                 </div>
 
@@ -159,23 +159,23 @@ export function InteractionsTab({ brandId }: InteractionsTabProps) {
                   {group.replies.map((reply) => (
                     <div
                       key={reply.id}
-                      className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 space-y-3"
+                      className="p-4 rounded-xl border border-slate-200 bg-white space-y-3"
                     >
                       {/* Reader Comment */}
                       <div className="flex items-start gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
                           <User className="w-4 h-4 text-slate-500" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                            <span className="text-xs font-semibold text-slate-800">
                               @{reply.username || "reader"}
                             </span>
                             <span className="text-[11px] text-slate-400">
                               {new Date(reply.timestamp).toLocaleDateString("ko-KR")}
                             </span>
                           </div>
-                          <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">
+                          <p className="text-sm text-slate-700 mt-1">
                             {reply.text}
                           </p>
                         </div>
@@ -183,7 +183,7 @@ export function InteractionsTab({ brandId }: InteractionsTabProps) {
 
                       {/* AI Draft Response Editor */}
                       <div className="pl-9 space-y-2">
-                        <div className="flex items-center gap-1.5 text-xs text-violet-600 dark:text-violet-400 font-medium">
+                        <div className="flex items-center gap-1.5 text-xs text-violet-600 font-medium">
                           <Sparkles className="w-3.5 h-3.5" />
                           AI 추천 답글 초안 (수정 가능):
                         </div>
@@ -196,7 +196,7 @@ export function InteractionsTab({ brandId }: InteractionsTabProps) {
                             }))
                           }
                           rows={2}
-                          className="w-full p-2.5 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
+                          className="w-full p-2.5 rounded-lg text-xs bg-slate-50 border border-slate-200 resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
                           placeholder="답글 내용을 입력하세요..."
                         />
                         <div className="flex justify-end">
