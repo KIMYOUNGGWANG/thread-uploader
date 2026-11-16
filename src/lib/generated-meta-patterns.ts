@@ -1,5 +1,5 @@
 // Single source of truth for "the model leaked its own instructions/checklist into the post".
-// Used by generation (generate-posts, quality-gate, generation-engine) and the publish gate.
+// Used by generation (generate-posts, quality-gate) and the publish gate.
 export const GENERATED_META_PATTERNS: readonly RegExp[] = [
   /자수\s*체크/,
   /글자\s*수\s*확인/,
