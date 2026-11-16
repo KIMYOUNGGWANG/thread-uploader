@@ -28,6 +28,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/threads-api", () => ({ getFreshBrandCredentials: mocks.getFreshBrandCredentials }));
 vi.mock("@/lib/threads/thread-resume-engine", () => ({ publishOrResumePost: mocks.publishOrResumePost }));
 vi.mock("@/lib/alert-service", () => ({ sendSystemAlert: vi.fn() }));
+vi.mock("@/lib/publish-lease", () => ({ acquirePublishLease: vi.fn(async () => true) }));
 
 async function callPublish() {
   const { GET } = await import("@/app/api/cron/publish/route");
