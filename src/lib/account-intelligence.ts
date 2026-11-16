@@ -182,7 +182,7 @@ function buildMetrics(
 function buildActions(posts: InsightPost[], metrics: AccountInsightMetrics): AccountInsightAction[] {
   return [
     ...buildReplyActions(posts),
-    ...buildQualityActions(posts, metrics),
+    ...buildQualityActions(metrics),
     ...buildLinkRatioActions(posts),
     ...buildFormatActions(posts),
     ...buildWatchActions(posts),
@@ -207,10 +207,7 @@ function buildReplyActions(posts: InsightPost[]): AccountInsightAction[] {
     } satisfies AccountInsightAction));
 }
 
-function buildQualityActions(
-  posts: InsightPost[],
-  metrics: AccountInsightMetrics
-): AccountInsightAction[] {
+function buildQualityActions(metrics: AccountInsightMetrics): AccountInsightAction[] {
   if (metrics.totalPosts === 0 || metrics.qualityFailedPosts === 0) return [];
   const failRatio = metrics.qualityFailedPosts / metrics.totalPosts;
   if (failRatio < 0.2 && metrics.qualityFailedPosts < 2) return [];

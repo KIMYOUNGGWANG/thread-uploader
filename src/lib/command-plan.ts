@@ -1,9 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { isRecord } from "@/types/config-normalizers";
+import { MAX_REFILL_PER_RUN } from "@/lib/queue-refill";
 
 /** One command makes at most one refill-sized batch. */
-export const MAX_COMMAND_COUNT = 6; // ponytail: same cap as MAX_REFILL_PER_RUN; raise together
+export const MAX_COMMAND_COUNT = MAX_REFILL_PER_RUN;
 const DEFAULT_COMMAND_COUNT = 3;
 const MAX_HYPOTHESIS_LENGTH = 500;
 

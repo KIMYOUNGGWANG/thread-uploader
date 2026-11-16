@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const response = accessErrorResponse(error);
     if (response) return clearOAuthCookie(response);
+    console.error("[threads-oauth] callback failed:", error instanceof Error ? error.message : "Unknown error");
     return clearOAuthCookie(
       NextResponse.redirect(new URL("/brands?threads=connection_failed", request.url))
     );

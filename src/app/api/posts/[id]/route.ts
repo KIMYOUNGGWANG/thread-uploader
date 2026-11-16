@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requirePostForCurrentUser } from "@/lib/brand-access";
+import { REQUEUE_CONFLICT_MESSAGE, REQUEUEABLE_POST_STATUSES, isRecordNotFoundError, isRequeueable } from "@/lib/post-status";
 import { reviewDecisionFor } from "@/lib/review-decision";
 import { MAX_ITEMS, MAX_SLIDES, MIN_SLIDES, parseCardSlides } from "@/lib/wellness/slides";
 import { recheckQualityReasons } from "@/lib/wellness/compliance";
@@ -73,6 +74,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         if (body.status !== undefined && !(typeof body.status === "string" && EDITABLE_STATUSES.has(body.status))) {
             return NextResponse.json({ error: "status는 PENDING 또는 NEEDS_REVIEW만 가능합니다" }, { status: 400 });
         }
+        // A status change sends the post to the queue the publish cron reads, so it is only allowed while nothing has
+        // been (or is being) published from it. Edits that leave the status alone stay open: card-first brands edit
+        // slides and caption of posts that are already PUBLISHED on Threads.
+        const statusChange = typeof body.status === "string";
+        if (statusChange && !isRequeueable(post.status)) {
+            return NextResponse.json({ error: REQUEUE_CONFLICT_MESSAGE }, { status: 409 });
+        }
         // Approving to PENDING is the human review: it clears the quality/score gates (policy checks still run at publish)
         const isApproval = body.status === "PENDING";
 
@@ -102,7 +110,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             : data;
 
         const decision = isApproval ? reviewDecisionFor(post, "APPROVED", body.reason) : null;
-        const operations: Prisma.PrismaPromise<unknown>[] = [prisma.post.update({ where: { id }, data: finalData })];
+        // The status filter makes the write itself conditional: `post` was read at the start of the request, and the cron
+        // may have claimed it since. No match throws P2025 and the transaction (decision row included) rolls back.
+        const where = statusChange ? { id, status: { in: REQUEUEABLE_POST_STATUSES } } : { id };
+        const operations: Prisma.PrismaPromise<unknown>[] = [prisma.post.update({ where, data: finalData })];
         if (cardFirst) {
             operations.push(prisma.channelUpload.updateMany({
                 where: { postId: id, kind: "carousel", status: "QUEUED" },
@@ -113,9 +124,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             }));
         }
         if (decision) operations.push(prisma.reviewDecision.create({ data: decision }));
-        const [updatedPost] = await prisma.$transaction(operations);
-
-        return NextResponse.json({ success: true, post: updatedPost });
+        try {
+            const [updatedPost] = await prisma.$transaction(operations);
+            return NextResponse.json({ success: true, post: updatedPost });
+        } catch (error) {
+            if (statusChange && isRecordNotFoundError(error)) {
+                return NextResponse.json({ error: REQUEUE_CONFLICT_MESSAGE }, { status: 409 });
+            }
+            throw error;
+        }
     } catch (error) {
         const response = accessErrorResponse(error);
         if (response) return response;

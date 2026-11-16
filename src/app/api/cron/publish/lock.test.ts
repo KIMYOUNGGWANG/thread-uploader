@@ -40,6 +40,7 @@ vi.mock("@/lib/threads-api", () => ({
 }));
 
 vi.mock("@/lib/alert-service", () => ({ sendSystemAlert: vi.fn() }));
+vi.mock("@/lib/publish-lease", () => ({ acquirePublishLease: vi.fn(async () => true) }));
 
 describe("cron publish claim", () => {
   it("publishes a PENDING post instead of failing its own lock", async () => {
