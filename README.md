@@ -124,11 +124,12 @@ Copy `.env.example` to `.env` and configure:
 
 ## Database
 
-Prisma schema lives in `prisma/schema.prisma`.
+Prisma schema lives in `prisma/schema.prisma`. Every schema change ships with a migration in `prisma/migrations/`; the `Prisma migration drift` workflow fails a PR whose migrations do not build exactly that schema.
 
-After schema changes:
+To change the schema, with `DATABASE_URL` pointing at a **local** Postgres:
 
 ```bash
-npx prisma generate
-npx prisma migrate deploy
+npx prisma migrate dev --name <change>
 ```
+
+Review the generated SQL and commit it with the schema. After the PR is merged, apply it to production from a `main` checkout with `migrate deploy` against the direct (non-pooled) URL. Never run `migrate dev`, `db push` or `migrate reset` against production. Details, the one-time reconcile and recovery steps: `docs/ops/db-migrations.md`.
