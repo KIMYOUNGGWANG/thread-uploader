@@ -7,10 +7,6 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import type { NewsArticle } from "@/lib/news-rss";
 
-interface NewsTrendingTabProps {
-  brandId: string;
-}
-
 const PRESET_TOPICS = [
   "인공지능 트렌드",
   "스타트업",
@@ -19,7 +15,7 @@ const PRESET_TOPICS = [
   "경제 트렌드",
 ];
 
-export function NewsTrendingTab({ brandId }: NewsTrendingTabProps) {
+export function NewsTrendingTab() {
   const [query, setQuery] = useState("인공지능 트렌드");
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(false);

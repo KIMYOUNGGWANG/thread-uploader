@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   findMany: vi.fn(),
@@ -31,11 +31,12 @@ const row = (over: Record<string, unknown> = {}) => ({
 const lastUpdate = () => db.update.mock.calls.at(-1)?.[0] as { data: Record<string, unknown> };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   db.findMany.mockResolvedValueOnce([]); // interrupted rows
   db.updateMany.mockResolvedValue({ count: 1 });
   db.creds.mockResolvedValue({ accessToken: "t", externalUserId: "u", handle: null });
 });
+afterEach(() => vi.unstubAllGlobals());
 
 describe("runDueUploads", () => {
   it("claims a queued row as UPLOADING before calling the platform, then stores the result", async () => {
@@ -101,5 +102,49 @@ describe("runDueUploads", () => {
     db.findMany.mockResolvedValueOnce([row({ status: "PROCESSING", platformData: JSON.stringify({ processingSince: since }) })]);
     expect((await runDueUploads(now)).failed).toBe(1);
     expect(db.poll).not.toHaveBeenCalled();
+  });
+
+  it("a retry after a lost PUT response does not create a second upload session", async () => {
+    const { youtubeAdapter } = await vi.importActual<typeof import("./adapters/youtube")>("./adapters/youtube");
+    db.start.mockImplementation(youtubeAdapter.start);
+    db.poll.mockImplementation((job, creds) => youtubeAdapter.poll!(job, creds));
+
+    // In-memory row that the runner reads and writes across cron runs.
+    let current = row();
+    db.findMany.mockReset().mockImplementation(async ({ where }) =>
+      where.status === "UPLOADING" || !["QUEUED", "PROCESSING"].includes(current.status) ? [] : [current]);
+    db.updateMany.mockImplementation(async ({ data }) => {
+      current = { ...current, ...data, attempts: current.attempts + (data.attempts ? 1 : 0) };
+      return { count: 1 };
+    });
+    db.update.mockImplementation(async ({ data }) => { current = { ...current, ...data }; });
+
+    // Fake YouTube: the first byte upload lands, but its response never comes back.
+    const sessions: string[] = [];
+    const videos = new Map<string, string>();
+    let loseResponse = true;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => {
+      if (url.startsWith("https://blob/")) return new Response(new Uint8Array([1, 2, 3, 4]));
+      if (init.method === "POST") {
+        sessions.push(`https://upload.example/s${sessions.length + 1}`);
+        return new Response(null, { headers: { Location: sessions.at(-1)! } });
+      }
+      if (new Headers(init.headers).get("Content-Range")?.startsWith("bytes */")) {
+        const id = videos.get(url);
+        return id ? Response.json({ id }, { status: 201 }) : new Response(null, { status: 308 });
+      }
+      videos.set(url, `yt${videos.size + 1}`);
+      if (loseResponse) {
+        loseResponse = false;
+        throw new TypeError("fetch failed");
+      }
+      return Response.json({ id: videos.get(url) }, { status: 201 });
+    }));
+
+    for (let run = 0; run < 3; run += 1) await runDueUploads(now);
+
+    expect(sessions).toHaveLength(1);
+    expect(videos.size).toBe(1);
+    expect(current).toMatchObject({ status: "PUBLISHED", externalId: "yt1" });
   });
 });

@@ -38,15 +38,17 @@ vi.mock("@/lib/quality-gate", async (importOriginal) => {
 });
 
 import { checkQuality } from "@/lib/quality-gate";
+import { REQUEUEABLE_POST_STATUSES } from "@/lib/post-status";
 
 const PASSING_BODY =
   "퇴사해야 할지 버틸지 모르겠다면\nA. 버팀형 B. 이동형 C. 준비형 중 가까운 쪽만 체크해. 저장해두고 다음 선택 전에 다시 봐.";
 const LEAK_LINE = "자기분류 셀프체크형 포스트입니다. 실제 투자/이직 결정 타이밍을 앞둔 독자가";
 
-function mockPostAndRewrite(content: string, qualityProfile = "career_decision") {
+function mockPostAndRewrite(content: string, qualityProfile = "career_decision", status = "NEEDS_REVIEW") {
   mocks.requirePostForCurrentUser.mockResolvedValue({
     post: {
       id: "post_1",
+      status,
       content: "기존 본문",
       firstComment: null,
       algorithmicScore: 65,
@@ -95,6 +97,7 @@ describe("POST /api/posts/[id]/remediate", () => {
     mocks.requirePostForCurrentUser.mockResolvedValue({
       post: {
         id: "post_1",
+        status: "NEEDS_REVIEW",
         content: "기존 본문 https://example.com",
         firstComment: null,
         algorithmicScore: 65,
@@ -142,7 +145,7 @@ describe("POST /api/posts/[id]/remediate", () => {
 
     expect(mocks.updatePost).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "post_1" },
+        where: { id: "post_1", status: { in: REQUEUEABLE_POST_STATUSES } },
         data: expect.objectContaining({
           content: PASSING_BODY,
           firstComment: "첫 댓글 https://example.com",
@@ -203,5 +206,41 @@ describe("POST /api/posts/[id]/remediate", () => {
 
     expect(mocks.judgeEnglishNaturalness).toHaveBeenCalledTimes(1);
     expect(mocks.updatePost.mock.calls[0][0].data.status).toBe("PENDING");
+  });
+
+  // Remediation rewrites the content and then forces status PENDING, which the publish cron picks up. On a post that is
+  // already published or in flight that means publishing the rewritten text again.
+  describe("status guard", () => {
+    it.each(["PUBLISHED", "PUBLISHING", "PARTIAL_PUBLISHED", "PARTIAL_FAILED", "PROCESSING", "ARCHIVED"])(
+      "refuses a %s post before spending a rewrite on it",
+      async (status) => {
+        mockPostAndRewrite(PASSING_BODY, "career_decision", status);
+
+        const response = await callRemediate();
+
+        expect(response.status).toBe(409);
+        expect(mocks.remediatePostAlgorithmic).not.toHaveBeenCalled();
+        expect(mocks.updatePost).not.toHaveBeenCalled();
+      }
+    );
+
+    it("still remediates a FAILED post", async () => {
+      mockPostAndRewrite(PASSING_BODY, "career_decision", "FAILED");
+
+      expect((await callRemediate()).status).toBe(200);
+    });
+
+    // The rewrite takes tens of seconds, long enough for the cron to claim the post meanwhile.
+    it("answers 409 instead of overwriting when the post left the requeueable states during the rewrite", async () => {
+      mockPostAndRewrite(PASSING_BODY);
+      mocks.updatePost.mockRejectedValueOnce(Object.assign(new Error("Record not found"), { code: "P2025" }));
+
+      const response = await callRemediate();
+
+      expect(response.status).toBe(409);
+      expect(mocks.updatePost).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: "post_1", status: { in: REQUEUEABLE_POST_STATUSES } },
+      }));
+    });
   });
 });

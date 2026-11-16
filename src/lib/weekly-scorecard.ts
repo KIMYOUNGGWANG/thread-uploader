@@ -74,7 +74,6 @@ interface ScorecardOptions {
   now: Date;
   weeks?: number;
   reviewQueue: number;
-  pendingQueue: number;
 }
 
 type MeasuredPost = ScorecardPostInput & { publishedAt: Date; views: number };

@@ -24,17 +24,61 @@ describe("YouTube", () => {
     expect(buildYouTubeMetadata("가".repeat(200)).title.length).toBeLessThanOrEqual(100);
   });
 
-  it("uploads through a resumable session", async () => {
+  it("only opens a resumable session on start and keeps its URL for polling", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(video())
-      .mockResolvedValueOnce(new Response(null, { status: 200, headers: { Location: "https://upload.example/session" } }))
-      .mockResolvedValueOnce(json({ id: "yt123" }));
+      .mockResolvedValueOnce(new Response(null, { status: 200, headers: { Location: "https://upload.example/session" } }));
     vi.stubGlobal("fetch", fetchMock);
     const result = await youtubeAdapter.start(job(), creds);
-    expect(result).toEqual({ state: "published", externalId: "yt123", externalUrl: "https://www.youtube.com/shorts/yt123" });
+    expect(result).toEqual({ state: "processing", platformData: { location: "https://upload.example/session", size: 4 }, retryAfterMs: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     const init = fetchMock.mock.calls[1][1] as RequestInit;
     expect(JSON.parse(init.body as string).status.privacyStatus).toBe("public");
-    expect(fetchMock.mock.calls[2][0]).toBe("https://upload.example/session");
+    expect(init.headers).toMatchObject({ "X-Upload-Content-Length": "4" });
+  });
+
+  const session = { location: "https://upload.example/session", size: 4, processingSince: "2026-11-09T03:00:00.000Z" };
+  const headersOf = (call: unknown[]) => new Headers((call[1] as RequestInit).headers);
+
+  it("asks the session for its status, then sends only the bytes it is missing", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 308, headers: { Range: "bytes=0-1" } }))
+      .mockResolvedValueOnce(video())
+      .mockResolvedValueOnce(json({ id: "yt123" }, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await youtubeAdapter.poll!(job({ platformData: session }), creds);
+    expect(result).toEqual({ state: "published", externalId: "yt123", externalUrl: "https://www.youtube.com/shorts/yt123" });
+    expect(fetchMock.mock.calls[0][0]).toBe(session.location);
+    expect(headersOf(fetchMock.mock.calls[0]).get("Content-Range")).toBe("bytes */4");
+    expect(fetchMock.mock.calls[0][1].body).toBeUndefined();
+    expect(headersOf(fetchMock.mock.calls[2]).get("Content-Range")).toBe("bytes 2-3/4");
+    expect([...fetchMock.mock.calls[2][1].body]).toEqual([3, 4]);
+  });
+
+  it("sends the whole file when the session has no Range yet, and keeps polling if it is still incomplete", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 308 }))
+      .mockResolvedValueOnce(video())
+      .mockResolvedValueOnce(new Response(null, { status: 308, headers: { Range: "bytes=0-2" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await youtubeAdapter.poll!(job({ platformData: session }), creds);
+    expect(result).toEqual({ state: "processing", platformData: session, retryAfterMs: 0 });
+    expect(headersOf(fetchMock.mock.calls[2]).get("Content-Range")).toBe("bytes 0-3/4");
+  });
+
+  it("publishes from the status check alone when the earlier upload already landed", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(json({ id: "yt123" }, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await youtubeAdapter.poll!(job({ platformData: session }), creds);
+    expect(result).toMatchObject({ state: "published", externalId: "yt123" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts over only when the session expired", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(null, { status: 404 })));
+    await expect(youtubeAdapter.poll!(job({ platformData: session }), creds)).rejects.toMatchObject({ retryFromStart: true, permanent: false });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(null, { status: 503 })));
+    await expect(youtubeAdapter.poll!(job({ platformData: session }), creds)).rejects.toMatchObject({ retryFromStart: false, permanent: false });
   });
 
   it("marks quota/permission errors as permanent", async () => {

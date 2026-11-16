@@ -37,6 +37,8 @@ describe("findSaturatedTopics", () => {
   it("formats a reason the retry prompt can act on", () => {
     expect(formatSaturationReason({ id: "birth_time_offset", recentHits: 2, maxInRecent: 1 })).toContain("birth_time_offset");
     expect(formatSaturationReason({ id: "birth_time_offset", recentHits: 2, maxInRecent: 1 })).toContain("2");
+    // The retry prompt must name the words to drop, or the model rewrites the same angle.
+    expect(formatSaturationReason({ id: "career_prep_stuck", recentHits: 1, maxInRecent: 1 })).toContain("이 단어 빼기: 자격증, 공시, 대학원, 취준, 고시");
   });
 });
 

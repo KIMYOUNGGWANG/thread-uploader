@@ -27,6 +27,15 @@ describe("buildXText", () => {
     expect(xWeightedLength(text)).toBeLessThanOrEqual(280);
   });
 
+  it("keeps the ellipsis inside the limit when Latin text stops on an odd weight", () => {
+    // Latin chars weigh 1, so the cut can land on 279; the ellipsis itself weighs 2.
+    for (const paragraph of ["a".repeat(400), "abcd efgh ".repeat(40), "Saju 사주 ".repeat(60)]) {
+      const text = buildXText(paragraph);
+      expect(text.endsWith("…")).toBe(true);
+      expect(xWeightedLength(text)).toBeLessThanOrEqual(280);
+    }
+  });
+
   it("returns empty text for empty content", () => {
     expect(buildXText("  \n\n ")).toBe("");
   });

@@ -72,7 +72,7 @@ export function evaluateRoyLee(content: string): PersonaScore {
   const flags: string[] = [];
   let score = 70;
 
-  const isEnglish = !/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(content);
+  const isEnglish = !/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(content);
   const firstLine = content.split("\n").find((l) => l.trim().length > 0)?.trim() ?? "";
 
   // 1. Hook tension. English line 1 is a flat claim (ENGLISH_HOOK_RULE), so "?" and why/how/what earn nothing there.
@@ -127,7 +127,7 @@ export function evaluateTargetUser(content: string, context?: EvaluationContext)
   const flags: string[] = [];
   let score = 75;
 
-  const isEnglish = !/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(content);
+  const isEnglish = !/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(content);
 
   // 1. Utility & Self classification
   const hasClassification =

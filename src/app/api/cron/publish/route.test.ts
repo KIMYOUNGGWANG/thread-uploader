@@ -7,9 +7,11 @@ const mocks = vi.hoisted(() => ({
   updatePost: vi.fn(async ({ data }) => ({ id: "post_1", ...data })),
   publishPostWithCredentials: vi.fn(),
   sendSystemAlert: vi.fn(async () => false),
+  acquireLease: vi.fn(async () => true),
 }));
 
 vi.mock("@/lib/alert-service", () => ({ sendSystemAlert: mocks.sendSystemAlert }));
+vi.mock("@/lib/publish-lease", () => ({ acquirePublishLease: mocks.acquireLease }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -386,6 +388,78 @@ describe("GET /api/cron/publish", () => {
       mocks.findBrands.mockResolvedValue([{ id: "brand_slot", name: "CosmicPath" }]);
       const response = await callWithSlots("25");
       expect(response.status).toBe(400);
+    });
+  });
+
+  // GitHub Actions, the Cloudflare worker and cron-job.org all call this route. Slot, cooldown and quota only count
+  // PUBLISHED rows, which appear after the publish finishes, so overlapping runs used to publish two posts into one slot.
+  describe("overlapping runs on the same brand", () => {
+    const callPublish = async (query = "") => {
+      const { GET } = await import("@/app/api/cron/publish/route");
+      return GET({ headers: new Headers(), nextUrl: new URL(`http://localhost/api/cron/publish${query}`) } as never);
+    };
+    const pendingPost = {
+      id: "post_2", brandId: "brand_overlap", status: "PENDING", qualityPass: true, content: "오늘 하루 수고했어요.",
+      firstComment: null, imageUrls: "[]", threadPartIds: "[]", threadPartsPosted: 0, threadTotalParts: 1,
+    };
+
+    it("skips with publish_in_flight and claims nothing while another run holds the publish lease", async () => {
+      const { prisma } = await import("@/lib/prisma");
+      vi.mocked(prisma.post.updateMany).mockClear();
+      mocks.acquireLease.mockResolvedValueOnce(false);
+      mocks.findBrands.mockResolvedValue([{ id: "brand_overlap", name: "Overlap", slug: "overlap" }]);
+      mocks.findPost.mockReset();
+      mocks.findPost.mockImplementation(async ({ where }) =>
+        where?.status === "PARTIAL_FAILED" || where?.status === "PUBLISHED" ? null : pendingPost);
+
+      const body = await (await callPublish()).json();
+
+      expect(body.skipped).toEqual([{ brandId: "brand_overlap", brandName: "Overlap", reason: "publish_in_flight" }]);
+      expect(body.published).toEqual([]);
+      expect(prisma.post.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("publishes when the lease is free", async () => {
+      const { prisma } = await import("@/lib/prisma");
+      vi.mocked(prisma.post.updateMany).mockClear();
+      mocks.findBrands.mockResolvedValue([{ id: "brand_overlap", name: "Overlap", slug: "overlap" }]);
+      mocks.findPost.mockReset();
+      mocks.findPost.mockImplementation(async ({ where }) =>
+        where?.status === "PARTIAL_FAILED" || where?.status === "PUBLISHED" ? null : pendingPost);
+
+      const body = await (await callPublish()).json();
+
+      expect(body.published).toEqual([expect.objectContaining({ postId: "post_2" })]);
+      expect(prisma.post.updateMany).toHaveBeenCalled();
+    });
+
+    it("re-checks the slot after taking the lease, so a run that finished in between is not followed by a second post", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-12T13:40:00Z")); // the 12:00 slot is open until 15:00
+      try {
+        const { prisma } = await import("@/lib/prisma");
+        vi.mocked(prisma.post.updateMany).mockClear();
+        mocks.findBrands.mockResolvedValue([{ id: "brand_overlap", name: "Overlap", slug: "overlap" }]);
+        let lastPublishedLookups = 0;
+        mocks.findPost.mockReset();
+        mocks.findPost.mockImplementation(async ({ where }) => {
+          if (where?.status === "PARTIAL_FAILED") return null;
+          if (where?.status === "PUBLISHED") {
+            lastPublishedLookups += 1;
+            // First look: the last post went out before this slot. By the second look another run has published inside it.
+            return { status: "PUBLISHED", publishedAt: new Date(lastPublishedLookups === 1 ? "2026-10-12T10:00:00Z" : "2026-10-12T13:35:00Z") };
+          }
+          return pendingPost;
+        });
+
+        const body = await (await callPublish("?slots=0,12")).json();
+
+        expect(body.skipped).toEqual([{ brandId: "brand_overlap", brandName: "Overlap", reason: "slot_already_served" }]);
+        expect(lastPublishedLookups).toBe(2);
+        expect(prisma.post.updateMany).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

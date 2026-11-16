@@ -450,4 +450,49 @@ describe("thread-resume-engine", () => {
 
     expect(vi.mocked(threadsApi.publishThreadChainWithCredentials).mock.calls[0][0]).toBe(basePost.content);
   });
+
+  // The first comment (3s delay plus retry delays) is posted after the last part's checkpoint. A run killed there used to
+  // leave status PUBLISHED with threadsId null: the lock refuses to retry a PUBLISHED post, the slot gate needs
+  // publishedAt, and replies, metrics, auto-plug and account insights all skip posts without threadsId.
+  it.each([1, 3])("never writes PUBLISHED without threadsId and publishedAt (%i-part post), even before the first comment", async (totalParts) => {
+    const row: Record<string, unknown> = { status: "PENDING", threadsId: null, publishedAt: null };
+    const snapshots: Array<Record<string, unknown>> = [];
+    vi.mocked(prisma.post.update).mockImplementation((async ({ data }: { data: Record<string, unknown> }) => {
+      Object.assign(row, data);
+      snapshots.push({ ...row });
+      return row;
+    }) as never);
+    vi.mocked(prisma.post.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.post.findUnique).mockResolvedValue({
+      id: "post-cp", brandId: "brand-1", content: "본문", imageUrls: "[]", firstComment: "첫 댓글",
+      threadRootId: null, threadPartsPosted: 0, threadTotalParts: 1, threadPartIds: "[]", status: "PENDING", threadsId: null,
+    } as unknown as Post);
+    const ids = Array.from({ length: totalParts }, (_, index) => `th-${index + 1}`);
+    const splitSpy = vi.spyOn(threadSplitter, "splitContentIntoThreadParts").mockReturnValue(ids.map((_, index) => `part ${index + 1}`));
+    const seen: { beforeFirstComment?: Record<string, unknown> } = {};
+    vi.mocked(threadsApi.publishThreadChainWithCredentials).mockImplementation(async (_text, _creds, _images, _firstComment, options) => {
+      for (let index = 0; index < totalParts; index++) {
+        await options?.onPartPublished?.({ partIndex: index, totalParts, threadsId: ids[index], allPartIds: ids.slice(0, index + 1) });
+      }
+      // This is where the first comment is posted. A run killed here leaves the row exactly as it is now.
+      seen.beforeFirstComment = { ...row };
+      return { rootThreadsId: ids[0], partIds: ids, replyError: null };
+    });
+
+    try {
+      await publishOrResumePost("post-cp", credentials);
+    } finally {
+      splitSpy.mockRestore();
+      vi.mocked(prisma.post.update).mockReset();
+    }
+
+    expect(seen.beforeFirstComment).toMatchObject({ status: "PUBLISHED", threadsId: "th-1" });
+    expect(seen.beforeFirstComment?.publishedAt).toBeInstanceOf(Date);
+    const published = snapshots.filter((snapshot) => snapshot.status === "PUBLISHED");
+    expect(published.length).toBeGreaterThan(0);
+    for (const snapshot of published) {
+      expect(snapshot.threadsId).toBe("th-1");
+      expect(snapshot.publishedAt).toBeInstanceOf(Date);
+    }
+  });
 });

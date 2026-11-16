@@ -103,6 +103,21 @@ describe("remediatePostAlgorithmic rewrite attempts", () => {
     }
   });
 
+  // 2026-11-16: a score-80 post ending "댓글 남겨주세요" came back as INITIAL_PASS, untouched, and stayed gated.
+  it("rewrites a post the content gate blocks even when its score already clears the threshold", async () => {
+    const savedKey = process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY; // rewrite returns the draft unchanged, so the gate stays blocked
+    try {
+      const gated = "연말에 한 말은 1월에 돌아온다\n\n12월에 한 말은 1월에 돌아와.\n\n내 일간은 어디에 해당할까요, 댓글 남겨주세요.";
+      const result = await remediatePostAlgorithmic(gated, null, undefined, 0, () => ["reply-burden CTA 포함"]);
+      expect(result.rewriteCount).toBe(2);
+      expect(result.pass).toBe(false);
+      expect(result.method).toBe("FAILED_QUARANTINED");
+    } finally {
+      if (savedKey !== undefined) process.env.ANTHROPIC_API_KEY = savedKey;
+    }
+  });
+
   it("rejects rewrites that turn a casual draft into 존댓말", () => {
     const casual = "쉬면 낫는다고? 반만 맞음.\n충전보다 센 건 기운을 누가 빨아가는지 안 끊는 거야.";
     const formal = "쉬면 낫는다는 말, 반만 맞습니다.\n기운을 누가 빨아가는지 끊지 않습니다.";
