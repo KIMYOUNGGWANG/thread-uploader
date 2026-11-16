@@ -1,5 +1,5 @@
 // Single source of truth for "the model leaked its own instructions/checklist into the post".
-// Used by generation (generate-posts, quality-gate, generation-engine) and the publish gate.
+// Used by generation (generate-posts, quality-gate) and the publish gate.
 export const GENERATED_META_PATTERNS: readonly RegExp[] = [
   /자수\s*체크/,
   /글자\s*수\s*확인/,
@@ -12,6 +12,8 @@ export const GENERATED_META_PATTERNS: readonly RegExp[] = [
   /^\*\*본문\*\*/m,
   /===FIRST_COMMENT===/i,
   /#\s*The\s*Peach\s*Blossom/i,
+  // Header of the news-draft instruction (buildNewsPostPrompt, and the dashboard's old news tab saved it as a post body).
+  /\[실시간 뉴스 기반/,
   // The model describing its own draft ("셀프체크형 포스트입니다"), a char-count label ("본문 (482자)"),
   // or a draft title line ("# Threads Post: ..."). Each matched only leaked posts in 291 published ones.
   /(포스트|게시물)입니다/,

@@ -2,7 +2,7 @@ import { isRecord } from "@/types/config-normalizers";
 
 export type LengthArm = "S" | "L";
 
-// Pre-registered in docs/experiments/2026-10-16-post-length.md; written by scripts/start-length-experiment.mjs.
+// Pre-registered in docs/experiments/2026-10-16-post-length.md. Written by a one-off start script (removed; see git history).
 export interface LengthExperimentConfig {
   startAt: string;
   sequence: string;

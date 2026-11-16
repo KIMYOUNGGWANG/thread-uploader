@@ -10,7 +10,8 @@ jobs:
   fetch-metrics:
     runs-on: ubuntu-latest
     steps:
-      # Token refresh, metrics, then learning, both through the app routes (single score formula in src/lib/growth-learning.ts)
+      # Token refresh, metrics, then learning, both through the app routes (single score formula in src/lib/growth-learning.ts).
+      # shadowban-check runs last, on the fresh metrics: it only detects (HTTP 500 = a brand looks shadowbanned) and changes nothing.
       - name: Collect metrics and refresh growth learning
         env:
           APP_URL: ${{ vars.APP_URL || 'https://thread-uploader.vercel.app' }}
@@ -20,7 +21,7 @@ jobs:
           test -n "$CRON_SECRET"
           # A failed token refresh must not skip metrics/learn; run all, then fail the job so GitHub emails.
           status=0
-          for path in refresh-token fetch-metrics channel-metrics learn; do
+          for path in refresh-token fetch-metrics channel-metrics learn shadowban-check; do
             echo "::group::$path"
             curl --fail-with-body --show-error --silent --location --max-time 90 \
               -H "Authorization: Bearer ${CRON_SECRET}" \

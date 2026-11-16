@@ -251,3 +251,22 @@ describe("benchmark modes (2026-11-04)", () => {
     }
   });
 });
+
+describe("controversy and common-enemy modes", () => {
+  it("includes controversy_stunt and common_enemy in VIRAL_INTENT_MODES", () => {
+    const ids = VIRAL_INTENT_MODES.map((m) => m.id);
+    expect(ids).toContain("controversy_stunt");
+    expect(ids).toContain("common_enemy");
+  });
+
+  it("normalizes controversy and enemy_strike legacy keys", () => {
+    expect(normalizeViralIntentModeId("controversy")).toBe("controversy_stunt");
+    expect(normalizeViralIntentModeId("enemy_strike")).toBe("common_enemy");
+  });
+
+  it("resolves viral intent mode correctly", () => {
+    const mode = resolveViralIntentMode("controversy_stunt", 0);
+    expect(mode.id).toBe("controversy_stunt");
+    expect(mode.primaryMetric).toBe("replies");
+  });
+});

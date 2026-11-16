@@ -33,6 +33,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/threads-api", () => ({ getFreshBrandCredentials: vi.fn(async () => ({ accessToken: "token", userId: "user" })) }));
 vi.mock("@/lib/threads/thread-resume-engine", () => ({ publishOrResumePost: mocks.publishOrResumePost }));
 vi.mock("@/lib/alert-service", () => ({ sendSystemAlert: vi.fn(async () => undefined) }));
+vi.mock("@/lib/publish-lease", () => ({ acquirePublishLease: vi.fn(async () => true) }));
 vi.mock("@/lib/behavioral-jitter", async () => {
   const actual = await vi.importActual<typeof import("@/lib/behavioral-jitter")>("@/lib/behavioral-jitter");
   return {

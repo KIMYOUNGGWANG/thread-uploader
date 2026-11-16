@@ -28,7 +28,7 @@ import { calculateGoalReward, calculateLearningScore, medianViews, resolveOptimi
 export async function learnBrandGrowth(brandId: string) {
   const brand = await prisma.brand.findUnique({
     where: { id: brandId },
-    select: { id: brandId ? true : undefined, formulaWeights: true, brandConfig: true },
+    select: { id: true, formulaWeights: true, brandConfig: true },
   });
 
   const fetchedPosts = await prisma.post.findMany({

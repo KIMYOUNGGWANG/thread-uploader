@@ -555,33 +555,12 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     }
   }, [commandPlan, fetchPosts]);
 
-  const handleCreatePost = useCallback(async (initialContent = "") => {
-    try {
-      const response = await fetch("/api/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId, posts: [{ content: initialContent, images: [], scheduledAt: null }] }),
-      });
-      const data = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to create post");
-      toast.success(initialContent ? "뉴스 기반 포스트 초안이 생성되었습니다" : "새 글 작성 칸이 생성되었습니다");
-      await fetchPosts();
-    } catch {
-      toast.error("글 작성 생성 실패");
-    }
-  }, [brandId, fetchPosts]);
-
   const handleManualReferenceCreated = useCallback(async () => {
     await fetchPosts();
     setReviewOnly(true);
     setActiveTab("feed");
     toast.success("레퍼런스 초안 1개, 승인 대기 중");
   }, [fetchPosts]);
-
-  const handleUseNewsForDraft = useCallback(async (prompt: string) => {
-    await handleCreatePost(prompt);
-    setActiveTab("feed");
-  }, [handleCreatePost]);
 
   const handleFileSelect = useCallback(async (file: File) => {
     setIsLoading(true);
@@ -631,6 +610,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
     setIsLoadingAnalytics(true);
     try {
       const response = await fetch(`/api/analytics?brandId=${brandId}`);
+      if (!response.ok) throw new Error("analytics request failed");
       setAnalytics(await response.json() as AnalyticsData);
     } catch {
       toast.error("성과 데이터 불러오기 실패");
@@ -857,9 +837,9 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
       });
       const data = await response.json() as { changes?: { boosted: string[]; reduced: string[] }; message?: string; error?: string };
       if (!response.ok) throw new Error(data.message ?? data.error ?? "최적화 실패");
-      toast.success(`최적화 완료! 상승: ${data.changes?.boosted.join(", ")} / 하락: ${data.changes?.reduced.join(", ")}`);
+      toast.success(`최적화 완료! 상승: ${(data.changes?.boosted ?? []).join(", ")} / 하락: ${(data.changes?.reduced ?? []).join(", ")}`);
       const analyticsRes = await fetch(`/api/analytics?brandId=${brandId}`);
-      setAnalytics(await analyticsRes.json() as AnalyticsData);
+      if (analyticsRes.ok) setAnalytics(await analyticsRes.json() as AnalyticsData);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "최적화 실패");
     } finally {
@@ -1068,7 +1048,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
           <ManualReferenceCard brandId={brandId} brandName={brandName} onCreated={handleManualReferenceCreated} />
         </div>
         {activeTab === "news" && (
-          <NewsTrendingTab brandId={brandId} onUseNewsForDraft={handleUseNewsForDraft} />
+          <NewsTrendingTab />
         )}
 
         {activeTab === "reference" && (
@@ -1338,7 +1318,7 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
             <div className="border-t border-slate-100 dark:border-slate-700 p-4">
               {isLoadingAnalytics ? (
                 <div className="flex items-center justify-center py-6"><RefreshCw className="w-5 h-5 animate-spin text-violet-500" /></div>
-              ) : analytics?.message || !analytics?.byFormula.length ? (
+              ) : analytics?.message || !analytics?.byFormula?.length ? (
                 <div className="text-center py-6 text-sm text-slate-400">
                   <BarChart2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   아직 수집된 성과 데이터가 없어요.<br />
@@ -1535,9 +1515,6 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   >
                     {isReviewPipelineRunning ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1.5" />}
                     {isReviewPipelineRunning ? "초안 쓰는 중..." : "검토용 3개"}
-                  </Button>
-                  <Button variant="default" size="sm" onClick={() => void handleCreatePost()} className="bg-slate-600 hover:bg-slate-700 text-white flex-1 sm:flex-none">
-                    <Pencil className="w-4 h-4 mr-1.5" />글 작성
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()} className="flex-1 sm:flex-none">
                     <Upload className="w-4 h-4 mr-1.5" />파일 추가
