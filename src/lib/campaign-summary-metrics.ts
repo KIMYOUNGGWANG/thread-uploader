@@ -1,4 +1,5 @@
 import { normalizeViralIntentModeId } from "@/lib/viral-intent-modes";
+import { MATURITY_MS } from "@/lib/metrics-selection";
 
 export interface SummaryMetricPost {
   views: number | null;
@@ -42,8 +43,6 @@ export interface MatureComparison {
   replyRate: number;
   repostRate: number;
 }
-
-const MATURITY_MS = 72 * 60 * 60 * 1000;
 
 export function resolveSummaryViralIntentModeId(post: SummaryViralModePost): string | null {
   if (!post.campaignFormulaId) return null;

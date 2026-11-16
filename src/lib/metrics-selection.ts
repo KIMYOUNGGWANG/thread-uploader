@@ -1,4 +1,10 @@
-const MATURITY_MS = 72 * 60 * 60 * 1000;
+export const MATURITY_MS = 72 * 60 * 60 * 1000;
+
+// Views are a 72h number only when they were read at least 72h after publishing: an old post whose views were
+// read 6h in is still a 6h number, and learning it as-is teaches the learner a flop.
+export function hasMatureSnapshot(publishedAt: Date | null, readAt: Date | null): boolean {
+  return publishedAt !== null && readAt !== null && readAt.getTime() >= publishedAt.getTime() + MATURITY_MS;
+}
 
 export interface MetricsCandidate {
   publishedAt: Date | null;

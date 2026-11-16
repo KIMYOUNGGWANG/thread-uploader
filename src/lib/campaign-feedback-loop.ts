@@ -1,4 +1,5 @@
 import { calculatePerformanceScore } from "./growth-learning";
+import { hasMatureSnapshot, MATURITY_MS } from "./metrics-selection";
 import {
   identifyBottomPerformingPosts,
   extractNegativeCliches,
@@ -40,8 +41,6 @@ export interface FeedbackOptimizationReport {
   }>;
   negativeClichesLearned: string[];
 }
-
-const MATURITY_MS = 72 * 60 * 60 * 1000;
 
 function computeMedian(values: number[]): number {
   if (values.length === 0) return 0;
@@ -112,11 +111,12 @@ export function evaluate72hFeedbackLoop(
   const brandId = options.brandId || "unknown";
   const scorePost = options.scorePost ?? calculateEngagementScore;
 
-  // Filter mature posts
+  // Filter mature posts: old enough, and the views were read at least 72h after publishing.
+  // metricsAt here is Post.metricsAt, which click events also bump, so this is a floor, not a guarantee.
   const matureMeasuredPosts = posts.filter((p) => {
     if (!p.publishedAt || typeof p.views !== "number") return false;
     const ageMs = now.getTime() - p.publishedAt.getTime();
-    return ageMs >= MATURITY_MS;
+    return ageMs >= MATURITY_MS && hasMatureSnapshot(p.publishedAt, p.metricsAt);
   });
 
   // Group by mode
