@@ -6,6 +6,8 @@
  * and progressive trust tier progression based on account age and health score.
  */
 
+import { KST_OFFSET_MS } from "@/lib/kst";
+
 export type AccountTrustTier = "newbie" | "warming" | "established" | "authority";
 
 export type TrustGatedFeature =
@@ -37,8 +39,6 @@ export const TIER_DAILY_QUOTAS: Record<AccountTrustTier, number> = {
   established: 5,
   authority: 8,
 };
-
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 /** Daily quota resets at KST midnight, not the server's (UTC) midnight. */
 export function startOfPublishDay(now: Date): Date {

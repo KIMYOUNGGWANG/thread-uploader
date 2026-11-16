@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { parsePostForSlide } from "@/lib/card-parser";
 import { parseBrandConfig } from "@/types/brand";
-import { kstDate } from "@/lib/video-factory/kst";
+import { kstDate } from "@/lib/kst";
 import { getUploadAccounts } from "./accounts";
 import { buildCardCaption, buildCardFirstCaption, buildVideoCaption } from "./captions";
 import { parseDistributionConfig } from "./config";

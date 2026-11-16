@@ -6,6 +6,8 @@
 // Month pillars follow the year stem from 입춘 (병오년 → 경인월 …; 정미년 → 임인월 …; 무신년 → 갑인월 …).
 // Coverage ends at the last row: after it the helpers return null and timely modes stay off until the table is extended.
 
+import { KST_OFFSET_MS } from "@/lib/kst";
+
 export interface SolarTerm {
   at: string; // ISO with +09:00, the moment the month pillar changes
   ko: string;
@@ -98,7 +100,6 @@ export const YEAR_PILLARS: readonly YearPillar[] = [
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const WEEKDAY_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

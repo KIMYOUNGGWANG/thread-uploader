@@ -1,3 +1,5 @@
+import { KST_OFFSET_MS } from "@/lib/kst";
+
 export type NewYearModeId = "ny_ranking" | "ny_ipchun" | "ny_monthly" | "ny_pick" | "ny_zodiac";
 export type NewYearLang = "ko" | "en";
 
@@ -46,8 +48,6 @@ const MODE_CYCLE: NewYearModeId[] = [
 
 // EN cycle: zodiac 50%. Ranking and monthly stay out because their checks are Korean-only (day-master and month text).
 const EN_MODE_CYCLE: NewYearModeId[] = ["ny_zodiac", "ny_ipchun", "ny_zodiac", "ny_pick"];
-
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 export function kstYmd(d: Date): number {
   const k = new Date(d.getTime() + KST_OFFSET_MS);
