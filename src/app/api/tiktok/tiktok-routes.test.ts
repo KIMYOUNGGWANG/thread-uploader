@@ -1,5 +1,6 @@
 // src/app/api/tiktok/tiktok-routes.test.ts — Unit tests for TikTok API routes.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import fs from "fs";
 import { POST as generateHandler } from "./generate/route";
 import { GET as draftsHandler } from "./drafts/route";
 import { POST as renderHandler } from "./render/route";
@@ -193,7 +194,9 @@ describe("TikTok API Routes", () => {
   });
 
   describe("POST /api/tiktok/render", () => {
-    it("renders a draft with dryRun=true and marks as COMPLETED", async () => {
+    it("dryRun=true returns the render spec without touching the draft or the disk", async () => {
+      const mkdirSpy = vi.spyOn(fs, "mkdirSync");
+      const writeSpy = vi.spyOn(fs, "writeFileSync");
       const mockScenes = [
         {
           sceneId: "scene-01",
@@ -206,6 +209,7 @@ describe("TikTok API Routes", () => {
 
       vi.mocked(prisma.tikTokVideoDraft.findUnique).mockResolvedValue({
         id: "draft-789",
+        formatId: "ig_rank_10s",
         title: "테스트 영상",
         spokenHook: "주목하세요",
         script: "주목하세요 전체 대본",
@@ -217,10 +221,6 @@ describe("TikTok API Routes", () => {
         qualityPass: true,
       } as never);
 
-      vi.mocked(prisma.tikTokVideoDraft.update).mockImplementation(
-        (async ({ data }: { data: Record<string, unknown> }) => ({ id: "draft-789", ...data })) as never
-      );
-
       const req = new Request("http://localhost/api/tiktok/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -228,11 +228,18 @@ describe("TikTok API Routes", () => {
       });
 
       const res = await renderHandler(req as never);
+      expect(mkdirSpy).not.toHaveBeenCalled();
+      expect(writeSpy).not.toHaveBeenCalled();
+      expect(prisma.tikTokVideoDraft.update).not.toHaveBeenCalled();
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
-      expect(data.draft.status).toBe("COMPLETED");
-      expect(data.renderResult.success).toBe(true);
+      expect(data.dryRun).toBe(true);
+      expect(data.draft).toBeUndefined();
+      expect(data.renderSpec.composition).toBe("IgRank10s");
+      expect(data.renderSpec.scenes).toHaveLength(1);
+      mkdirSpy.mockRestore();
+      writeSpy.mockRestore();
     });
 
     it("queues a draft with dryRun=false and returns 202 Accepted for worker processing", async () => {

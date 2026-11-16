@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import type { TikTokEngine } from "@/lib/tiktok/tiktok-draft-service";
+import type { RenderSpec } from "@/lib/tiktok/render-spec-types";
 
 interface TikTokStudioClientProps {
   brandId: string;
@@ -179,16 +180,19 @@ export function TikTokStudioClient({
       });
 
       const data = await res.json();
-      if (data.success) {
+      if (data.success && dryRun) {
+        // Dry run only builds the spec; the draft itself is unchanged.
+        const spec: RenderSpec = data.renderSpec;
+        toast.success(
+          `규격 검증 통과: ${spec.composition} · ${spec.dimensions.width}x${spec.dimensions.height} · ${spec.scenes.length}개 씬 · ${(spec.durationInFrames / spec.fps).toFixed(1)}초`,
+          { duration: 6000 }
+        );
+      } else if (data.success) {
         setCurrentDraft(data.draft);
-        if (dryRun) {
-          toast.success("Remotion RenderSpec 규격 검증 완료 (dryRun)");
-        } else {
-          toast.success(
-            "렌더링 큐 등록 완료! 로컬 워커(npm run worker:tiktok)에서 인코딩됩니다.",
-            { duration: 6000 }
-          );
-        }
+        toast.success(
+          "렌더링 큐 등록 완료! 로컬 워커(npm run worker:tiktok)에서 인코딩됩니다.",
+          { duration: 6000 }
+        );
         fetchDrafts();
       } else {
         toast.error(data.error || "렌더링 처리에 실패했습니다.");
