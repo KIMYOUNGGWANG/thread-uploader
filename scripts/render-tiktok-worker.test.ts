@@ -1,4 +1,5 @@
 // scripts/render-tiktok-worker.test.ts — Unit tests for TikTok CLI render worker.
+import fs from "fs";
 import { describe, it, expect, vi } from "vitest";
 import {
   buildTikTokRenderSpec,
@@ -93,9 +94,10 @@ describe("TikTok Render Worker", () => {
   });
 
   describe("processNextJob", () => {
-    it("claims next QUEUED job and marks as COMPLETED in dryRun mode", async () => {
+    it("dryRun only builds the spec: no status change, no files, formatId kept", async () => {
       const mockDraft = {
         id: "draft-q-1",
+        formatId: "ig_rank_10s",
         title: "대기 중인 영상",
         spokenHook: "후킹 대사",
         script: "전체 대본",
@@ -103,45 +105,37 @@ describe("TikTok Render Worker", () => {
         sceneBeats: JSON.stringify([
           {
             sceneId: "scene-1",
-            durationSeconds: 3,
-            type: "kinetic-card",
-            spokenLine: "후킹",
+            durationSeconds: 10,
+            type: "rank-card",
+            spokenLine: "",
+            onScreenText: [],
           },
         ]),
         cta: "댓글 남기기",
       };
 
-      const mockFind = vi.fn().mockResolvedValue(mockDraft);
-      const mockUpdate = vi.fn().mockResolvedValue({ ...mockDraft, status: "COMPLETED" });
-
+      const mockUpdate = vi.fn();
       const mockDb = {
         tikTokVideoDraft: {
-          findFirst: mockFind,
+          findFirst: vi.fn().mockResolvedValue(mockDraft),
           update: mockUpdate,
         },
       };
+      const mkdirSpy = vi.spyOn(fs, "mkdirSync").mockImplementation(() => undefined);
+      const writeSpy = vi.spyOn(fs, "writeFileSync").mockImplementation(() => undefined);
+      vi.spyOn(console, "log").mockImplementation(() => {});
 
-      const result = await processNextJob(mockDb as never, { dryRun: true });
+      try {
+        const result = await processNextJob(mockDb as never, { dryRun: true });
 
-      expect(result).not.toBeNull();
-      expect(result?.success).toBe(true);
-      expect(result?.draftId).toBe("draft-q-1");
-
-      // Claimed RENDERING first, then COMPLETED
-      expect(mockUpdate).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          where: { id: "draft-q-1" },
-          data: { status: "RENDERING" },
-        })
-      );
-      expect(mockUpdate).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          where: { id: "draft-q-1" },
-          data: expect.objectContaining({ status: "COMPLETED" }),
-        })
-      );
+        expect(result).toMatchObject({ success: true, dryRun: true, draftId: "draft-q-1" });
+        expect(result?.renderSpec?.composition).toBe("IgRank10s");
+        expect(mockUpdate).not.toHaveBeenCalled();
+        expect(mkdirSpy).not.toHaveBeenCalled();
+        expect(writeSpy).not.toHaveBeenCalled();
+      } finally {
+        vi.restoreAllMocks();
+      }
     });
 
     it("returns null if no QUEUED jobs exist", async () => {

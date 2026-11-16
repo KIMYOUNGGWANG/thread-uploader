@@ -113,6 +113,20 @@ export function buildTikTokRenderSpec(scriptResult) {
   };
 }
 
+// Mirror of draftToScriptResult in src/lib/tiktok/tiktok-draft-service.ts (plain node can't import the TS module).
+// buildTikTokRenderSpec falls back to the default format for unknown ids, like parseFormatId.
+export function draftToScriptResult(draft) {
+  return {
+    formatId: draft.formatId,
+    title: draft.title,
+    spokenHook: draft.spokenHook,
+    fullScript: draft.script,
+    totalDurationSeconds: draft.durationSeconds,
+    scenes: JSON.parse(draft.sceneBeats || "[]"),
+    cta: draft.cta,
+  };
+}
+
 /**
  * Recovers any jobs stuck in RENDERING state for > 10 minutes
  */
@@ -154,6 +168,14 @@ export async function processNextJob(db = prisma, options = {}) {
 
   if (!draft) return null;
 
+  // Dry run is read-only: no claim, no files, no status change. It only prints the spec the worker would render.
+  if (options.dryRun) {
+    const renderSpec = buildTikTokRenderSpec(draftToScriptResult(draft));
+    console.log(`\n🔍 [DRY-RUN] Next job: ${draft.id} ("${draft.title}") → ${renderSpec.composition}`);
+    console.log(JSON.stringify(renderSpec, null, 2));
+    return { success: true, dryRun: true, draftId: draft.id, renderSpec };
+  }
+
   console.log(`\n🎬 [WORKER] Claiming job: ${draft.id} ("${draft.title}")`);
 
   await db.tikTokVideoDraft.update({
@@ -170,32 +192,9 @@ export async function processNextJob(db = prisma, options = {}) {
   }
 
   try {
-    const scenes = JSON.parse(draft.sceneBeats || "[]");
-    const scriptResult = {
-      title: draft.title,
-      spokenHook: draft.spokenHook,
-      fullScript: draft.script,
-      totalDurationSeconds: draft.durationSeconds,
-      scenes,
-      cta: draft.cta,
-    };
-
-    const renderSpec = buildTikTokRenderSpec(scriptResult);
+    const renderSpec = buildTikTokRenderSpec(draftToScriptResult(draft));
     const specFilePath = path.join(runDir, "render-spec.json");
     fs.writeFileSync(specFilePath, JSON.stringify(renderSpec, null, 2), "utf8");
-
-    if (options.dryRun) {
-      console.log(`   [DRY-RUN] RenderSpec generated at: ${specFilePath}`);
-      await db.tikTokVideoDraft.update({
-        where: { id: draft.id },
-        data: {
-          status: "COMPLETED",
-          utmContent: outputPath,
-        },
-      });
-      console.log(`   ✅ Job ${draft.id} completed (Dry Run) in ${Date.now() - startAt}ms`);
-      return { success: true, draftId: draft.id, outputPath, durationMs: Date.now() - startAt };
-    }
 
     console.log(`   ⚡ Executing Remotion Render (timeout: 180s)...`);
 
@@ -239,6 +238,14 @@ async function main() {
   console.log("🚀 [TikTok Render Worker] Starting...");
   console.log(`   Mode: ${isOnce ? "Single Pass (--once)" : "Continuous Daemon"}`);
   console.log(`   Dry Run: ${isDryRun ? "YES" : "NO"}\n`);
+
+  // Dry run leaves every draft as it is, so the next QUEUED draft would repeat forever: preview it once and exit.
+  if (isDryRun) {
+    const result = await processNextJob(prisma, { dryRun: true });
+    if (!result) console.log("   No QUEUED drafts.");
+    await prisma.$disconnect();
+    process.exit(0);
+  }
 
   // First, clean any stale jobs
   await cleanStaleJobs();
