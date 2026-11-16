@@ -7,15 +7,15 @@ import { consecutiveGood, type Verdict } from "@/lib/video-factory/verdict";
 import { isRecord } from "@/types/config-normalizers";
 
 const GOAL = 5;
-const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900";
+const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2";
 const BADGE = "rounded-full px-2 py-0.5 text-sm font-semibold";
-const BADGE_RENDERING = "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300";
-const BADGE_DONE = "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
-const BADGE_FAILED = "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300";
-const BADGE_NEUTRAL = "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
-const MEDIA = "aspect-[9/16] w-full rounded-lg bg-slate-100 dark:bg-slate-800";
+const BADGE_RENDERING = "bg-sky-100 text-sky-700";
+const BADGE_DONE = "bg-emerald-100 text-emerald-700";
+const BADGE_FAILED = "bg-red-100 text-red-700";
+const BADGE_NEUTRAL = "bg-slate-100 text-slate-600";
+const MEDIA = "aspect-[9/16] w-full rounded-lg bg-slate-100";
 // Non-playable cards get a short strip so a failed draft does not fill a phone screen.
-const PLACEHOLDER = "h-24 w-full rounded-lg bg-slate-100 dark:bg-slate-800";
+const PLACEHOLDER = "h-24 w-full rounded-lg bg-slate-100";
 
 const STATUS: Record<string, { label: string; className: string }> = {
   QUEUED: { label: "대기 중", className: BADGE_NEUTRAL },
@@ -93,11 +93,11 @@ function Distribution({ draft }: { draft: VideoDraftCardData }) {
         {uploads.map((u) => (
           <li key={u.id} className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-semibold">{PLATFORM_LABEL[u.channelAccount.platform] ?? u.channelAccount.platform}</span>
-            <span className={u.status === "FAILED" ? "text-red-600 dark:text-red-400" : "text-slate-600 dark:text-slate-300"}>
+            <span className={u.status === "FAILED" ? "text-red-600" : "text-slate-600"}>
               {UPLOAD_STATUS[u.status] ?? u.status}{u.privacy === "private" && u.status === "PUBLISHED" ? " (비공개)" : ""}
             </span>
             {u.externalUrl && <a href={u.externalUrl} target="_blank" rel="noreferrer" className={`underline ${FOCUS}`}>보기</a>}
-            {u.status === "FAILED" && u.errorLog && <span className="block w-full text-sm text-red-600 break-words dark:text-red-400">{u.errorLog}</span>}
+            {u.status === "FAILED" && u.errorLog && <span className="block w-full text-sm text-red-600 break-words">{u.errorLog}</span>}
           </li>
         ))}
       </ul>
@@ -106,7 +106,7 @@ function Distribution({ draft }: { draft: VideoDraftCardData }) {
   if (!state.autoPublishAt) return null;
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-base text-slate-600 dark:text-slate-300">
+      <p className="text-base text-slate-600">
         {state.canceled ? "자동 업로드 취소됨" : `${formatKst(state.autoPublishAt)} 자동 업로드 예정`}
       </p>
       <div className="flex flex-wrap gap-2">
@@ -119,7 +119,7 @@ function Distribution({ draft }: { draft: VideoDraftCardData }) {
           </>
         )}
       </div>
-      {message && <p className="text-sm text-slate-500 dark:text-slate-400" aria-live="polite">{message}</p>}
+      {message && <p className="text-sm text-slate-500" aria-live="polite">{message}</p>}
     </div>
   );
 }
@@ -163,28 +163,28 @@ function clipSource(clip: VideoDraftCardData["clipAsset"]): string {
 function StreakHeader({ streak }: { streak: number }) {
   const reached = streak >= GOAL;
   return (
-    <section aria-label="판정 진행" className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <section aria-label="판정 진행" className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-base">
           <span className="text-2xl font-bold tabular-nums">연속 {streak}편</span>
-          <span className="text-slate-500 dark:text-slate-400"> / 목표 {GOAL}편</span>
+          <span className="text-slate-500"> / 목표 {GOAL}편</span>
         </p>
         {reached && <span className={`${BADGE} ${BADGE_DONE}`}>목표 달성</span>}
       </div>
       <div className="grid grid-cols-5 gap-1" aria-hidden="true">
         {Array.from({ length: GOAL }, (_, i) => (
-          <span key={i} className={`h-2 rounded-full ${i < streak ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-700"}`} />
+          <span key={i} className={`h-2 rounded-full ${i < streak ? "bg-emerald-500" : "bg-slate-200"}`} />
         ))}
       </div>
-      <p className="text-base text-slate-500 dark:text-slate-400">최신 완성 영상부터 &quot;올릴 만함&quot;이 이어진 편수예요. &quot;아님&quot;이나 미판정이 나오면 다시 0부터 세요.</p>
+      <p className="text-base text-slate-500">최신 완성 영상부터 &quot;올릴 만함&quot;이 이어진 편수예요. &quot;아님&quot;이나 미판정이 나오면 다시 0부터 세요.</p>
     </section>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-16 text-center text-base text-slate-600 dark:border-slate-700 dark:text-slate-400">
-      <p className="font-medium text-slate-900 dark:text-slate-100">아직 만들어진 영상이 없어요</p>
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-16 text-center text-base text-slate-600">
+      <p className="font-medium text-slate-900">아직 만들어진 영상이 없어요</p>
       <p>매일 아침 KST 06:00에 자동으로 한 편 만들어요. 내일 아침에 다시 확인해 주세요.</p>
     </div>
   );
@@ -229,7 +229,7 @@ function Media({ draft }: { draft: VideoDraftCardData }) {
 
   if (draft.status === "RENDERING" || draft.status === "QUEUED") {
     return (
-      <div className={`${PLACEHOLDER} flex items-center justify-center gap-2 text-base text-slate-500 dark:text-slate-400`}>
+      <div className={`${PLACEHOLDER} flex items-center justify-center gap-2 text-base text-slate-500`}>
         <Loader2 className="h-6 w-6 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         <span>{draft.status === "QUEUED" ? "렌더 대기 중" : "영상 만드는 중"}</span>
       </div>
@@ -237,7 +237,7 @@ function Media({ draft }: { draft: VideoDraftCardData }) {
   }
 
   return (
-    <div className={`${PLACEHOLDER} flex items-center justify-center text-base text-slate-500 dark:text-slate-400`}>
+    <div className={`${PLACEHOLDER} flex items-center justify-center text-base text-slate-500`}>
       {draft.status === "FAILED" ? "영상 없음" : "영상 주소 없음"}
     </div>
   );
@@ -247,7 +247,7 @@ const VERDICT_BUTTONS: { value: Verdict; label: string; active: string }[] = [
   { value: "good", label: "올릴 만함", active: "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700" },
   { value: "bad", label: "아님", active: "border-rose-600 bg-rose-600 text-white hover:bg-rose-700" },
 ];
-const VERDICT_IDLE = "border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800";
+const VERDICT_IDLE = "border-slate-300 text-slate-700 hover:bg-slate-100";
 
 interface VideoCardProps {
   draft: VideoDraftCardData;
@@ -263,24 +263,24 @@ function VideoCard({ draft, verdict, pending, error, onVerdict }: VideoCardProps
   const errors = draft.status === "FAILED" ? renderErrors(draft.renderErrors) : [];
 
   return (
-    <article className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900">
+    <article className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-2">
       <Media draft={draft} />
       <div className="flex flex-col gap-2 px-1 pb-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className={`${BADGE} ${status.className}`}>{status.label}</span>
-          <span className="text-sm text-slate-500 dark:text-slate-400">{draft.kstDate}</span>
+          <span className="text-sm text-slate-500">{draft.kstDate}</span>
         </div>
         {lines.length > 0 && (
-          <p className="text-base font-semibold leading-snug text-slate-900 dark:text-slate-100">
+          <p className="text-base font-semibold leading-snug text-slate-900">
             {lines.map((line, i) => (
               <span key={i} className="block">{line}</span>
             ))}
           </p>
         )}
-        <p className="text-base text-slate-500 dark:text-slate-400">배경: {clipSource(draft.clipAsset)}</p>
+        <p className="text-base text-slate-500">배경: {clipSource(draft.clipAsset)}</p>
 
         {draft.status === "FAILED" && (
-          <div className="rounded-lg bg-red-50 p-3 text-base text-red-800 dark:bg-red-950/30 dark:text-red-200">
+          <div className="rounded-lg bg-red-50 p-3 text-base text-red-800">
             <p className="font-medium">실패 이유</p>
             {errors.length > 0 ? (
               <ul className="mt-1 list-disc space-y-0.5 pl-5 text-base break-words">
@@ -313,13 +313,13 @@ function VideoCard({ draft, verdict, pending, error, onVerdict }: VideoCardProps
             </div>
             <p className="min-h-6 text-base" aria-live="polite">
               {error ? (
-                <span role="alert" className="text-red-600 dark:text-red-400">{error}</span>
+                <span role="alert" className="text-red-600">{error}</span>
               ) : pending ? (
-                <span className="text-slate-500 dark:text-slate-400">저장 중…</span>
+                <span className="text-slate-500">저장 중…</span>
               ) : verdict === null ? (
-                <span className="text-slate-500 dark:text-slate-400">아직 판정 전</span>
+                <span className="text-slate-500">아직 판정 전</span>
               ) : verdict === "bad" ? (
-                <span className="text-slate-500 dark:text-slate-400">&quot;아님&quot; 판정 영상은 자동으로 올라가지 않아요</span>
+                <span className="text-slate-500">&quot;아님&quot; 판정 영상은 자동으로 올라가지 않아요</span>
               ) : null}
             </p>
             <Distribution draft={draft} />
@@ -364,11 +364,11 @@ export function VideoFactoryPanel({ drafts, history, brandSlug, brandName }: Vid
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4">
           <h1 className="text-lg font-bold">{brandName} · 영상 공장</h1>
-          <Link href={`/brands/${brandSlug}`} className={`rounded-md text-base text-slate-600 hover:underline dark:text-slate-300 ${FOCUS}`}>
+          <Link href={`/brands/${brandSlug}`} className={`rounded-md text-base text-slate-600 hover:underline ${FOCUS}`}>
             ← 대시보드로
           </Link>
         </div>

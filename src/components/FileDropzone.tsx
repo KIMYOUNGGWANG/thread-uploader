@@ -68,10 +68,10 @@ export function FileDropzone({ onFileSelect, isLoading }: FileDropzoneProps) {
             className={cn(
                 "relative flex flex-col items-center justify-center w-full min-h-[300px] p-8",
                 "border-2 border-dashed rounded-2xl transition-all duration-300 cursor-pointer",
-                "bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800",
+                "bg-gradient-to-br from-slate-50 to-slate-100",
                 isDragActive
-                    ? "border-violet-500 bg-violet-50/50 dark:bg-violet-950/30 scale-[1.02]"
-                    : "border-slate-300 dark:border-slate-700 hover:border-violet-400 dark:hover:border-violet-600",
+                    ? "border-violet-500 bg-violet-50/50 scale-[1.02]"
+                    : "border-slate-300 hover:border-violet-400",
                 isLoading && "opacity-50 pointer-events-none"
             )}
             onDragEnter={handleDrag}
@@ -100,24 +100,24 @@ export function FileDropzone({ onFileSelect, isLoading }: FileDropzoneProps) {
                 </div>
 
                 <div className="text-center">
-                    <p className="text-lg font-semibold text-slate-700 dark:text-slate-200">
+                    <p className="text-lg font-semibold text-slate-700">
                         {isDragActive ? "Drop your file here" : "Drag & drop your file"}
                     </p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    <p className="mt-1 text-sm text-slate-500">
                         or click to browse
                     </p>
                 </div>
 
                 <div className="flex gap-4 mt-4">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm">
                         <FileText className="w-5 h-5 text-blue-500" />
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">.md</span>
+                        <span className="text-sm font-medium text-slate-600">.md</span>
                     </div>
                 </div>
             </div>
 
             {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-slate-900/50 rounded-2xl">
+                <div className="absolute inset-0 flex items-center justify-center bg-white/50 rounded-2xl">
                     <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
                 </div>
             )}

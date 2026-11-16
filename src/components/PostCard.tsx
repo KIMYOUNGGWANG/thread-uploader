@@ -309,9 +309,9 @@ export function PostCard({
             className={cn(
                 "relative overflow-hidden transition-all duration-300",
                 "hover:shadow-lg hover:shadow-violet-500/10",
-                "border-slate-200 dark:border-slate-700",
-                !validation.valid && "border-red-300 dark:border-red-800",
-                isPosted && "opacity-60 bg-green-50 dark:bg-green-950/20 border-green-300 dark:border-green-800"
+                "border-slate-200",
+                !validation.valid && "border-red-300",
+                isPosted && "opacity-60 bg-green-50 border-green-300"
             )}
         >
             {/* Index Badge */}
@@ -323,7 +323,7 @@ export function PostCard({
             <Button
                 variant="ghost"
                 size="icon"
-                className="absolute top-2 right-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+                className="absolute top-2 right-2 text-slate-400 hover:text-red-500 hover:bg-red-50"
                 onClick={() => onDelete(index, reviewReason)}
                 aria-label="글 삭제"
                 title={status === "NEEDS_REVIEW" ? "삭제 (사유를 적었다면 반려 사유로 기록돼요)" : "삭제"}
@@ -340,7 +340,7 @@ export function PostCard({
                             <textarea
                                 value={editedContent}
                                 onChange={(e) => setEditedContent(e.target.value)}
-                                className="w-full h-32 p-3 text-sm border rounded-lg resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent dark:bg-slate-800 dark:border-slate-600"
+                                className="w-full h-32 p-3 text-sm border rounded-lg resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                                 placeholder="본문 내용을 입력하세요..."
                             />
                         </div>
@@ -350,7 +350,7 @@ export function PostCard({
                             <textarea
                                 value={editedComment}
                                 onChange={(e) => setEditedComment(e.target.value)}
-                                className="w-full h-20 p-3 text-sm border rounded-lg resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent dark:bg-slate-800 dark:border-slate-600 border-dashed"
+                                className="w-full h-20 p-3 text-sm border rounded-lg resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent border-dashed"
                                 placeholder="첫 번째 댓글 내용을 입력하세요..."
                             />
                         </div>
@@ -384,7 +384,7 @@ export function PostCard({
                     </div>
                 ) : (
                     <>
-                        <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap line-clamp-6">
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap line-clamp-6">
                             {post.content}
                         </p>
 
@@ -411,12 +411,12 @@ export function PostCard({
 
                         {/* First Comment Preview */}
                         {post.firstComment && (
-                            <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800 border-dashed">
+                            <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-100 border-dashed">
                                 <div className="flex items-center gap-1.5 mb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                     <Clock className="w-3 h-3" />
                                     첫 댓글 예약됨
                                 </div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 italic line-clamp-2">
+                                <p className="text-xs text-slate-500 italic line-clamp-2">
                                     &quot;{post.firstComment}&quot;
                                 </p>
                             </div>
@@ -428,14 +428,14 @@ export function PostCard({
                             <div className={cn(
                                 "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
                                 isPosted 
-                                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                                    ? "bg-green-100 text-green-700"
                                     : status === "NEEDS_REVIEW"
-                                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60"
+                                        ? "bg-amber-100 text-amber-700 border border-amber-300/60"
                                         : status === "PARTIAL_FAILED"
-                                            ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                                            ? "bg-amber-100 text-amber-700"
                                             : status === "FAILED"
-                                                ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                                                : "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
+                                                ? "bg-red-100 text-red-700"
+                                                : "bg-violet-100 text-violet-700"
                             )}>
                                 #{index + 1} {isPosted ? "업로드 완료" : status === "NEEDS_REVIEW" ? (isAlgorithmicFailed ? "검토 필요 (5D 미달)" : isQualityBlocked ? "검토 필요 (품질 FAIL)" : (qualityReasons.includes(MANUAL_REFERENCE_TAG) ? "승인 대기 (X 레퍼런스)" : toneReasonLabel ? `승인 대기 (${toneReasonLabel})` : "승인 대기 (승자 공식 아님)")) : status === "PARTIAL_FAILED" ? "타래 중단(이어올리기 대기)" : status === "FAILED" ? "업로드 실패" : "대기중"}
                             </div>
@@ -446,8 +446,8 @@ export function PostCard({
                                     className={cn(
                                         "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide border",
                                         postCategory === "WARMUP"
-                                            ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-700"
-                                            : "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800"
+                                            ? "bg-amber-100 text-amber-800 border-amber-300"
+                                            : "bg-indigo-50 text-indigo-700 border-indigo-200"
                                     )}
                                     title={postCategory === "WARMUP" ? "알고리즘 신뢰 회복용 논링크 공감 포스트" : "성장 및 전환 포스트"}
                                 >
@@ -467,14 +467,14 @@ export function PostCard({
 
                             {/* Rewrite Count Indicator */}
                             {rewriteCount !== null && rewriteCount !== undefined && rewriteCount > 0 && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-full text-xs font-medium">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-full text-xs font-medium">
                                     교정 {rewriteCount}회
                                 </div>
                             )}
 
                             {/* Images */}
                             {post.images.length > 0 && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
                                     <ImageIcon className="w-3.5 h-3.5" />
                                     {videoUrl ? "영상" : `${post.images.length} image${post.images.length > 1 ? "s" : ""}`}
                                 </div>
@@ -485,53 +485,53 @@ export function PostCard({
                                 className={cn(
                                     "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
                                     isOverLimit
-                                        ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                        ? "bg-red-100 text-red-700"
                                         : isMultiPart
-                                        ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
-                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                                        ? "bg-indigo-100 text-indigo-700 border border-indigo-200"
+                                        : "bg-slate-100 text-slate-600"
                                 )}
                             >
                                 {isMultiPart ? `🧵 ${partCount}단 스레드 체인 (${charCount}자)` : `${charCount}/500`}
                             </div>
 
                             {formulaId && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-xs font-medium">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium">
                                     공식 {formulaId}
                                 </div>
                             )}
 
                             {campaignId && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 rounded-full text-xs font-medium">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-100 text-cyan-700 rounded-full text-xs font-medium">
                                     캠페인 {campaignId}
                                 </div>
                             )}
 
                             {campaignFormulaId && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-medium">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
                                     포맷 {campaignFormulaId}
                                 </div>
                             )}
 
                             {hookType && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-xs font-medium">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-100 text-violet-700 rounded-full text-xs font-medium">
                                     훅 {hookType}
                                 </div>
                             )}
 
                             {ctaType && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-medium">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
                                     CTA {ctaType}
                                 </div>
                             )}
 
                             {views !== null && views !== undefined && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 rounded-full text-xs font-medium">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-100 text-sky-700 rounded-full text-xs font-medium">
                                     조회 {views.toLocaleString()} · 좋아요 {(likes ?? 0).toLocaleString()} · 댓글 {(replies ?? 0).toLocaleString()} · 리포스트 {(reposts ?? 0).toLocaleString()}
                                 </div>
                             )}
 
                             {performanceScore !== null && performanceScore !== undefined && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-xs font-medium">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
                                     점수 {performanceScore.toLocaleString()}{performanceTier ? ` · ${performanceTier}` : ""}
                                 </div>
                             )}
@@ -540,8 +540,8 @@ export function PostCard({
                                 <div className={cn(
                                     "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
                                     qualityPass
-                                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                                        : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-red-100 text-red-700"
                                 )}>
                                     Quality {qualityPass ? "PASS" : "FAIL"}
                                 </div>
@@ -549,7 +549,7 @@ export function PostCard({
                         </div>
 
                         {(topic || targetAudience || qualityScore !== null && qualityScore !== undefined || qualityProfile || careerDecisionType) && (
-                            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
+                            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
                                 {topic && <span className="truncate max-w-full">주제: {topic}</span>}
                                 {targetAudience && <span className="truncate max-w-full">타겟: {targetAudience}</span>}
                                 {qualityProfile && <span>프로필: {qualityProfile}</span>}
@@ -559,7 +559,7 @@ export function PostCard({
                         )}
 
                         {(linkUrl || utmContent || qualityReasons.length > 0 || clicks || conversions || manualPaidConversions) && (
-                            <div className="mt-3 space-y-1 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 p-2 text-xs text-slate-500 dark:text-slate-400">
+                            <div className="mt-3 space-y-1 rounded-lg border border-slate-100 bg-slate-50/70 p-2 text-xs text-slate-500">
                                 {linkUrl && <p className="break-all">UTM: {linkUrl}</p>}
                                 {utmContent && <p>utm_content: {utmContent}</p>}
                                 {(clicks || conversions || manualPaidConversions) && (
@@ -573,11 +573,11 @@ export function PostCard({
 
                         {/* Validation errors */}
                         {!validation.valid && (
-                            <div className="mt-3 p-2 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                            <div className="mt-3 p-2 bg-red-50 rounded-lg">
                                 {validation.errors.map((error, i) => (
                                     <div
                                         key={i}
-                                        className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400"
+                                        className="flex items-center gap-1.5 text-xs text-red-600"
                                     >
                                         <AlertCircle className="w-3.5 h-3.5" />
                                         {error}
@@ -587,8 +587,8 @@ export function PostCard({
                         )}
 
                         {errorLog && (
-                            <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
-                                <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                            <div className="mt-3 p-2 bg-amber-50 rounded-lg">
+                                <div className="flex items-center gap-1.5 text-xs text-amber-700">
                                     <AlertCircle className="w-3.5 h-3.5" />
                                     {errorLog}
                                 </div>
@@ -671,7 +671,7 @@ export function PostCard({
                                     {needsFix && <Button
                                         variant="outline"
                                         size="sm"
-                                        className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 hover:from-purple-500/20 hover:to-indigo-500/20 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800 gap-1.5"
+                                        className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 hover:from-purple-500/20 hover:to-indigo-500/20 text-purple-700 border-purple-300 gap-1.5"
                                         onClick={handleRemediate}
                                         disabled={isRemediating || isApproving}
                                         title="알고리즘 5D 취약 차원 및 본문 URL을 자동 교정합니다"
@@ -679,7 +679,7 @@ export function PostCard({
                                         {isRemediating ? (
                                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                         ) : (
-                                            <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
                                         )}
                                         {isRemediating ? "교정 중..." : "✨ 5D 자동 교정"}
                                     </Button>}
@@ -687,7 +687,7 @@ export function PostCard({
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/30 gap-1.5"
+                                        className="text-amber-700 border-amber-300 hover:bg-amber-50 gap-1.5"
                                         onClick={handleForceApprove}
                                         disabled={isRemediating || isApproving}
                                         title={needsFix ? "검토 경고를 무시하고 발행 대기열(PENDING)로 강제 승인합니다" : "발행 대기열(PENDING)로 승인합니다"}
@@ -695,7 +695,7 @@ export function PostCard({
                                         {isApproving ? (
                                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                         ) : (
-                                            <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                            <Zap className="w-3.5 h-3.5 text-amber-600" />
                                         )}
                                         {isApproving ? "승인 중..." : needsFix ? "⚡ 강제 승인" : "✅ 승인"}
                                     </Button>
@@ -708,7 +708,7 @@ export function PostCard({
 
             {/* Status indicator */}
             {validation.valid && (
-                <div className="absolute bottom-3 right-3 w-6 h-6 flex items-center justify-center bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full">
+                <div className="absolute bottom-3 right-3 w-6 h-6 flex items-center justify-center bg-green-100 text-green-600 rounded-full">
                     <Check className="w-4 h-4" />
                 </div>
             )}

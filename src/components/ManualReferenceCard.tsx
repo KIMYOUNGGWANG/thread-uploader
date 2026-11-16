@@ -22,7 +22,7 @@ const KINDS: { value: Kind; label: string; hint: string }[] = [
 ];
 
 const INPUT_CLASS =
-  "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-base md:text-sm focus-visible:ring-indigo-500/40 focus-visible:border-indigo-500";
+  "bg-slate-50 border-slate-200 text-base md:text-sm focus-visible:ring-indigo-500/40 focus-visible:border-indigo-500";
 
 function validate(content: string, kind: Kind, linkUrl: string, sourceUrl: string): FieldErrors {
   const errors: FieldErrors = {};
@@ -57,7 +57,7 @@ function isResult(value: unknown): value is ManualReferenceResult {
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return (
-    <p id={id} role="alert" className="mt-1.5 text-sm text-red-600 dark:text-red-400">
+    <p id={id} role="alert" className="mt-1.5 text-sm text-red-600">
       {message}
     </p>
   );
@@ -151,21 +151,21 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
   return (
     <section
       aria-labelledby="manual-reference-title"
-      className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6"
+      className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
     >
       <div className="mb-1 flex items-center gap-2">
         <Quote className="h-5 w-5 shrink-0 text-indigo-500" aria-hidden="true" />
-        <h2 id="manual-reference-title" className="text-base font-semibold text-slate-800 dark:text-slate-100">
+        <h2 id="manual-reference-title" className="text-base font-semibold text-slate-800">
           X 인기글로 초안 만들기
         </h2>
       </div>
-      <p className="mb-5 text-sm text-slate-500 dark:text-slate-400">
-        <span className="font-medium text-slate-700 dark:text-slate-200">{brandName}</span> 말투로 새로 써서 피드 탭 승인 대기열 맨 앞에 넣어. 보통 10~30초 걸려.
+      <p className="mb-5 text-sm text-slate-500">
+        <span className="font-medium text-slate-700">{brandName}</span> 말투로 새로 써서 피드 탭 승인 대기열 맨 앞에 넣어. 보통 10~30초 걸려.
       </p>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <div>
-          <label htmlFor="mref-content" className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <label htmlFor="mref-content" className="mb-1.5 block text-sm font-semibold text-slate-700">
             원글 본문
           </label>
           <textarea
@@ -177,23 +177,23 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
             placeholder="X 글을 그대로 복사해서 붙여넣어. 스레드(이어지는 글)면 전부 붙여넣어도 돼."
             aria-invalid={errors.content ? true : undefined}
             aria-describedby={errors.content ? "mref-content-error" : "mref-content-hint"}
-            className={`block min-h-28 w-full resize-y rounded-md border bg-slate-50 px-3 py-2 text-base text-slate-800 shadow-xs outline-none transition-[color,box-shadow] placeholder:text-slate-500 dark:placeholder:text-slate-400 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-900 dark:text-slate-100 md:text-sm ${
+            className={`block min-h-28 w-full resize-y rounded-md border bg-slate-50 px-3 py-2 text-base text-slate-800 shadow-xs outline-none transition-[color,box-shadow] placeholder:text-slate-500 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm ${
               errors.content
-                ? "border-red-400 focus-visible:border-red-500 focus-visible:ring-red-500/30 dark:border-red-500"
-                : "border-slate-200 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/40 dark:border-slate-700"
+                ? "border-red-400 focus-visible:border-red-500 focus-visible:ring-red-500/30"
+                : "border-slate-200 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/40"
             }`}
           />
           {errors.content ? (
             <FieldError id="mref-content-error" message={errors.content} />
           ) : (
-            <p id="mref-content-hint" className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <p id="mref-content-hint" className="mt-1.5 text-xs text-slate-500">
               공백 빼고 {MIN_CONTENT_CHARS}자 이상 · {MAX_CONTENT_CHARS.toLocaleString("en-US")}자 이하
             </p>
           )}
         </div>
 
         <div>
-          <span id="mref-kind-label" className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <span id="mref-kind-label" className="mb-1.5 block text-sm font-semibold text-slate-700">
             글 유형
           </span>
           <div role="radiogroup" aria-labelledby="mref-kind-label" className="flex flex-wrap gap-2">
@@ -207,7 +207,7 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
                   } ${
                     checked
                       ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                   }`}
                 >
                   <input
@@ -220,12 +220,12 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
                     className="sr-only"
                   />
                   <span className="font-semibold">{option.label}</span>
-                  <span className={`text-xs ${checked ? "text-indigo-100" : "text-slate-500 dark:text-slate-400"}`}>· {option.hint}</span>
+                  <span className={`text-xs ${checked ? "text-indigo-100" : "text-slate-500"}`}>· {option.hint}</span>
                 </label>
               );
             })}
           </div>
-          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-1.5 text-xs text-slate-500">
             {kind === "info"
               ? "정보형: 목록 순서를 살리고, 링크를 쓰면 첫 댓글에 붙여."
               : "사연형: 상황과 감정선만 가져오고 디테일은 전부 바꿔."}
@@ -235,8 +235,8 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
 
         {kind === "info" && (
           <div>
-            <label htmlFor="mref-link" className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-              첫 댓글 링크 <span className="font-normal text-slate-500 dark:text-slate-400">(선택)</span>
+            <label htmlFor="mref-link" className="mb-1.5 block text-sm font-semibold text-slate-700">
+              첫 댓글 링크 <span className="font-normal text-slate-500">(선택)</span>
             </label>
             <Input
               id="mref-link"
@@ -256,8 +256,8 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
         )}
 
         <div>
-          <label htmlFor="mref-source" className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-            X 원글 주소 <span className="font-normal text-slate-500 dark:text-slate-400">(선택 · 같은 글 중복 방지용)</span>
+          <label htmlFor="mref-source" className="mb-1.5 block text-sm font-semibold text-slate-700">
+            X 원글 주소 <span className="font-normal text-slate-500">(선택 · 같은 글 중복 방지용)</span>
           </label>
           <Input
             id="mref-source"
@@ -276,7 +276,7 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
         </div>
 
         {droppedReasons && (
-          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             <p className="mb-1.5 flex items-center gap-1.5 font-semibold">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               품질 검사에서 탈락했어. 입력은 그대로 뒀으니 다시 눌러봐.
@@ -294,13 +294,13 @@ export function ManualReferenceCard({ brandId, brandName, onCreated }: ManualRef
         )}
 
         {isDuplicate && (
-          <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+          <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800">
             이 X 글로 만든 초안이 이미 있어
           </div>
         )}
 
         {formError && (
-          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             {formError}
           </div>
         )}
