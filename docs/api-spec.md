@@ -507,6 +507,80 @@ interface OptimizeResponse {
 
 ---
 
+## Additional Endpoints (코드 기준 보충)
+
+위 섹션에 없던 라우트를 `src/app/api/**/route.ts`에서 뽑아 정리했다. 설명은 해당 라우트 코드에서 확인한 동작만 적었다.
+
+**Auth 열**
+- 프록시(`src/proxy.ts`)는 `PUBLIC_PATHS`(`/api/cron`, `/api/oauth`, `/api/cards`, `/api/webhooks`, `/api/products/auto-setup` 등) 밖의 `/api/*`에 `auth_session` 쿠키를 요구한다.
+- `Required` = 로그인 세션. `+ Brand Owner` / `+ Post Owner` = 소유자만(슈퍼 관리자 예외, 아니면 `403`/`404`).
+- `Cron Secret` = `Authorization: Bearer <CRON_SECRET>`. 프로덕션에서 `CRON_SECRET`이 없으면 전부 `401`이다.
+- `Public` = 인증 없음.
+
+### Brand / Channel
+
+| Method | Path | Description | Auth |
+|:-------|:-----|:------------|:-----|
+| `GET` | `/api/brands/[id]/health` | 저장된 계정 건강 상태(`accountHealth`) 조회 | Required + Brand Owner |
+| `PATCH` | `/api/brands/[id]/health` | 운영자가 건강 상태를 직접 지정 `{ status: HEALTHY \| WARNING \| SHADOWBAN_SUSPECTED \| RECOVERY, reason? }`. `SHADOWBAN_SUSPECTED`는 발행을 `WARMUP_ONLY` 모드로 바꾼다 | Required + Brand Owner |
+| `POST` | `/api/brands/[id]/health` | 최근 발행 글의 조회수로 섀도밴 여부를 재평가해 저장. 직전 평가 후 1분 안이면 이전 결과를 돌려준다(`?force=true` 또는 `{ force: true }`로 건너뜀) | Required + Brand Owner |
+| `POST` | `/api/brands/[id]/voice` | `{ samples?, useTopPosts? }`로 브랜드 말투(voice) 추출. `useTopPosts`는 과거 고성과 글 5개를 쓴다 | Required + Brand Owner |
+| `PUT` | `/api/brands/[id]/distribution` | `brandConfig.distribution`을 통째로 교체(다른 키는 그대로) | Required + Brand Owner |
+| `PATCH` | `/api/channel-accounts/[id]` | `{ enabled: boolean }` 해당 채널로의 업로드 일시중지/재개 | Required + Brand Owner |
+| `DELETE` | `/api/channel-accounts/[id]` | 채널 토큰(YouTube/TikTok/X) 삭제. 업로드 이력은 남는다 | Required + Brand Owner |
+| `POST` | `/api/channel-uploads/[id]` | `{ action: "cancel" \| "retry" \| "ack_public" }` | Required + Brand Owner |
+| `POST` | `/api/video-drafts/[id]/schedule` | `{ action: "cancel" \| "resume" \| "publish_now" }` | Required + Brand Owner |
+| `PATCH` | `/api/video-drafts/[id]/verdict` | `{ verdict: "good" \| "bad" }`. `COMPLETED` 영상만 가능(아니면 `409`), 소유자가 아니면 `404` | Required + Brand Owner |
+| `GET` | `/api/oauth/threads/start?brandId=xxx` | Threads OAuth 시작 | Brand Owner (라우트가 직접 검사) |
+| `GET` | `/api/oauth/threads/callback?state=&code=` | `code`를 토큰으로 교환해 브랜드에 저장 | Brand Owner (라우트가 직접 검사) |
+| `GET` | `/api/oauth/[platform]/start?brandId=xxx` | `platform`은 `youtube`, `tiktok`, `x`. 플랫폼 동의 화면으로 보낸다 | Brand Owner (라우트가 직접 검사) |
+| `GET` | `/api/oauth/[platform]/callback` | 같은 세 플랫폼. 암호화한 토큰을 브랜드의 `ChannelAccount`에 저장 | Brand Owner (라우트가 직접 검사) |
+
+### Content
+
+| Method | Path | Description | Auth |
+|:-------|:-----|:------------|:-----|
+| `POST` | `/api/command` | 한 줄 명령 → 계획 → 초안. `{ text }`만 보내면 계획만 돌려주고 부작용이 없다. `{ plan, approved: true }`면 가설을 활성 실험에 기록하고 초안을 큐에 넣는다 | Required + Brand Owner |
+| `POST` | `/api/generate/review-pipeline` | `{ brandId, count?: 1-5 (기본 3) }`. 트렌드 수집 → 글마다 초안 3개 → 톤 채점으로 1개 선택 → `NEEDS_REVIEW`로 저장. 글 길이 실험이 진행 중이면 `409` | Required + Brand Owner |
+| `POST` | `/api/posts/[id]/remediate` | 5D 알고리즘 점수나 게이트에 걸린 글을 자동 교정. 점수와 콘텐츠 게이트(영문은 자연스러움 판정 포함)를 모두 통과해야 통과 처리한다 | Required + Post Owner |
+| `GET` | `/api/interactions?brandId=xxx` | 최근 발행 글 5개의 댓글을 불러와 답글 초안을 만든다 | Required + Brand Owner |
+| `POST` | `/api/interactions` | `{ brandId, replyToThreadsId, replyText }` 답글 게시(재시도 포함) 후 해당 `ThreadReply`를 `PUBLISHED`로 표시 | Required + Brand Owner |
+| `GET` | `/api/news/rss?query=&limit=` | 뉴스 RSS 헤드라인 조회 | Required |
+| `GET` | `/api/cards/[id]?slide=&format=` | 카드뉴스 슬라이드 이미지 렌더. `format=jpg`면 JPEG(인스타 게시용). 카드 우선 브랜드는 저장된 슬라이드, 그 외는 본문 파서를 쓴다 | Public |
+| `POST` | `/api/products/auto-setup` | 입력으로 제품 자동 세팅 초안을 만들어 돌려준다(저장 없음) | Public |
+
+### Viral References
+
+| Method | Path | Description | Auth |
+|:-------|:-----|:------------|:-----|
+| `GET` | `/api/viral/references?brandId=xxx` | 검토용 레퍼런스 목록 `{ references }` | Required + Brand Owner |
+| `PATCH` | `/api/viral/references/[id]` | `{ brandId, decision: "approved" \| "rejected" \| null }`. 생성 소스 승인/제외, `null`이면 되돌리기 | Required + Brand Owner |
+| `POST` | `/api/viral/references/manual` | `{ brandId, content, kind: "story" \| "info", linkUrl?, sourceUrl? }`. 결과 `status`는 `created`(`postId`) / `dropped`(`reasons`) / `duplicate`. 입력 오류는 `400`/`422` | Required + Brand Owner |
+| `POST` | `/api/viral/references/[id]/draft` | 레퍼런스에서 바로 초안 생성. 상태 충돌 `409`, 품질 미달 `422` | Required + Brand Owner |
+
+### Cron (표에 없던 것)
+
+모두 `Cron Secret`이고 별도 표기가 없으면 `GET`이다. `apply` 파라미터가 있는 것은 기본이 미리보기(또는 dry-run)이고 `apply`를 줘야 쓴다.
+
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `GET` | `/api/cron/apply-topic-plan?brand=slug&apply=true` | 코드 검토를 거친 주제 목록(`src/lib/topic-plans.ts`)을 `brandConfig.topics`에 쓴다. `apply=true`일 때만 쓰고, 이전 목록은 `previousTopics`에 남겨 되돌릴 수 있다 |
+| `GET` | `/api/cron/channel-metrics` | 최근 14일 안에 올라간 채널 업로드의 조회·좋아요·댓글 수집 |
+| `GET` | `/api/cron/distribute?brands=slug,slug&schedule=false` | 취소 유예가 끝난 업로드를 큐에 넣고(영상 → YouTube/Instagram/TikTok, 카드뉴스 → Instagram, 발행된 Threads 글 → X), 시간 한도 안에서 기한이 된 업로드를 전부 실행 |
+| `GET` | `/api/cron/fetch-metrics` | Threads 글 지표 수집. 한 번도 측정 안 된 글은 최대 60일치까지 채우고, 호출당 고정 배치만 처리한다 |
+| `GET` | `/api/cron/post-metrics-report?brand=slug&days=N&full=` | 최근 발행 글과 저장된 지표의 읽기 전용 리포트. 저장소가 공개라서 워크플로가 출력을 암호화한다 |
+| `GET` | `/api/cron/regate-pending?brand=slug&status=NEEDS_REVIEW&apply=true` | 대기 글(`status`를 주면 `NEEDS_REVIEW`)을 가독성 규칙으로 다시 검사. `apply=true`일 때만 탈락한 글을 보관(삭제 아님) |
+| `GET` | `/api/cron/seed-reference-radar?brand=slug&apply=true` | 비어 있는 `keywords`/`ownHandle`만 채운다(덮어쓰지 않음). `apply=true`일 때만 쓴다 |
+| `GET` | `/api/cron/wellness` | `brandConfig.wellness`가 있는 브랜드마다 매일 리서치 → 초안. `NEEDS_REVIEW`로 저장 |
+| `GET` | `/api/cron/video-jobs/next?brands=slug` | CI 렌더러에게 draft 1개를 넘긴다: 가장 오래된 `QUEUED`, 없으면 오늘 새로 생성. 렌더 중 죽어서 `RENDERING`으로 남은 draft는 다시 내준다 |
+| `POST` | `/api/cron/video-jobs/complete` | `{ draftId, videoUrl }` 또는 `{ draftId, error }`. 렌더된 영상은 `NEEDS_REVIEW` Threads 글이 된다 |
+| `GET` | `/api/cron/video-factory/next?brands=slug&force=1` | CI 렌더러에게 오늘의 kinetic-list 작업을 넘기며 `RENDERING`으로 선점. 없으면 `{ job: null }` |
+| `POST` | `/api/cron/video-factory/complete` | `{ draftId, videoUrl, coverUrl }` 또는 `{ draftId, errors }`. `RENDERING` draft의 렌더 결과 기록 |
+| `GET` | `/api/cron/backfill-channel-structure?apply=1` | 1회성 채널 구조 백필. 기본 dry-run, 여러 번 돌려도 같은 결과. 코드 주석상 레거시 컬럼 정리 단계에서 삭제 예정 |
+| `GET` | `/api/cron/publication-parity` | 1회성 점검(읽기 전용): 최근 30일 발행 글의 `Post` 값과 저장된 `Publication` 값을 비교. 같은 이유로 삭제 예정 |
+
+---
+
 ## Campaign Engine Contract
 
 ### Active Campaign
@@ -782,48 +856,42 @@ Template groups:
 
 ## TikTok Video Experiment Engine Contract
 
-This existing module generates, scores, and browser-renders TikTok-ready video drafts for a product profile. CosmicPath career timing remains the current preset. It does **not** upload, publish, comment, DM, scrape private data, or control a browser session.
+This module generates TikTok-ready video drafts (script and scene beats) for a product profile and renders them with Remotion, either inline or queued for a standalone worker. CosmicPath career timing remains the current preset. It does **not** publish, comment, DM, scrape private data, or control a browser session. Uploading to TikTok is a separate flow: channel OAuth (`/api/oauth/[platform]/*`) plus the `/api/cron/distribute` cron.
+
+> 2026-09-06(`32980d9`)에 `/api/tiktok/videos*`와 `/api/tiktok/summary`가 삭제됐다. 현재 라우트는 아래 세 개뿐이다. `TikTokVideoMetric` 표는 남아 있지만 쓰는 코드가 없다.
 
 ### Data Contracts
 
 ```typescript
-type TikTokVideoDraftStatus = "DRAFT" | "APPROVED" | "UPLOADED_MANUAL" | "ARCHIVED";
+// The statuses the code writes. "APPROVED" / "UPLOADED_MANUAL" / "ARCHIVED" from the old contract are no longer used.
+type TikTokVideoDraftStatus = "DRAFT" | "QUEUED" | "RENDERING" | "COMPLETED" | "FAILED";
 type TikTokQualityProfileId = "tiktok_career_timing";
 
+// The API returns the Prisma row as is: the list-like fields are JSON-encoded strings, not arrays.
 interface TikTokVideoDraftResponse {
   id: string;
   brandId: string;
   campaignId: string;
-  formatId: TikTokVideoFormatId;
+  formatId: string;
   status: TikTokVideoDraftStatus;
   title: string;
   spokenHook: string;             // intended 0-2s hook
   script: string;                 // 15-35s spoken script
-  sceneBeats: Array<{
-    startSecond: number;
-    endSecond: number;
-    visualDirection: string;
-    narration: string;
-  }>;
-  captionOverlays: string[];
-  onScreenText: string[];
-  hashtags: string[];
+  sceneBeats: string;             // JSON: Array<{ startSecond, endSecond, visualDirection, narration }>
+  captionOverlays: string;        // JSON: string[]
+  onScreenText: string;           // JSON: string[]
+  hashtags: string;               // JSON: string[]
   cta: string;
   landingUrl: string | null;
-  utmContent: string | null;
+  utmContent: string | null;      // /api/tiktok/render also stores the render output path here
   qualityProfile: TikTokQualityProfileId;
   qualityPass: boolean;
   qualityScore: number;
-  qualityReasons: string[];
+  qualityReasons: string;         // JSON: string[] (a failed render stores its error here)
   durationSeconds: number;
-  renderTarget: {
-    format: "webm";
-    width: 1080;
-    height: 1920;
-    fps: 30;
-  };
   createdAt: string;
   updatedAt: string;
+  metrics?: TikTokVideoMetricResponse[];   // GET /api/tiktok/drafts only: the latest one
 }
 
 interface TikTokVideoMetricResponse {
@@ -845,73 +913,43 @@ interface TikTokVideoMetricResponse {
 
 | Method | Path | Description |
 |:-------|:-----|:------------|
-| `GET` | `/api/tiktok/videos?brandId=xxx&status=DRAFT` | TikTok draft 목록 조회 |
-| `POST` | `/api/tiktok/videos/generate` | AI로 TikTok 영상 draft/spec 생성 |
-| `PATCH` | `/api/tiktok/videos/[id]` | draft 상태, title, script/spec 편집 |
-| `PATCH` | `/api/tiktok/videos/[id]/metrics` | 수동 TikTok 성과 입력 |
-| `GET` | `/api/tiktok/summary?brandId=xxx&campaignId=yyy` | TikTok Video Lab summary |
+| `GET` | `/api/tiktok/drafts?brandId=xxx` | 브랜드의 TikTok draft 목록(최신순). draft마다 가장 최근 `metrics` 1건 포함 |
+| `POST` | `/api/tiktok/generate` | 스크립트 1개를 생성해 `DRAFT`로 저장 |
+| `POST` | `/api/tiktok/render` | draft 렌더. `dryRun`(기본 `true`)이면 즉시 처리, `false`면 `QUEUED`로 바꿔 워커에 맡김 |
 
 ```typescript
-interface GenerateTikTokVideosRequest {
-  brandId: string;
-  campaignId?: string;            // default active campaign
-  count?: number;                 // default 7, max 30
-  formatIds?: TikTokVideoFormatId[];
-}
-
-interface GenerateTikTokVideosResponse {
+// GET /api/tiktok/drafts?brandId=xxx
+interface ListTikTokDraftsResponse {
   success: true;
-  count: number;
   drafts: TikTokVideoDraftResponse[];
-  quality: {
-    passed: number;
-    failed: number;
-  };
 }
 
-interface UpdateTikTokVideoDraftRequest {
-  status?: TikTokVideoDraftStatus;
-  title?: string;
-  spokenHook?: string;
-  script?: string;
-  sceneBeats?: TikTokVideoDraftResponse["sceneBeats"];
-  captionOverlays?: string[];
-  onScreenText?: string[];
-  hashtags?: string[];
-  cta?: string;
+// POST /api/tiktok/generate
+interface GenerateTikTokDraftRequest {
+  brandId: string;                // required, else 400
+  topic?: string;                 // default: the first default topic of the brand's preset, else the brand name
+  dayMaster?: string;
+  tone?: string;                  // one of PRODUCT_TONES, otherwise "mysterious"
 }
 
-interface UpdateTikTokVideoMetricsRequest {
-  views?: number;
-  likes?: number;
-  comments?: number;
-  shares?: number;
-  saves?: number;
-  profileClicks?: number;
-  landingClicks?: number;
-  conversions?: number;
-  measuredAt?: string;
+interface GenerateTikTokDraftResponse {
+  success: true;
+  draft: TikTokVideoDraftResponse; // saved with status "DRAFT"
+  scriptResult: object;            // the generation engine's output, as is
 }
 
-interface TikTokSummaryResponse {
-  brandId: string;
-  campaignId: string;
-  totals: {
-    drafts: number;
-    approved: number;
-    manualUploads: number;
-    qualityPassed: number;
-    qualityFailed: number;
-  };
-  topFormats: Array<{
-    formatId: TikTokVideoFormatId;
-    count: number;
-    avgPerformanceScore: number;
-  }>;
-  recommendations: string[];
-  recentDrafts: TikTokVideoDraftResponse[];
+// POST /api/tiktok/render
+interface RenderTikTokDraftRequest {
+  draftId: string;                // required, else 400 (404 when it does not exist)
+  dryRun?: boolean;               // default true
 }
+
+// dryRun=true  -> 200 { success: true, draft, renderResult }   draft.status = "COMPLETED", draft.utmContent = output path
+//                 500 { success: false, draft, error }          draft.status = "FAILED"
+// dryRun=false -> 202 { success: true, queued: true, draft, message }   draft.status = "QUEUED" (picked up by `worker:tiktok`)
 ```
+
+`dryRun=true`(기본값)는 영상을 만들지 않는다. `.agents/results/videos/tiktok-<timestamp>/`에 `render-spec.json`만 쓰고, 존재하지 않는 `<draftId>.mp4` 경로를 성공으로 돌려주며, draft는 `COMPLETED`가 되어 그 경로가 `utmContent`에 저장된다. 실제 렌더는 `dryRun: false`로 큐에 넣은 뒤 로컬 워커가 한다.
 
 ### Quality Gate
 
@@ -925,37 +963,19 @@ interface TikTokSummaryResponse {
 - Generic self-help phrases fail.
 - Medical, legal, financial certainty and guaranteed fortune claims fail.
 
-`qualityPass=false` drafts may be edited or archived, but cannot move to `APPROVED`.
-
-### Performance Score
-
-Initial TikTok score is manual-metrics based:
-
-- comments: 35%
-- shares: 20%
-- saves: 20%
-- views: 15%
-- profileClicks + landingClicks + conversions: 10%
-
-The score stays separate from Threads `performanceScore` until cross-channel learning is explicitly planned.
-
 ### Auth, Error, Empty-State Behavior
 
-- All `/api/tiktok/*` endpoints require `auth_session` and brand ownership.
-- Generate returns partial success if some drafts fail quality but others pass.
-- Empty state returns `drafts: 0` and recommendations to generate a first batch.
-- Status update to `APPROVED` fails with `400` when `qualityPass=false`.
-- Metrics update accepts missing fields as zero and recomputes score.
-- No TikTok OAuth or external API token is required in this MVP.
-- Browser-side render creates a 9:16 WebM file from the approved/draft spec without server FFmpeg.
+- All `/api/tiktok/*` endpoints require `auth_session` and ownership of the brand (the draft's brand for `render`).
+- A missing `brandId` (`drafts`, `generate`) or `draftId` (`render`) returns `400`; an unknown `draftId` returns `404`.
+- `generate` creates one draft per call; there is no batch generation or quality-based partial success any more.
+- Nothing in this module writes `TikTokVideoMetric` (the old manual-metrics endpoint was removed), so `metrics` is empty for every draft.
 
 ### Non-Goals
 
-- No TikTok upload, draft upload, or Direct Post integration in this cycle.
+- This module does not upload to TikTok. Upload goes through the channel OAuth flow and `/api/cron/distribute`.
 - No Selenium/Playwright cookie uploader.
 - No TikTok comments, DMs, likes, follows, or engagement automation.
 - No TikTok private analytics or scraping.
-- No server-side MP4/Remotion/FFmpeg render pipeline in this cycle.
 
 ---
 
