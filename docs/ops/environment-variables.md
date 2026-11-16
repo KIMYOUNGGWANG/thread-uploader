@@ -18,6 +18,7 @@
 | `SUPERADMIN_EMAIL` | 선택 | 이 이메일로 로그인한 사용자는 브랜드 소유자 검사를 건너뛴다 | `src/lib/brand-access.ts` |
 | `ALLOW_REGISTRATION` | 선택 | 정확히 `true`일 때만 회원가입 허용 | `src/app/api/auth/register/route.ts` |
 | `CONVERSION_WEBHOOK_SECRET` | 선택 (없으면 결제 이벤트 전부 거부) | 결제 전환 이벤트를 보내는 서버의 인증값. `x-webhook-secret` 또는 `Authorization: Bearer`로 보낸다 | `src/app/api/webhooks/conversion/route.ts` |
+| `CONVERSION_WEBHOOK_REQUIRE_SECRET` | 선택 (기본 꺼짐) | `true`면 시크릿 없는 모든 전환 이벤트를 401로 거절. 모든 발신자(타래로그 Worker 포함)가 시크릿을 붙인 뒤에 켠다. PR #162부터 | `src/app/api/webhooks/conversion/route.ts` |
 | `AUTO_REPLY_PUBLISH` | 기본 켜짐 | `false`면 답글 초안을 자동 게시하지 않고 승인 대기로 둔다 | `src/app/api/cron/replies/route.ts` |
 
 ## Threads
@@ -70,6 +71,7 @@ ALERT_WEBHOOK_URL=
 SUPERADMIN_EMAIL=
 ALLOW_REGISTRATION=
 CONVERSION_WEBHOOK_SECRET=
+CONVERSION_WEBHOOK_REQUIRE_SECRET=
 AUTO_REPLY_PUBLISH=
 THREADS_APP_ID=
 THREADS_APP_SECRET=
