@@ -15,6 +15,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(await runChannelBackfill({ apply }));
   } catch (error: unknown) {
     console.error("[backfill-channel-structure]", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+    return NextResponse.json({ error: "Channel backfill failed" }, { status: 500 });
   }
 }

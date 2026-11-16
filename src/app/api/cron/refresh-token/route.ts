@@ -184,9 +184,6 @@ export async function GET(request: NextRequest) {
         }, { status: refreshFailed ? 500 : 200 });
     } catch (error) {
         console.error("Token refresh cron error:", error);
-        return NextResponse.json({
-            success: false,
-            error: error instanceof Error ? error.message : "Unknown error",
-        }, { status: 500 });
+        return NextResponse.json({ success: false, error: "Token refresh failed" }, { status: 500 });
     }
 }
