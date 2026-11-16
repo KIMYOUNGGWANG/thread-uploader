@@ -48,8 +48,11 @@ export function isSituationSaturated(friction: string, recentSituations: Array<s
   return hits >= SITUATION_MAX_IN_RECENT;
 }
 
+// The reason is also the retry prompt: without the marker words the model kept the same 자격증/취준 angle (2026-11-16).
 export function formatSaturationReason(topic: SaturatedTopic): string {
-  return `토픽 포화: ${topic.id} (최근 ${SATURATION_WINDOW}개 중 ${topic.recentHits}개, 허용 ${topic.maxInRecent}개) - 다른 소재로 작성`;
+  const markers = SATURATION_MARKER_GROUPS.find((group) => group.id === topic.id)?.markers ?? [];
+  const avoid = markers.length ? ` (이 단어 빼기: ${markers.join(", ")})` : "";
+  return `토픽 포화: ${topic.id} (최근 ${SATURATION_WINDOW}개 중 ${topic.recentHits}개, 허용 ${topic.maxInRecent}개) - 다른 소재로 작성${avoid}`;
 }
 
 // A first comment that repeats a recent one ("제일 오래 붙잡고 있는 준비가 뭐야?" twice in three days) reads as a bot.

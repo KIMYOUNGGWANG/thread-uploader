@@ -24,6 +24,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const config = parseBrandConfig(brand.brandConfig);
     const targetThreshold = config.minAlgorithmicScore ?? 80;
+    const qualityProfile = narrowQualityProfile(post.qualityProfile, config.qualityProfile);
 
     const remediation = await remediatePostAlgorithmic(
       post.content,
@@ -34,11 +35,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
         productProfile: config.productProfile ? JSON.stringify(config.productProfile) : undefined,
         formulaId: post.formulaId ?? undefined,
       },
-      targetThreshold
+      targetThreshold,
+      // The rewrite must clear the same content gate, or a high-score post blocked by the gate is never touched.
+      (content) => {
+        const result = checkQuality(content, qualityProfile);
+        return result.pass ? [] : result.reasons;
+      }
     );
 
     // The score alone must not promote a post: publish cron trusts qualityPass, so run the content gate too.
-    const qualityProfile = narrowQualityProfile(post.qualityProfile, config.qualityProfile);
     const gate = checkQuality(remediation.content, qualityProfile);
     // English rewrites also need the naturalness judge that generation applies; only asked once score and gate pass.
     const isEnglish = qualityProfile === "ecommerce_d2c" || !/[가-힣]/.test(remediation.content);
@@ -71,6 +76,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         previousScore: post.algorithmicScore ?? 0,
         newScore: remediation.scoreResult.totalScore,
         pass: passed,
+        gateReasons: gate.pass ? [] : gate.reasons,
         method: remediation.method,
         actionableFixes: remediation.actionableFixes,
       },

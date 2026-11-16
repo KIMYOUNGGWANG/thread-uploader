@@ -953,12 +953,16 @@ function formatProductGrowthCampaignPrompt(experiment: CampaignGrowthExperiment)
   ];
 }
 
-function formatQualityFeedback(qualityFeedback: string[], isEnglish = false): string[] {
+// The gate label alone does not say which sentence to drop, so retries kept "댓글 남겨주세요" (2026-11-16).
+const REPLY_BURDEN_RETRY_HINT =
+  " — '댓글 남겨줘/달아줘', '사연·질문 적어줘', '같이 보자/같이 보면', '풀이해줄게', '1:1 상담' 같은 말을 본문과 첫 댓글에서 모두 빼고, 독자가 속으로 답하는 질문이나 단정문으로 끝내";
+
+export function formatQualityFeedback(qualityFeedback: string[], isEnglish = false): string[] {
   if (qualityFeedback.length === 0) return [];
   return [
     "",
     isEnglish ? "[Quality Gate Feedback - Must fix on retry]" : "[품질 게이트 실패 이유 - 이번 재작성에서 반드시 수정]",
-    ...qualityFeedback.map((reason) => `- ${reason}`),
+    ...qualityFeedback.map((reason) => `- ${reason}${reason === "reply-burden CTA 포함" ? REPLY_BURDEN_RETRY_HINT : ""}`),
   ];
 }
 
