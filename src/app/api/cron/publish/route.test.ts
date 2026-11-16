@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   findBrands: vi.fn(),
   updateBrand: vi.fn(),
+  findBrandNow: vi.fn(),
+  updateBrandConfig: vi.fn(async () => ({ count: 1 })),
   findPost: vi.fn(),
   updatePost: vi.fn(async ({ data }) => ({ id: "post_1", ...data })),
   publishPostWithCredentials: vi.fn(),
@@ -18,6 +20,8 @@ vi.mock("@/lib/prisma", () => ({
     brand: {
       findMany: mocks.findBrands,
       update: mocks.updateBrand,
+      findUnique: mocks.findBrandNow,
+      updateMany: mocks.updateBrandConfig,
     },
     post: {
       findFirst: mocks.findPost,
@@ -77,15 +81,9 @@ describe("GET /api/cron/publish", () => {
   });
 
   it("skips scheduled tick when sporadic mode is active and marks lastTickSkipped", async () => {
-    mocks.updateBrand.mockResolvedValue({});
-
-    mocks.findBrands.mockResolvedValue([
-      {
-        id: "brand_sporadic",
-        name: "CosmicPath",
-        brandConfig: JSON.stringify({ sporadicEnabled: true, lastTickSkipped: false }),
-      },
-    ]);
+    const stored = JSON.stringify({ sporadicEnabled: true, lastTickSkipped: false });
+    mocks.findBrands.mockResolvedValue([{ id: "brand_sporadic", name: "CosmicPath", brandConfig: stored }]);
+    mocks.findBrandNow.mockResolvedValue({ brandConfig: stored });
     mocks.findPost.mockResolvedValue(null);
 
     // Mock sporadic skip to trigger
@@ -106,14 +104,31 @@ describe("GET /api/cron/publish", () => {
     expect(body.skipped).toEqual([
       { brandId: "brand_sporadic", brandName: "CosmicPath", reason: "sporadic_skip" },
     ]);
-    expect(mocks.updateBrand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "brand_sporadic" },
-        data: expect.objectContaining({
-          brandConfig: expect.stringContaining('"lastTickSkipped":true'),
-        }),
-      })
-    );
+    expect(mocks.updateBrandConfig).toHaveBeenCalledWith({
+      where: { id: "brand_sporadic", brandConfig: stored },
+      data: { brandConfig: expect.stringContaining('"lastTickSkipped":true') },
+    });
+
+    spy.mockRestore();
+  });
+
+  // The cron reads every brand up front and publishes for seconds; a settings save in between used to be reverted
+  // because the whole config was merged back into the raw string read at the start.
+  it("does not revert a brandConfig key saved while the cron was running", async () => {
+    const readAtStart = JSON.stringify({ sporadicEnabled: true, lastTickSkipped: false, topics: ["topic at start"] });
+    const storedNow = JSON.stringify({ sporadicEnabled: true, lastTickSkipped: false, topics: ["topic saved meanwhile"] });
+    mocks.findBrands.mockResolvedValue([{ id: "brand_sporadic", name: "CosmicPath", brandConfig: readAtStart }]);
+    mocks.findBrandNow.mockResolvedValue({ brandConfig: storedNow });
+    mocks.findPost.mockResolvedValue(null);
+    const behavioralJitter = await import("@/lib/behavioral-jitter");
+    const spy = vi.spyOn(behavioralJitter, "evaluateSporadicSkip").mockReturnValue({ shouldSkip: true, reason: "sporadic_skip", skipProbability: 0.18 });
+    mocks.updateBrandConfig.mockClear();
+
+    const { GET } = await import("@/app/api/cron/publish/route");
+    await GET({ headers: new Headers(), nextUrl: new URL("http://localhost/api/cron/publish") } as never);
+
+    const [{ data }] = mocks.updateBrandConfig.mock.calls[0] as unknown as [{ data: { brandConfig: string } }];
+    expect(JSON.parse(data.brandConfig)).toMatchObject({ topics: ["topic saved meanwhile"], lastTickSkipped: true });
 
     spy.mockRestore();
   });

@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, AuthError } from "@/lib/auth";
 import { isSuperAdmin } from "@/lib/brand-access";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 import type { BrandConfig } from "@/types/brand";
 import { isRecord } from "@/types/config-normalizers";
 
@@ -85,6 +86,8 @@ export async function PATCH(
       incomingConfig ? mergeBrandConfig(currentConfig, incomingConfig) : currentConfig
     ));
 
+    // A settings save can land while the learn cron or a health override is writing other keys; patch only what changed.
+    await patchBrandConfig(id, brand.brandConfig, mergedConfig);
     const updated = await prisma.brand.update({
       where: { id },
       data: {
@@ -93,7 +96,6 @@ export async function PATCH(
         ...(typeof body.accessToken === "string" && body.accessToken.trim() && { accessToken: encrypt(body.accessToken.trim()) }),
         ...(typeof body.threadsUserId === "string" && { threadsUserId: body.threadsUserId }),
         ...(typeof body.tokenExpiry === "string" && { tokenExpiry: new Date(body.tokenExpiry) }),
-        brandConfig: serializeBrandConfigUpdate(brand.brandConfig, mergedConfig),
         ...(body.formulaWeights !== undefined && {
           formulaWeights: JSON.stringify(body.formulaWeights),
         }),

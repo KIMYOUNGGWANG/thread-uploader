@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
-  updateBrand: vi.fn<(args: { data: { brandConfig: string } }) => Promise<object>>(async () => ({})),
+  // brandConfig is saved through patchBrandConfig: re-read the brand, then a compare-and-set updateMany
+  findBrandNow: vi.fn(),
+  updateBrand: vi.fn<(args: { data: { brandConfig: string } }) => Promise<object>>(async () => ({ count: 1 })),
   getCredentials: vi.fn(),
   searchThreads: vi.fn(),
 }));
@@ -12,7 +14,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
     messages = { create: mocks.create };
   },
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: { brand: { update: mocks.updateBrand } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { brand: { findUnique: mocks.findBrandNow, updateMany: mocks.updateBrand } } }));
 vi.mock("@/lib/threads-api", () => ({
   getFreshBrandCredentials: mocks.getCredentials,
   searchThreadsByKeyword: mocks.searchThreads,
@@ -42,6 +44,7 @@ describe("refreshBrandTrendRadar", () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
     mocks.create.mockReset();
     mocks.updateBrand.mockClear();
+    mocks.findBrandNow.mockReset().mockResolvedValue({ brandConfig: '{"topics":["커리어"]}' });
     mocks.getCredentials.mockReset().mockResolvedValue({ accessToken: "token", userId: "u" });
     mocks.searchThreads.mockReset().mockResolvedValue([]);
   });
@@ -110,10 +113,29 @@ describe("refreshBrandTrendRadar", () => {
 
     expect(result).toMatchObject({ slug: "cosmicpath", skeletons: 3, saved: 3 });
     const savedArgs = mocks.updateBrand.mock.calls[0]?.[0];
-    if (!savedArgs) throw new Error("brand.update was not called");
+    if (!savedArgs) throw new Error("brand.updateMany was not called");
     const saved = JSON.parse(savedArgs.data.brandConfig);
     expect(saved.topics).toEqual(["커리어"]);
     expect(saved.trendRadar.items[0].hookHeadline).toBe("이직 1년 차에 무너지는 사주 공통점");
+  });
+
+  // The harvest runs several Claude calls (minutes). A settings save during that time used to be reverted because
+  // the radar was merged into the raw config read before the harvest started.
+  it("stores the radar on top of the config saved while the harvest ran", async () => {
+    mocks.create.mockImplementation(async (params: { tools?: unknown[]; messages: unknown[] }) => {
+      if (!params.tools) return textMessage(transposedJson);
+      return params.messages.length === 1 ? textMessage("", "pause_turn") : textMessage(harvestJson);
+    });
+    mocks.findBrandNow.mockResolvedValue({ brandConfig: '{"topics":["saved meanwhile"]}' });
+    const { refreshBrandTrendRadar } = await import("./trend-radar-service");
+
+    await refreshBrandTrendRadar({ id: "b1", slug: "cosmicpath", name: "CosmicPath", brandConfig: '{"topics":["커리어"]}' });
+
+    const savedArgs = mocks.updateBrand.mock.calls[0]?.[0];
+    if (!savedArgs) throw new Error("brand.updateMany was not called");
+    const saved = JSON.parse(savedArgs.data.brandConfig);
+    expect(saved.topics).toEqual(["saved meanwhile"]);
+    expect(saved.trendRadar.items.length).toBeGreaterThan(0);
   });
 
   it("skips English brands without calling Claude", async () => {

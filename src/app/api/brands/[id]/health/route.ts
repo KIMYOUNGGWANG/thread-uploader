@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { parseBrandConfig } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 import type { AccountHealthState } from "@/types/brand";
 import { getSelfHealingAction } from "@/lib/shadowban-health-probe";
 import { evaluateBrandShadowban } from "@/lib/shadowban-check";
@@ -97,12 +98,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     config.accountHealth = updatedHealth;
     config.shadowbanStatus = body.status === "RECOVERY" ? "WARNING" : body.status;
 
-    await prisma.brand.update({
-      where: { id: brand.id },
-      data: {
-        brandConfig: serializeBrandConfigUpdate(brand.brandConfig, config),
-      },
-    });
+    await patchBrandConfig(brand.id, brand.brandConfig, config);
 
     return NextResponse.json({
       success: true,
@@ -176,12 +172,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     config.accountHealth = updatedHealth;
     config.shadowbanStatus = report.status;
 
-    await prisma.brand.update({
-      where: { id: brand.id },
-      data: {
-        brandConfig: serializeBrandConfigUpdate(brand.brandConfig, config),
-      },
-    });
+    await patchBrandConfig(brand.id, brand.brandConfig, config);
 
     return NextResponse.json({
       success: true,

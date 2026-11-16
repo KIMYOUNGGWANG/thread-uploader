@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireBrandForCurrentUser } from "@/lib/brand-access";
 import { extractVoiceProfile } from "@/lib/voice-extractor";
-import { parseBrandConfig, serializeBrandConfigUpdate } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 
 interface VoiceRequestPayload {
   samples?: string[];
@@ -39,19 +39,8 @@ export async function POST(
     }
 
     const voiceProfile = extractVoiceProfile(sampleTexts);
-    const currentConfig = parseBrandConfig(brand.brandConfig);
-
-    const updatedConfig = {
-      ...currentConfig,
-      voiceProfile,
-    };
-
-    await prisma.brand.update({
-      where: { id: brandId },
-      data: {
-        brandConfig: serializeBrandConfigUpdate(brand.brandConfig, updatedConfig),
-      },
-    });
+    // The top-post query runs between the read and this write; save only the voice profile into the config stored now.
+    await patchBrandConfig(brandId, brand.brandConfig, { voiceProfile });
 
     return NextResponse.json({
       success: true,

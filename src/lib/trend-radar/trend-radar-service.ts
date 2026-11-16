@@ -1,8 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { prisma } from "@/lib/prisma";
 import { CLAUDE_TEXT_MODEL, readMessageText } from "@/lib/claude-text";
 import { resolveBrandProfile, type BrandProfile } from "@/lib/brand-profile";
-import { serializeBrandConfigUpdate } from "@/types/brand";
+import { patchBrandConfig } from "@/lib/brand-config-patch";
 import { getFreshBrandCredentials, searchThreadsByKeyword } from "@/lib/threads-api";
 import {
   DOMAIN_THREADS_KEYWORDS,
@@ -131,9 +130,7 @@ export async function refreshBrandTrendRadar(brand: { id: string; slug: string; 
   if (candidates.length === 0) return { slug: brand.slug, skeletons: skeletons.length, saved: 0, skipped: "no trends transposed", threadsSearch };
 
   const trendRadar = toTrendRadarMemory(candidates, now);
-  await prisma.brand.update({
-    where: { id: brand.id },
-    data: { brandConfig: serializeBrandConfigUpdate(brand.brandConfig, { trendRadar }) },
-  });
+  // The harvest takes minutes, so merge into the config stored now, not the one `brand` was read with.
+  await patchBrandConfig(brand.id, brand.brandConfig, { trendRadar });
   return { slug: brand.slug, skeletons: skeletons.length, saved: trendRadar.items.length, threadsSearch };
 }
