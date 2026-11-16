@@ -131,7 +131,7 @@ describe("GET /api/cron/feedback", () => {
     vi.mocked(prisma.brand.findUnique).mockResolvedValueOnce({ brandConfig: JSON.stringify({ topics: ["topic saved meanwhile"] }) } as never);
     const oldDate = new Date(Date.now() - 80 * 60 * 60 * 1000);
     vi.mocked(prisma.post.findMany).mockResolvedValueOnce([
-      { id: "p1", content: "테스트 포스트 본문 훅\n상세 내용", campaignFormulaId: "imagination_dilemma", publishedAt: oldDate, metricsAt: oldDate, views: 2000, replies: 10, reposts: 2, conversions: 1 } as never,
+      { id: "p1", content: "테스트 포스트 본문 훅\n상세 내용", campaignFormulaId: "imagination_dilemma", publishedAt: oldDate, metricsAt: new Date(), views: 2000, replies: 10, reposts: 2, conversions: 1 } as never,
     ]);
     vi.mocked(prisma.brand.updateMany).mockClear();
 
