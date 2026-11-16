@@ -58,8 +58,9 @@ export async function learnBrandGrowth(brandId: string) {
   const inputDiff = diffLearningInputs(fetchedPosts);
 
   // Score with current metrics before learning, so weights never use last run's stale scores
-  // viewsReadAt: when the views were read. The Threads publication's metricsAt is only written by fetch-metrics,
-  // while Post.metricsAt is also bumped by click/conversion events and manual metrics without re-reading views.
+  // viewsReadAt: when the views were read. The Threads publication copies Post.metricsAt when it is mirrored, mostly
+  // right after fetch-metrics/account-intelligence read views (also on publish and backfill), while Post.metricsAt
+  // itself is also bumped by click/conversion events and manual metrics without re-reading views.
   const allScoredPosts = fetchedPosts
     .map((fetched) => ({ ...withThreadsMetrics(fetched), viewsReadAt: fetched.publications?.[0]?.metricsAt ?? fetched.metricsAt }))
     .map((post) => ({ ...post, performanceScore: calculatePerformanceScore(post) }));
