@@ -11,7 +11,13 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    brand: { findMany: vi.fn(async () => [{ id: "brand_1", name: "CosmicPath", slug: "cosmicpath" }]), update: vi.fn() },
+    // Circuit-breaker saves go through patchBrandConfig (findUnique + compare-and-set updateMany).
+    brand: {
+      findMany: vi.fn(async () => [{ id: "brand_1", name: "CosmicPath", slug: "cosmicpath" }]),
+      update: vi.fn(),
+      findUnique: vi.fn(async () => ({ brandConfig: "{}" })),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+    },
     post: {
       findMany: vi.fn(async () => []),
       findFirst: vi.fn(async ({ where }: { where: { status?: unknown; qualityPass?: unknown } }) =>
