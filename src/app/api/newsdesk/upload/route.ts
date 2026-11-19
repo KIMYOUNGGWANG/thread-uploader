@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
         if (!pathname.startsWith(`newsdesk/${brandId}/`)) throw new Error("업로드 경로가 맞지 않아");
         return { allowedContentTypes: ["image/png", "image/jpeg"], maximumSizeInBytes: MAX_BYTES, addRandomSuffix: true };
       },
-      // The URL is saved when the operator creates or edits the item, so the completion webhook has nothing to do.
-      onUploadCompleted: async () => {},
+      // No onUploadCompleted: the URL is saved when the operator edits the item, and without it
+      // handleUpload sets no callbackUrl, so Vercel never calls this unauthenticated route back.
     });
     return NextResponse.json(result);
   } catch (error) {

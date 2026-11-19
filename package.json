@@ -17,6 +17,7 @@
     "@anthropic-ai/sdk": "^0.137.0",
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-slot": "^1.2.4",
+    "@vercel/blob": "^2.8.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
