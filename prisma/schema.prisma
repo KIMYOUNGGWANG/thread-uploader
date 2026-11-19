@@ -55,6 +55,7 @@ model Brand {
   channelAccounts ChannelAccount[]
   channelUploads  ChannelUpload[]
   sourceArticles  SourceArticle[]
+  newsItems       NewsItem[]
 
   @@index([groupId])
 }
@@ -517,4 +518,45 @@ model RateLimitBucket {
   windowStart DateTime @db.Timestamptz(3)
 
   @@index([windowStart])
+}
+
+// News desk (PRD/news-desk): one article → per-platform drafts → operator approval → publish.
+// Kept off Post on purpose: Post rows feed X cross-posts, card news, autopilot slots and experiments.
+// Uploads link back by ChannelUpload.sourceKey = "news:<newsItemId>" (no FK).
+model NewsItem {
+  id           String        @id @default(cuid())
+  brandId      String
+  brand        Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  sourceUrl    String?       // normalized
+  sourceTitle  String?
+  sourceText   String        // scraped body or pasted raw text (<= 20,000 chars)
+  rawMode      Boolean       @default(false)
+  operatorNote String?
+  facts        String        @default("[]") // JSON [{ text, evidence, verified }]
+  media        String        @default("[]") // JSON [{ url, sha256, name, bytes }] max 5, Blob URLs only, order = send order
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  variants     NewsVariant[]
+
+  @@index([brandId, createdAt])
+  @@index([brandId, sourceUrl])
+}
+
+// One draft per platform. Approved only while approvedRevision == revision; every text/media change bumps revision.
+// Only src/lib/newsdesk/approval.ts may write text/revision/approval/lock fields.
+model NewsVariant {
+  id               String    @id @default(cuid())
+  newsItemId       String
+  newsItem         NewsItem  @relation(fields: [newsItemId], references: [id], onDelete: Cascade)
+  platform         String    // telegram | threads | kakao
+  text             String
+  revision         Int       @default(1)
+  approvedRevision Int?
+  approvedAt       DateTime?
+  lockedAt         DateTime? // publishing started (kakao: marked sent); no edits or re-approval while set
+  manualDoneAt     DateTime? // kakao: operator marked it sent
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([newsItemId, platform])
 }
