@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
   update: vi.fn(async () => ({})),
   refresh: vi.fn(),
+  threadsCreds: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: { channelAccount: { findUnique: mocks.findUnique, update: mocks.update } } }));
@@ -12,6 +13,7 @@ vi.mock("@/lib/crypto", () => ({
   encrypt: (value: string) => `enc:${value}`,
 }));
 vi.mock("@/lib/instagram-api", () => ({ getFreshInstagramCredentials: vi.fn() }));
+vi.mock("@/lib/threads-api", () => ({ getFreshBrandCredentials: mocks.threadsCreds }));
 vi.mock("@/lib/channels/publication-mirror", () => ({ ensureLegacyChannelAccount: vi.fn() }));
 vi.mock("./oauth-providers", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./oauth-providers")>();
@@ -94,6 +96,29 @@ describe("getChannelCredentials", () => {
       expect(error).toBeInstanceOf(ChannelApiError);
       expect(error).toMatchObject({ permanent: false });
       expect((error as Error).message).not.toContain("reconnect needed");
+    });
+  });
+
+  describe("news desk platforms", () => {
+    it("telegram uses the env bot token and never refreshes", async () => {
+      vi.stubEnv("TELEGRAM_BOT_TOKEN", "bot-token");
+      const creds = await getChannelCredentials(account({ platform: "telegram", accessToken: null, refreshToken: null, tokenExpiry: null, externalUserId: "@chan", handle: "@chan" }), NOW);
+      expect(creds).toEqual({ accessToken: "bot-token", externalUserId: "@chan", handle: "@chan" });
+      expect(mocks.refresh).not.toHaveBeenCalled();
+      vi.unstubAllEnvs();
+    });
+
+    it("telegram without a bot token fails permanently", async () => {
+      vi.stubEnv("TELEGRAM_BOT_TOKEN", "");
+      await expect(getChannelCredentials(account({ platform: "telegram", externalUserId: "@chan" }), NOW)).rejects.toMatchObject({ permanent: true });
+      vi.unstubAllEnvs();
+    });
+
+    it("threads reads the brand's Threads tokens and turns failures into a permanent reconnect error", async () => {
+      mocks.threadsCreds.mockResolvedValueOnce({ accessToken: "th", userId: "th-user" });
+      expect(await getChannelCredentials(account({ platform: "threads", accessToken: null }), NOW)).toEqual({ accessToken: "th", externalUserId: "th-user", handle: "h" });
+      mocks.threadsCreds.mockRejectedValueOnce(new Error("Threads credentials are not configured for this brand."));
+      await expect(getChannelCredentials(account({ platform: "threads" }), NOW)).rejects.toMatchObject({ permanent: true });
     });
   });
 });

@@ -6,7 +6,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const TOKEN_WARN_MS = 7 * DAY_MS;
 const CLIP_MIN = 10;
 
-export type ReportChannel = "threads" | "youtube" | "instagram" | "tiktok" | "x";
+export type ReportChannel = "threads" | "youtube" | "instagram" | "tiktok" | "x" | "telegram";
 
 export interface ReportUpload {
   id: string;
@@ -98,7 +98,7 @@ export function reportSince(now: Date): Date {
 }
 
 const CHANNEL_LABEL: Record<ReportChannel, string> = {
-  threads: "Threads", youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok", x: "X",
+  threads: "Threads", youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok", x: "X", telegram: "텔레그램",
 };
 
 export async function buildMorningReport(ownerId: string | null, now = new Date()): Promise<MorningReport> {
@@ -219,11 +219,13 @@ export async function buildMorningReport(ownerId: string | null, now = new Date(
   }
   for (const upload of uploads) {
     if (upload.status !== "FAILED") continue;
+    // News uploads are resent from the news desk (it re-checks approval), so link there instead of a retry button.
+    const newsSlug = upload.sourceKey.startsWith("news:") ? brandById.get(upload.brandId)?.slug : undefined;
     todos.push({
       kind: "failed_upload",
       key: `fail-${upload.id}`,
       text: `${CHANNEL_LABEL[upload.channelAccount.platform as ReportChannel] ?? upload.channelAccount.platform} 업로드 실패 — ${upload.errorLog ?? "이유 없음"}`,
-      uploadId: upload.id,
+      ...(newsSlug ? { href: `/brands/${newsSlug}/newsdesk?item=${upload.sourceKey.slice("news:".length)}` } : { uploadId: upload.id }),
     });
   }
   for (const brand of brands) {

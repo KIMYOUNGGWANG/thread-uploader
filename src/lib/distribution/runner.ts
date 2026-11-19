@@ -173,7 +173,8 @@ async function pollUpload(row: UploadRow, now: Date): Promise<keyof RunReport> {
   }
 }
 
-export async function runDueUploads(now = new Date(), options: { budgetMs?: number; limit?: number } = {}): Promise<RunReport> {
+/** `ids` limits the run to those rows (news desk publish/tick) so a manual click never drags other brands' uploads into its time budget. */
+export async function runDueUploads(now = new Date(), options: { budgetMs?: number; limit?: number; ids?: string[] } = {}): Promise<RunReport> {
   const budgetMs = options.budgetMs ?? 200_000;
   const started = Date.now();
   const report: RunReport = { published: 0, processing: 0, retrying: 0, failed: 0, skipped: 0 };
@@ -191,6 +192,7 @@ export async function runDueUploads(now = new Date(), options: { budgetMs?: numb
 
   const due = await prisma.channelUpload.findMany({
     where: {
+      ...(options.ids ? { id: { in: options.ids } } : {}),
       status: { in: ["QUEUED", "PROCESSING"] },
       scheduledAt: { lte: now },
       channelAccount: { enabled: true },

@@ -71,7 +71,7 @@ export function classifyThreadsError(message: string): ThreadsErrorKind {
 }
 
 /** Error message with Meta's code/subcode so logs and classifyThreadsError can tell errors apart. */
-function threadsErrorDetail(data: Partial<ThreadsError> | undefined): string {
+export function threadsErrorDetail(data: Partial<ThreadsError> | undefined): string {
     const err = data?.error;
     if (!err) return "Unknown error";
     const code = [err.code, err.error_subcode].filter((value) => value !== undefined).join("/");
@@ -573,7 +573,7 @@ export async function publishReplyWithRetryForBrand(
     throw lastError instanceof Error ? lastError : new Error("Failed to publish reply");
 }
 
-async function fetchContainerStatus(containerId: string, accessToken: string): Promise<string | undefined> {
+export async function fetchContainerStatus(containerId: string, accessToken: string): Promise<string | undefined> {
     const params = new URLSearchParams({ fields: "status", access_token: accessToken });
     const res = await fetch(`${THREADS_API_BASE}/${containerId}?${params}`);
     const data = await res.json() as { status?: string } & Partial<ThreadsError>;

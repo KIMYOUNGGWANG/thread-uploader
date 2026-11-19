@@ -2,11 +2,13 @@ import type { ChannelAccount } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptToken, encrypt } from "@/lib/crypto";
 import { getFreshInstagramCredentials } from "@/lib/instagram-api";
+import { getFreshBrandCredentials } from "@/lib/threads-api";
 import { ensureLegacyChannelAccount } from "@/lib/channels/publication-mirror";
 import { ChannelApiError } from "./http";
 import { OAUTH_PROVIDERS, isOAuthPlatform, readAppCredentials, type ChannelProfile, type OAuthPlatform, type TokenSet } from "./oauth-providers";
 
-export type UploadPlatform = OAuthPlatform | "instagram";
+// telegram and threads carry news desk posts only; they are never returned by getUploadAccounts.
+export type UploadPlatform = OAuthPlatform | "instagram" | "telegram" | "threads";
 
 export interface ChannelCredentials {
   accessToken: string;
@@ -80,6 +82,22 @@ export async function getChannelCredentials(account: ChannelAccount, now = new D
     const creds = await getFreshInstagramCredentials(account.brandId);
     if (!creds) throw new ChannelApiError("Instagram: not connected or token expired (reconnect needed)", null, true);
     return { accessToken: creds.accessToken, externalUserId: creds.userId, handle: account.handle };
+  }
+  if (account.platform === "telegram") {
+    // One bot for every channel: the token lives in env only, the channel id on the account row.
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) throw new ChannelApiError("Telegram: TELEGRAM_BOT_TOKEN is not set", null, true);
+    if (!account.externalUserId) throw new ChannelApiError("Telegram: no channel id (reconnect the channel)", null, true);
+    return { accessToken: token, externalUserId: account.externalUserId, handle: account.handle };
+  }
+  if (account.platform === "threads") {
+    try {
+      const creds = await getFreshBrandCredentials(account.brandId);
+      return { accessToken: creds.accessToken, externalUserId: creds.userId, handle: account.handle };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new ChannelApiError(`Threads: reconnect needed (${message})`, null, true);
+    }
   }
   if (!isOAuthPlatform(account.platform)) throw new ChannelApiError(`Unsupported platform: ${account.platform}`, null, true);
   // Re-read the row: uploads queued together each hold their own snapshot of this account, so a later one would

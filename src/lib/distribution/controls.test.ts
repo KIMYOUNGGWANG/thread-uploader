@@ -61,13 +61,19 @@ describe("applyUploadAction", () => {
   });
 
   it("retry resets attempts and platform state", async () => {
-    db.uploadFind.mockResolvedValue({ status: "FAILED", platformData: "{}" });
+    db.uploadFind.mockResolvedValue({ status: "FAILED", platformData: "{}", sourceKey: "video:d1" });
     db.uploadUpdateMany.mockResolvedValueOnce({ count: 1 });
     expect(await applyUploadAction("u1", "retry", now)).toEqual({ ok: true });
     expect(db.uploadUpdateMany.mock.calls[0][0]).toMatchObject({
       where: { id: "u1", status: { in: ["FAILED", "CANCELED"] } },
       data: { status: "QUEUED", attempts: 0, platformData: "{}", scheduledAt: now },
     });
+  });
+
+  it("refuses to retry a news desk upload (only the desk may resend approved text)", async () => {
+    db.uploadFind.mockResolvedValue({ status: "FAILED", platformData: "{}", sourceKey: "news:n1" });
+    expect(await applyUploadAction("u1", "retry", now)).toMatchObject({ ok: false, status: 409 });
+    expect(db.uploadUpdateMany).not.toHaveBeenCalled();
   });
 
   it("records that a private TikTok post was made public", async () => {
