@@ -960,6 +960,11 @@ export function Dashboard({ brandId, brandName, brandSlug }: DashboardProps) {
                   <Film className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">영상 공장</span>
                 </Button>
               </Link>
+              <Link href={`/brands/${brandSlug}/newsdesk`}>
+                <Button variant="outline" size="sm" className="text-slate-700 border-slate-300 hover:bg-slate-50">
+                  <Newspaper className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">뉴스 데스크</span>
+                </Button>
+              </Link>
               <Link href={`/brands/${brandSlug}/settings`}>
                 <Button variant="ghost" size="sm" className="text-slate-500 hover:text-violet-600 hover:bg-violet-50">
                   <Settings className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">설정</span>

@@ -6,6 +6,7 @@ import { Key, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { DistributionConfig, VideoChannel } from "@/lib/distribution/config";
+import { TelegramChannelCard, type TelegramChannelSummary } from "@/components/TelegramChannelCard";
 
 export interface ChannelAccountSummary {
   id: string;
@@ -20,6 +21,8 @@ export interface ChannelDistributionData {
   instagramConnected: boolean;
   distribution: DistributionConfig;
   configured: Record<"youtube" | "tiktok" | "x", boolean>;
+  telegram: TelegramChannelSummary | null;
+  telegramBotReady: boolean;
 }
 
 const PLATFORMS: { id: "youtube" | "tiktok" | "x"; label: string; note: string }[] = [
@@ -131,6 +134,7 @@ export function ChannelDistributionSection({ brandId, data }: { brandId: string;
             </div>
           );
         })}
+        <TelegramChannelCard brandId={brandId} account={data.telegram} botReady={data.telegramBotReady} />
       </div>
 
       <div className="space-y-4 border-t border-slate-700 pt-4">
