@@ -23,8 +23,15 @@ interface VariantEditorProps {
 export function VariantEditor({ variant, images, brandName, brandSlug, channel, busy, act, onDirtyChange }: VariantEditorProps) {
   const [draft, setDraft] = useState(variant.text);
   const [copied, setCopied] = useState(false);
+  // Which of this editor's buttons is waiting, so the spinner sits on the one that was pressed.
+  const [running, setRunning] = useState<"save" | "approve" | null>(null);
   // A new revision from the server (save, approve elsewhere, media change) replaces the local copy.
-  useEffect(() => setDraft(variant.text), [variant.text, variant.revision]);
+  // Adjusted during render rather than in an effect (https://react.dev/learn/you-might-not-need-an-effect).
+  const [synced, setSynced] = useState({ text: variant.text, revision: variant.revision });
+  if (synced.text !== variant.text || synced.revision !== variant.revision) {
+    setSynced({ text: variant.text, revision: variant.revision });
+    setDraft(variant.text);
+  }
   const dirty = draft !== variant.text;
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
@@ -35,13 +42,27 @@ export function VariantEditor({ variant, images, brandName, brandSlug, channel, 
   const id = `variant-${variant.platform}`;
 
   async function approve() {
-    if (dirty) {
-      // The operator is looking at their own edit: save it, then approve the revision that save produced.
-      if (!(await act("edit", { text: draft }))) return;
-      await act("approve", { revision: variant.revision + 1 });
-      return;
+    setRunning("approve");
+    try {
+      if (dirty) {
+        // The operator is looking at their own edit: save it, then approve the revision that save produced.
+        if (!(await act("edit", { text: draft }))) return;
+        await act("approve", { revision: variant.revision + 1 });
+        return;
+      }
+      await act("approve", { revision: variant.revision });
+    } finally {
+      setRunning(null);
     }
-    await act("approve", { revision: variant.revision });
+  }
+
+  async function save() {
+    setRunning("save");
+    try {
+      await act("edit", { text: draft });
+    } finally {
+      setRunning(null);
+    }
   }
 
   async function copy() {
@@ -76,12 +97,18 @@ export function VariantEditor({ variant, images, brandName, brandSlug, channel, 
             {variant.check.warnings.map((w) => <li key={w}>{w}</li>)}
           </ul>
         )}
+        {over && limit !== null && (
+          <p className="text-sm font-semibold text-rose-700">한도 {limit.toLocaleString("ko-KR")}자를 {(draft.length - limit).toLocaleString("ko-KR")}자 넘었어. 줄여야 승인할 수 있어.</p>
+        )}
         {dirty && <p className="text-sm text-slate-700">저장 안 한 수정이 있어. 저장하면 이 채널 승인이 풀려.</p>}
         {channel && !channel.connected && variant.platform !== "kakao" && (
           <p className="text-sm text-amber-900">
             {channel.reason}.{" "}
             {variant.platform === "telegram" && <Link href={`/brands/${brandSlug}/settings`} className="font-semibold underline underline-offset-2">브랜드 설정 열기</Link>}
           </p>
+        )}
+        {variant.platform === "kakao" && !variant.approved && !variant.locked && (
+          <p className="text-sm text-slate-600">카카오 단톡방은 자동으로 못 보내. 승인하면 &quot;원고 복사&quot; 버튼이 생기니까, 복사해서 단톡방에 붙여넣어줘.</p>
         )}
         {variant.platform === "telegram" && images.length === 0 && (
           <p className="text-sm text-slate-600">글만 보내면 원문 링크의 미리보기 이미지가 붙을 수 있어.</p>
@@ -104,25 +131,28 @@ export function VariantEditor({ variant, images, brandName, brandSlug, channel, 
 
           <div className="flex flex-wrap gap-2">
             {editable && dirty && (
-              <button type="button" disabled={busy} onClick={() => void act("edit", { text: draft })} className={BUTTON_IDLE}>저장</button>
+              <button type="button" disabled={busy} onClick={() => void save()} className={BUTTON_IDLE}>
+                {running === "save" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}저장
+              </button>
             )}
             {editable && (!variant.approved || dirty) && (
               <button type="button" disabled={busy || over || (!dirty && variant.check.blockers.length > 0) || !draft.trim()} onClick={() => void approve()} className={BUTTON_PRIMARY}>
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
+                {running === "approve" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
                 {dirty ? "저장하고 승인" : "승인"}
               </button>
             )}
-            {editable && variant.approved && !dirty && (
-              <button type="button" disabled={busy} onClick={() => void act("revoke")} className={BUTTON_IDLE}>승인 취소</button>
-            )}
+            {/* Kakao's next step after approval is the copy, so it leads; undoing the approval comes last. */}
             {variant.platform === "kakao" && variant.approved && !variant.locked && !dirty && (
               <>
-                <button type="button" onClick={() => void copy()} className={BUTTON_IDLE}>
+                <button type="button" onClick={() => void copy()} className={BUTTON_PRIMARY}>
                   {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
                   {copied ? "복사했어" : "원고 복사"}
                 </button>
                 <button type="button" disabled={busy} onClick={() => void act("kakao_sent")} className={BUTTON_IDLE}>단톡방에 보냈어</button>
               </>
+            )}
+            {editable && variant.approved && !dirty && (
+              <button type="button" disabled={busy} onClick={() => void act("revoke")} className={BUTTON_IDLE}>승인 취소</button>
             )}
             {status === "QUEUED" && (
               <button type="button" disabled={busy} onClick={() => void act("cancel")} className={BUTTON_IDLE}>대기 취소</button>

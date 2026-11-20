@@ -155,7 +155,10 @@ export function NewsDesk({ brand, recent: initialRecent, initialItem, channels }
         </div>
 
         {item ? (
-          <ItemPanel key={item.id} item={item} brandName={brand.name} brandSlug={brand.slug} busy={busy} notice={notice} act={act} setMedia={setMedia} />
+          // Single column (< lg): the open article comes before the intake form, since reviewing it is the job at hand.
+          <div className="order-first min-w-0 lg:order-none">
+            <ItemPanel key={item.id} item={item} brandName={brand.name} brandSlug={brand.slug} busy={busy} notice={notice} act={act} setMedia={setMedia} />
+          </div>
         ) : (
           <section aria-labelledby="desk-empty" className={`${PANEL} flex flex-col gap-4 p-5`}>
             <h2 id="desk-empty" className="text-xl font-bold text-slate-900">채널별 원고</h2>

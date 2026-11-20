@@ -188,14 +188,16 @@ async function accountFor(brand: Brand, platform: "telegram" | "threads"): Promi
 
 /**
  * Queues every approved, unpublished platform (kakao is manual) and runs just those uploads.
+ * `only` limits it to the channels the operator's button named, so an approval made in another tab never rides along.
  * Accounts and checks are verified before anything is locked.
  */
-export async function publishItem(item: ItemWithVariants, brand: Brand, now = new Date()): Promise<PublishOutcome[]> {
+export async function publishItem(item: ItemWithVariants, brand: Brand, now = new Date(), only?: readonly NewsPlatform[]): Promise<PublishOutcome[]> {
   const outcomes: PublishOutcome[] = [];
   const queued: string[] = [];
   for (const variant of item.variants) {
     const platform = variant.platform as NewsPlatform;
     if (platform === "kakao" || variant.lockedAt || !isApproved(variant)) continue;
+    if (only && !only.includes(platform)) continue;
     const blockers = checkFor(item, variant, brand).blockers;
     if (blockers.length > 0) {
       outcomes.push({ platform, ok: false, error: blockers.join(" · ") });

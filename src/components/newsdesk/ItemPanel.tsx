@@ -49,8 +49,21 @@ export function ItemPanel({ item, brandName, brandSlug, busy, notice, act, setMe
   const anyLocked = item.variants.some((v) => v.locked);
   const approvable = item.variants.filter((v) => !v.locked && !v.approved && v.check.blockers.length === 0);
   const publishable = item.variants.filter((v) => v.platform !== "kakao" && v.approved && !v.locked);
+  // The button names exactly what will go out: approved channels that are also connected.
+  const ready = publishable.filter((v) => item.channels[v.platform as "telegram" | "threads"]?.connected);
+  const unready = publishable.filter((v) => !ready.includes(v));
   const images = item.media.map((m) => m.url);
   const source = hostOf(item.sourceUrl);
+  const [running, setRunning] = useState<"approve_all" | "publish" | null>(null);
+
+  async function run(action: "approve_all" | "publish", body: Record<string, unknown>) {
+    setRunning(action);
+    try {
+      await act(action, body);
+    } finally {
+      setRunning(null);
+    }
+  }
 
   const variantAct: VariantAction = (action, body) => act(action, { platform: variant.platform, ...body });
 
@@ -59,7 +72,7 @@ export function ItemPanel({ item, brandName, brandSlug, busy, notice, act, setMe
       {/* Title row: the article, the finding, and the screen's main job (publish) */}
       <div className="flex flex-col gap-4 p-5 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
-          <h2 id="desk-item" className="text-xl font-bold leading-snug text-slate-900 [overflow-wrap:anywhere]">
+          <h2 id="desk-item" className="text-xl font-bold leading-snug text-slate-900 break-keep [overflow-wrap:anywhere]">
             {item.sourceTitle ?? item.sourceText.slice(0, 60)}
           </h2>
           <p className="flex flex-wrap items-center gap-x-2 text-sm text-slate-600">
@@ -71,18 +84,23 @@ export function ItemPanel({ item, brandName, brandSlug, busy, notice, act, setMe
             <span>{formatKst(item.createdAt)} 생성</span>
           </p>
           <p className="text-base text-slate-800">{finding(item)}</p>
+          {unready.length > 0 && (
+            <p className="text-sm text-amber-900">발행에서 빠지는 채널: {unready.map((v) => PLATFORM_LABEL[v.platform]).join("·")} (연결 안 됨)</p>
+          )}
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <button type="button" disabled={busy || anyDirty || approvable.length === 0}
-            onClick={() => void act("approve_all", { revisions: Object.fromEntries(approvable.map((v) => [v.platform, v.revision])) })}
+            onClick={() => void run("approve_all", { revisions: Object.fromEntries(approvable.map((v) => [v.platform, v.revision])) })}
             className={BUTTON_IDLE}
             title={anyDirty ? "저장 안 한 수정이 있어" : approvable.length === 0 ? "승인할 원고가 없어" : undefined}>
-            <CheckCircle2 className="h-4 w-4" aria-hidden />전체 승인{approvable.length > 0 ? ` (${approvable.length})` : ""}
+            {running === "approve_all" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <CheckCircle2 className="h-4 w-4" aria-hidden />}
+            전체 승인{approvable.length > 0 ? ` (${approvable.length})` : ""}
           </button>
-          <button type="button" disabled={busy || anyDirty || publishable.length === 0} onClick={() => void act("publish")} className={BUTTON_PRIMARY}
-            title={anyDirty ? "저장 안 한 수정이 있어" : publishable.length === 0 ? "승인된 텔레그램·Threads 원고가 없어" : undefined}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
-            {publishable.length > 0 ? `${publishable.map((v) => PLATFORM_LABEL[v.platform]).join("·")} 발행` : "발행"}
+          <button type="button" disabled={busy || anyDirty || ready.length === 0}
+            onClick={() => void run("publish", { platforms: ready.map((v) => v.platform) })} className={BUTTON_PRIMARY}
+            title={anyDirty ? "저장 안 한 수정이 있어" : publishable.length === 0 ? "승인된 텔레그램·Threads 원고가 없어" : ready.length === 0 ? "승인한 채널이 아직 연결 안 됐어" : undefined}>
+            {running === "publish" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+            {ready.length > 0 ? `${ready.map((v) => PLATFORM_LABEL[v.platform]).join("·")} 발행` : "발행"}
           </button>
         </div>
       </div>
@@ -130,13 +148,14 @@ export function ItemPanel({ item, brandName, brandSlug, busy, notice, act, setMe
 
       {/* Channel tabs: each tab says where that channel stands */}
       <div className="border-t border-slate-100 px-5 pt-3">
-        <div role="tablist" aria-label="채널별 원고" className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {/* Inset shadow, not border-b + -mb-px: a negative margin overflows an overflow-x-auto row and draws a scrollbar. */}
+        <div role="tablist" aria-label="채널별 원고" className="flex gap-1 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--color-slate-200)]">
           {item.variants.map((v) => {
             const state = variantState(v);
             const selected = v.platform === variant.platform;
             return (
               <button key={v.platform} role="tab" type="button" aria-selected={selected} aria-controls="desk-variant" onClick={() => setActive(v.platform)}
-                className={`-mb-px flex min-h-14 shrink-0 flex-col items-start justify-center border-b-2 px-4 py-2 text-left ${selected ? "border-slate-900" : "border-transparent hover:border-slate-300"} ${FOCUS}`}>
+                className={`flex min-h-14 shrink-0 flex-col items-start justify-center border-b-2 px-3 py-2 text-left sm:px-4 ${selected ? "border-slate-900" : "border-transparent hover:border-slate-300"} ${FOCUS}`}>
                 <span className="flex items-center gap-2 text-base font-semibold text-slate-900">
                   <span className={`h-2.5 w-2.5 rounded-full ${PLATFORM_DOT[v.platform]}`} aria-hidden />
                   {PLATFORM_LABEL[v.platform]}{dirty[v.platform] ? " *" : ""}

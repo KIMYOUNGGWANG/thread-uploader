@@ -29,11 +29,13 @@ export function InputPanel({ brandId, onCreated, onOpenEarlier }: InputPanelProp
   const [fetching, setFetching] = useState(false);
   const [composing, setComposing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Shown under the URL field, not at the foot of the form, so it is on screen where the button was pressed.
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   async function fetchArticle() {
     if (!url.trim()) return;
     setFetching(true);
-    setError(null);
+    setFetchError(null);
     try {
       const result = await callJson<ScrapeResult>("/api/newsdesk/scrape", { method: "POST", body: { brandId, url } });
       setUrl(result.article.url);
@@ -41,7 +43,7 @@ export function InputPanel({ brandId, onCreated, onOpenEarlier }: InputPanelProp
       setText(result.article.text);
       setEarlier(result.earlier);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "기사를 가져오지 못했어");
+      setFetchError(e instanceof Error ? e.message : "기사를 가져오지 못했어");
     } finally {
       setFetching(false);
     }
@@ -80,6 +82,7 @@ export function InputPanel({ brandId, onCreated, onOpenEarlier }: InputPanelProp
             {fetching && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}가져오기
           </button>
         </div>
+        {fetchError && <p className="text-sm text-rose-700" role="alert">{fetchError}</p>}
         {earlier.length > 0 && (
           <p className="text-sm text-amber-800">
             이 기사로 이미 만든 원고가 있어:{" "}

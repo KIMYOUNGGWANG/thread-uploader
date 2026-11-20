@@ -66,9 +66,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 }
 
 /**
- * POST { action, platform?, text?, revision?, revisions? }
+ * POST { action, platform?, text?, revision?, revisions?, platforms? }
  * edit | approve | revoke | unlock | kakao_sent | cancel take a platform; approve_all takes { revisions: { platform: n } };
- * publish and tick act on the whole item. Every success returns the refreshed item.
+ * publish takes the channels its button named ({ platforms }); tick acts on the whole item. Every success returns the refreshed item.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   try {
@@ -79,7 +79,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     const { action } = body;
 
     if (action === "publish") {
-      const outcomes = await publishItem(item, brand);
+      const only = Array.isArray(body.platforms) ? body.platforms.filter(isNewsPlatform) : undefined;
+      const outcomes = await publishItem(item, brand, new Date(), only);
       const refreshed = await loadItemForCurrentUser(id);
       return NextResponse.json({ item: await toItemView(refreshed.item, refreshed.brand), outcomes });
     }
