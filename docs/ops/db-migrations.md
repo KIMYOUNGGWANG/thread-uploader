@@ -21,7 +21,7 @@
 - 옛 마이그레이션이 만든 표 6개는 스키마에서 빠졌다.
 - 운영 DB는 마이그레이션 밖(`db push` 등)에서 맞춰졌을 가능성이 높다.
 
-### 새로 추가한 마이그레이션 (`20261116…` 세 개)
+### 새로 추가한 마이그레이션 (`20261116…` 세 개 + `20261120000000`)
 - `20261116000000_archive_orphan_tables`
   - 모델이 없는 표 6개(`DiscoveredAccount`, `DiscoveredAccountPost`, `AccountPattern`, `DemoAssetJob`, `DemoCaptureArtifact`, `DemoRenderedAsset`)를 `archive` 스키마로 **옮긴다**. 지우지 않으니 데이터는 그대로 남는다.
   - 이 표들의 `Brand` FK 3개는 끊는다. 원래 `ON DELETE CASCADE`라, 그대로 두면 브랜드를 지울 때 보관 데이터까지 지워진다.
@@ -34,12 +34,18 @@
 - `20261116000200_add_rate_limit_bucket`
   - 로그인 시도 횟수를 세는 새 표 `RateLimitBucket`을 만든다. 기존 데이터는 건드리지 않는다.
   - 이 표가 생기기 전에 코드가 먼저 배포돼도 로그인은 막히지 않는다. 다만 시도마다 "NOT limited" 에러 로그가 남는다.
-- 앞의 두 마이그레이션은 `lock_timeout` 5초로 돈다. 크론과 락이 겹치면 기다리지 않고 **통째로 되돌린 뒤 실패**한다(로컬 검증 f).
+- `20261120000000_align_post_column_defaults`
+  - `Post` 컬럼이 이미 있던 DB(운영)에서 NULL 허용·기본값을 스키마에 맞춘다. 위 reconcile의 `ADD COLUMN IF NOT EXISTS`는 이름만 보고 건너뛰기 때문이다.
+  - `postCategory`·`algorithmicDimensions`·`algorithmicFixes`·`rewriteCount`는 NOT NULL로, `algorithmicPass`는 기본값(`false`)을 없앤다. 기존 행 값은 바뀌지 않는다. 이후 점수 없이 만든 글은 `false`(실패 표시) 대신 `NULL`(미채점)로 들어간다.
+  - NULL 행이 있으면 실패하고 통째로 되돌려진다. 운영은 0행이었다(2026-11-20). 마이그레이션으로 만든 DB에서는 아무 효과가 없다.
+- `20261116000000`은 FK를 끊느라 `Brand`도 커밋 때까지 잠근다(읽기 포함). 그래서 열린 트랜잭션이 `Brand`를 잡고 있으면 실패한다(로컬 검증 h).
+- 이 마이그레이션과 앞의 두 마이그레이션은 `lock_timeout` 5초로 돈다. 크론과 락이 겹치면 기다리지 않고 **통째로 되돌린 뒤 실패**한다(로컬 검증 f).
 
 ### 0. 준비 (5분)
 1. DB 제공자 화면에서 백업 또는 PITR(시점 복구)이 켜져 있는지 확인한다.
 2. 이 PR이 머지된 main을 받는다(`git checkout main && git pull`).
 3. 위 "운영 명령 규칙"대로 `PROD_DB_URL`을 설정한다.
+4. 영향받는 표를 CSV로 떠 둔다: `Post`, `ConversionEvent`, `ThreadReply`, `Brand`, 고아 표 6개. 방법은 `psql`의 `\copy public."<표>" to '<표>.csv' csv header`야. 로컬 `pg_dump` 16은 운영(PostgreSQL 17)을 덤프하지 못하지만 `\copy`는 버전과 상관없이 된다.
 
 ### 1. 읽기 전용 진단 (10분)
 ```bash
@@ -71,6 +77,7 @@ SQL
 - `Post`
   - `ADD COLUMN` 6개: `postCategory`, `algorithmicScore`, `algorithmicPass`, `algorithmicDimensions`, `algorithmicFixes`, `rewriteCount`
   - `threadPartIds`: `SET NOT NULL`, `SET DEFAULT '[]'`
+  - 컬럼이 이미 있을 때: `postCategory`·`algorithmicDimensions`·`algorithmicFixes`·`rewriteCount`의 `SET NOT NULL`, 뒤의 셋의 `SET DEFAULT`(`'{}'`, `'[]'`, `0`), `algorithmicPass`의 `DROP DEFAULT` (`20261120000000`이 처리)
 - `ConversionEvent`: `CREATE TABLE`, 인덱스 3개, FK 2개
 - `RateLimitBucket`: `CREATE TABLE`, 인덱스 1개
 - 새 인덱스 4개 `CREATE INDEX`: `Post_brandId_status_idx`, `Post_brandId_postCategory_status_idx`, `ThreadReply_brandId_postThreadsId_idx`, `ThreadReply_brandId_createdAt_idx`
@@ -82,15 +89,16 @@ SQL
 - 위 표 중 `owner`가 `current_user`와 다르다. 이때는 `SET SCHEMA`와 `ALTER TABLE`이 "must be owner"로 실패한다.
 
 ### 3. 이력 맞추기 (`migrate status` 결과에 따라)
-- **새 마이그레이션(`20261116…`)만 pending이면:** 4단계로 간다.
+- **새 마이그레이션(`20261116…`, `20261120000000`)만 pending이면:** 4단계로 간다.
 - **옛 마이그레이션도 pending이면** (이력이 비었거나 일부만 있는 경우):
   - 2단계를 통과했다면 옛 마이그레이션의 효과는 이미 DB에 있다. 스키마가 모델링하는 부분이 허용 목록 밖으로 다르지 않다는 뜻이기 때문이다.
   - 옛 pending마다 `DATABASE_URL="$PROD_DB_URL" node_modules/.bin/prisma migrate resolve --applied <이름>`을 실행한다.
-  - **`20261116…`로 시작하는 새 마이그레이션은 절대 resolve하지 않는다. 반드시 deploy로 실행한다.**
+  - **새 마이그레이션(`20261116…`, `20261120000000`)은 절대 resolve하지 않는다. 반드시 deploy로 실행한다.**
   - 참고: 옛 마이그레이션 중 데이터를 바꾸는 문장은 `20260515010000_add_post_published_at`의 `UPDATE "Post"`(publishedAt 백필) 하나다. resolve하면 실행되지 않지만, 운영은 지금까지 그 상태로 돌아왔으니 동작은 바뀌지 않는다.
 - **`failed`로 표시된 행이 있으면:**
   - **옛 마이그레이션이면:** 2단계를 통과했을 때 `--applied`.
-  - **새 마이그레이션(`20261116…`) 중 하나면:** 실패한 마이그레이션은 한 트랜잭션째 되돌려진다(로컬 검증 f, e). `--rolled-back`으로 표시한 뒤 4단계를 다시 한다.
+  - **새 마이그레이션(`20261116…`, `20261120000000`) 중 하나면:** 실패한 마이그레이션은 한 트랜잭션째 되돌려진다(로컬 검증 f, e). `--rolled-back`으로 표시한 뒤 4단계를 다시 한다.
+    - 예외: 연결이 끊겨 실패로만 보이고 서버에선 커밋된 경우. 만드는 객체가 이미 있으면(예: `select to_regclass('public."RateLimitBucket"')`) `--rolled-back` 대신 `--applied`로 표시한다. `20261116000200`은 `IF NOT EXISTS`가 없어서 다시 돌리면 실패한다.
   - **판정이 애매하면:** 멈추고 공유한다.
 
 ### 4. 적용 (5분)
@@ -109,6 +117,14 @@ node_modules/.bin/prisma migrate diff --from-url "$PROD_DB_URL" --to-schema-data
 ### 되돌리기
 - **보관한 표:** `ALTER TABLE archive."<표>" SET SCHEMA public;` 데이터는 그대로다. 끊은 `Brand` FK 3개는 옛 마이그레이션의 `ADD CONSTRAINT` 문으로 다시 만든다.
 - **reconcile:** 추가만 하므로 되돌릴 일이 거의 없다. `threadPartIds` 백필(NULL → `'[]'`)은 되돌릴 수 없지만 앱이 이미 같은 뜻으로 읽는다.
+- **`20261120000000`:** 데이터는 바뀌지 않는다. 아래 SQL로 예전 설정만 돌려놓으면 된다.
+  ```sql
+  ALTER TABLE "Post" ALTER COLUMN "postCategory" DROP NOT NULL, ALTER COLUMN "algorithmicPass" SET DEFAULT false,
+    ALTER COLUMN "algorithmicDimensions" DROP NOT NULL, ALTER COLUMN "algorithmicDimensions" DROP DEFAULT,
+    ALTER COLUMN "algorithmicFixes" DROP NOT NULL, ALTER COLUMN "algorithmicFixes" DROP DEFAULT,
+    ALTER COLUMN "rewriteCount" DROP NOT NULL, ALTER COLUMN "rewriteCount" DROP DEFAULT;
+  ```
+- **적용한 마이그레이션 파일은 고치지 않는다.** 바꿀 게 있으면 새 마이그레이션을 만든다. Prisma 5.22는 적용된 파일의 체크섬이 달라져도 `migrate status`("up to date")와 `deploy`("No pending")에서 알려주지 않는다. 그 결과 운영과 새 DB가 조용히 갈라진다(2026-11-20 로컬 확인).
 
 ## 로컬 검증 기록 (2026-11-16, Postgres 16.13, Prisma 5.22)
 | | 시나리오 | 결과 |
@@ -120,3 +136,4 @@ node_modules/.bin/prisma migrate diff --from-url "$PROD_DB_URL" --to-schema-data
 | e | 이력 절반만 있는 동기화 DB에 deploy | 옛 마이그레이션에서 P3018. 위 3단계(`--applied`)로 복구 후 차이 없음 |
 | f | 다른 세션이 `Post`를 잡은 채 deploy | 6초 뒤 `lock timeout`으로 실패, 그 마이그레이션은 통째로 되돌려짐. `--rolled-back` 후 재실행 성공 |
 | g | 적용 후 `migrate dev` | "Already in sync" |
+| h | (2026-11-20) 운영 구조 복제 DB(`migrate diff --from-empty --to-url`로 뽑음. 적용 전 diff가 운영과 같음) + 운영 이력 21행(뉴스 데스크 먼저 적용) → deploy | 4개 적용, 차이 없음, 기존 행 값 그대로. `Post`가 잡힌 상태에선 `20261120000000`만 6초 뒤 실패·되돌림, `--rolled-back` 후 재실행 성공. `Brand`를 읽은 트랜잭션이 열려 있으면 `20261116000000`이 6초 뒤 실패, `archive` 스키마·FK 모두 원래대로, 재실행 성공 |
