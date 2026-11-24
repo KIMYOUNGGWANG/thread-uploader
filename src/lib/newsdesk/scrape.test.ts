@@ -4,7 +4,7 @@ import { assertPublicUrl, decodeHtml, extractArticle, fetchArticleHtml, isPrivat
 const publicResolver = vi.fn(async () => ["93.184.216.34"]);
 
 describe("isPrivateAddress", () => {
-  it.each(["127.0.0.1", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.0.10", "169.254.169.254", "100.64.0.1", "0.0.0.0", "::1", "::", "fd00::1", "fe80::1", "::ffff:127.0.0.1", "::ffff:10.0.0.1"])(
+  it.each(["127.0.0.1", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.0.10", "169.254.169.254", "100.64.0.1", "0.0.0.0", "::1", "::", "fd00::1", "fe80::1", "::ffff:127.0.0.1", "::ffff:10.0.0.1", "::ffff:7f00:1", "::ffff:a9fe:a9fe", "::7f00:1", "64:ff9b::7f00:1"])(
     "blocks %s",
     (ip) => expect(isPrivateAddress(ip)).toBe(true),
   );
@@ -14,6 +14,11 @@ describe("isPrivateAddress", () => {
 });
 
 describe("assertPublicUrl", () => {
+  it("rejects a mapped loopback the URL parser rewrites to hex", async () => {
+    // new URL("http://[::ffff:127.0.0.1]/").hostname === "[::ffff:7f00:1]"
+    await expect(assertPublicUrl("http://[::ffff:127.0.0.1]/", publicResolver)).rejects.toThrow(ScrapeError);
+  });
+
   it("rejects non-http schemes, credentials and odd ports", async () => {
     await expect(assertPublicUrl("file:///etc/passwd", publicResolver)).rejects.toBeInstanceOf(ScrapeError);
     await expect(assertPublicUrl("ftp://example.com/a", publicResolver)).rejects.toBeInstanceOf(ScrapeError);

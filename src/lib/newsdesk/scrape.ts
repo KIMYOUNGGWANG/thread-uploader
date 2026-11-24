@@ -36,6 +36,9 @@ export function isPrivateAddress(ip: string): boolean {
   const v6 = ip.toLowerCase().replace(/^\[|\]$/g, "");
   const mapped = v6.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (mapped) return isPrivateAddress(mapped[1]);
+  // Other IPv4-in-IPv6 forms (the URL parser rewrites [::ffff:127.0.0.1] to hex ::ffff:7f00:1, IPv4-compatible ::a.b.c.d,
+  // NAT64 64:ff9b::) are never a news site and can reach loopback/link-local, so they are refused outright.
+  if (v6.startsWith("::") || v6.startsWith("64:ff9b:")) return true;
   return v6 === "::" || v6 === "::1" || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6) || /^ff/.test(v6);
 }
 

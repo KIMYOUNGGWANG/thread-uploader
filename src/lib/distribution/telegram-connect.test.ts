@@ -23,7 +23,8 @@ describe("verifyTelegramChannel", () => {
       .mockResolvedValueOnce(ok({ id: 42 }))
       .mockResolvedValueOnce(ok({ id: -1001, type: "channel", title: "AI 뉴스", username: "ai_news_kr" }))
       .mockResolvedValueOnce(ok({ status: "administrator", can_post_messages: true })));
-    expect(await verifyTelegramChannel("t.me/ai_news_kr", "TOKEN")).toEqual({ chatId: "@ai_news_kr", handle: "@ai_news_kr" });
+    // Stored by numeric id: a renamed @handle (or a new channel taking the old name) must not change who it is.
+    expect(await verifyTelegramChannel("t.me/ai_news_kr", "TOKEN")).toEqual({ chatId: "-1001", handle: "@ai_news_kr" });
   });
 
   it("keeps a private channel by numeric id, without a public handle", async () => {

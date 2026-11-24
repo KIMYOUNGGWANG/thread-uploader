@@ -49,5 +49,6 @@ export async function verifyTelegramChannel(rawChat: string, token: string): Pro
   if (!canPost) throw new TelegramConnectError("봇에게 채널 '메시지 게시' 관리자 권한을 줘");
   const username = typeof info.username === "string" ? info.username : null;
   const title = typeof info.title === "string" ? info.title : chat;
-  return { chatId: username ? `@${username}` : String(info.id), handle: username ? `@${username}` : title };
+  // The numeric id never changes, so it is what identifies the channel (sending and the one-owner check in the route).
+  return { chatId: String(info.id), handle: username ? `@${username}` : title };
 }
