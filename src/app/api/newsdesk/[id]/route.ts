@@ -49,13 +49,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const { item } = await loadItemForCurrentUser(id);
     const body: unknown = await request.json().catch(() => null);
     if (!isRecord(body)) return NextResponse.json({ error: "잘못된 요청이야" }, { status: 400 });
+    // Validate everything before the first write, so a rejected request saves nothing.
+    const media = "media" in body ? parseMediaInput(body.media) : undefined;
+    if (media === null) return NextResponse.json({ error: "이미지는 업로드한 것만, 최대 5장까지야" }, { status: 400 });
     if ("operatorNote" in body) {
       const note = typeof body.operatorNote === "string" ? body.operatorNote.trim().slice(0, 1000) : "";
       await prisma.newsItem.update({ where: { id: item.id }, data: { operatorNote: note || null } });
     }
-    if ("media" in body) {
-      const media = parseMediaInput(body.media);
-      if (!media) return NextResponse.json({ error: "이미지는 업로드한 것만, 최대 5장까지야" }, { status: 400 });
+    if (media) {
       const result = await setNewsMedia(item.id, media);
       if (!result.ok) return failure(result);
     }

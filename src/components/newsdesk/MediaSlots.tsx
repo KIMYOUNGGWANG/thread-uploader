@@ -45,8 +45,8 @@ export function MediaSlots({ brandId, media, onChange, disabled = false, disable
     if (batch.length === 0) return;
 
     setBusy(batch.length);
+    const added: NewsMedia[] = [];
     try {
-      const added: NewsMedia[] = [];
       for (const file of batch) {
         const ext = file.type === "image/png" ? "png" : "jpg";
         const blob = await upload(`newsdesk/${brandId}/image.${ext}`, file, {
@@ -56,9 +56,13 @@ export function MediaSlots({ brandId, media, onChange, disabled = false, disable
         });
         added.push({ url: blob.url, sha256: await sha256(file), name: file.name || `붙여넣은 이미지.${ext}`, bytes: file.size });
       }
-      await onChange([...media, ...added]);
     } catch (e) {
-      setError(e instanceof Error ? `업로드 실패: ${e.message}` : "업로드 실패");
+      const kept = added.length > 0 ? ` (앞의 ${added.length}장은 넣었어)` : "";
+      setError(`${e instanceof Error ? `업로드 실패: ${e.message}` : "업로드 실패"}${kept}`);
+    }
+    try {
+      // Images that made it before a failure are kept, so the operator only re-adds the ones that failed.
+      if (added.length > 0) await onChange([...media, ...added]);
     } finally {
       setBusy(0);
     }

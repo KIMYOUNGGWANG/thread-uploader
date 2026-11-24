@@ -27,10 +27,17 @@ export function VariantEditor({ variant, images, brandName, brandSlug, channel, 
   const [running, setRunning] = useState<"save" | "approve" | null>(null);
   // A new revision from the server (save, approve elsewhere, media change) replaces the local copy.
   // Adjusted during render rather than in an effect (https://react.dev/learn/you-might-not-need-an-effect).
+  // An unsaved edit is never thrown away: it stays, with a notice that the server copy moved underneath it.
   const [synced, setSynced] = useState({ text: variant.text, revision: variant.revision });
+  const [moved, setMoved] = useState(false);
   if (synced.text !== variant.text || synced.revision !== variant.revision) {
+    const unsaved = draft !== synced.text && draft !== variant.text;
     setSynced({ text: variant.text, revision: variant.revision });
-    setDraft(variant.text);
+    if (unsaved) setMoved(true);
+    else {
+      setDraft(variant.text);
+      setMoved(false);
+    }
   }
   const dirty = draft !== variant.text;
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
@@ -99,6 +106,11 @@ export function VariantEditor({ variant, images, brandName, brandSlug, channel, 
         )}
         {over && limit !== null && (
           <p className="text-sm font-semibold text-rose-700">한도 {limit.toLocaleString("ko-KR")}자를 {(draft.length - limit).toLocaleString("ko-KR")}자 넘었어. 줄여야 승인할 수 있어.</p>
+        )}
+        {dirty && moved && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            그사이 서버 원고가 바뀌었어(이미지 변경이나 다른 탭). 네 수정은 그대로 뒀고, 저장하면 이 수정본으로 덮어써.
+          </p>
         )}
         {dirty && <p className="text-sm text-slate-700">저장 안 한 수정이 있어. 저장하면 이 채널 승인이 풀려.</p>}
         {channel && !channel.connected && variant.platform !== "kakao" && (

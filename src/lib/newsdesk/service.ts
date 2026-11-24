@@ -68,6 +68,10 @@ export interface ChannelStatus {
 
 export async function channelStatuses(brand: Brand): Promise<Record<"telegram" | "threads", ChannelStatus>> {
   const telegram = await prisma.channelAccount.findFirst({ where: { brandId: brand.id, platform: "telegram" }, orderBy: { createdAt: "asc" } });
+  // Same row accountFor() publishes through; read only (no ensureLegacyChannelAccount here), a missing row is created at publish.
+  const threadsAccount = await prisma.channelAccount.findFirst({ where: { brandId: brand.id, platform: "threads" }, orderBy: { createdAt: "asc" }, select: { enabled: true } });
+  const threadsLinked = Boolean(brand.accessToken && brand.threadsUserId);
+  const threadsPaused = threadsAccount !== null && !threadsAccount.enabled;
   const botReady = Boolean(process.env.TELEGRAM_BOT_TOKEN);
   return {
     telegram: {
@@ -76,9 +80,9 @@ export async function channelStatuses(brand: Brand): Promise<Record<"telegram" |
       reason: !botReady ? "서버에 TELEGRAM_BOT_TOKEN이 없어" : !telegram ? "브랜드 설정에서 채널을 연결해줘" : !telegram.enabled ? "채널 업로드가 꺼져 있어" : null,
     },
     threads: {
-      connected: Boolean(brand.accessToken && brand.threadsUserId),
+      connected: threadsLinked && !threadsPaused,
       handle: null,
-      reason: brand.accessToken && brand.threadsUserId ? null : "Threads 계정이 연결돼 있지 않아",
+      reason: !threadsLinked ? "Threads 계정이 연결돼 있지 않아" : threadsPaused ? "Threads 업로드가 꺼져 있어" : null,
     },
   };
 }
