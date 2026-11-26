@@ -147,4 +147,13 @@ describe("runDueUploads", () => {
     expect(videos.size).toBe(1);
     expect(current).toMatchObject({ status: "PUBLISHED", externalId: "yt1" });
   });
+
+  it("limits the run to the given ids without touching other rows", async () => {
+    db.findMany.mockResolvedValueOnce([]);
+    await runDueUploads(now, { ids: ["u9"] });
+    expect(db.findMany.mock.calls[1][0].where).toMatchObject({ id: { in: ["u9"] }, status: { in: ["QUEUED", "PROCESSING"] } });
+    db.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    await runDueUploads(now);
+    expect(db.findMany.mock.calls[3][0].where.id).toBeUndefined();
+  });
 });

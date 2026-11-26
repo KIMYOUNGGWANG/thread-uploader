@@ -20,6 +20,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     channelAccount: {
       findMany: vi.fn(async () => []),
+      findFirst: vi.fn(async () => null),
     },
   },
 }));

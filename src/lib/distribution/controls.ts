@@ -51,7 +51,7 @@ export async function applyDraftAction(draftId: string, action: DraftAction, now
 }
 
 export async function applyUploadAction(uploadId: string, action: UploadAction, now = new Date()): Promise<ControlResult> {
-  const upload = await prisma.channelUpload.findUnique({ where: { id: uploadId }, select: { status: true, platformData: true } });
+  const upload = await prisma.channelUpload.findUnique({ where: { id: uploadId }, select: { status: true, platformData: true, sourceKey: true } });
   if (!upload) return fail(404, "업로드를 찾을 수 없습니다");
 
   if (action === "cancel") {
@@ -60,6 +60,8 @@ export async function applyUploadAction(uploadId: string, action: UploadAction, 
   }
 
   if (action === "retry") {
+    // News uploads carry an approved text + media pair; only the news desk may resend them (it re-checks approval).
+    if (upload.sourceKey.startsWith("news:")) return fail(409, "뉴스 데스크에서 다시 보내줘");
     const { count } = await prisma.channelUpload.updateMany({
       where: { id: uploadId, status: { in: ["FAILED", "CANCELED"] } },
       data: {

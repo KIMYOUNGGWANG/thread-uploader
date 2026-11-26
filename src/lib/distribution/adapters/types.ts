@@ -1,6 +1,7 @@
 import type { ChannelCredentials } from "../accounts";
 
-export type UploadKind = "video" | "carousel" | "text";
+// post = news desk: text plus 0-5 image URLs, sent as one platform post.
+export type UploadKind = "video" | "carousel" | "text" | "post";
 
 export interface UploadJob {
   id: string;

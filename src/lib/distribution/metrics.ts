@@ -6,6 +6,7 @@ import { CHANNEL_ADAPTERS } from "./adapters";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WINDOW_MS = 14 * DAY_MS;
 const REFRESH_MS = 6 * 60 * 60 * 1000;
+const METRIC_PLATFORMS = Object.entries(CHANNEL_ADAPTERS).filter(([, adapter]) => adapter.metrics).map(([platform]) => platform);
 
 export interface MetricsReport {
   accounts: number;
@@ -29,6 +30,8 @@ export async function collectChannelMetrics(now = new Date()): Promise<MetricsRe
   const uploads = await prisma.channelUpload.findMany({
     where: {
       status: "PUBLISHED",
+      // Platforms without a metrics step (telegram, threads news posts) would otherwise hold the take-300 window forever.
+      channelAccount: { platform: { in: METRIC_PLATFORMS } },
       publishedAt: { gte: new Date(now.getTime() - WINDOW_MS) },
       OR: [{ metricsAt: null }, { metricsAt: { lt: new Date(now.getTime() - REFRESH_MS) } }],
     },

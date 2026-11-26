@@ -12,9 +12,9 @@ const BUTTON_IDLE = "border-slate-300 text-slate-700 hover:bg-slate-100";
 const BUTTON_DANGER = "border-rose-600 bg-rose-600 text-white hover:bg-rose-700";
 
 const CHANNEL_LABEL: Record<ReportChannel, string> = {
-  threads: "Threads", youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok", x: "X",
+  threads: "Threads", youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok", x: "X", telegram: "텔레그램",
 };
-const KIND_LABEL: Record<string, string> = { video: "영상", carousel: "카드뉴스", text: "글" };
+const KIND_LABEL: Record<string, string> = { video: "영상", carousel: "카드뉴스", text: "글", post: "뉴스" };
 
 function formatKst(iso: string): string {
   return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));

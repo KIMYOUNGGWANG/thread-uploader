@@ -34,6 +34,11 @@ export default async function BrandSettingsPage({ params }: PageProps) {
     orderBy: { createdAt: "asc" },
     select: { id: true, platform: true, handle: true, enabled: true, accessToken: true },
   });
+  const telegramAccount = await prisma.channelAccount.findFirst({
+    where: { brandId: brand.id, platform: "telegram" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, handle: true, enabled: true },
+  });
 
   return (
     <BrandSettingsForm
@@ -71,6 +76,8 @@ export default async function BrandSettingsPage({ params }: PageProps) {
             tiktok: readAppCredentials("tiktok") !== null,
             x: readAppCredentials("x") !== null,
           },
+          telegram: telegramAccount,
+          telegramBotReady: Boolean(process.env.TELEGRAM_BOT_TOKEN),
         },
       }}
     />
